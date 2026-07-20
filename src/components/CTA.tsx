@@ -1,13 +1,13 @@
 import React from 'react';
+import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Send, ArrowRight } from 'lucide-react';
 
 interface CTAProps {
-  onOpenApply: () => void;
   onOpenContact: () => void;
 }
 
-export default function CTA({ onOpenApply, onOpenContact }: CTAProps) {
+export default function CTA({ onOpenContact }: CTAProps) {
   return (
     <section className="relative py-28 bg-[#0E0E0E] overflow-hidden border-t border-white/5">
       {/* Background radial highlight */}
@@ -39,12 +39,12 @@ export default function CTA({ onOpenApply, onOpenContact }: CTAProps) {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="flex flex-wrap items-center justify-center gap-4 pt-4"
         >
-          <button
-            onClick={onOpenApply}
-            className="bg-[#E9C349] text-black px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-3 shadow-lg shadow-[#E9C349]/20 cursor-pointer"
+          <Link
+            href="/apply"
+            className="bg-[#E9C349] text-black px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:scale-105 transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#E9C349]/20 cursor-pointer inline-flex"
           >
             Apply Now <ArrowRight className="w-4 h-4" />
-          </button>
+          </Link>
           
           <button
             onClick={onOpenContact}

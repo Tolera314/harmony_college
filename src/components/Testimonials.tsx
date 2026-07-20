@@ -67,6 +67,8 @@ export default function Testimonials() {
                   className="w-12 h-12 rounded-full object-cover border border-white/20 shadow-md"
                   alt={current.name}
                   src={current.image}
+                  loading="lazy"
+                  decoding="async"
                 />
                 <div className="text-left">
                   <p className="font-sans text-sm font-bold text-white">{current.name}</p>

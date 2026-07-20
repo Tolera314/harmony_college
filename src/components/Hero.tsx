@@ -1,13 +1,10 @@
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion } from 'motion/react';
 import { ArrowRight, Trophy, BookOpen, GraduationCap } from 'lucide-react';
 
-interface HeroProps {
-  onOpenApply: () => void;
-}
-
-export default function Hero({ onOpenApply }: HeroProps) {
+export default function Hero() {
   const handleScrollToPrograms = () => {
     const el = document.getElementById('programs');
     if (el) {
@@ -64,12 +61,12 @@ export default function Hero({ onOpenApply }: HeroProps) {
           </p>
 
           <div className="flex flex-wrap gap-4 pt-4">
-            <button
-              onClick={onOpenApply}
-              className="bg-[#E9C349] text-black px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-3 shadow-lg shadow-[#E9C349]/20 cursor-pointer"
+            <Link
+              href="/apply"
+              className="bg-[#E9C349] text-black px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:scale-105 transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#E9C349]/20 cursor-pointer inline-flex"
             >
               Apply Now <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
             <button
               onClick={handleScrollToPrograms}
               className="border border-white/20 text-white hover:bg-white/10 px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest transition-all cursor-pointer"

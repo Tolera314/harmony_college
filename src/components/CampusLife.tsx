@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Clock, Users, Check, Calendar, MapPin, X, Bookmark, Compass } from 'lucide-react';
+import { Clock, Users, Check, MapPin, X, Bookmark } from 'lucide-react';
 
 interface GalleryItem {
   id: string;
@@ -159,9 +159,11 @@ export default function CampusLife() {
             >
               {/* Image */}
               <img
-                className="w-full h-full object-cover filter brightness-[0.6] group-hover:scale-105 group-hover:brightness-[0.45] transition-all duration-700"
+                className="absolute inset-0 w-full h-full object-cover filter brightness-[0.6] group-hover:scale-105 group-hover:brightness-[0.45] transition-all duration-700"
                 alt={item.title}
                 src={item.image}
+                loading="lazy"
+                decoding="async"
               />
 
               {/* Overlay Content */}
@@ -224,6 +226,8 @@ export default function CampusLife() {
                   className="w-full h-full object-cover filter brightness-[0.7]"
                   alt={activeItem.title}
                   src={activeItem.image}
+                  loading="lazy"
+                  decoding="async"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1C] via-transparent to-transparent z-10" />
                 

@@ -76,7 +76,7 @@ export default function App() {
 
       {/* Main sections */}
       <main className="space-y-0">
-        <Hero onOpenApply={() => setIsApplyOpen(true)} />
+        <Hero />
         <Partners />
         
         {/* Academic ecosystems with click triggers */}
@@ -101,7 +101,6 @@ export default function App() {
         
         {/* CTAs */}
         <CTA
-          onOpenApply={() => setIsApplyOpen(true)}
           onOpenContact={() => setIsContactOpen(true)}
         />
       </main>

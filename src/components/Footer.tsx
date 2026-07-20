@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Mail, Send, Check } from 'lucide-react';
 
 export default function Footer() {
@@ -30,9 +31,11 @@ export default function Footer() {
         {/* Brand identity */}
         <div className="md:col-span-5 space-y-6">
           <div className="flex items-center gap-3">
-            <img
+            <Image
               alt="Harmony College Logo"
-              className="h-9 w-9 object-contain"
+              width={36}
+              height={36}
+              className="object-contain"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkk-GfOeeS5kDbA0-xztv8nzqkDrjaLS9xrLYqbgsKDnF3Mgv96Vc6Y3DD4IWBFmoV8u_skSaXfx90BGbNSsit1rc6tnddGQr95P7j0XYaVMT-mv9BIr-INftW65Au2LacF37YGXy4n5CkW1e3oDOI8CUTg4wHCFFuY5-a-_LwZdZbdsruqrfDTWakKwehMJk_9SkFYy9ssYdDjfMKD_e4REWNqaiaoYA9Ppx_gYawAHQQjXFAAHh_uYQcMyOXdTB31Xj6fpKXxQ"
             />
             <div className="flex flex-col">

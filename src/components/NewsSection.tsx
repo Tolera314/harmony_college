@@ -107,6 +107,8 @@ export default function NewsSection({ onSelectNewsArticle, onClearSelectedNewsAr
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-[0.7] group-hover:brightness-[0.6]"
                       alt={article.title}
                       src={article.image}
+                      loading="lazy"
+                      decoding="async"
                     />
                     <span className="absolute top-4 left-4 px-2.5 py-1 rounded font-mono text-[9px] font-bold uppercase tracking-widest bg-[#E9C349] text-black">
                       {article.category}
@@ -197,6 +199,8 @@ export default function NewsSection({ onSelectNewsArticle, onClearSelectedNewsAr
                     className="w-full h-full object-cover filter brightness-[0.6]"
                     alt={activeArticle.title}
                     src={activeArticle.image}
+                    loading="lazy"
+                    decoding="async"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1C] to-transparent" />
                   
