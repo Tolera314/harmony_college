@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Menu, Search, X } from 'lucide-react';
+import Link from 'next/link';
 
 interface NavbarProps {
   onOpenSearch: () => void;
@@ -67,10 +69,13 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <img
+        <Image
             alt="Harmony College Logo"
-            className="h-10 w-10 object-contain transition-transform duration-500 group-hover:rotate-[360deg]"
+            width={40}
+            height={40}
+            className="object-contain transition-transform duration-500 group-hover:rotate-[360deg]"
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkk-GfOeeS5kDbA0-xztv8nzqkDrjaLS9xrLYqbgsKDnF3Mgv96Vc6Y3DD4IWBFmoV8u_skSaXfx90BGbNSsit1rc6tnddGQr95P7j0XYaVMT-mv9BIr-INftW65Au2LacF37YGXy4n5CkW1e3oDOI8CUTg4wHCFFuY5-a-_LwZdZbdsruqrfDTWakKwehMJk_9SkFYy9ssYdDjfMKD_e4REWNqaiaoYA9Ppx_gYawAHQQjXFAAHh_uYQcMyOXdTB31Xj6fpKXxQ"
+            priority
           />
           <div className="flex flex-col">
             <span className="font-serif text-lg tracking-wider font-extrabold text-white">
@@ -110,12 +115,18 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
             >
               <Search className="w-4 h-4" />
             </button>
-            <button
-              onClick={onOpenApply}
-              className="bg-[#E9C349] text-black px-6 py-2.5 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md shadow-[#E9C349]/20 cursor-pointer"
+            <Link
+              href="/apply"
+              className="bg-[#E9C349] text-black px-6 py-2.5 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md shadow-[#E9C349]/20 cursor-pointer inline-flex items-center justify-center"
             >
               Apply Now
-            </button>
+            </Link>
+            <Link
+              href="/signin"
+              className="border border-[#E9C349] text-[#E9C349] px-6 py-2.5 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:bg-[#E9C349] hover:text-black transition-all cursor-pointer"
+            >
+              Sign In
+            </Link>
           </div>
         </div>
 
@@ -154,15 +165,20 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
               </li>
             ))}
           </ul>
-          <button
-            onClick={() => {
-              setIsMobileMenuOpen(false);
-              onOpenApply();
-            }}
-            className="w-full bg-[#E9C349] text-black py-3 rounded-full text-xs font-mono font-bold uppercase tracking-widest text-center shadow-lg shadow-[#E9C349]/20"
+          <Link
+            href="/apply"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="w-full block bg-[#E9C349] text-black py-3 rounded-full text-xs font-mono font-bold uppercase tracking-widest text-center shadow-lg shadow-[#E9C349]/20"
           >
             Apply Now
-          </button>
+          </Link>
+          <Link
+            href="/signin"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="w-full border border-[#E9C349] text-[#E9C349] py-3 rounded-full text-xs font-mono font-bold uppercase tracking-widest text-center hover:bg-[#E9C349] hover:text-black transition-all"
+          >
+            Sign In
+          </Link>
         </div>
       )}
     </nav>
