@@ -6,6 +6,7 @@ import path from 'path';
 
 import authRouter from './routes/auth';
 import uploadRouter from './routes/upload';
+import advisorRouter from './routes/advisor';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '4000', 10);
@@ -29,6 +30,7 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/advisor', advisorRouter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
