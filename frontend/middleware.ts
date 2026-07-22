@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
  * Routes that require an authenticated session.
  * Add dashboard, admin, profile routes here as they are built.
  */
-const PROTECTED_ROUTES = ['/dashboard', '/admin', '/profile'];
+const PROTECTED_ROUTES = ['/admin', '/profile'];
 
 /**
  * Routes only accessible when NOT authenticated.
