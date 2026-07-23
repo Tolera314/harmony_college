@@ -103,19 +103,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Bottom Profile and Settings Section */}
-      <div className="mt-auto border-t border-white/10 pt-4 space-y-1.5">
+      <div className="mt-auto border-t border-white/10 pt-4 space-y-1">
         <motion.button
           onClick={() => setActiveTab('settings')}
           whileHover={{ x: 4 }}
           whileTap={{ scale: 0.97 }}
           className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl transition-all font-sans text-sm font-medium touch-target ${
             activeTab === 'settings'
-              ? 'bg-[#E9C349]/15 text-[#E9C349] font-semibold'
+              ? 'bg-[#E9C349]/12 text-[#E9C349] font-semibold'
               : 'text-white/60 hover:bg-white/5 hover:text-white'
           }`}
         >
-          <Settings className="w-5 h-5 text-white/50" />
+          <Settings className="w-5 h-5 shrink-0" />
           <span className="hidden xl:inline">Settings</span>
         </motion.button>
 
@@ -123,9 +122,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={onLogout}
           whileHover={{ x: 4 }}
           whileTap={{ scale: 0.97 }}
-          className="w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl text-[#ff897d] hover:bg-[#ffdad6]/10 transition-colors font-sans text-sm font-medium touch-target"
+          className="w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl text-rose-400 hover:bg-rose-950/30 transition-colors font-sans text-sm font-medium touch-target"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="w-5 h-5 shrink-0" />
           <span className="hidden xl:inline">Log Out</span>
         </motion.button>
 
