@@ -40,15 +40,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       aria-label="Harmony Main Navigation"
-      className="h-screen w-20 xl:w-64 fixed left-0 top-0 bg-[#0F0F10]/95 backdrop-blur-xl border-r border-white/10 flex flex-col py-6 px-3 xl:px-4 z-50 hidden md:flex transition-all duration-300 shadow-xl"
+      className="h-screen w-20 xl:w-64 fixed left-0 top-0 bg-[#0F0F10]/95 backdrop-blur-xl border-r border-white/10 flex-col py-6 px-3 xl:px-4 z-50 hidden md:!flex transition-all duration-300 shadow-xl"
     >
       {/* Harmony College Logo */}
       <div className="mb-8 px-2 flex items-center justify-between">
-        <button
+      <button
           onClick={() => setActiveTab('dashboard')}
-          className="flex items-center gap-3 text-left group focus:outline-none"
+          className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] rounded-xl"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E9C349] to-[#b8951d] text-[#0F0F10] flex items-center justify-center font-serif font-bold text-xl shadow-md gold-glow group-hover:scale-105 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-[#E9C349] to-[#b8951d] text-[#0F0F10] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
             H
           </div>
           <div className="hidden xl:block">
@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Main Navigation Links */}
-      <nav className="flex-1 flex flex-col gap-1.5" role="navigation">
+  <nav className="flex-1 flex flex-col gap-1" role="navigation">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               whileHover={{ x: 4 }}
               whileTap={{ scale: 0.97 }}
               aria-current={isActive ? 'page' : undefined}
-              className={`relative flex items-center gap-3.5 px-3.5 py-3 text-left rounded-xl font-sans text-sm font-medium transition-all group touch-target ${
+              className={`relative flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl font-sans text-sm font-medium transition-all group touch-target ${
                 isActive
                   ? 'text-[#E9C349] font-semibold'
                   : 'text-white/60 hover:text-white hover:bg-white/5'
@@ -82,8 +82,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isActive && (
                 <motion.div
                   layoutId="activeSidebarPill"
-                  className="absolute inset-0 bg-[#E9C349]/15 rounded-xl border-l-4 border-[#E9C349]"
-                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                  className="absolute inset-0 bg-[#E9C349]/12 rounded-xl border-l-[3px] border-[#E9C349]"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 />
               )}
 
