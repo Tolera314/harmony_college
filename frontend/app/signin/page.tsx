@@ -32,14 +32,29 @@ export default function SignInPage() {
       if (!res.ok) throw new Error(data.error || 'Login failed');
 
       // Role-based redirect
-      if (data.role === 'SUPER_ADMIN' || data.role === 'REGISTRAR_OFFICER' ||
-          data.role === 'FINANCE_OFFICER' || data.role === 'HR_OFFICER' ||
-          data.role === 'DEPARTMENT_HEAD') {
-        window.location.href = '/admin';
-      } else if (data.role === 'LECTURER') {
-        window.location.href = '/lecturer';
-      } else {
-        window.location.href = '/';
+      switch (data.role) {
+        case 'REGISTRAR_OFFICER':
+          window.location.href = '/dashboard/registrar';
+          break;
+        case 'SUPER_ADMIN':
+        case 'FINANCE_OFFICER':
+          window.location.href = '/dashboard/admin';
+          break;
+        case 'HR_OFFICER':
+          window.location.href = '/dashboard/hr';
+          break;
+        case 'DEPARTMENT_HEAD':
+          window.location.href = '/dashboard/department-head';
+          break;
+        case 'LECTURER':
+          window.location.href = '/dashboard/instructor';
+          break;
+        case 'STUDENT':
+          window.location.href = '/dashboard/student';
+          break;
+        default:
+          window.location.href = '/dashboard/student';
+          break;
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'An error occurred during sign in.');

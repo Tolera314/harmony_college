@@ -24,6 +24,11 @@ export const AdminFacultyView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map(f => {
           const dept = departments.find(d => d.id === f.departmentId);
+          const rank = f.position.toLowerCase().includes('professor') && !f.position.toLowerCase().includes('associate') && !f.position.toLowerCase().includes('assistant')
+            ? 'Professor'
+            : f.position.toLowerCase().includes('associate professor')
+            ? 'Associate Professor'
+            : 'Instructor / Lecturer';
           return (
             <motion.div key={f.id} whileHover={{ y: -3 }} className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 hover:bg-white/[0.08] transition-all">
               <div className="flex items-center gap-3">
@@ -33,10 +38,10 @@ export const AdminFacultyView: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <p className="font-serif text-sm font-bold text-white truncate">{f.name}</p>
-                  <Badge variant={f.rank === 'Professor' ? 'gold' : f.rank === 'Associate Professor' ? 'emerald' : 'glass'} className="mt-1 text-[10px]">{f.rank}</Badge>
+                  <Badge variant={rank === 'Professor' ? 'gold' : rank === 'Associate Professor' ? 'emerald' : 'glass'} className="mt-1 text-[10px]">{rank}</Badge>
                 </div>
               </div>
-              <p className="font-sans text-xs text-white/50 truncate">{f.specialization}</p>
+              <p className="font-sans text-xs text-white/50 truncate">{f.position}</p>
               <div className="flex items-center justify-between text-[10px] font-mono text-white/40">
                 <span>{dept?.name.split(' ')[0]}</span>
                 <span>{f.employeeId}</span>

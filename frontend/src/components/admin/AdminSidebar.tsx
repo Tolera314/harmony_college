@@ -52,7 +52,7 @@ const GROUP_LABELS: Record<string, string> = {
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   activeTab, setActiveTab, profile, unreadCount, onLogout,
 }) => {
-  const groups = Array.from(new Set(NAV_ITEMS.map(n => n.group)));
+  const groups = Array.from(new Set(NAV_ITEMS.map(n => n.group))).filter((g): g is string => g !== undefined);
 
   return (
     <aside

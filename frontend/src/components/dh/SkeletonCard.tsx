@@ -8,9 +8,9 @@ interface SkeletonCardProps {
   className?: string;
 }
 
-function Shimmer({ className }: { className: string }) {
+function Shimmer({ className, style }: { className: string; style?: React.CSSProperties }) {
   return (
-    <div className={`relative overflow-hidden bg-white/8 rounded-xl ${className}`}>
+    <div className={`relative overflow-hidden bg-white/8 rounded-xl ${className}`} style={style}>
       <motion.div
         className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent"
         animate={{ translateX: ['−100%', '200%'] }}

@@ -54,6 +54,33 @@ router.post('/signin', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// ── GET /api/auth/me ─────────────────────────────────────────────────────────
+router.get('/me', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const token = req.cookies?.session;
+    if (!token) {
+      res.status(401).json({ authenticated: false, error: 'No active session.' });
+      return;
+    }
+
+    const { verifyJWT } = await import('../lib/auth');
+    const session = await verifyJWT(token);
+    if (!session) {
+      res.status(401).json({ authenticated: false, error: 'Session expired or invalid.' });
+      return;
+    }
+
+    res.status(200).json({
+      authenticated: true,
+      userId: session.userId,
+      email: session.email,
+      role: session.role,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to verify authentication session.' });
+  }
+});
+
 // ── POST /api/auth/signup ─────────────────────────────────────────────────────
 router.post('/signup', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -76,7 +103,7 @@ router.post('/signup', async (req: Request, res: Response): Promise<void> => {
 
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    const newUser = await prisma.$transaction(async (tx: typeof prisma) => {
+    const newUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: { email: data.email, passwordHash, role: 'STUDENT' },
       });

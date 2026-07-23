@@ -12,10 +12,10 @@ import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
 
 const statusBadge = (s: SystemUser['status']) => {
-  const m: Record<SystemUser['status'], 'emerald'|'amber'|'rose'|'glass'> = {
-    Active: 'emerald', Inactive: 'glass', Suspended: 'amber', Locked: 'rose', Pending: 'gold' as 'gold',
+  const m: Record<SystemUser['status'], 'emerald'|'amber'|'rose'|'glass'|'gold'> = {
+    Active: 'emerald', Inactive: 'glass', Suspended: 'amber', Locked: 'rose', Pending: 'gold',
   };
-  return <Badge variant={m[s] as 'emerald'|'amber'|'rose'|'glass'|'gold'}>{s}</Badge>;
+  return <Badge variant={m[s]}>{s}</Badge>;
 };
 
 const ROLES: UserRole[] = ['Super Admin', 'Admin', 'Department Head', 'Instructor', 'HR Officer', 'Finance Officer', 'Registrar', 'Student'];

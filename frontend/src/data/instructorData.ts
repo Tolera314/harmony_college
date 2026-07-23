@@ -5,7 +5,7 @@
 // All student/course/classroom refs come from departmentData.ts
 // ─────────────────────────────────────────────────────────────────────────────
 import type {
-  InstructorProfile, ScheduleClass, AttendanceRecord, AttendanceSession,
+  InstructorProfile, ScheduleClass, AttendanceRecord, AttendanceSession, AttendanceStatus,
   Assessment, GradeEntry, CourseMaterial, Announcement,
   InstructorNotification, InstructorAuditEntry, ClockEntry,
 } from '../types/instructor';

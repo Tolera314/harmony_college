@@ -143,7 +143,7 @@ export const rolePermissions: RolePermission[] = [
 export { adminStudents } from './adminData';
 import { adminStudents } from './adminData';
 import { departments, employees } from './hrData';
-import { programs, systemUsers, admissions, payments } from './adminData';
+import { programs, systemUsers } from './adminData';
 
 export const adminKPIs = {
   totalStudents:       adminStudents.length,

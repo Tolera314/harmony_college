@@ -138,7 +138,7 @@ export const HRPerformanceView: React.FC = () => {
                 <img src={emp?.avatar} alt="" className="w-12 h-12 rounded-xl border border-white/10 object-cover" />
                 <div>
                   <p className="font-serif text-base font-bold text-white">{emp?.name}</p>
-                  <p className="text-white/50 text-xs">{review.cycle} Review · {selected.period}</p>
+                  <p className="text-white/50 text-xs">{selected.cycle} Review · {selected.period}</p>
                   <Badge variant={statusConfig[selected.status].variant} className="mt-1">{selected.status}</Badge>
                 </div>
               </div>
