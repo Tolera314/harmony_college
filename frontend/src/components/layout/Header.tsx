@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right Side: Quick Controls & Search Trigger */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Quick Command Search Trigger */}
           <button
             onClick={onOpenSearchModal}
@@ -113,133 +113,114 @@ export const Header: React.FC<HeaderProps> = ({
                   setShowAlertsDrawer(!showAlertsDrawer);
                   setShowMailModal(false);
                 }}
-                className="p-2.5 rounded-full hover:bg-white/10 transition-colors relative touch-target text-white/70"
+                className="relative p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors touch-target"
                 aria-label="View notifications"
                 aria-expanded={showAlertsDrawer}
               >
                 <Bell className="w-5 h-5" />
                 {alerts.length > 0 && (
-                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#E9C349] rounded-full ring-2 ring-[#0F0F10] animate-pulse" />
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-[#E9C349] rounded-full flex items-center justify-center text-[#0F0F10] text-[9px] font-mono font-bold">
+                    {alerts.length}
+                  </span>
                 )}
               </button>
 
               <AnimatePresence>
                 {showAlertsDrawer && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-3 w-80 sm:w-96 bg-[#141617] rounded-2xl shadow-2xl border border-white/10 p-4 z-50"
-                  >
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
-                      <h3 className="font-sans text-sm font-bold text-white flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-[#E9C349]" />
-                        Recent System Alerts ({alerts.length})
-                      </h3>
-                      <button
-                        onClick={() => setShowAlertsDrawer(false)}
-                        className="text-white/60 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                      {alerts.map((alert) => (
-                        <div
-                          key={alert.id}
-                          className={`p-3 rounded-xl border-l-4 text-xs space-y-1 ${
-                            alert.type === 'error'
-                              ? 'bg-[#ffdad6]/10 border-[#ba1a1a] text-[#ffdad6]'
-                              : alert.type === 'secondary'
-                              ? 'bg-[#E9C349]/15 border-[#E9C349] text-[#E9C349]'
-                              : 'bg-white/5 border-white/30 text-white'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between font-semibold">
-                            <span>{alert.source}</span>
-                            <span className="font-mono text-[10px] opacity-75">{alert.date}</span>
-                          </div>
-                          <p className="leading-relaxed text-[11px] opacity-90">{alert.message}</p>
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowAlertsDrawer(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute right-0 top-12 w-80 sm:w-96 bg-[#141617] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                    >
+                      <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                        <span className="font-serif text-base font-bold text-white">Notifications</span>
+                        <div className="flex items-center gap-2">
+                          {alerts.length > 0 && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono text-xs font-semibold bg-[#E9C349]/15 text-[#E9C349] border border-[#E9C349]/30">
+                              {alerts.length} new
+                            </span>
+                          )}
+                          <button onClick={() => setShowAlertsDrawer(false)} className="p-1 rounded-full hover:bg-white/10 text-white/60 transition-colors">
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
-                      ))}
-                    </div>
-                  </motion.div>
+                      </div>
+                      <div className="max-h-96 overflow-y-auto divide-y divide-white/5">
+                        {alerts.map((alert) => (
+                          <div key={alert.id} className="px-4 py-3.5 hover:bg-white/5 transition-colors flex gap-3">
+                            <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${alert.type === 'error' ? 'bg-rose-400' : alert.type === 'secondary' ? 'bg-[#E9C349]' : 'bg-white/40'}`} />
+                            <div className="min-w-0">
+                              <p className="font-sans text-xs font-semibold text-white">{alert.source}</p>
+                              <p className="font-sans text-xs text-white/50 leading-relaxed mt-0.5 line-clamp-2">{alert.message}</p>
+                              <p className="font-mono text-[10px] text-white/30 mt-1">{alert.date}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Mail Direct Messages Modal Toggle */}
+            {/* Mail Direct Messages */}
             <div className="relative">
               <button
-                onClick={() => {
-                  setShowMailModal(!showMailModal);
-                  setShowAlertsDrawer(false);
-                }}
-                className="p-2.5 rounded-full hover:bg-white/10 transition-colors touch-target text-white/70"
+                onClick={() => { setShowMailModal(!showMailModal); setShowAlertsDrawer(false); }}
+                className="p-2 rounded-full hover:bg-white/10 transition-colors touch-target text-white/70 hover:text-white"
                 aria-label="View messages"
-                aria-expanded={showMailModal}
               >
                 <Mail className="w-5 h-5" />
               </button>
 
               <AnimatePresence>
                 {showMailModal && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-3 w-80 sm:w-96 bg-[#141617] rounded-2xl shadow-2xl border border-white/10 p-4 z-50"
-                  >
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
-                      <h3 className="font-sans text-sm font-bold text-white flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-[#E9C349]" />
-                        Faculty Direct Messages
-                      </h3>
-                      <button onClick={() => setShowMailModal(false)}>
-                        <X className="w-4 h-4 text-white/60" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 text-xs">
-                      <div className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-transparent hover:border-[#E9C349]/30">
-                        <div className="flex justify-between font-semibold text-white">
-                          <span>Dr. Sarah Jenkins</span>
-                          <span className="text-[10px] text-white/50 font-mono">10:15 AM</span>
-                        </div>
-                        <p className="text-white/60 truncate mt-1">
-                          CS402: Midterm project feedback uploaded to portal.
-                        </p>
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowMailModal(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute right-0 top-12 w-80 sm:w-96 bg-[#141617] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                    >
+                      <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                        <span className="font-serif text-base font-bold text-white flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-[#E9C349]" /> Faculty Messages
+                        </span>
+                        <button onClick={() => setShowMailModal(false)} className="p-1 rounded-full hover:bg-white/10 text-white/60 transition-colors">
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
-
-                      <div className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-transparent hover:border-[#E9C349]/30">
-                        <div className="flex justify-between font-semibold text-white">
-                          <span>Dr. Marcus Vance (Advisor)</span>
-                          <span className="text-[10px] text-white/50 font-mono">Yesterday</span>
-                        </div>
-                        <p className="text-white/60 truncate mt-1">
-                          Confirmed your graduation application review session.
-                        </p>
+                      <div className="divide-y divide-white/5">
+                        <button className="w-full text-left px-4 py-3.5 hover:bg-white/5 transition-colors">
+                          <p className="font-sans text-xs font-semibold text-white">Dr. Sarah Jenkins</p>
+                          <p className="font-sans text-xs text-white/50 truncate mt-0.5">CS402: Midterm project feedback uploaded.</p>
+                          <p className="font-mono text-[10px] text-white/30 mt-1">10:15 AM</p>
+                        </button>
+                        <button className="w-full text-left px-4 py-3.5 hover:bg-white/5 transition-colors">
+                          <p className="font-sans text-xs font-semibold text-white">Dr. Marcus Vance (Advisor)</p>
+                          <p className="font-sans text-xs text-white/50 truncate mt-0.5">Confirmed your graduation review session.</p>
+                          <p className="font-mono text-[10px] text-white/30 mt-1">Yesterday</p>
+                        </button>
                       </div>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  </>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Theme Toggle Button */}
+            {/* Theme Toggle */}
             <button
               onClick={() => setDarkMode((prev) => !prev)}
-              className="p-2.5 rounded-full hover:bg-white/10 transition-colors touch-target"
-              aria-label="Toggle Theme Mode"
+              className="p-2 rounded-full hover:bg-white/10 transition-colors touch-target text-white/70 hover:text-white"
+              aria-label="Toggle Theme"
             >
-              {darkMode ? (
-                <Sun className="w-5 h-5 text-[#E9C349]" />
-              ) : (
-                <Moon className="w-5 h-5 text-white/70" />
-              )}
+              {darkMode ? <Sun className="w-5 h-5 text-[#E9C349]" /> : <Moon className="w-5 h-5" />}
             </button>
           </div>
         </div>
