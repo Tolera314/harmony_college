@@ -12,16 +12,18 @@
     font-family: 'Geist', monospace;
   }
 
-  /* Dark Obsidian & Glassmorphism Surfaces */
+  /* ── Glassmorphism — auto-adapts to theme ─────────────────────────────── */
   .glass-surface {
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: var(--bg-glass);
+    border: 1px solid var(--border-default);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+    transition: var(--theme-transition);
   }
 
   .glass-surface-hover {
-    transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+    transition: background-color 0.25s ease, border-color 0.25s ease,
+      transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
   }
   .glass-surface-hover:hover {
     background-color: rgba(255, 255, 255, 0.08);
@@ -30,53 +32,55 @@
     box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.6);
   }
 
-  /* Harmony Premium Gold Accents (#E9C349) */
+  /* Light mode glass hover */
+  html.light .glass-surface-hover:hover {
+    background-color: rgba(255, 255, 255, 0.90);
+    border-color: rgba(233, 195, 73, 0.35);
+    box-shadow: 0 16px 36px -8px rgba(15, 15, 16, 0.12);
+  }
+
+  /* ── Gold Accents — always the same ──────────────────────────────────── */
   .gold-gradient {
     background: linear-gradient(135deg, #f5d468 0%, #E9C349 50%, #c49f27 100%);
   }
+  .text-gold { color: #E9C349; }
+  .gold-glow { box-shadow: 0 0 24px rgba(233, 195, 73, 0.35); }
 
-  .text-gold {
-    color: #E9C349;
-  }
-
-  .gold-glow {
-    box-shadow: 0 0 24px rgba(233, 195, 73, 0.35);
-  }
-
-  /* Hero Gradient Overlay */
+  /* ── Hero overlay — adapts to theme ──────────────────────────────────── */
   .hero-overlay-dark {
     background: linear-gradient(
-      90deg, 
-      rgba(15, 15, 16, 0.96) 0%, 
-      rgba(15, 15, 16, 0.80) 50%, 
-      rgba(15, 15, 16, 0.45) 100%
+      90deg,
+      var(--overlay-hero-from) 0%,
+      var(--overlay-hero-mid)  50%,
+      var(--overlay-hero-to)   100%
     );
   }
 
-  /* Touch Target Helper */
+  /* ── Touch target ─────────────────────────────────────────────────────── */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
+
+  /* ── Theme-aware surface shortcuts ───────────────────────────────────── */
+  .bg-surface { background-color: var(--bg-surface); }
+  .bg-card    { background-color: var(--bg-card); }
+  .text-body  { color: var(--text-primary); }
+  .text-sub   { color: var(--text-secondary); }
+  .text-hint  { color: var(--text-muted); }
+  .border-theme { border-color: var(--border-default); }
 }
 
-/* Custom Scrollbar System */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+/* ── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  {
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(233, 195, 73, 0.4);
-}
+::-webkit-scrollbar-thumb:hover { background: rgba(233, 195, 73, 0.4); }
 
-/* Accessible Focus Ring */
+/* ── Focus Ring ────────────────────────────────────────────────────────── */
 *:focus-visible {
   outline: none;
   ring: 2px;
@@ -84,15 +88,41 @@
   ring-offset: 2px;
 }
 
-/* Base Body Styling for Harmony College */
+/* ── Base ──────────────────────────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  background-color: #0F0F10;
-  color: #f2f0f0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
+  transition: var(--theme-transition);
 }
+
+/* ── Light mode global overrides ───────────────────────────────────────── */
+html.light body {
+  color: var(--text-primary);
+}
+
+/* Prose content inside news reader adapts in light mode */
+html.light .prose-invert {
+  color: var(--text-secondary);
+}
+html.light .prose-invert h2,
+html.light .prose-invert h3,
+html.light .prose-invert strong {
+  color: var(--text-primary);
+}
+html.light .prose-invert blockquote {
+  border-left-color: var(--border-default);
+  color: var(--text-muted);
+}
+
+/* ── Theme transition — prevent flash on load ──────────────────────────── */
+html.theme-transitioning * {
+  transition: var(--theme-transition) !important;
+}
+

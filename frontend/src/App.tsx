@@ -67,7 +67,7 @@ export default function App() {
   };
 
   return (
-    <div id="main-landing" className="min-h-screen bg-[#0F0F10] text-white selection:bg-[#E9C349] selection:text-black">
+    <div id="main-landing" className="min-h-screen selection:bg-[#E9C349] selection:text-black" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
       {/* Sticky header bar */}
       <Navbar
         onOpenSearch={() => setIsSearchOpen(true)}
@@ -129,3 +129,4 @@ export default function App() {
     </div>
   );
 }
+

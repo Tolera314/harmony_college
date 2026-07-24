@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harmony College — Management System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#0A0A0A;
+    --black-soft:#1A1A1A;
+    --white:#FFFFFF;
+    --white-warm:#FAF8F3;
+    --gold:#C9A227;
+    --gold-deep:#8C6D1F;
+    --gold-pale:#F0E6C8;
+    --line:#E4DFD1;
+    --max:1180px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--white-warm);
+    color:var(--black);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  img,svg{display:block; max-width:100%;}
+  a{color:inherit; text-decoration:none;}
+  .wrap{max-width:var(--max); margin:0 auto; padding:0 32px;}
+  h1,h2,h3{font-family:'Fraunces', serif; font-weight:600; letter-spacing:-0.01em; color:var(--black);}
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--gold-deep);
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .eyebrow::before{content:""; width:22px; height:1px; background:var(--gold);}
+  :focus-visible{outline:2px solid var(--gold-deep); outline-offset:3px;}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+
+  /* ---------- NAV ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:rgba(250,248,243,0.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  nav.wrap{
+    display:flex; align-items:center; justify-content:space-between;
+    height:82px;
+  }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand span{font-family:'Fraunces', serif; font-weight:600; font-size:19px; letter-spacing:0.01em;}
+  .brand small{display:block; font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.14em; color:var(--gold-deep);}
+  .nav-links{display:flex; align-items:center; gap:38px;}
+  .nav-links a{font-size:14.5px; font-weight:500; color:var(--black-soft); position:relative; padding:6px 0;}
+  .nav-links a::after{content:""; position:absolute; left:0; bottom:0; width:0; height:1.5px; background:var(--gold); transition:width .25s ease;}
+  .nav-links a:hover::after{width:100%;}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    font-weight:600; font-size:14px; padding:13px 26px; border-radius:2px;
+    cursor:pointer; border:1px solid transparent; transition:all .2s ease; white-space:nowrap;
+  }
+  .btn-gold{background:var(--gold); color:var(--black); border-color:var(--gold);}
+  .btn-gold:hover{background:var(--gold-deep); border-color:var(--gold-deep); color:var(--white);}
+  .btn-outline{border-color:var(--black); color:var(--black); background:transparent;}
+  .btn-outline:hover{background:var(--black); color:var(--white);}
+  .btn-outline-white{border-color:rgba(255,255,255,.4); color:var(--white); background:transparent;}
+  .btn-outline-white:hover{border-color:var(--gold); color:var(--gold);}
+  .menu-toggle{display:none; background:none; border:0; cursor:pointer; padding:8px;}
+  .menu-toggle span{display:block; width:22px; height:2px; background:var(--black); margin:5px 0;}
+
+  /* ---------- HERO ---------- */
+  .hero{padding:96px 0 110px; overflow:hidden;}
+  .hero .wrap{display:grid; grid-template-columns:1.05fr 0.95fr; gap:60px; align-items:center;}
+  .hero h1{font-size:clamp(38px,4.6vw,60px); line-height:1.06; margin-bottom:26px;}
+  .hero h1 em{font-style:italic; color:var(--gold-deep);}
+  .hero p.lede{font-size:18px; color:#4A4A4A; max-width:460px; margin-bottom:38px;}
+  .hero-ctas{display:flex; gap:16px; flex-wrap:wrap; margin-bottom:48px;}
+  .hero-meta{display:flex; gap:34px; padding-top:28px; border-top:1px solid var(--line);}
+  .hero-meta div{font-family:'IBM Plex Mono', monospace;}
+  .hero-meta strong{display:block; font-size:22px; color:var(--black); font-weight:600;}
+  .hero-meta span{font-size:11.5px; color:#6b6b6b; letter-spacing:.04em;}
+
+  /* ID CARD — signature element */
+  .id-stage{position:relative; display:flex; justify-content:center; align-items:center; min-height:420px;}
+  .id-card{
+    width:340px; background:var(--white); border-radius:14px;
+    border:1px solid var(--line);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.25);
+    transform:rotate(-6deg);
+    padding:26px 26px 22px;
+    position:relative;
+    transition:transform .5s ease;
+  }
+  .id-stage:hover .id-card{transform:rotate(-2deg) translateY(-6px);}
+  .id-card::before{
+    content:""; position:absolute; inset:0; border-radius:14px; padding:1.5px;
+    background:linear-gradient(135deg, var(--gold), transparent 30%, transparent 70%, var(--gold));
+    -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;
+  }
+  .id-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:22px;}
+  .id-crest-mini{display:flex; align-items:center; gap:8px;}
+  .id-crest-mini span{font-family:'IBM Plex Mono', monospace; font-size:9px; letter-spacing:.1em; color:var(--gold-deep); font-weight:600;}
+  .id-tag{font-family:'IBM Plex Mono', monospace; font-size:9px; letter-spacing:.12em; color:#999; text-transform:uppercase;}
+  .id-body{display:flex; gap:16px; align-items:flex-start;}
+  .id-avatar{
+    width:58px; height:58px; border-radius:50%; background:var(--black);
+    color:var(--gold); font-family:'Fraunces',serif; font-weight:600; font-size:20px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .id-lines{flex:1;}
+  .id-name{font-family:'Fraunces', serif; font-size:19px; font-weight:600; margin-bottom:2px;}
+  .id-program{font-size:12.5px; color:#666; margin-bottom:10px;}
+  .id-num{font-family:'IBM Plex Mono', monospace; font-size:13px; letter-spacing:.03em; color:var(--gold-deep); font-weight:600;}
+  .id-bottom{display:flex; justify-content:space-between; align-items:flex-end; margin-top:20px; padding-top:16px; border-top:1px dashed var(--line);}
+  .id-valid{font-family:'IBM Plex Mono', monospace; font-size:9.5px; color:#999;}
+  .qr{width:52px; height:52px;}
+  .id-floater{
+    position:absolute; background:var(--black); color:var(--white);
+    padding:9px 14px; border-radius:8px; font-family:'IBM Plex Mono', monospace;
+    font-size:11px; display:flex; align-items:center; gap:8px; box-shadow:0 14px 30px rgba(0,0,0,.25);
+  }
+  .id-floater .dot{width:7px; height:7px; border-radius:50%; background:var(--gold); animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.35;}}
+  .float-1{top:8px; right:6%;}
+  .float-2{bottom:22px; left:0%;}
+
+  /* ---------- STAT BAND ---------- */
+  .stats{background:var(--black); color:var(--white); padding:44px 0;}
+  .stats .wrap{display:grid; grid-template-columns:repeat(4,1fr); gap:20px;}
+  .stat strong{font-family:'IBM Plex Mono', monospace; font-size:clamp(24px,2.6vw,32px); color:var(--gold); font-weight:600; display:block;}
+  .stat span{font-size:12.5px; color:#B8B8B8; letter-spacing:.02em;}
+
+  /* ---------- SECTION SHARED ---------- */
+  section{padding:110px 0;}
+  .section-head{max-width:640px; margin-bottom:64px;}
+  .section-head h2{font-size:clamp(28px,3.2vw,40px); line-height:1.15; margin-bottom:16px;}
+  .section-head p{color:#555; font-size:16.5px;}
+
+  /* ---------- MODULES ---------- */
+  .modules-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line);}
+  .module-card{background:var(--white-warm); padding:38px 32px; transition:background .25s ease;}
+  .module-card:hover{background:var(--white);}
+  .mod-icon{width:42px; height:42px; margin-bottom:22px;}
+  .module-card h3{font-size:19px; margin-bottom:10px; font-weight:600;}
+  .module-card p{font-size:14.5px; color:#5c5c5c; margin-bottom:18px;}
+  .mod-link{font-family:'IBM Plex Mono', monospace; font-size:11.5px; letter-spacing:.06em; color:var(--gold-deep); font-weight:600; display:inline-flex; align-items:center; gap:6px;}
+  .mod-link svg{width:12px; height:12px; transition:transform .2s ease;}
+  .module-card:hover .mod-link svg{transform:translateX(3px);}
+
+  /* ---------- PORTAL PREVIEW ---------- */
+  .portal{background:var(--black); color:var(--white);}
+  .portal .wrap{display:grid; grid-template-columns:0.8fr 1.2fr; gap:64px; align-items:center;}
+  .portal .section-head p{color:#B8B8B8;}
+  .role-tabs{display:flex; flex-wrap:wrap; gap:10px; margin-top:30px;}
+  .role-tab{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.04em;
+    padding:10px 16px; border:1px solid #333; border-radius:2px; cursor:pointer;
+    background:transparent; color:#ccc; transition:all .2s ease;
+  }
+  .role-tab.active, .role-tab:hover{border-color:var(--gold); color:var(--gold);}
+  .mockup{
+    background:var(--black-soft); border:1px solid #2A2A2A; border-radius:10px; padding:20px;
+    box-shadow:0 40px 80px -30px rgba(0,0,0,0.6);
+  }
+  .mockup-bar{display:flex; gap:6px; margin-bottom:18px;}
+  .mockup-bar span{width:9px; height:9px; border-radius:50%; background:#3A3A3A;}
+  .mockup-title{font-family:'IBM Plex Mono', monospace; font-size:11px; color:#888; margin-bottom:20px; letter-spacing:.05em;}
+  .mockup-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .mockup-tile{background:#232323; border:1px solid #2E2E2E; border-radius:6px; padding:16px;}
+  .mockup-tile strong{display:block; font-family:'IBM Plex Mono', monospace; color:var(--gold); font-size:18px; margin-bottom:4px;}
+  .mockup-tile span{font-size:11px; color:#999;}
+  .mockup-row{grid-column:1/-1; background:#232323; border:1px solid #2E2E2E; border-radius:6px; padding:16px; margin-top:2px;}
+  .mockup-row .bar{height:6px; background:#333; border-radius:3px; overflow:hidden; margin-top:10px;}
+  .mockup-row .bar i{display:block; height:100%; background:var(--gold); width:72%;}
+
+  /* ---------- QUOTE ---------- */
+  .quote{background:var(--gold-pale); padding:100px 0; text-align:center;}
+  .quote .mark{font-family:'Fraunces', serif; font-size:64px; color:var(--gold-deep); line-height:0.5; margin-bottom:24px;}
+  .quote p{font-family:'Fraunces', serif; font-size:clamp(22px,2.6vw,30px); max-width:760px; margin:0 auto 26px; line-height:1.4; font-weight:500;}
+  .quote cite{font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold-deep); font-style:normal;}
+
+  /* ---------- STEPS ---------- */
+  .steps .wrap{display:grid; grid-template-columns:repeat(3,1fr); gap:44px;}
+  .step-num{font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--gold-deep); font-weight:600; margin-bottom:18px; display:block;}
+  .step h3{font-size:20px; margin-bottom:10px;}
+  .step p{font-size:14.5px; color:#5c5c5c;}
+  .step{border-top:2px solid var(--black); padding-top:22px;}
+
+  /* ---------- CTA BAND ---------- */
+  .cta-band{background:var(--black); padding:100px 0; text-align:center;}
+  .cta-band h2{color:var(--white); font-size:clamp(30px,3.6vw,44px); margin-bottom:18px;}
+  .cta-band p{color:#B8B8B8; margin-bottom:38px; font-size:16.5px;}
+  .cta-band .hero-ctas{justify-content:center;}
+
+  /* ---------- FOOTER ---------- */
+  footer{background:var(--black-soft); color:#B8B8B8; padding:70px 0 30px;}
+  .foot-grid{display:grid; grid-template-columns:1.4fr repeat(4,1fr); gap:40px; margin-bottom:56px;}
+  .foot-brand p{font-size:13.5px; color:#8a8a8a; margin-top:14px; max-width:220px;}
+  footer h4{font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); margin-bottom:18px;}
+  footer ul{list-style:none;}
+  footer li{margin-bottom:11px;}
+  footer a{font-size:13.5px; color:#B8B8B8; transition:color .2s ease;}
+  footer a:hover{color:var(--gold);}
+  .foot-bottom{border-top:1px solid #2A2A2A; padding-top:26px; display:flex; justify-content:space-between; font-size:12px; color:#777; flex-wrap:wrap; gap:12px;}
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width:920px){
+    .nav-links{position:fixed; top:82px; left:0; right:0; background:var(--white-warm); flex-direction:column; align-items:flex-start; padding:26px 32px; gap:22px; border-bottom:1px solid var(--line); transform:translateY(-130%); transition:transform .3s ease; z-index:40;}
+    .nav-links.open{transform:translateY(0);}
+    .menu-toggle{display:block;}
+    .hero .wrap, .portal .wrap{grid-template-columns:1fr;}
+    .id-stage{margin-top:50px; min-height:340px;}
+    .stats .wrap{grid-template-columns:repeat(2,1fr); row-gap:28px;}
+    .modules-grid{grid-template-columns:1fr;}
+    .foot-grid{grid-template-columns:1fr 1fr; row-gap:36px;}
+    .steps .wrap{grid-template-columns:1fr; gap:32px;}
+    section{padding:76px 0;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <a href="#" class="brand">
+      <svg width="38" height="38" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="19" stroke="#C9A227" stroke-width="1.4"/>
+        <circle cx="20" cy="20" r="15.5" stroke="#C9A227" stroke-width="0.6"/>
+        <text x="20" y="26" text-anchor="middle" font-family="Fraunces, serif" font-weight="600" font-size="16" fill="#0A0A0A">HC</text>
+      </svg>
+      <span>Harmony College<small>MANAGEMENT SYSTEM</small></span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="#modules">Systems</a>
+      <a href="#portal">Portals</a>
+      <a href="#apply">Admissions</a>
+      <a href="#" class="btn btn-outline">Sign In</a>
+      <a href="#apply" class="btn btn-gold">Apply Now</a>
+    </div>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Harmony College · Est. Digital Campus</div>
+      <h1>Every record, <em>one</em><br>institution.</h1>
+      <p class="lede">Admissions, academics, finance, attendance, and HR — run from a single, secure system built for students, faculty, and staff.</p>
+      <div class="hero-ctas">
+        <a href="#apply" class="btn btn-gold">Start Your Application</a>
+        <a href="#portal" class="btn btn-outline">Explore the Portal</a>
+      </div>
+      <div class="hero-meta">
+        <div><strong>12,400+</strong><span>STUDENTS ENROLLED</span></div>
+        <div><strong>48</strong><span>ACADEMIC PROGRAMS</span></div>
+        <div><strong>6</strong><span>INTEGRATED SYSTEMS</span></div>
+      </div>
+    </div>
+    <div class="id-stage">
+      <div class="id-card">
+        <div class="id-top">
+          <div class="id-crest-mini">
+            <svg width="20" height="20" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" stroke="#C9A227" stroke-width="1.6" fill="none"/><text x="20" y="26" text-anchor="middle" font-family="Fraunces, serif" font-weight="600" font-size="15" fill="#0A0A0A">HC</text></svg>
+            <span>HARMONY COLLEGE</span>
+          </div>
+          <div class="id-tag">Student ID</div>
+        </div>
+        <div class="id-body">
+          <div class="id-avatar">AB</div>
+          <div class="id-lines">
+            <div class="id-name">Abebe Bekele</div>
+            <div class="id-program">B.Sc. Computer Science · Year 3</div>
+            <div class="id-num">HC-2026-CS-0043</div>
+          </div>
+        </div>
+        <div class="id-bottom">
+          <div class="id-valid">VALID THRU 06/2027<br>ISSUED BY REGISTRAR</div>
+          <svg class="qr" viewBox="0 0 100 100">
+            <rect width="100" height="100" fill="#0A0A0A"/>
+            <g fill="#fff">
+              <rect x="8" y="8" width="24" height="24"/><rect x="14" y="14" width="12" height="12" fill="#0A0A0A"/>
+              <rect x="68" y="8" width="24" height="24"/><rect x="74" y="14" width="12" height="12" fill="#0A0A0A"/>
+              <rect x="8" y="68" width="24" height="24"/><rect x="14" y="74" width="12" height="12" fill="#0A0A0A"/>
+              <rect x="40" y="10" width="6" height="6"/><rect x="52" y="10" width="6" height="6"/>
+              <rect x="40" y="40" width="8" height="8"/><rect x="54" y="40" width="6" height="6"/>
+              <rect x="68" y="40" width="6" height="6"/><rect x="80" y="40" width="8" height="8"/>
+              <rect x="40" y="54" width="6" height="18"/><rect x="54" y="60" width="10" height="6"/>
+              <rect x="68" y="56" width="6" height="6"/><rect x="80" y="68" width="12" height="12"/>
+              <rect x="40" y="80" width="20" height="6"/><rect x="66" y="80" width="6" height="6"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div class="id-floater float-1"><span class="dot"></span> Enrollment verified</div>
+      <div class="id-floater float-2"><span class="dot"></span> Tuition: paid</div>
+    </div>
+  </div>
+</section>
+
+<div class="stats">
+  <div class="wrap">
+    <div class="stat"><strong>98%</strong><span>DIGITAL ADOPTION RATE</span></div>
+    <div class="stat"><strong>4.2M</strong><span>RECORDS MANAGED SECURELY</span></div>
+    <div class="stat"><strong>&lt;2min</strong><span>AVG. ATTENDANCE CHECK-IN</span></div>
+    <div class="stat"><strong>24/7</strong><span>PORTAL AVAILABILITY</span></div>
+  </div>
+</div>
+
+<section id="modules">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Platform</div>
+      <h2>One platform, six connected systems.</h2>
+      <p>Every department works from the same data — no spreadsheets, no re-entry, no gaps between offices.</p>
+    </div>
+    <div class="modules-grid">
+
+      <div class="module-card">
+        <svg class="mod-icon" viewBox="0 0 42 42" fill="none"><rect x="6" y="4" width="30" height="34" rx="2" stroke="#C9A227" stroke-width="1.6"/><circle cx="21" cy="15" r="5" stroke="#0A0A0A" stroke-width="1.6"/><path d="M11 30c1.5-5 6-7 10-7s8.5 2 10 7" stroke="#0A0A0A" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <h3>Student Information</h3>
+        <p>Online admissions, automatic ID generation, enrollment, and full academic history in one profile.</p>
+        <span class="mod-link">See features <svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" stroke="#8C6D1F" stroke-width="1.4" fill="none"/></svg></span>
+      </div>
+
+      <div class="module-card">
+        <svg class="mod-icon" viewBox="0 0 42 42" fill="none"><rect x="5" y="7" width="32" height="27" rx="2" stroke="#C9A227" stroke-width="1.6"/><path d="M5 15h32" stroke="#0A0A0A" stroke-width="1.6"/><path d="M13 4v6M29 4v6" stroke="#0A0A0A" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <h3>Registrar</h3>
+        <p>Course registration, conflict-free scheduling, transcripts, graduation audits, and digital certificates.</p>
+        <span class="mod-link">See features <svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" stroke="#8C6D1F" stroke-width="1.4" fill="none"/></svg></span>
+      </div>
+
+      <div class="module-card">
+        <svg class="mod-icon" viewBox="0 0 42 42" fill="none"><rect x="4" y="10" width="34" height="22" rx="3" stroke="#C9A227" stroke-width="1.6"/><path d="M4 17h34" stroke="#0A0A0A" stroke-width="1.6"/><rect x="10" y="23" width="8" height="4" rx="1" fill="#0A0A0A"/></svg>
+        <h3>Finance</h3>
+        <p>Payment tracking, instant digital receipts, tuition plans, and exportable financial reporting.</p>
+        <span class="mod-link">See features <svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" stroke="#8C6D1F" stroke-width="1.4" fill="none"/></svg></span>
+      </div>
+
+      <div class="module-card">
+        <svg class="mod-icon" viewBox="0 0 42 42" fill="none"><rect x="10" y="10" width="22" height="22" stroke="#C9A227" stroke-width="1.6"/><rect x="14" y="14" width="6" height="6" fill="#0A0A0A"/><rect x="22" y="14" width="6" height="6" fill="#0A0A0A"/><rect x="14" y="22" width="6" height="6" fill="#0A0A0A"/></svg>
+        <h3>Attendance</h3>
+        <p>Time-limited QR check-in for lecturers and students, with live attendance-eligibility tracking.</p>
+        <span class="mod-link">See features <svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" stroke="#8C6D1F" stroke-width="1.4" fill="none"/></svg></span>
+      </div>
+
+      <div class="module-card">
+        <svg class="mod-icon" viewBox="0 0 42 42" fill="none"><circle cx="15" cy="14" r="5" stroke="#C9A227" stroke-width="1.6"/><circle cx="28" cy="14" r="4" stroke="#0A0A0A" stroke-width="1.6"/><path d="M6 32c1.5-6 5.5-8.5 9-8.5s7.5 2.5 9 8.5" stroke="#0A0A0A" stroke-width="1.6" stroke-linecap="round"/><path d="M23 24c3 .3 6 2.5 7 8" stroke="#0A0A0A" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <h3>Human Resources</h3>
+        <p>Employee records, leave requests, automated payroll, and structured performance evaluation.</p>
+        <span class="mod-link">See features <svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" stroke="#8C6D1F" stroke-width="1.4" fill="none"/></svg></span>
+      </div>
+
+      <div class="module-card">
+        <svg class="mod-icon" viewBox="0 0 42 42" fill="none"><rect x="5" y="6" width="32" height="24" rx="2" stroke="#C9A227" stroke-width="1.6"/><path d="M11 26v-8M20 26v-14M29 26v-5" stroke="#0A0A0A" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <h3>Admin & Reporting</h3>
+        <p>A campus-wide dashboard tracking enrollment, revenue, attendance, and staffing at a glance.</p>
+        <span class="mod-link">See features <svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" stroke="#8C6D1F" stroke-width="1.4" fill="none"/></svg></span>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section class="portal" id="portal">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow" style="color:#C9A227">Access</div>
+      <h2 style="color:#fff">Built for every role on campus.</h2>
+      <p>Each portal shows only what that person needs — a student never sees payroll, and HR never touches grades.</p>
+      <div class="role-tabs">
+        <button class="role-tab active" data-role="student">Student</button>
+        <button class="role-tab" data-role="faculty">Faculty</button>
+        <button class="role-tab" data-role="registrar">Registrar</button>
+        <button class="role-tab" data-role="finance">Finance</button>
+        <button class="role-tab" data-role="hr">HR</button>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-bar"><span></span><span></span><span></span></div>
+      <div class="mockup-title" id="mockTitle">STUDENT DASHBOARD — ABEBE BEKELE</div>
+      <div class="mockup-grid" id="mockGrid">
+        <div class="mockup-tile"><strong>3.78</strong><span>CUMULATIVE GPA</span></div>
+        <div class="mockup-tile"><strong>96%</strong><span>ATTENDANCE</span></div>
+        <div class="mockup-tile"><strong>5</strong><span>COURSES THIS TERM</span></div>
+        <div class="mockup-row"><span>Tuition Balance — Term 2</span><div class="bar"><i style="width:100%"></i></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="quote">
+  <div class="wrap">
+    <div class="mark">"</div>
+    <p>Registration used to take our office three weeks each term. Now students enroll themselves in minutes, and every record reconciles on its own.</p>
+    <cite>— Office of the Registrar, Harmony College</cite>
+  </div>
+</section>
+
+<section class="steps" id="apply">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Admissions</div>
+      <h2>How to join Harmony College.</h2>
+    </div>
+    <div class="wrap" style="padding:0; display:grid; grid-template-columns:repeat(3,1fr); gap:44px;">
+      <div class="step"><span class="step-num">01</span><h3>Submit your application</h3><p>Complete the online form with your academic background and required documents.</p></div>
+      <div class="step"><span class="step-num">02</span><h3>Get reviewed</h3><p>Admissions reviews your file and notifies you of the decision by email.</p></div>
+      <div class="step"><span class="step-num">03</span><h3>Receive your Student ID</h3><p>Once accepted, your digital ID and enrollment access are generated automatically.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <div class="wrap">
+    <h2>Ready to join Harmony College?</h2>
+    <p>Applications for the 2026/27 academic year are open now.</p>
+    <div class="hero-ctas"><a href="#" class="btn btn-gold">Apply Now</a><a href="#" class="btn btn-outline-white">Talk to Admissions</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <svg width="34" height="34" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" stroke="#C9A227" stroke-width="1.4" fill="none"/><text x="20" y="26" text-anchor="middle" font-family="Fraunces, serif" font-weight="600" font-size="16" fill="#fff">HC</text></svg>
+        <p>Harmony College Management System — one platform for admissions, academics, finance, attendance, and HR.</p>
+      </div>
+      <div><h4>Systems</h4><ul><li><a href="#">Student Info</a></li><li><a href="#">Registrar</a></li><li><a href="#">Finance</a></li></ul></div>
+      <div><h4>Portals</h4><ul><li><a href="#">Student</a></li><li><a href="#">Faculty</a></li><li><a href="#">HR</a></li></ul></div>
+      <div><h4>College</h4><ul><li><a href="#">Programs</a></li><li><a href="#">Admissions</a></li><li><a href="#">Contact</a></li></ul></div>
+      <div><h4>Support</h4><ul><li><a href="#">Help Center</a></li><li><a href="#">Sign In</a></li><li><a href="#">Status</a></li></ul></div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Harmony College. All rights reserved.</span>
+      <span>Addis Ababa, Ethiopia</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const toggle = document.getElementById('menuToggle');
+  const links = document.getElementById('navLinks');
+  toggle.addEventListener('click', () => links.classList.toggle('open'));
+  links.querySelectorAll('a').forEach(a => a.addEventListener('click', () => links.classList.remove('open')));
+
+  const roleData = {
+    student: { title:'STUDENT DASHBOARD — ABEBE BEKELE', tiles:[['3.78','CUMULATIVE GPA'],['96%','ATTENDANCE'],['5','COURSES THIS TERM']], row:['Tuition Balance — Term 2','100%'] },
+    faculty: { title:'FACULTY DASHBOARD — DR. HAILE GEBRE', tiles:[['4','CLASSES TODAY'],['112','STUDENTS TAUGHT'],['3','PENDING GRADES']], row:['CS301 Attendance — This Week','88%'] },
+    registrar: { title:'REGISTRAR OVERVIEW — FALL TERM', tiles:[['1,204','PENDING ENROLLMENTS'],['48','ACTIVE PROGRAMS'],['12','SCHEDULE CONFLICTS']], row:['Graduation Eligibility Reviewed','76%'] },
+    finance: { title:'FINANCE OVERVIEW — TERM 2', tiles:[['ETB 4.8M','COLLECTED THIS TERM'],['312','OVERDUE ACCOUNTS'],['1,860','RECEIPTS ISSUED']], row:['Tuition Collection Target','82%'] },
+    hr: { title:'HR OVERVIEW — JULY 2026', tiles:[['214','ACTIVE EMPLOYEES'],['9','PENDING LEAVE REQUESTS'],['3','REVIEWS DUE']], row:['Payroll Processed — This Cycle','100%'] },
+  };
+  document.querySelectorAll('.role-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const d = roleData[tab.dataset.role];
+      document.getElementById('mockTitle').textContent = d.title;
+      const grid = document.getElementById('mockGrid');
+      grid.innerHTML = d.tiles.map(t => `<div class="mockup-tile"><strong>${t[0]}</strong><span>${t[1]}</span></div>`).join('') +
+        `<div class="mockup-row"><span>${d.row[0]}</span><div class="bar"><i style="width:${d.row[1]}"></i></div></div>`;
+    });
+  });
+</script>
+
+</body>
+</html>
