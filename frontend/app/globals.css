@@ -5,7 +5,100 @@
   --font-sans: var(--font-sans), sans-serif;
 }
 
-body {
-  background-color: #0F0F10;
-  color: #FFFFFF;
+/* ── Harmony College Design Tokens ──────────────────────────────────────────
+   Dark theme is the default (no class needed).
+   Light theme activates when <html> has class="light".
+   All components reference these tokens — never hardcoded colors.
+   ─────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Backgrounds */
+  --bg-base:       #0F0F10;
+  --bg-surface:    #0E0E0E;
+  --bg-footer:     #0A0A0B;
+  --bg-card:       rgba(26, 26, 28, 0.60);
+  --bg-card-solid: #1A1A1C;
+  --bg-modal:      #1A1A1C;
+  --bg-modal-hdr:  rgba(20, 19, 19, 0.60);
+  --bg-input:      #141313;
+  --bg-glass:      rgba(255, 255, 255, 0.05);
+
+  /* Text */
+  --text-primary:   #ffffff;
+  --text-secondary: #9ca3af; /* gray-400 */
+  --text-muted:     #6b7280; /* gray-500 */
+  --text-faint:     #4b5563; /* gray-600 */
+
+  /* Borders */
+  --border-subtle:  rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong:  rgba(255, 255, 255, 0.15);
+  --border-card:    rgba(255, 255, 255, 0.05);
+
+  /* Overlays */
+  --overlay-hero-from: rgba(15, 15, 16, 0.96);
+  --overlay-hero-mid:  rgba(15, 15, 16, 0.50);
+  --overlay-hero-to:   transparent;
+  --overlay-vt-from:   rgba(15, 15, 16, 0.80);
+  --overlay-dark-bg:   rgba(0, 0, 0, 0.90);
+  --overlay-modal-bg:  rgba(0, 0, 0, 0.80);
+
+  /* Drawers */
+  --drawer-bg:     #1A1A1C;
+  --drawer-border: rgba(255, 255, 255, 0.10);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+
+  /* Transition */
+  --theme-transition: background-color 280ms ease, color 280ms ease,
+    border-color 280ms ease, box-shadow 280ms ease, opacity 280ms ease;
 }
+
+/* ── Light Theme overrides ───────────────────────────────────────────────── */
+html.light {
+  /* Backgrounds */
+  --bg-base:       #FAF9F6;
+  --bg-surface:    #F4F2ED;
+  --bg-footer:     #EDEBE5;
+  --bg-card:       rgba(255, 255, 255, 0.72);
+  --bg-card-solid: #ffffff;
+  --bg-modal:      #ffffff;
+  --bg-modal-hdr:  rgba(248, 246, 241, 0.85);
+  --bg-input:      #F4F2ED;
+  --bg-glass:      rgba(255, 255, 255, 0.72);
+
+  /* Text */
+  --text-primary:   #111111;
+  --text-secondary: #555555;
+  --text-muted:     #777777;
+  --text-faint:     #999999;
+
+  /* Borders */
+  --border-subtle:  rgba(15, 15, 16, 0.06);
+  --border-default: rgba(15, 15, 16, 0.10);
+  --border-strong:  rgba(15, 15, 16, 0.16);
+  --border-card:    rgba(15, 15, 16, 0.08);
+
+  /* Overlays */
+  --overlay-hero-from: rgba(250, 249, 246, 0.92);
+  --overlay-hero-mid:  rgba(250, 249, 246, 0.40);
+  --overlay-hero-to:   transparent;
+  --overlay-vt-from:   rgba(244, 242, 237, 0.75);
+  --overlay-dark-bg:   rgba(15, 15, 16, 0.60);
+  --overlay-modal-bg:  rgba(15, 15, 16, 0.55);
+
+  /* Drawers */
+  --drawer-bg:     #ffffff;
+  --drawer-border: rgba(15, 15, 16, 0.10);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(15, 15, 16, 0.12);
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  transition: var(--theme-transition);
+}
+
