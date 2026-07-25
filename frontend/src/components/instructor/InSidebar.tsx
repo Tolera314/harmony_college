@@ -95,7 +95,7 @@ export const InSidebar: React.FC<InSidebarProps> = ({
               {isActive && (
                 <motion.div
                   layoutId="inActivePill"
-                  className="absolute inset-0 bg-[#E9C349]/12 rounded-xl border-l-[3px] border-[#E9C349]"
+                  className="absolute inset-0 bg-[#E9C349]/12 rounded-xl"
                   transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 />
               )}

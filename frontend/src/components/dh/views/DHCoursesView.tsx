@@ -223,7 +223,7 @@ export const DHCoursesView: React.FC = () => {
               <Button
                 variant={confirmModal.action === 'Approve' ? 'primary' : 'danger'}
                 className="flex-1"
-                onClick={handleAction}
+                onClick={() => handleAction(confirmModal.action)}
                 icon={confirmModal.action === 'Approve' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
               >
                 {confirmModal.action}
