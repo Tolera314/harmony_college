@@ -11,22 +11,25 @@ import {
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 
-// Import sub-components
-import { DashboardOverview }     from '@/src/components/registrar/DashboardOverview';
-import { AdmissionsManagement }   from '@/src/components/registrar/AdmissionsManagement';
-import { CourseCatalog }          from '@/src/components/registrar/CourseCatalog';
-import { CourseOfferings }         from '@/src/components/registrar/CourseOfferings';
-import { ClassTimetable }          from '@/src/components/registrar/ClassTimetable';
-import { RegistrationSettings }    from '@/src/components/registrar/RegistrationSettings';
-import { EnrollmentManagement }    from '@/src/components/registrar/EnrollmentManagement';
-import { TranscriptServices }      from '@/src/components/registrar/TranscriptServices';
-import { GraduationAuditing }      from '@/src/components/registrar/GraduationAuditing';
-import { DigitalCertificates }     from '@/src/components/registrar/DigitalCertificates';
-import { InteractiveReports }      from '@/src/components/registrar/InteractiveReports';
-import { AcademicCalendarView }    from '@/src/components/registrar/AcademicCalendarView';
-import { AnnouncementsManager }    from '@/src/components/registrar/AnnouncementsManager';
-import { AuditLogsTimeline }       from '@/src/components/registrar/AuditLogsTimeline';
-import { RegistrarSettings }       from '@/src/components/registrar/RegistrarSettings';
+import dynamic from 'next/dynamic';
+
+// Dynamic sub-component imports for optimal LCP code splitting
+import { DashboardOverview } from '@/src/components/registrar/DashboardOverview';
+
+const AdmissionsManagement = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
+const CourseCatalog = dynamic(() => import('@/src/components/registrar/CourseCatalog').then(m => m.CourseCatalog), { ssr: false });
+const CourseOfferings = dynamic(() => import('@/src/components/registrar/CourseOfferings').then(m => m.CourseOfferings), { ssr: false });
+const ClassTimetable = dynamic(() => import('@/src/components/registrar/ClassTimetable').then(m => m.ClassTimetable), { ssr: false });
+const RegistrationSettings = dynamic(() => import('@/src/components/registrar/RegistrationSettings').then(m => m.RegistrationSettings), { ssr: false });
+const EnrollmentManagement = dynamic(() => import('@/src/components/registrar/EnrollmentManagement').then(m => m.EnrollmentManagement), { ssr: false });
+const TranscriptServices = dynamic(() => import('@/src/components/registrar/TranscriptServices').then(m => m.TranscriptServices), { ssr: false });
+const GraduationAuditing = dynamic(() => import('@/src/components/registrar/GraduationAuditing').then(m => m.GraduationAuditing), { ssr: false });
+const DigitalCertificates = dynamic(() => import('@/src/components/registrar/DigitalCertificates').then(m => m.DigitalCertificates), { ssr: false });
+const InteractiveReports = dynamic(() => import('@/src/components/registrar/InteractiveReports').then(m => m.InteractiveReports), { ssr: false });
+const AcademicCalendarView = dynamic(() => import('@/src/components/registrar/AcademicCalendarView').then(m => m.AcademicCalendarView), { ssr: false });
+const AnnouncementsManager = dynamic(() => import('@/src/components/registrar/AnnouncementsManager').then(m => m.AnnouncementsManager), { ssr: false });
+const AuditLogsTimeline = dynamic(() => import('@/src/components/registrar/AuditLogsTimeline').then(m => m.AuditLogsTimeline), { ssr: false });
+const RegistrarSettings = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
 
 type RegistrarTab =
   | 'dashboard' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
@@ -168,22 +171,23 @@ export default function RegistrarDashboardPage() {
 
       <div className="relative z-10 min-h-screen text-white font-sans flex overflow-hidden">
         
-        {/* Left Sidebar: Collapsible, Sticky, Glass */}
+        {/* Left Sidebar: Collapsible, Fixed, Glass */}
         <aside 
-          className={`hidden md:flex flex-col border-r border-white/10 bg-white/5 backdrop-blur-xl transition-all duration-300 shrink-0 sticky top-0 h-screen z-30 ${
+          aria-label="Registrar Navigation"
+          className={`h-screen fixed left-0 top-0 bg-[#0F0F10]/95 backdrop-blur-xl border-r border-white/10 flex flex-col py-5 px-3 z-30 hidden md:flex transition-all duration-300 shadow-xl ${
             sidebarCollapsed ? 'w-20' : 'w-64'
           }`}
         >
           {/* Sidebar Header */}
-          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div className="mb-6 px-2 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0 shadow-inner">
-                <GraduationCap className="w-5 h-5 text-[#D4AF37]" />
+              <div className="w-10 h-10 rounded-xl bg-linear-to-br from-[#E9C349] to-[#b8951d] text-[#0F0F10] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
+                <GraduationCap className="w-5 h-5 text-[#0F0F10]" />
               </div>
               {!sidebarCollapsed && (
                 <div className="truncate">
-                  <h2 className="text-xs font-serif font-bold text-white tracking-widest uppercase">Harmony College</h2>
-                  <p className="text-[9px] font-mono text-white/40 uppercase tracking-widest mt-0.5">Registrar Portal</p>
+                  <h2 className="font-serif text-xl font-bold text-white tracking-tight block leading-none">Harmony</h2>
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-[#E9C349] font-bold block mt-1">Registrar Portal</p>
                 </div>
               )}
             </div>
@@ -198,43 +202,53 @@ export default function RegistrarDashboardPage() {
           </div>
 
           {/* Navigation Menu */}
-          <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto max-h-[calc(100vh-140px)]">
+          <nav className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" role="navigation">
             {menuItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
-                <button
+                <motion.button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all group ${
+                  whileHover={{ x: 4 }}
+                  whileTap={{ scale: 0.97 }}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`relative flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl font-sans text-xs font-semibold tracking-wide transition-all group touch-target ${
                     isActive 
-                      ? 'bg-[#D4AF37]/15 border border-[#D4AF37]/35 text-[#D4AF37]' 
-                      : 'border border-transparent text-white/60 hover:text-white hover:bg-white/5'
+                      ? 'text-[#E9C349] font-semibold' 
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                   title={sidebarCollapsed ? item.label : undefined}
                 >
-                  <item.icon className={`w-4 h-4 shrink-0 transition-colors ${
-                    isActive ? 'text-[#D4AF37]' : 'text-white/40 group-hover:text-white'
+                  {isActive && (
+                    <div
+                      className="absolute inset-0 bg-[#E9C349]/12 rounded-xl border-l-[3px] border-[#E9C349] transition-all duration-150"
+                    />
+                  )}
+                  <item.icon className={`relative z-10 w-4 h-4 shrink-0 transition-colors ${
+                    isActive ? 'text-[#E9C349]' : 'text-white/50 group-hover:text-white'
                   }`} />
-                  {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                </button>
+                  {!sidebarCollapsed && <span className="relative z-10 truncate flex-1">{item.label}</span>}
+                </motion.button>
               );
             })}
           </nav>
 
           {/* Sidebar Footer */}
-          <div className="p-3 border-t border-white/10">
-            <button 
+          <div className="mt-auto border-t border-white/10 pt-4 space-y-1 shrink-0">
+            <motion.button 
               onClick={() => setLogoutOpen(true)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25 transition-all group`}
+              whileHover={{ x: 4 }}
+              whileTap={{ scale: 0.97 }}
+              className="w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/30 transition-colors group touch-target"
             >
-              <LogOut className="w-4 h-4 text-rose-500/70 group-hover:text-rose-400 shrink-0" />
-              {!sidebarCollapsed && <span>Logout Session</span>}
-            </button>
+              <LogOut className="w-4 h-4 text-rose-500/70 group-hover:text-rose-400 shrink-0 relative z-10" />
+              {!sidebarCollapsed && <span className="relative z-10 truncate">Logout Session</span>}
+            </motion.button>
           </div>
         </aside>
 
         {/* Right Section Content viewport */}
-        <div className="flex-1 flex flex-col min-h-screen overflow-y-auto max-w-full">
+        <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 max-w-full ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
           
           {/* Top Sticky Navigation bar */}
           <header className="sticky top-0 bg-[#0F0F10]/60 border-b border-white/10 backdrop-blur-md z-20 px-6 py-4 flex justify-between items-center">

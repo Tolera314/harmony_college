@@ -10,17 +10,20 @@ import { HRMobileNav }         from '@/src/components/hr/HRMobileNav';
 import { HRSearchModal }       from '@/src/components/hr/HRSearchModal';
 import { HRLogoutModal }       from '@/src/components/hr/HRLogoutModal';
 
-import { HROverviewView }      from '@/src/components/hr/views/HROverviewView';
-import { HREmployeesView }     from '@/src/components/hr/views/HREmployeesView';
-import { HROnboardingView }    from '@/src/components/hr/views/HROnboardingView';
-import { HRLeaveView }         from '@/src/components/hr/views/HRLeaveView';
-import { HRPayrollView }       from '@/src/components/hr/views/HRPayrollView';
-import { HRPerformanceView }   from '@/src/components/hr/views/HRPerformanceView';
-import { HRDocumentsView }     from '@/src/components/hr/views/HRDocumentsView';
-import { HRReportsView }       from '@/src/components/hr/views/HRReportsView';
-import { HRNotificationsView } from '@/src/components/hr/views/HRNotificationsView';
-import { HRAuditLogView }      from '@/src/components/hr/views/HRAuditLogView';
-import { HRSettingsView }      from '@/src/components/hr/views/HRSettingsView';
+import dynamic from 'next/dynamic';
+
+import { HROverviewView } from '@/src/components/hr/views/HROverviewView';
+
+const HREmployeesView = dynamic(() => import('@/src/components/hr/views/HREmployeesView').then(m => m.HREmployeesView), { ssr: false });
+const HROnboardingView = dynamic(() => import('@/src/components/hr/views/HROnboardingView').then(m => m.HROnboardingView), { ssr: false });
+const HRLeaveView = dynamic(() => import('@/src/components/hr/views/HRLeaveView').then(m => m.HRLeaveView), { ssr: false });
+const HRPayrollView = dynamic(() => import('@/src/components/hr/views/HRPayrollView').then(m => m.HRPayrollView), { ssr: false });
+const HRPerformanceView = dynamic(() => import('@/src/components/hr/views/HRPerformanceView').then(m => m.HRPerformanceView), { ssr: false });
+const HRDocumentsView = dynamic(() => import('@/src/components/hr/views/HRDocumentsView').then(m => m.HRDocumentsView), { ssr: false });
+const HRReportsView = dynamic(() => import('@/src/components/hr/views/HRReportsView').then(m => m.HRReportsView), { ssr: false });
+const HRNotificationsView = dynamic(() => import('@/src/components/hr/views/HRNotificationsView').then(m => m.HRNotificationsView), { ssr: false });
+const HRAuditLogView = dynamic(() => import('@/src/components/hr/views/HRAuditLogView').then(m => m.HRAuditLogView), { ssr: false });
+const HRSettingsView = dynamic(() => import('@/src/components/hr/views/HRSettingsView').then(m => m.HRSettingsView), { ssr: false });
 
 export default function HRDashboardPage() {
   const [activeTab,     setActiveTab]     = useState<HRNavTab>('overview');

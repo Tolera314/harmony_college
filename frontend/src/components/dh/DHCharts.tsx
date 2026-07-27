@@ -95,9 +95,10 @@ export const BarChart: React.FC<BarChartProps> = ({ data, height = 140, showValu
   const pad = { top: 20, right: 12, bottom: 28, left: 8 };
   const innerW = W - pad.left - pad.right;
   const innerH = H - pad.top - pad.bottom;
-  const maxV = Math.max(...data.map((d) => d.value));
-  const barW = (innerW / data.length) * 0.55;
-  const gap = innerW / data.length;
+  const maxV = Math.max(...data.map((d) => d.value), 1);
+  const count = data.length || 1;
+  const barW = (innerW / count) * 0.55;
+  const gap = innerW / count;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden="true">
@@ -106,15 +107,16 @@ export const BarChart: React.FC<BarChartProps> = ({ data, height = 140, showValu
         return <line key={t} x1={pad.left} y1={y} x2={W - pad.right} y2={y} stroke="white" strokeOpacity="0.06" strokeWidth="1" />;
       })}
       {data.map((d, i) => {
-        const bh = (d.value / maxV) * innerH;
+        const bh = Math.max(0, (d.value / maxV) * innerH) || 0;
         const x = pad.left + i * gap + gap / 2 - barW / 2;
         const y = pad.top + innerH - bh;
         const col = d.color ?? '#E9C349';
         return (
           <g key={i}>
             <motion.rect
-              x={x} y={pad.top + innerH} width={barW} height={0} rx="5"
+              x={x} y={y} width={barW} height={bh} rx="5"
               fill={col} fillOpacity="0.85"
+              initial={{ height: 0, y: pad.top + innerH }}
               animate={{ y, height: bh }}
               transition={{ delay: i * 0.07, duration: 0.6, ease: 'easeOut' }}
             />

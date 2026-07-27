@@ -93,10 +93,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     }`}
                   >
                     {isActive && (
-                      <motion.div
-                        layoutId="adminActivePill"
-                        className="absolute inset-0 bg-[#E9C349]/10 rounded-lg border-l-[2px] border-[#E9C349]"
-                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      <div
+                        className="absolute inset-0 bg-[#E9C349]/10 rounded-lg border-l-[2px] border-[#E9C349] transition-all duration-150"
                       />
                     )}
                     <span className={`relative z-10 shrink-0 ${isActive ? 'text-[#E9C349]' : 'text-white/40 group-hover:text-white transition-colors'}`}>

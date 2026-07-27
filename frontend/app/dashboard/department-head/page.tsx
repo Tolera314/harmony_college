@@ -10,17 +10,20 @@ import { DHMobileNav }         from '@/src/components/dh/DHMobileNav';
 import { DHSearchModal }       from '@/src/components/dh/DHSearchModal';
 import { DHLogoutModal }       from '@/src/components/dh/DHLogoutModal';
 
-import { DHOverviewView }      from '@/src/components/dh/views/DHOverviewView';
-import { DHCoursesView }       from '@/src/components/dh/views/DHCoursesView';
-import { DHFacultyView }       from '@/src/components/dh/views/DHFacultyView';
-import { DHStudentsView }      from '@/src/components/dh/views/DHStudentsView';
-import { DHApprovalsView }     from '@/src/components/dh/views/DHApprovalsView';
-import { DHLeaveRequestsView } from '@/src/components/dh/views/DHLeaveRequestsView';
-import { DHReportsView }       from '@/src/components/dh/views/DHReportsView';
-import { DHAttendanceView }    from '@/src/components/dh/views/DHAttendanceView';
-import { DHNotificationsView } from '@/src/components/dh/views/DHNotificationsView';
-import { DHAuditLogView }      from '@/src/components/dh/views/DHAuditLogView';
-import { DHSettingsView }      from '@/src/components/dh/views/DHSettingsView';
+import dynamic from 'next/dynamic';
+
+import { DHOverviewView } from '@/src/components/dh/views/DHOverviewView';
+
+const DHCoursesView = dynamic(() => import('@/src/components/dh/views/DHCoursesView').then(m => m.DHCoursesView), { ssr: false });
+const DHFacultyView = dynamic(() => import('@/src/components/dh/views/DHFacultyView').then(m => m.DHFacultyView), { ssr: false });
+const DHStudentsView = dynamic(() => import('@/src/components/dh/views/DHStudentsView').then(m => m.DHStudentsView), { ssr: false });
+const DHApprovalsView = dynamic(() => import('@/src/components/dh/views/DHApprovalsView').then(m => m.DHApprovalsView), { ssr: false });
+const DHLeaveRequestsView = dynamic(() => import('@/src/components/dh/views/DHLeaveRequestsView').then(m => m.DHLeaveRequestsView), { ssr: false });
+const DHReportsView = dynamic(() => import('@/src/components/dh/views/DHReportsView').then(m => m.DHReportsView), { ssr: false });
+const DHAttendanceView = dynamic(() => import('@/src/components/dh/views/DHAttendanceView').then(m => m.DHAttendanceView), { ssr: false });
+const DHNotificationsView = dynamic(() => import('@/src/components/dh/views/DHNotificationsView').then(m => m.DHNotificationsView), { ssr: false });
+const DHAuditLogView = dynamic(() => import('@/src/components/dh/views/DHAuditLogView').then(m => m.DHAuditLogView), { ssr: false });
+const DHSettingsView = dynamic(() => import('@/src/components/dh/views/DHSettingsView').then(m => m.DHSettingsView), { ssr: false });
 
 export default function DepartmentHeadPage() {
   const [activeTab,     setActiveTab]     = useState<DHNavTab>('overview');

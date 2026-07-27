@@ -93,10 +93,8 @@ export const InSidebar: React.FC<InSidebarProps> = ({
               }`}
             >
               {isActive && (
-                <motion.div
-                  layoutId="inActivePill"
-                  className="absolute inset-0 bg-[#E9C349]/12 rounded-xl border-l-[3px] border-[#E9C349]"
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                <div
+                  className="absolute inset-0 bg-[#E9C349]/12 rounded-xl border-l-[3px] border-[#E9C349] transition-all duration-150"
                 />
               )}
               <span className={`relative z-10 shrink-0 ${isActive ? 'text-[#E9C349]' : 'text-white/50 group-hover:text-white transition-colors'}`}>

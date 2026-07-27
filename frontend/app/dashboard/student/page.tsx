@@ -5,13 +5,16 @@ import { NavTab, StudentProfile, Course } from '@/src/types';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { MobileNav } from '@/src/components/layout/MobileNav';
+import dynamic from 'next/dynamic';
+
 import { DashboardView } from '@/src/components/DashboardView';
-import { CourseRegistrationView } from '@/src/components/CourseRegistrationView';
-import { GradesView } from '@/src/components/GradesView';
-import { FinancialsView } from '@/src/components/FinancialsView';
-import { DegreeAuditView } from '@/src/components/DegreeAuditView';
-import { SupportView } from '@/src/components/SupportView';
-import { SettingsView } from '@/src/components/SettingsView';
+
+const CourseRegistrationView = dynamic(() => import('@/src/components/CourseRegistrationView').then(m => m.CourseRegistrationView), { ssr: false });
+const GradesView = dynamic(() => import('@/src/components/GradesView').then(m => m.GradesView), { ssr: false });
+const FinancialsView = dynamic(() => import('@/src/components/FinancialsView').then(m => m.FinancialsView), { ssr: false });
+const DegreeAuditView = dynamic(() => import('@/src/components/DegreeAuditView').then(m => m.DegreeAuditView), { ssr: false });
+const SupportView = dynamic(() => import('@/src/components/SupportView').then(m => m.SupportView), { ssr: false });
+const SettingsView = dynamic(() => import('@/src/components/SettingsView').then(m => m.SettingsView), { ssr: false });
 import {
   initialStudentProfile,
   initialActiveCourses,
