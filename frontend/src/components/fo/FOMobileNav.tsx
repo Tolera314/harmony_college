@@ -28,7 +28,7 @@ export const FOMobileNav: React.FC<FOMobileNavProps> = ({
     <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden p-3 pointer-events-none">
       <nav
         aria-label="Mobile Finance Navigation"
-        className="pointer-events-auto max-w-lg mx-auto bg-[#141617]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-around px-2 py-1.5"
+        className="pointer-events-auto max-w-lg mx-auto bg-[var(--bg-panel)]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-around px-2 py-1.5"
       >
         {items.map((item) => {
           const isActive = activeTab === item.id;

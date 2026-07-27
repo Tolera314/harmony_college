@@ -89,7 +89,7 @@ export default function FinanceOfficerPage() {
   return (
     <>
       {/* Background — deep obsidian with soft radial gold gradients */}
-      <div className="fixed inset-0 bg-[#0F0F10] pointer-events-none z-0" aria-hidden="true">
+      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#E9C349]/5 rounded-full blur-[140px]" />
         <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#E9C349]/4 rounded-full blur-[120px]" />
         <div className="absolute top-3/4 left-1/4 w-[400px] h-[400px] bg-[#E9C349]/3 rounded-full blur-[100px]" />

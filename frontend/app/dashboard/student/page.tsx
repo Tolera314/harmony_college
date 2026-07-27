@@ -99,7 +99,7 @@ export default function StudentDashboardPage() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      <div className="min-h-screen bg-[#0F0F10] text-[#f2f0f0]">
+      <div className="min-h-screen bg-[var(--bg-base)] text-[#f2f0f0]">
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}

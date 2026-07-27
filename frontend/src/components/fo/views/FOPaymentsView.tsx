@@ -50,9 +50,9 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))}
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors"
           >
-            <option value="" className="bg-[#141617]">Select student...</option>
+            <option value="" style={{ backgroundColor: 'var(--bg-panel)' }}>Select student...</option>
             {financeStudents.map((s) => (
-              <option key={s.id} value={s.id} className="bg-[#141617]">
+              <option key={s.id} value={s.id} style={{ backgroundColor: 'var(--bg-panel)' }}>
                 {s.name} — {s.studentId}
               </option>
             ))}
@@ -95,7 +95,7 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors"
             >
               {(['Cash', 'Bank Transfer', 'Telebirr', 'Chapa', 'Cheque'] as PaymentMethod[]).map((m) => (
-                <option key={m} value={m} className="bg-[#141617]">{m}</option>
+                <option key={m} value={m} style={{ backgroundColor: 'var(--bg-panel)' }}>{m}</option>
               ))}
             </select>
           </div>

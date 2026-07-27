@@ -54,7 +54,7 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
   return (
     <aside
       aria-label="Finance Officer Navigation"
-      className="h-screen w-20 xl:w-64 fixed left-0 top-0 bg-[#0F0F10]/95 backdrop-blur-xl border-r border-white/10 flex-col py-6 px-3 xl:px-4 z-50 hidden md:!flex transition-all duration-300 shadow-xl"
+      className="h-screen w-20 xl:w-64 fixed left-0 top-0 bg-[var(--bg-sidebar)]/95 backdrop-blur-xl border-r border-white/10 flex-col py-6 px-3 xl:px-4 z-50 hidden md:!flex transition-all duration-300 shadow-xl"
     >
       {/* Logo */}
       <div className="mb-8 px-2">

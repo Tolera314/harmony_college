@@ -7,7 +7,7 @@
 import type {
   InstructorProfile, ScheduleClass, AttendanceRecord, AttendanceSession, AttendanceStatus,
   Assessment, GradeEntry, CourseMaterial, Announcement,
-  InstructorNotification, InstructorAuditEntry, ClockEntry, AttendanceStatus,
+  InstructorNotification, InstructorAuditEntry, ClockEntry,
 } from '../types/instructor';
 
 // ── Instructor Profile ─────────────────────────────────────────────────────

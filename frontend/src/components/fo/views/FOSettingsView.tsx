@@ -11,6 +11,7 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { foProfile } from '../../../data/financeData';
+import { useTheme } from '../../../context/ThemeContext';
 
 type SettingsTab = 'profile' | 'password' | 'notifications' | 'appearance' | 'language' | 'security' | 'sessions';
 
@@ -24,53 +25,23 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'sessions',      label: 'Sessions',         icon: <Monitor className="w-4 h-4" /> },
 ];
 
-// ── Theme definitions ──────────────────────────────────────────────────────────
-const themes = [
-  { id: 'dark',   name: 'Dark (Default)', bg: '#0F0F10', surface: 'rgba(255,255,255,0.05)', desc: 'Deep obsidian' },
-  { id: 'navy',   name: 'Deep Navy',      bg: '#060c1a', surface: 'rgba(255,255,255,0.05)', desc: 'Midnight blue' },
-  { id: 'forest', name: 'Dark Forest',    bg: '#070f0a', surface: 'rgba(255,255,255,0.05)', desc: 'Deep green' },
-] as const;
-
-type ThemeId = typeof themes[number]['id'];
-
 export const FOSettingsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [showPass, setShowPass]   = useState(false);
   const [saved, setSaved]         = useState(false);
-  const [activeTheme, setActiveTheme] = useState<ThemeId>('dark');
-
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  };
-
-  const applyTheme = (themeId: ThemeId) => {
-    setActiveTheme(themeId);
-    const theme = themes.find((t) => t.id === themeId)!;
-    // Apply to document root for instant effect across the whole app
-    document.documentElement.style.setProperty('--bg-base', theme.bg);
-    document.body.style.backgroundColor = theme.bg;
-    document.body.style.transition = 'background-color 0.4s ease';
-    // Store preference
-    try { localStorage.setItem('fo-theme', themeId); } catch (_) {}
-  };
-
-  // On mount, restore saved theme
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem('fo-theme') as ThemeId | null;
-      if (saved && themes.find((t) => t.id === saved)) {
-        applyTheme(saved);
-      }
-    } catch (_) {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const [notifPrefs, setNotifPrefs] = useState({
     paymentReceived: true, paymentOverdue: true,
     installmentDue: true, reconciliationFailed: true,
     largePayment: true, systemAlerts: false, reminders: true,
   });
+
+  // ── Centralized theme context ────────────────────────────────────────────────
+  const { theme: activeTheme, setTheme, themes } = useTheme();
+
+  const handleSave = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
@@ -100,6 +71,7 @@ export const FOSettingsView: React.FC = () => {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
+
           {/* ── Profile ──────────────────────────────────────────────────────── */}
           {activeTab === 'profile' && (
             <Card hoverable={false} className="space-y-6">
@@ -119,18 +91,20 @@ export const FOSettingsView: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: 'Full Name',    value: foProfile.name,       field: 'name' },
-                  { label: 'Email',        value: foProfile.email,      field: 'email' },
-                  { label: 'Phone',        value: foProfile.phone,      field: 'phone' },
-                  { label: 'Office Room',  value: foProfile.officeRoom, field: 'office' },
-                  { label: 'Department',   value: foProfile.department, field: 'dept' },
-                  { label: 'Employee ID',  value: foProfile.employeeId, field: 'empid' },
+                  { label: 'Full Name',   value: foProfile.name,       field: 'name'  },
+                  { label: 'Email',       value: foProfile.email,      field: 'email' },
+                  { label: 'Phone',       value: foProfile.phone,      field: 'phone' },
+                  { label: 'Office Room', value: foProfile.officeRoom, field: 'office' },
+                  { label: 'Department',  value: foProfile.department, field: 'dept'  },
+                  { label: 'Employee ID', value: foProfile.employeeId, field: 'empid' },
                 ].map((f) => (
                   <div key={f.field}>
                     <label className="block font-mono text-[11px] text-white/40 uppercase tracking-wider mb-2">{f.label}</label>
-                    <input defaultValue={f.value}
+                    <input
+                      defaultValue={f.value}
                       disabled={f.field === 'empid'}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" />
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    />
                   </div>
                 ))}
               </div>
@@ -143,21 +117,24 @@ export const FOSettingsView: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Password ──────────────────────────────────────────────────────── */}
+          {/* ── Password ─────────────────────────────────────────────────────── */}
           {activeTab === 'password' && (
             <Card hoverable={false} className="space-y-6">
               <h3 className="font-serif text-xl font-bold text-white">Change Password</h3>
               <div className="space-y-4 max-w-sm">
                 {[
-                  { label: 'Current Password',  id: 'cur' },
-                  { label: 'New Password',       id: 'new' },
-                  { label: 'Confirm Password',   id: 'con' },
+                  { label: 'Current Password', id: 'cur' },
+                  { label: 'New Password',      id: 'new' },
+                  { label: 'Confirm Password',  id: 'con' },
                 ].map((f) => (
                   <div key={f.id}>
                     <label className="block font-mono text-[11px] text-white/40 uppercase tracking-wider mb-2">{f.label}</label>
                     <div className="relative">
-                      <input type={showPass ? 'text' : 'password'} placeholder="••••••••"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pr-10 font-sans text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E9C349]/50 transition-colors" />
+                      <input
+                        type={showPass ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pr-10 font-sans text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E9C349]/50 transition-colors"
+                      />
                       <button onClick={() => setShowPass((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
                         {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -166,7 +143,7 @@ export const FOSettingsView: React.FC = () => {
                 ))}
                 <div className="p-3 bg-white/5 rounded-xl border border-white/10 space-y-1">
                   <p className="font-mono text-[10px] text-white/40 uppercase tracking-wider">Requirements</p>
-                  {['At least 8 characters','One uppercase letter','One number','One special character'].map((r) => (
+                  {['At least 8 characters', 'One uppercase letter', 'One number', 'One special character'].map((r) => (
                     <div key={r} className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                       <span className="font-sans text-xs text-white/50">{r}</span>
@@ -180,19 +157,19 @@ export const FOSettingsView: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Notifications ─────────────────────────────────────────────────── */}
+          {/* ── Notifications ────────────────────────────────────────────────── */}
           {activeTab === 'notifications' && (
             <Card hoverable={false} className="space-y-6">
               <h3 className="font-serif text-xl font-bold text-white">Notification Preferences</h3>
               <div className="space-y-3">
                 {([
-                  { key: 'paymentReceived',      label: 'Payment Received',        desc: 'Alert when a student payment is recorded' },
-                  { key: 'paymentOverdue',        label: 'Payment Overdue',         desc: 'Alert when a student account becomes overdue' },
-                  { key: 'installmentDue',        label: 'Installment Due',         desc: 'Reminder when an installment is due' },
-                  { key: 'reconciliationFailed',  label: 'Reconciliation Failed',   desc: 'Alert when a gateway transaction fails to match' },
-                  { key: 'largePayment',          label: 'Large Payment Recorded',  desc: 'Alert for payments above ETB 20,000' },
-                  { key: 'systemAlerts',          label: 'System Alerts',           desc: 'System maintenance and portal announcements' },
-                  { key: 'reminders',             label: 'Task Reminders',          desc: 'Report deadlines and pending action reminders' },
+                  { key: 'paymentReceived',     label: 'Payment Received',       desc: 'Alert when a student payment is recorded' },
+                  { key: 'paymentOverdue',       label: 'Payment Overdue',        desc: 'Alert when a student account becomes overdue' },
+                  { key: 'installmentDue',       label: 'Installment Due',        desc: 'Reminder when an installment is due' },
+                  { key: 'reconciliationFailed', label: 'Reconciliation Failed',  desc: 'Alert when a gateway transaction fails to match' },
+                  { key: 'largePayment',         label: 'Large Payment Recorded', desc: 'Alert for payments above ETB 20,000' },
+                  { key: 'systemAlerts',         label: 'System Alerts',          desc: 'System maintenance and portal announcements' },
+                  { key: 'reminders',            label: 'Task Reminders',         desc: 'Report deadlines and pending action reminders' },
                 ] as { key: keyof typeof notifPrefs; label: string; desc: string }[]).map((item) => (
                   <div key={item.key} className="flex items-center justify-between p-4 bg-white/5 border border-white/8 rounded-xl">
                     <div>
@@ -202,7 +179,8 @@ export const FOSettingsView: React.FC = () => {
                     <button
                       onClick={() => setNotifPrefs((p) => ({ ...p, [item.key]: !p[item.key] }))}
                       className={`relative w-11 h-6 rounded-full transition-colors ${notifPrefs[item.key] ? 'bg-[#E9C349]' : 'bg-white/10'}`}
-                      role="switch" aria-checked={notifPrefs[item.key]}
+                      role="switch"
+                      aria-checked={notifPrefs[item.key]}
                     >
                       <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${notifPrefs[item.key] ? 'left-6' : 'left-1'}`} />
                     </button>
@@ -215,7 +193,7 @@ export const FOSettingsView: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Appearance ────────────────────────────────────────────────────── */}
+          {/* ── Appearance ───────────────────────────────────────────────────── */}
           {activeTab === 'appearance' && (
             <Card hoverable={false} className="space-y-8">
               <h3 className="font-serif text-xl font-bold text-white">Appearance</h3>
@@ -229,9 +207,10 @@ export const FOSettingsView: React.FC = () => {
                     return (
                       <motion.button
                         key={t.id}
-                        onClick={() => applyTheme(t.id)}
+                        onClick={() => setTheme(t.id)}
                         whileHover={{ y: -3 }}
                         whileTap={{ scale: 0.97 }}
+                        aria-pressed={isActive}
                         className={`relative p-4 rounded-2xl border text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] ${
                           isActive
                             ? 'border-[#E9C349]/60 ring-2 ring-[#E9C349]/20'
@@ -251,21 +230,22 @@ export const FOSettingsView: React.FC = () => {
                         <p className="font-sans text-sm font-semibold text-white">{t.name}</p>
                         <p className="font-mono text-[10px] text-white/40 mt-0.5">{t.desc}</p>
 
-                        {isActive && (
-                          <div className="absolute top-3 right-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E9C349]/20 border border-[#E9C349]/40 text-[#E9C349] font-mono text-[9px] font-bold uppercase tracking-wider">
-                              <CheckCircle2 className="w-2.5 h-2.5" />
-                              Active
+                        {/* Radio indicator — top right */}
+                        <div className="absolute top-3 right-3">
+                          {isActive ? (
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#E9C349] shadow-md">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#0F0F10]" />
                             </span>
-                          </div>
-                        )}
+                          ) : (
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border-2 border-white/20 bg-white/5" />
+                          )}
+                        </div>
                       </motion.button>
                     );
                   })}
                 </div>
-                {/* Live feedback */}
                 <p className="font-sans text-xs text-white/40">
-                  Theme applied instantly. Change persists across sessions.
+                  Theme applies instantly across the entire portal and persists after refresh.
                 </p>
               </div>
 
@@ -314,21 +294,21 @@ export const FOSettingsView: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Language ──────────────────────────────────────────────────────── */}
+          {/* ── Language ─────────────────────────────────────────────────────── */}
           {activeTab === 'language' && (
             <Card hoverable={false} className="space-y-6">
               <h3 className="font-serif text-xl font-bold text-white">Language & Region</h3>
               <div className="space-y-4 max-w-sm">
                 {[
-                  { label: 'Display Language', options: ['English', 'Amharic (አማርኛ)', 'Afaan Oromo'], selected: 'English' },
-                  { label: 'Currency Format',  options: ['ETB — Ethiopian Birr', 'USD — US Dollar'], selected: 'ETB — Ethiopian Birr' },
-                  { label: 'Date Format',      options: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'], selected: 'YYYY-MM-DD' },
-                  { label: 'Number Format',    options: ['1,234,567.89', '1.234.567,89'], selected: '1,234,567.89' },
+                  { label: 'Display Language', options: ['English', 'Amharic (አማርኛ)', 'Afaan Oromo'] },
+                  { label: 'Currency Format',  options: ['ETB — Ethiopian Birr', 'USD — US Dollar'] },
+                  { label: 'Date Format',      options: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'] },
+                  { label: 'Number Format',    options: ['1,234,567.89', '1.234.567,89'] },
                 ].map((s) => (
                   <div key={s.label}>
                     <label className="block font-mono text-[11px] text-white/40 uppercase tracking-wider mb-2">{s.label}</label>
                     <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors">
-                      {s.options.map((o) => <option key={o} value={o} className="bg-[#141617]">{o}</option>)}
+                      {s.options.map((o) => <option key={o} value={o} style={{ backgroundColor: 'var(--bg-panel)' }}>{o}</option>)}
                     </select>
                   </div>
                 ))}
@@ -339,40 +319,38 @@ export const FOSettingsView: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Security ──────────────────────────────────────────────────────── */}
+          {/* ── Security ─────────────────────────────────────────────────────── */}
           {activeTab === 'security' && (
             <Card hoverable={false} className="space-y-6">
               <h3 className="font-serif text-xl font-bold text-white">Security</h3>
               <div className="space-y-3">
                 {[
-                  { label: 'Two-Factor Authentication', desc: 'Add an extra layer of security to your account', enabled: false },
-                  { label: 'Login Notifications',        desc: 'Get notified when your account is accessed', enabled: true },
-                  { label: 'Require Password on Receipt Export', desc: 'Prompt for password before bulk PDF export', enabled: true },
-                  { label: 'Auto Logout on Inactivity',  desc: 'Automatically sign out after 30 minutes of inactivity', enabled: true },
+                  { label: 'Two-Factor Authentication',        desc: 'Add an extra layer of security to your account',      enabled: false },
+                  { label: 'Login Notifications',              desc: 'Get notified when your account is accessed',           enabled: true  },
+                  { label: 'Require Password on Receipt Export', desc: 'Prompt for password before bulk PDF export',         enabled: true  },
+                  { label: 'Auto Logout on Inactivity',        desc: 'Automatically sign out after 30 minutes of inactivity', enabled: true },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center justify-between p-4 bg-white/5 border border-white/8 rounded-xl">
                     <div>
                       <p className="font-sans text-sm font-medium text-white">{item.label}</p>
                       <p className="font-sans text-xs text-white/40 mt-0.5">{item.desc}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={item.enabled ? 'emerald' : 'glass'}>{item.enabled ? 'Enabled' : 'Disabled'}</Badge>
-                    </div>
+                    <Badge variant={item.enabled ? 'emerald' : 'glass'}>{item.enabled ? 'Enabled' : 'Disabled'}</Badge>
                   </div>
                 ))}
               </div>
             </Card>
           )}
 
-          {/* ── Sessions ──────────────────────────────────────────────────────── */}
+          {/* ── Sessions ─────────────────────────────────────────────────────── */}
           {activeTab === 'sessions' && (
             <Card hoverable={false} className="space-y-6">
               <h3 className="font-serif text-xl font-bold text-white">Active Sessions</h3>
               <div className="space-y-3">
                 {[
-                  { device: 'Chrome on Windows 11', ip: '192.168.1.10', location: 'Addis Ababa, ET', time: 'Now — Current session', current: true },
-                  { device: 'Firefox on Windows 10', ip: '192.168.1.11', location: 'Addis Ababa, ET', time: '2024-10-14 14:22', current: false },
-                  { device: 'Chrome on Android',     ip: '10.0.0.15',   location: 'Addis Ababa, ET', time: '2024-10-13 09:10', current: false },
+                  { device: 'Chrome on Windows 11',  ip: '192.168.1.10', location: 'Addis Ababa, ET', time: 'Now — Current session', current: true  },
+                  { device: 'Firefox on Windows 10', ip: '192.168.1.11', location: 'Addis Ababa, ET', time: '2024-10-14 14:22',      current: false },
+                  { device: 'Chrome on Android',     ip: '10.0.0.15',    location: 'Addis Ababa, ET', time: '2024-10-13 09:10',      current: false },
                 ].map((s, i) => (
                   <div key={i} className={`flex items-center justify-between p-4 rounded-xl border ${s.current ? 'border-[#E9C349]/30 bg-[#E9C349]/5' : 'border-white/8 bg-white/5'}`}>
                     <div className="flex items-center gap-3">
@@ -394,6 +372,7 @@ export const FOSettingsView: React.FC = () => {
               </Button>
             </Card>
           )}
+
         </div>
       </div>
     </motion.div>

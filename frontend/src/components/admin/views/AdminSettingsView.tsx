@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, User, Lock, Shield, Save, CheckCircle2 } from 'lucide-react';
+import { Settings, User, Lock, Shield, Save, CheckCircle2, Monitor } from 'lucide-react';
 import { AdminProfile } from '../../../types/admin';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
+import { AppearanceSection } from '../../ui/AppearanceSection';
 
 interface AdminSettingsViewProps { profile: AdminProfile; }
 
@@ -18,9 +19,10 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ profile })
   const [form, setForm] = useState({ name: profile.name, email: profile.email });
 
   const sections = [
-    { id: 'profile', label: 'Admin Profile', icon: <User className="w-4 h-4" /> },
-    { id: 'security', label: 'Password & 2FA', icon: <Lock className="w-4 h-4" /> },
-    { id: 'sessions', label: 'Active Sessions', icon: <Shield className="w-4 h-4" /> },
+    { id: 'profile',    label: 'Admin Profile',   icon: <User className="w-4 h-4" /> },
+    { id: 'security',   label: 'Password & 2FA',  icon: <Lock className="w-4 h-4" /> },
+    { id: 'appearance', label: 'Appearance',      icon: <Monitor className="w-4 h-4" /> },
+    { id: 'sessions',   label: 'Active Sessions', icon: <Shield className="w-4 h-4" /> },
   ];
 
   return (
@@ -83,6 +85,11 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ profile })
                 <Input label="Confirm New Password" type="password" placeholder="Repeat new password" />
               </div>
               <div className="flex justify-end"><Button variant="primary" icon={<Save className="w-4 h-4" />}>Update Password</Button></div>
+            </Card>
+          )}
+          {section === 'appearance' && (
+            <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
+              <AppearanceSection variant="inline" />
             </Card>
           )}
           {section === 'sessions' && (

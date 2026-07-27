@@ -9,6 +9,7 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
+import { AppearanceSection } from '../../ui/AppearanceSection';
 
 interface DHSettingsViewProps {
   profile: DHProfile;
@@ -164,18 +165,8 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
 
           {/* Appearance */}
           {activeSection === 'appearance' && (
-            <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Monitor className="w-5 h-5 text-[#E9C349]" /> Appearance
-              </h3>
-              <div className="p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between">
-                <div>
-                  <p className="font-sans text-sm font-bold text-white">Dark — Deep Obsidian</p>
-                  <p className="font-sans text-xs text-white/50 mt-1">Official Harmony College dark theme. Recommended for reduced eye strain.</p>
-                </div>
-                <Badge variant="gold">Active</Badge>
-              </div>
-              <p className="font-sans text-xs text-white/30">Additional themes coming in a future release.</p>
+            <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
+              <AppearanceSection variant="inline" />
             </Card>
           )}
 

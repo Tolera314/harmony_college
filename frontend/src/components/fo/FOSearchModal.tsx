@@ -89,7 +89,7 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
             exit={{ opacity: 0, scale: 0.97, y: -10 }}
             transition={{ duration: 0.18 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl bg-[#141617] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-xl bg-[var(--bg-panel)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             role="dialog"
             aria-label="Global search"
           >

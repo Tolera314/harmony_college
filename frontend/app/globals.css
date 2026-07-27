@@ -11,10 +11,13 @@
    All components reference these tokens — never hardcoded colors.
    ─────────────────────────────────────────────────────────────────────── */
 
-:root {
-  /* Backgrounds */
+/* ── Dark Theme (default — no attribute needed) ───────────────────────────── */
+:root,
+html[data-theme="dark"] {
   --bg-base:       #0F0F10;
   --bg-surface:    #0E0E0E;
+  --bg-sidebar:    #0F0F10;
+  --bg-panel:      #141617;
   --bg-footer:     #0A0A0B;
   --bg-card:       rgba(26, 26, 28, 0.60);
   --bg-card-solid: #1A1A1C;
@@ -22,35 +25,91 @@
   --bg-modal-hdr:  rgba(20, 19, 19, 0.60);
   --bg-input:      #141313;
   --bg-glass:      rgba(255, 255, 255, 0.05);
-
-  /* Text */
   --text-primary:   #ffffff;
-  --text-secondary: #9ca3af; /* gray-400 */
-  --text-muted:     #6b7280; /* gray-500 */
-  --text-faint:     #4b5563; /* gray-600 */
-
-  /* Borders */
+  --text-secondary: #9ca3af;
+  --text-muted:     #6b7280;
+  --text-faint:     #4b5563;
   --border-subtle:  rgba(255, 255, 255, 0.05);
   --border-default: rgba(255, 255, 255, 0.10);
   --border-strong:  rgba(255, 255, 255, 0.15);
   --border-card:    rgba(255, 255, 255, 0.05);
-
-  /* Overlays */
   --overlay-hero-from: rgba(15, 15, 16, 0.96);
   --overlay-hero-mid:  rgba(15, 15, 16, 0.50);
   --overlay-hero-to:   transparent;
   --overlay-vt-from:   rgba(15, 15, 16, 0.80);
   --overlay-dark-bg:   rgba(0, 0, 0, 0.90);
   --overlay-modal-bg:  rgba(0, 0, 0, 0.80);
-
-  /* Drawers */
   --drawer-bg:     #1A1A1C;
   --drawer-border: rgba(255, 255, 255, 0.10);
-
-  /* Scrollbar */
   --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --theme-transition: background-color 280ms ease, color 280ms ease,
+    border-color 280ms ease, box-shadow 280ms ease, opacity 280ms ease;
+}
 
-  /* Transition */
+/* ── Deep Navy Theme ─────────────────────────────────────────────────────── */
+html[data-theme="navy"] {
+  --bg-base:       #060c1a;
+  --bg-surface:    #070d1c;
+  --bg-sidebar:    #060c1a;
+  --bg-panel:      #0b1530;
+  --bg-footer:     #050a16;
+  --bg-card:       rgba(10, 20, 50, 0.60);
+  --bg-card-solid: #0b1530;
+  --bg-modal:      #0b1530;
+  --bg-modal-hdr:  rgba(8, 14, 30, 0.80);
+  --bg-input:      #09122a;
+  --bg-glass:      rgba(255, 255, 255, 0.05);
+  --text-primary:   #e8edf8;
+  --text-secondary: #8a99bb;
+  --text-muted:     #6b7a99;
+  --text-faint:     #4b5878;
+  --border-subtle:  rgba(100, 130, 255, 0.06);
+  --border-default: rgba(100, 130, 255, 0.12);
+  --border-strong:  rgba(100, 130, 255, 0.20);
+  --border-card:    rgba(100, 130, 255, 0.08);
+  --overlay-hero-from: rgba(6, 12, 26, 0.96);
+  --overlay-hero-mid:  rgba(6, 12, 26, 0.50);
+  --overlay-hero-to:   transparent;
+  --overlay-vt-from:   rgba(6, 12, 26, 0.80);
+  --overlay-dark-bg:   rgba(0, 0, 0, 0.90);
+  --overlay-modal-bg:  rgba(0, 0, 10, 0.85);
+  --drawer-bg:     #0b1530;
+  --drawer-border: rgba(100, 130, 255, 0.12);
+  --scrollbar-thumb: rgba(100, 130, 255, 0.20);
+  --theme-transition: background-color 280ms ease, color 280ms ease,
+    border-color 280ms ease, box-shadow 280ms ease, opacity 280ms ease;
+}
+
+/* ── Dark Forest Theme ───────────────────────────────────────────────────── */
+html[data-theme="forest"] {
+  --bg-base:       #070f0a;
+  --bg-surface:    #071008;
+  --bg-sidebar:    #070f0a;
+  --bg-panel:      #0b1e0f;
+  --bg-footer:     #050d07;
+  --bg-card:       rgba(10, 30, 15, 0.60);
+  --bg-card-solid: #0b1e0f;
+  --bg-modal:      #0b1e0f;
+  --bg-modal-hdr:  rgba(7, 18, 9, 0.80);
+  --bg-input:      #091408;
+  --bg-glass:      rgba(255, 255, 255, 0.05);
+  --text-primary:   #e6f0e8;
+  --text-secondary: #85a88c;
+  --text-muted:     #637a68;
+  --text-faint:     #4a5c4d;
+  --border-subtle:  rgba(80, 160, 100, 0.06);
+  --border-default: rgba(80, 160, 100, 0.12);
+  --border-strong:  rgba(80, 160, 100, 0.20);
+  --border-card:    rgba(80, 160, 100, 0.08);
+  --overlay-hero-from: rgba(7, 15, 10, 0.96);
+  --overlay-hero-mid:  rgba(7, 15, 10, 0.50);
+  --overlay-hero-to:   transparent;
+  --overlay-vt-from:   rgba(7, 15, 10, 0.80);
+  --overlay-dark-bg:   rgba(0, 0, 0, 0.90);
+  --overlay-modal-bg:  rgba(0, 5, 0, 0.85);
+  --drawer-bg:     #0b1e0f;
+  --drawer-border: rgba(80, 160, 100, 0.12);
+  --scrollbar-thumb: rgba(80, 160, 100, 0.20);
   --theme-transition: background-color 280ms ease, color 280ms ease,
     border-color 280ms ease, box-shadow 280ms ease, opacity 280ms ease;
 }

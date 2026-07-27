@@ -297,10 +297,10 @@ export const EnrollmentManagement: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed right-0 top-0 bottom-0 w-full md:w-[650px] bg-[#0F0F10] border-l border-white/10 z-50 overflow-y-auto flex flex-col shadow-2xl font-sans"
+              className="fixed right-0 top-0 bottom-0 w-full md:w-[650px] bg-[var(--bg-base)] border-l border-white/10 z-50 overflow-y-auto flex flex-col shadow-2xl font-sans"
             >
               {/* Header */}
-              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-[#0F0F10] sticky top-0 z-10">
+              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-[var(--bg-base)] sticky top-0 z-10">
                 <div className="space-y-1">
                   <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Enrollment Registry Drawer</span>
                   <h3 className="text-lg font-serif font-bold text-white">{selectedStudent.name} ({selectedStudent.studentId})</h3>
@@ -390,7 +390,7 @@ export const EnrollmentManagement: React.FC = () => {
                           <select
                             value={targetCourseCode}
                             onChange={(e) => setTargetCourseCode(e.target.value)}
-                            className="w-full px-3 py-2 bg-[#0F0F10] border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                            className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-xl text-xs text-white focus:outline-none"
                           >
                             {overrideAction === 'add' ? (
                               availableCoursesToForceAdd.map(c => (
@@ -415,7 +415,7 @@ export const EnrollmentManagement: React.FC = () => {
                             placeholder="Enter administrative justification..."
                             value={overrideReason}
                             onChange={(e) => setOverrideReason(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-[#0F0F10] border border-white/10 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]"
+                            className="w-full px-3.5 py-2.5 bg-[var(--bg-base)] border border-white/10 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]"
                           />
                         </div>
 

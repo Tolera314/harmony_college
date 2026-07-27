@@ -47,7 +47,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         </div>
       )}
 
-      <header className={`sticky z-40 w-full bg-[#0F0F10]/92 backdrop-blur-xl border-b border-white/8 h-14 flex items-center md:pl-16 xl:pl-60 transition-all duration-300 ${maintenanceMode ? 'top-7' : 'top-0'}`}>
+      <header className={`sticky z-40 w-full bg-[var(--bg-sidebar)]/92 backdrop-blur-xl border-b border-white/8 h-14 flex items-center md:pl-16 xl:pl-60 transition-all duration-300 ${maintenanceMode ? 'top-7' : 'top-0'}`}>
         <div className="flex justify-between items-center w-full px-4 sm:px-5 py-2">
 
           {/* Breadcrumb */}
@@ -104,7 +104,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 6, scale: 0.97 }}
                       transition={{ duration: 0.16 }}
-                      className="absolute right-0 top-10 w-80 sm:w-96 bg-[#141617] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                      className="absolute right-0 top-10 w-80 sm:w-96 bg-[var(--bg-panel)] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
                     >
                       <div className="p-3.5 border-b border-white/10 flex items-center justify-between">
                         <span className="font-serif text-sm font-bold text-white">System Notifications</span>

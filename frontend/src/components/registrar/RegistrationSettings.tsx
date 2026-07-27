@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { AppearanceSection } from '../ui/AppearanceSection';
 
 export const RegistrationSettings: React.FC = () => {
   const [dates, setDates] = useState({
@@ -172,7 +173,7 @@ export const RegistrationSettings: React.FC = () => {
                     }`}
                   >
                     <span 
-                      className={`block w-4 h-4 rounded-full bg-[#0F0F10] shadow absolute top-0.5 transition-transform duration-200 ${
+                      className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform duration-200 ${
                         toggles[sw.key as keyof typeof toggles] ? 'translate-x-4.5' : 'translate-x-0.5'
                       }`}
                     />
@@ -182,6 +183,11 @@ export const RegistrationSettings: React.FC = () => {
             </div>
           </div>
 
+        </div>
+
+        {/* Appearance */}
+        <div className="lg:col-span-12">
+          <AppearanceSection variant="inline" />
         </div>
 
         {/* Right Side: Registration Rules Editor (5 cols) */}

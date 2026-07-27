@@ -12,7 +12,7 @@ export const AdminLogoutModal: React.FC<AdminLogoutModalProps> = ({ isOpen, onCl
     {isOpen && (
       <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} transition={{ duration: 0.2 }}
-          className="bg-[#141617] rounded-3xl max-w-sm w-full p-8 border border-white/10 shadow-2xl">
+          className="bg-[var(--bg-panel)] rounded-3xl max-w-sm w-full p-8 border border-white/10 shadow-2xl">
           <div className="flex items-center justify-between mb-5">
             <div className="w-12 h-12 rounded-2xl bg-rose-950/50 border border-rose-900/40 flex items-center justify-center">
               <LogOut className="w-6 h-6 text-rose-400" />

@@ -8,6 +8,7 @@ import {
   Smartphone, LogOut, CheckCircle2
 } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { AppearanceSection } from '../ui/AppearanceSection';
 
 export const RegistrarSettings: React.FC = () => {
   const [profile, setProfile] = useState({
@@ -26,7 +27,6 @@ export const RegistrarSettings: React.FC = () => {
 
   const [toggles, setToggles] = useState({
     twoFa: false,
-    darkMode: true,
     emailAlerts: true
   });
 
@@ -208,23 +208,21 @@ export const RegistrarSettings: React.FC = () => {
             <div className="space-y-4 font-sans">
               {[
                 { key: 'twoFa', label: 'Two-Factor Auth (2FA)', desc: 'Secures login with verification code dispatches.' },
-                { key: 'darkMode', label: 'Default Theme preferences', desc: 'Sets visual viewport colors to dark theme.' }
               ].map(sw => (
                 <div key={sw.key} className="flex justify-between items-start gap-4 p-3 bg-black/20 border border-white/5 rounded-xl">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-white">{sw.label}</p>
                     <p className="text-[10px] text-white/40">{sw.desc}</p>
                   </div>
-                  
                   <button
                     onClick={() => handleToggle(sw.key as any)}
                     className={`w-9 h-5 rounded-full shrink-0 relative transition-colors duration-200 focus:outline-none ${
                       toggles[sw.key as keyof typeof toggles] ? 'bg-[#D4AF37]' : 'bg-white/10'
                     }`}
                   >
-                    <span 
-                      className={`block w-4 h-4 rounded-full bg-[#0F0F10] shadow absolute top-0.5 transition-transform duration-200 ${
-                        toggles[sw.key as keyof typeof toggles] ? 'translate-x-4.5' : 'translate-x-0.5'
+                    <span
+                      className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform duration-200 ${
+                        toggles[sw.key as keyof typeof toggles] ? 'translate-x-4' : 'translate-x-0.5'
                       }`}
                     />
                   </button>
@@ -232,6 +230,9 @@ export const RegistrarSettings: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {/* Appearance */}
+          <AppearanceSection variant="inline" />
 
           {/* Session Manager list */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4 font-sans">

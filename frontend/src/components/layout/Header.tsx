@@ -52,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#0F0F10]/90 backdrop-blur-xl border-b border-white/10 h-16 flex items-center md:pl-20 xl:pl-64 transition-all duration-300">
+    <header className="sticky top-0 z-40 w-full bg-[var(--bg-sidebar)]/90 backdrop-blur-xl border-b border-white/10 h-16 flex items-center md:pl-20 xl:pl-64 transition-all duration-300">
       <div className="flex justify-between items-center w-full px-4 sm:px-8 py-3">
         {/* Left Side: Brand & Breadcrumb Trail */}
         <div className="flex items-center gap-2 sm:gap-3">
@@ -134,7 +134,7 @@ export const Header: React.FC<HeaderProps> = ({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.97 }}
                       transition={{ duration: 0.18 }}
-                      className="absolute right-0 top-12 w-80 sm:w-96 bg-[#141617] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                      className="absolute right-0 top-12 w-80 sm:w-96 bg-[var(--bg-panel)] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
                     >
                       <div className="p-4 border-b border-white/10 flex items-center justify-between">
                         <span className="font-serif text-base font-bold text-white">Notifications</span>
@@ -186,7 +186,7 @@ export const Header: React.FC<HeaderProps> = ({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.97 }}
                       transition={{ duration: 0.18 }}
-                      className="absolute right-0 top-12 w-80 sm:w-96 bg-[#141617] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                      className="absolute right-0 top-12 w-80 sm:w-96 bg-[var(--bg-panel)] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
                     >
                       <div className="p-4 border-b border-white/10 flex items-center justify-between">
                         <span className="font-serif text-base font-bold text-white flex items-center gap-2">
