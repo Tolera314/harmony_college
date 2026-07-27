@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, User, Bell, Lock, Globe, Shield, Save, CheckCircle2 } from 'lucide-react';
+import { Settings, User, Bell, Lock, Globe, Shield, Save, CheckCircle2, Monitor } from 'lucide-react';
 import { HROfficerProfile } from '../../../types/hr';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
+import { AppearanceSection } from '../../ui/AppearanceSection';
 
 interface HRSettingsViewProps {
   profile: HROfficerProfile;
@@ -31,6 +32,7 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
     { id: 'profile',       label: 'HR Profile',      icon: <User className="w-4 h-4" /> },
     { id: 'notifications', label: 'Notifications',   icon: <Bell className="w-4 h-4" /> },
     { id: 'security',      label: 'Password',        icon: <Lock className="w-4 h-4" /> },
+    { id: 'appearance',    label: 'Appearance',      icon: <Monitor className="w-4 h-4" /> },
     { id: 'language',      label: 'Language',        icon: <Globe className="w-4 h-4" /> },
     { id: 'sessions',      label: 'Active Sessions', icon: <Shield className="w-4 h-4" /> },
   ];
@@ -143,6 +145,12 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
               <div className="flex justify-end">
                 <Button variant="primary" icon={<Save className="w-4 h-4" />}>Update Password</Button>
               </div>
+            </Card>
+          )}
+
+          {activeSection === 'appearance' && (
+            <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
+              <AppearanceSection variant="inline" />
             </Card>
           )}
 

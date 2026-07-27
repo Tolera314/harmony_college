@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Settings, User, Bell, Lock, Save, CheckCircle2 } from 'lucide-react';
+import { Settings, User, Bell, Lock, Save, CheckCircle2, Monitor } from 'lucide-react';
 import { InstructorProfile } from '../../../types/instructor';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
+import { AppearanceSection } from '../../ui/AppearanceSection';
 
 interface InSettingsViewProps { profile: InstructorProfile }
 
@@ -21,9 +22,10 @@ export const InSettingsView: React.FC<InSettingsViewProps> = ({ profile }) => {
   const handleSave = (e: React.FormEvent) => { e.preventDefault(); setSaved(true); setTimeout(() => setSaved(false), 3000); };
 
   const sections = [
-    { id: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
+    { id: 'profile',       label: 'Profile',    icon: <User className="w-4 h-4" /> },
     { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
-    { id: 'security', label: 'Security', icon: <Lock className="w-4 h-4" /> },
+    { id: 'appearance',    label: 'Appearance', icon: <Monitor className="w-4 h-4" /> },
+    { id: 'security',      label: 'Security',   icon: <Lock className="w-4 h-4" /> },
   ];
 
   return (
@@ -104,6 +106,12 @@ export const InSettingsView: React.FC<InSettingsViewProps> = ({ profile }) => {
               <div className="flex justify-end">
                 <Button variant="primary" onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 3000); }} icon={<Save className="w-4 h-4" />}>Save Preferences</Button>
               </div>
+            </Card>
+          )}
+
+          {activeSection === 'appearance' && (
+            <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
+              <AppearanceSection variant="inline" />
             </Card>
           )}
 

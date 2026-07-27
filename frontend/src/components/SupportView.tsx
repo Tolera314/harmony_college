@@ -136,7 +136,7 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left 7 Cols: Gemini AI Advisor Chat */}
-        <div className="lg:col-span-7 bg-[#141617] rounded-3xl border border-white/10 flex flex-col h-[620px] shadow-xl overflow-hidden">
+        <div className="lg:col-span-7 bg-[var(--bg-panel)] rounded-3xl border border-white/10 flex flex-col h-[620px] shadow-xl overflow-hidden">
           {/* Chat Top Bar */}
           <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-white/5">
             <div className="flex items-center gap-3">
@@ -212,7 +212,7 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
           </div>
 
           {/* Chat Input Box */}
-          <div className="p-3 sm:p-4 border-t border-white/10 bg-[#141617] flex gap-2">
+          <div className="p-3 sm:p-4 border-t border-white/10 bg-[var(--bg-panel)] flex gap-2">
             <input
               type="text"
               value={inputText}
@@ -260,10 +260,10 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
                     onChange={(e) => setAppointmentTopic(e.target.value)}
                     className="w-full p-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-[#E9C349] text-white"
                   >
-                    <option className="bg-[#141617]">Spring 2025 Graduation Audit & Capstone</option>
-                    <option className="bg-[#141617]">AI / Machine Learning Specialization Electives</option>
-                    <option className="bg-[#141617]">Financial Aid & Scholarship Renewal</option>
-                    <option className="bg-[#141617]">General Academic Counseling</option>
+                    <option style={{ backgroundColor: 'var(--bg-panel)' }}>Spring 2025 Graduation Audit & Capstone</option>
+                    <option style={{ backgroundColor: 'var(--bg-panel)' }}>AI / Machine Learning Specialization Electives</option>
+                    <option style={{ backgroundColor: 'var(--bg-panel)' }}>Financial Aid & Scholarship Renewal</option>
+                    <option style={{ backgroundColor: 'var(--bg-panel)' }}>General Academic Counseling</option>
                   </select>
                 </div>
 
@@ -289,10 +289,10 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
                       onChange={(e) => setAppointmentTime(e.target.value)}
                       className="w-full p-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-[#E9C349] text-white"
                     >
-                      <option value="10:00" className="bg-[#141617]">10:00 AM</option>
-                      <option value="11:30" className="bg-[#141617]">11:30 AM</option>
-                      <option value="14:00" className="bg-[#141617]">02:00 PM</option>
-                      <option value="15:30" className="bg-[#141617]">03:30 PM</option>
+                      <option value="10:00" style={{ backgroundColor: 'var(--bg-panel)' }}>10:00 AM</option>
+                      <option value="11:30" style={{ backgroundColor: 'var(--bg-panel)' }}>11:30 AM</option>
+                      <option value="14:00" style={{ backgroundColor: 'var(--bg-panel)' }}>02:00 PM</option>
+                      <option value="15:30" style={{ backgroundColor: 'var(--bg-panel)' }}>03:30 PM</option>
                     </select>
                   </div>
                 </div>

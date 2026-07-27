@@ -160,7 +160,7 @@ export default function RegistrarDashboardPage() {
   return (
     <>
       {/* Background radial glow */}
-      <div className="fixed inset-0 bg-[#0F0F10] pointer-events-none z-0" aria-hidden="true">
+      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#D4AF37]/5 rounded-full blur-[140px]" />
         <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#D4AF37]/3 rounded-full blur-[120px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.75)_0%,transparent_65%)]" />
@@ -237,7 +237,7 @@ export default function RegistrarDashboardPage() {
         <div className="flex-1 flex flex-col min-h-screen overflow-y-auto max-w-full">
           
           {/* Top Sticky Navigation bar */}
-          <header className="sticky top-0 bg-[#0F0F10]/60 border-b border-white/10 backdrop-blur-md z-20 px-6 py-4 flex justify-between items-center">
+          <header className="sticky top-0 bg-[var(--bg-base)]/60 border-b border-white/10 backdrop-blur-md z-20 px-6 py-4 flex justify-between items-center">
             
             {/* Left: Mobile Toggle & Breadcrumbs */}
             <div className="flex items-center gap-3">
@@ -299,7 +299,7 @@ export default function RegistrarDashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
-                        className="absolute right-0 mt-2.5 w-72 bg-[#0F0F10] border border-white/10 rounded-2xl p-4 shadow-2xl z-40 space-y-3.5 font-sans text-xs"
+                        className="absolute right-0 mt-2.5 w-72 bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-4 shadow-2xl z-40 space-y-3.5 font-sans text-xs"
                       >
                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                           <h4 className="font-semibold text-white">Notifications</h4>
@@ -372,7 +372,7 @@ export default function RegistrarDashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-[#0F0F10] border border-white/10 rounded-2xl p-5 shadow-2xl z-10 font-sans"
+              className="relative w-full max-w-lg bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-5 shadow-2xl z-10 font-sans"
             >
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -428,7 +428,7 @@ export default function RegistrarDashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-sm bg-[#0F0F10] border border-white/10 rounded-2xl p-6 shadow-2xl z-10 font-sans text-center space-y-4"
+              className="relative w-full max-w-sm bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-6 shadow-2xl z-10 font-sans text-center space-y-4"
             >
               <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
                 <LogOut className="w-5 h-5" />

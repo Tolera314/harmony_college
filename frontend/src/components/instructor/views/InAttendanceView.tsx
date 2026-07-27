@@ -36,7 +36,7 @@ function QRPattern({ seed }: { seed: number }) {
   return (
     <div className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${size}, 1fr)`, width: 220, height: 220 }}>
       {cells.map((on, i) => (
-        <div key={i} className={`rounded-[1px] ${on ? 'bg-[#0F0F10]' : 'bg-transparent'}`} />
+        <div key={i} className={`rounded-[1px] ${on ? 'bg-[var(--bg-base)]' : 'bg-transparent'}`} />
       ))}
     </div>
   );
@@ -167,7 +167,7 @@ export const InAttendanceView: React.FC = () => {
                 </motion.div>
                 {/* Countdown ring overlay */}
                 {sessionActive && (
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[#141617] border border-white/15 px-3 py-1 rounded-full shadow-lg">
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[var(--bg-panel)] border border-white/15 px-3 py-1 rounded-full shadow-lg">
                     <motion.div
                       className="w-1.5 h-1.5 rounded-full bg-[#E9C349]"
                       animate={{ opacity: [1, 0.3, 1] }}

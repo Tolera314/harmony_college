@@ -344,10 +344,10 @@ export const AdmissionsManagement: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed right-0 top-0 bottom-0 w-full md:w-[750px] bg-[#0F0F10] border-l border-white/10 z-50 overflow-y-auto flex flex-col shadow-2xl font-sans"
+              className="fixed right-0 top-0 bottom-0 w-full md:w-[750px] bg-[var(--bg-base)] border-l border-white/10 z-50 overflow-y-auto flex flex-col shadow-2xl font-sans"
             >
               {/* Header */}
-              <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#0F0F10] z-10">
+              <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[var(--bg-base)] z-10">
                 <div className="space-y-1">
                   <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Applicant Profile Drawer</span>
                   <h3 className="text-lg font-serif font-bold text-white flex items-center gap-2">
@@ -439,7 +439,7 @@ export const AdmissionsManagement: React.FC = () => {
                       </div>
 
                       {/* Display Window */}
-                      <div className={`relative overflow-hidden flex items-center justify-center bg-[#0F0F10] border border-white/5 rounded-xl transition-all ${fullscreen ? 'fixed inset-4 z-50 shadow-2xl p-8 border-white/20' : 'h-[240px]'}`}>
+                      <div className={`relative overflow-hidden flex items-center justify-center bg-[var(--bg-base)] border border-white/5 rounded-xl transition-all ${fullscreen ? 'fixed inset-4 z-50 shadow-2xl p-8 border-white/20' : 'h-[240px]'}`}>
                         {fullscreen && (
                           <button 
                             onClick={() => setFullscreen(false)} 

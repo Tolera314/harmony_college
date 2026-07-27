@@ -281,7 +281,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Right 4 Cols: Calendar & Timetable */}
-        <div className="lg:col-span-4 space-y-6 bg-[#141617] border border-white/10 rounded-2xl p-6 shadow-xl">
+        <div className="lg:col-span-4 space-y-6 bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-6 shadow-xl">
           {/* Mini Interactive Calendar */}
           <section className="space-y-3">
             <div className="flex justify-between items-center">
@@ -332,7 +332,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {timetable.map((event) => (
                 <div key={event.id} className="relative">
                   <div
-                    className={`absolute -left-6 top-1 w-5 h-5 rounded-full border-2 bg-[#141617] ${
+                    className={`absolute -left-6 top-1 w-5 h-5 rounded-full border-2 bg-[var(--bg-panel)] ${
                       event.isCurrent
                         ? 'border-[#E9C349] ring-4 ring-[#E9C349]/20 scale-110'
                         : 'border-white/20'

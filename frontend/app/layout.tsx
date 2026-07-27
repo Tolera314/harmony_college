@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Manrope, Playfair_Display } from 'next/font/google';
 import './globals.css';
+import { ThemeScript } from '@/src/components/ThemeScript';
+import { ThemeProvider } from '@/src/context/ThemeContext';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -28,8 +30,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${manrope.variable} ${playfair.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={`${manrope.variable} ${playfair.variable}`} data-theme="dark" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
+      <body suppressHydrationWarning>
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
