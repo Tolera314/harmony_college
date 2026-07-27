@@ -94,7 +94,7 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setForm((f) => ({ ...f, method: e.target.value as PaymentMethod }))}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors"
             >
-              {(['Cash', 'Bank Transfer', 'Telebirr', 'Chapa', 'Cheque'] as PaymentMethod[]).map((m) => (
+              {(['Cash', 'Bank Transfer', 'Telebirr', 'Chapa'] as PaymentMethod[]).map((m) => (
                 <option key={m} value={m} style={{ backgroundColor: 'var(--bg-panel)' }}>{m}</option>
               ))}
             </select>
@@ -213,7 +213,7 @@ export const FOPaymentsView: React.FC = () => {
 
   const methodColors: Record<string, string> = {
     Cash: 'text-amber-400', 'Bank Transfer': 'text-blue-400',
-    Telebirr: 'text-green-400', Chapa: 'text-purple-400', Cheque: 'text-white/60',
+    Telebirr: 'text-green-400', Chapa: 'text-purple-400',
   };
 
   return (
