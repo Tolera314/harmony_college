@@ -136,7 +136,7 @@ export const transactions: Transaction[] = [
     const method=methods[i%4];
     const type=types[i%4];
     const amts={Tuition:3_000+(i%5)*1_000,Fee:500+(i%3)*200,Fine:50+(i%5)*50,Installment:2_000+(i%4)*500,Scholarship:0,Refund:0};
-    const pfx={Cash:'CASH','Bank Transfer':'BT-HC',Telebirr:'TLB',Chapa:'CHP',Cheque:'CHQ'};
+    const pfx={Cash:'CASH','Bank Transfer':'BT-HC',Telebirr:'TLB',Chapa:'CHP'};
     const cashier=i%2===0?'fin01':'fin02';
     const cashierName=i%2===0?'Ato Kebede Worku':'W/t Meron Alemu';
     const rid=type!=='Fine'&&type!=='Scholarship'?`rc${String(30+i).padStart(3,'0')}`:null;
@@ -173,7 +173,7 @@ export const receipts: Receipt[] = [
     const day=String(1+(i%28)).padStart(2,'0');
     const method=methods[i%4];
     const amount=1_500+(i%10)*1_000;
-    const pfx={Cash:'CASH','Bank Transfer':'BT-HC',Telebirr:'TLB',Chapa:'CHP',Cheque:'CHQ'};
+    const pfx={Cash:'CASH','Bank Transfer':'BT-HC',Telebirr:'TLB',Chapa:'CHP'};
     receipts.push({
       id:`rc${String(i).padStart(3,'0')}`,
       receiptNumber:`HC-RCP-2024-${String(i).padStart(3,'0')}`,
@@ -289,7 +289,6 @@ export const paymentMethodBreakdown: PaymentMethodBreakdown[] = [
   { method:'Telebirr',      amount:5_620_000,  count:72, color:'#34d399' },
   { method:'Chapa',         amount:4_380_000,  count:55, color:'#60a5fa' },
   { method:'Cash',          amount:2_960_000,  count:41, color:'#f87171' },
-  { method:'Cheque',        amount:600_000,    count:8,  color:'#a78bfa' },
 ];
 
 export const dailyCollections: DailyCollection[] = [

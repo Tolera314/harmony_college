@@ -49,47 +49,56 @@ export const FOHeader: React.FC<FOHeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[var(--bg-sidebar)]/90 backdrop-blur-xl border-b border-white/10 h-16 flex items-center md:pl-20 xl:pl-64 transition-all duration-300">
-      <div className="flex justify-between items-center w-full px-4 sm:px-6 py-3">
+      <div className="flex justify-between items-center w-full px-4 sm:px-6 py-3 gap-3 min-w-0">
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Left — brand + breadcrumb */}
+        <div className="flex items-center gap-2 min-w-0 shrink">
           <button
             onClick={() => setActiveTab('overview')}
-            className="font-serif text-lg sm:text-2xl font-bold text-white tracking-tight hover:opacity-80 transition-opacity"
+            className="font-serif text-lg font-bold text-white tracking-tight hover:opacity-80 transition-opacity whitespace-nowrap shrink-0"
           >
             Harmony <span className="text-[#E9C349]">Finance</span>
           </button>
-          <div className="hidden sm:block h-4 w-px bg-white/15 mx-1" />
-          <nav className="hidden sm:flex items-center gap-1.5 text-xs lg:text-sm text-white/60" aria-label="Breadcrumb">
-            <button onClick={() => setActiveTab('overview')} className="hover:text-[#E9C349] transition-colors font-medium">
-              Portal
-            </button>
-            <ChevronRight className="w-3.5 h-3.5 text-white/40" />
-            <span className="font-semibold text-white">{tabLabels[activeTab]}</span>
-          </nav>
+
+          {/* Divider + breadcrumb — only on sm+ */}
+          <div className="hidden sm:flex items-center gap-1.5 min-w-0">
+            <div className="h-4 w-px bg-white/15 mx-1 shrink-0" />
+            <nav className="flex items-center gap-1 text-xs lg:text-sm text-white/60 min-w-0" aria-label="Breadcrumb">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className="hover:text-[#E9C349] transition-colors font-medium whitespace-nowrap shrink-0"
+              >
+                Portal
+              </button>
+              <ChevronRight className="w-3 h-3 text-white/40 shrink-0" />
+              <span className="font-semibold text-white truncate max-w-[180px] lg:max-w-xs">
+                {tabLabels[activeTab]}
+              </span>
+            </nav>
+          </div>
         </div>
 
-        {/* Right controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Academic year */}
-          <Badge variant="glass" className="hidden lg:inline-flex font-mono">{academicYear}</Badge>
-          {/* Semester badge */}
-          <Badge variant="gold" className="hidden sm:inline-flex">{semesterLabel}</Badge>
+        {/* Right — controls, never wrap */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Academic year — lg only */}
+          <Badge variant="glass" className="hidden lg:inline-flex font-mono text-[10px]">{academicYear}</Badge>
+          {/* Semester badge — sm+ */}
+          <Badge variant="gold" className="hidden sm:inline-flex text-[10px]">{semesterLabel}</Badge>
 
-          {/* Search trigger */}
+          {/* Search bar — md+ */}
           <button
             onClick={onOpenSearch}
-            className="hidden md:flex items-center justify-between gap-3 px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs text-white/60 w-48 lg:w-56 transition-all"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs text-white/60 w-44 lg:w-52 transition-all"
             aria-label="Global search (Ctrl+K)"
           >
-            <div className="flex items-center gap-2 truncate">
-              <Search className="w-4 h-4 text-white/50" />
-              <span className="truncate">Search students, receipts...</span>
-            </div>
-            <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white/10 border border-white/10 rounded text-[10px] font-mono text-white/60">
-              <Command className="w-2.5 h-2.5" /> K
+            <Search className="w-3.5 h-3.5 text-white/50 shrink-0" />
+            <span className="truncate flex-1 text-left">Search...</span>
+            <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white/10 border border-white/10 rounded text-[10px] font-mono text-white/50 shrink-0">
+              <Command className="w-2.5 h-2.5" />K
             </kbd>
           </button>
+
+          {/* Search icon — mobile only */}
           <button
             onClick={onOpenSearch}
             className="md:hidden p-2 rounded-full hover:bg-white/10 text-white/70 transition-colors touch-target"
@@ -169,7 +178,7 @@ export const FOHeader: React.FC<FOHeaderProps> = ({
           {/* Avatar */}
           <button
             onClick={() => setActiveTab('settings')}
-            className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#E9C349]/40 hover:border-[#E9C349]/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349]"
+            className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#E9C349]/40 hover:border-[#E9C349]/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] shrink-0"
             aria-label="Profile & Settings"
           >
             <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />

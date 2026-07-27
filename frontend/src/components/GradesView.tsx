@@ -20,6 +20,104 @@ interface GradesViewProps {
   grades: GradeRecord[];
 }
 
+// ── GPA Summary strip rendered below the table ─────────────────────────────
+function calcGPA(records: GradeRecord[]): { gpa: number; credits: number } {
+  const graded = records.filter((g) => g.numericGpa > 0);
+  if (graded.length === 0) return { gpa: 0, credits: 0 };
+  const totalCredits = graded.reduce((s, g) => s + g.credits, 0);
+  const totalPoints  = graded.reduce((s, g) => s + g.numericGpa * g.credits, 0);
+  return { gpa: totalPoints / totalCredits, credits: totalCredits };
+}
+
+function gpaLabel(gpa: number): string {
+  if (gpa >= 3.9)  return 'Summa Cum Laude';
+  if (gpa >= 3.7)  return 'Magna Cum Laude';
+  if (gpa >= 3.5)  return 'Cum Laude';
+  if (gpa >= 3.0)  return 'Good Standing';
+  if (gpa >= 2.0)  return 'Satisfactory';
+  return 'Academic Warning';
+}
+
+function gpaColor(gpa: number): string {
+  if (gpa >= 3.7) return 'text-emerald-400';
+  if (gpa >= 3.0) return 'text-[#E9C349]';
+  if (gpa >= 2.0) return 'text-amber-400';
+  return 'text-rose-400';
+}
+
+interface GPASummaryProps {
+  grades: GradeRecord[];
+  filteredGrades: GradeRecord[];
+  selectedTerm: string;
+}
+
+function GPASummary({ grades, filteredGrades, selectedTerm }: GPASummaryProps) {
+  // Most recent term in the full dataset
+  const allTerms   = [...new Set(grades.map((g) => g.term))];
+  const currentTerm = allTerms[0] ?? 'Current Semester';
+  const semesterGrades = grades.filter((g) => g.term === currentTerm);
+  const semGPA  = calcGPA(semesterGrades);
+  const cumGPA  = calcGPA(grades);
+
+  // If a specific term is filtered, show that term's GPA too
+  const viewLabel   = selectedTerm === 'All' ? currentTerm : selectedTerm;
+  const viewGrades  = selectedTerm === 'All' ? semesterGrades : filteredGrades;
+  const viewGPA     = calcGPA(viewGrades);
+
+  const stats = [
+    {
+      label: 'Current Semester',
+      sublabel: currentTerm,
+      gpa: semGPA.gpa,
+      credits: semGPA.credits,
+      courses: semesterGrades.length,
+    },
+    ...(selectedTerm !== 'All' && selectedTerm !== currentTerm ? [{
+      label: 'Selected Term',
+      sublabel: selectedTerm,
+      gpa: viewGPA.gpa,
+      credits: viewGPA.credits,
+      courses: viewGrades.length,
+    }] : []),
+    {
+      label: 'Cumulative',
+      sublabel: `${grades.length} courses · ${cumGPA.credits} credits`,
+      gpa: cumGPA.gpa,
+      credits: cumGPA.credits,
+      courses: grades.length,
+    },
+  ];
+
+  return (
+    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {stats.map((s) => (
+        <div
+          key={s.label}
+          className="flex items-center justify-between px-5 py-4 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl"
+        >
+          <div className="space-y-0.5">
+            <p className="font-mono text-[10px] font-bold text-white/40 uppercase tracking-wider">
+              {s.label}
+            </p>
+            <p className="font-sans text-xs text-white/50">{s.sublabel}</p>
+            <p className="font-sans text-[10px] text-white/30 mt-1">
+              {s.courses} course{s.courses !== 1 ? 's' : ''} · {s.credits} credits
+            </p>
+          </div>
+          <div className="text-right shrink-0 ml-4">
+            <p className={`font-mono text-3xl font-bold leading-none ${gpaColor(s.gpa)}`}>
+              {s.gpa.toFixed(2)}
+            </p>
+            <p className="font-sans text-[10px] text-white/40 mt-1">
+              {gpaLabel(s.gpa)}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
   const [selectedTerm, setSelectedTerm] = useState<string>('All');
   const [showTranscriptModal, setShowTranscriptModal] = useState<boolean>(false);
@@ -45,19 +143,19 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
 
   const columns: Column<GradeRecord>[] = [
     {
-      header: 'Course',
-      cell: (g) => <Badge variant="gold">{g.courseCode}</Badge>
+      header: 'Course Title',
+      cell: (g) => <span className="font-semibold text-white">{g.courseTitle}</span>
     },
     {
-      header: 'Title',
-      cell: (g) => <span className="font-semibold text-white">{g.courseTitle}</span>
+      header: 'Course Code',
+      cell: (g) => <Badge variant="gold">{g.courseCode}</Badge>
     },
     {
       header: 'Term',
       cell: (g) => <span className="font-mono text-white/60">{g.term}</span>
     },
     {
-      header: 'Credits',
+      header: 'Cr.Hr.',
       cell: (g) => <span className="font-mono">{g.credits}</span>,
       align: 'center'
     },
@@ -65,7 +163,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
       header: 'Grade',
       cell: (g) => (
         <Badge variant="gold">
-          {g.grade} ({g.numericGpa.toFixed(1)})
+          {g.grade}
         </Badge>
       ),
       align: 'center'
@@ -162,6 +260,8 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
               columns={columns}
               keyExtractor={(g) => g.id}
             />
+            {/* GPA Summary Strip */}
+            <GPASummary grades={grades} filteredGrades={filteredGrades} selectedTerm={selectedTerm} />
           </div>
 
           {/* Mobile Card List Alternative */}
@@ -170,9 +270,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
               <Card key={g.id} hoverable={false} className="p-4 space-y-2">
                 <div className="flex justify-between items-center">
                   <Badge variant="gold">{g.courseCode}</Badge>
-                  <Badge variant="gold">
-                    {g.grade} ({g.numericGpa.toFixed(1)})
-                  </Badge>
+                  <Badge variant="gold">{g.grade}</Badge>
                 </div>
                 <h4 className="font-sans text-sm font-semibold text-white">
                   {g.courseTitle}
@@ -183,6 +281,8 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
                 </div>
               </Card>
             ))}
+            {/* Mobile GPA Summary */}
+            <GPASummary grades={grades} filteredGrades={filteredGrades} selectedTerm={selectedTerm} />
           </div>
         </div>
 

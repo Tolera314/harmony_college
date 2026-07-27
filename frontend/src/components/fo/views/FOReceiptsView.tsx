@@ -17,7 +17,7 @@ import type { Receipt as ReceiptType } from '../../../types/finance';
 function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClose: () => void }) {
   const methodColor: Record<string, string> = {
     Cash: 'text-amber-400', 'Bank Transfer': 'text-blue-400',
-    Telebirr: 'text-green-400', Chapa: 'text-purple-400', Cheque: 'text-white/60',
+    Telebirr: 'text-green-400', Chapa: 'text-purple-400',
   };
 
   return (
@@ -126,7 +126,7 @@ export const FOReceiptsView: React.FC = () => {
 
   const methodColor: Record<string, string> = {
     Cash: 'text-amber-400', 'Bank Transfer': 'text-blue-400',
-    Telebirr: 'text-green-400', Chapa: 'text-purple-400', Cheque: 'text-white/60',
+    Telebirr: 'text-green-400', Chapa: 'text-purple-400',
   };
 
   return (
