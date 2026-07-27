@@ -29,56 +29,18 @@ interface OverviewProps {
 }
 
 export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpenCreateCourse }) => {
-  const [counters, setCounters] = useState({
-    admissions: 0,
-    programs: 0,
-    courses: 0,
-    students: 0,
-    graduation: 0,
-    transcripts: 0,
-    conflicts: 0,
-    waitlist: 0,
-  });
+  const targets = {
+    admissions: 34,
+    programs: 12,
+    courses: 75,
+    students: 525,
+    graduation: 25,
+    transcripts: 31,
+    conflicts: 1,
+    waitlist: 45
+  };
 
-  // Animated counter effect
-  useEffect(() => {
-    const targets = {
-      admissions: 34,
-      programs: 12,
-      courses: 75,
-      students: 525,
-      graduation: 25,
-      transcripts: 31,
-      conflicts: 1,
-      waitlist: 45
-    };
-
-    const duration = 1000; // 1s
-    const steps = 30;
-    const stepTime = duration / steps;
-    let step = 0;
-
-    const timer = setInterval(() => {
-      step++;
-      setCounters({
-        admissions: Math.round((targets.admissions / steps) * step),
-        programs: Math.round((targets.programs / steps) * step),
-        courses: Math.round((targets.courses / steps) * step),
-        students: Math.round((targets.students / steps) * step),
-        graduation: Math.round((targets.graduation / steps) * step),
-        transcripts: Math.round((targets.transcripts / steps) * step),
-        conflicts: Math.round((targets.conflicts / steps) * step),
-        waitlist: Math.round((targets.waitlist / steps) * step)
-      });
-
-      if (step >= steps) {
-        clearInterval(timer);
-        setCounters(targets);
-      }
-    }, stepTime);
-
-    return () => clearInterval(timer);
-  }, []);
+  const [counters, setCounters] = useState(targets);
 
   const renderSparkline = (points: number[], color: string, id: string) => {
     const width = 100;

@@ -12,24 +12,30 @@ import { AdminSearchModal }    from '@/src/components/admin/AdminSearchModal';
 import { AdminLogoutModal }    from '@/src/components/admin/AdminLogoutModal';
 import { ImpersonationBanner } from '@/src/components/admin/ImpersonationBanner';
 
-import { AdminOverviewView }   from '@/src/components/admin/views/AdminOverviewView';
-import { AdminUsersView }      from '@/src/components/admin/views/AdminUsersView';
-import { AdminStudentsView }   from '@/src/components/admin/views/AdminStudentsView';
-import { AdminFacultyView }    from '@/src/components/admin/views/AdminFacultyView';
-import { AdminDepartmentsView} from '@/src/components/admin/views/AdminDepartmentsView';
-import { AdminProgramsView }   from '@/src/components/admin/views/AdminProgramsView';
-import { AdminAdmissionsView } from '@/src/components/admin/views/AdminAdmissionsView';
-import { AdminSecurityView }   from '@/src/components/admin/views/AdminSecurityView';
-import { AdminBackupView }     from '@/src/components/admin/views/AdminBackupView';
-import { AdminPaymentsView }   from '@/src/components/admin/views/AdminPaymentsView';
-import { AdminNotificationsView } from '@/src/components/admin/views/AdminNotificationsView';
-import { AdminAuditLogsView }  from '@/src/components/admin/views/AdminAuditLogsView';
-import { AdminSettingsView }   from '@/src/components/admin/views/AdminSettingsView';
-import { AdminSystemConfigView } from '@/src/components/admin/views/AdminSystemConfigView';
-import {
-  AdminRegistrarView, AdminAttendanceView, AdminFinanceView,
-  AdminHRView, AdminDocumentsView, AdminReportsView,
-} from '@/src/components/admin/views/AdminGenericViews';
+import dynamic from 'next/dynamic';
+
+import { AdminOverviewView } from '@/src/components/admin/views/AdminOverviewView';
+
+const AdminUsersView = dynamic(() => import('@/src/components/admin/views/AdminUsersView').then(m => m.AdminUsersView), { ssr: false });
+const AdminStudentsView = dynamic(() => import('@/src/components/admin/views/AdminStudentsView').then(m => m.AdminStudentsView), { ssr: false });
+const AdminFacultyView = dynamic(() => import('@/src/components/admin/views/AdminFacultyView').then(m => m.AdminFacultyView), { ssr: false });
+const AdminDepartmentsView = dynamic(() => import('@/src/components/admin/views/AdminDepartmentsView').then(m => m.AdminDepartmentsView), { ssr: false });
+const AdminProgramsView = dynamic(() => import('@/src/components/admin/views/AdminProgramsView').then(m => m.AdminProgramsView), { ssr: false });
+const AdminAdmissionsView = dynamic(() => import('@/src/components/admin/views/AdminAdmissionsView').then(m => m.AdminAdmissionsView), { ssr: false });
+const AdminSecurityView = dynamic(() => import('@/src/components/admin/views/AdminSecurityView').then(m => m.AdminSecurityView), { ssr: false });
+const AdminBackupView = dynamic(() => import('@/src/components/admin/views/AdminBackupView').then(m => m.AdminBackupView), { ssr: false });
+const AdminPaymentsView = dynamic(() => import('@/src/components/admin/views/AdminPaymentsView').then(m => m.AdminPaymentsView), { ssr: false });
+const AdminNotificationsView = dynamic(() => import('@/src/components/admin/views/AdminNotificationsView').then(m => m.AdminNotificationsView), { ssr: false });
+const AdminAuditLogsView = dynamic(() => import('@/src/components/admin/views/AdminAuditLogsView').then(m => m.AdminAuditLogsView), { ssr: false });
+const AdminSettingsView = dynamic(() => import('@/src/components/admin/views/AdminSettingsView').then(m => m.AdminSettingsView), { ssr: false });
+const AdminSystemConfigView = dynamic(() => import('@/src/components/admin/views/AdminSystemConfigView').then(m => m.AdminSystemConfigView), { ssr: false });
+
+const AdminRegistrarView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminRegistrarView), { ssr: false });
+const AdminAttendanceView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminAttendanceView), { ssr: false });
+const AdminFinanceView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminFinanceView), { ssr: false });
+const AdminHRView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminHRView), { ssr: false });
+const AdminDocumentsView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminDocumentsView), { ssr: false });
+const AdminReportsView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminReportsView), { ssr: false });
 
 export default function AdminDashboardPage() {
   const [activeTab,       setActiveTab]       = useState<AdminNavTab>('overview');

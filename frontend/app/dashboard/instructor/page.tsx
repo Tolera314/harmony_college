@@ -11,17 +11,20 @@ import { InMobileNav }         from '@/src/components/instructor/InMobileNav';
 import { InSearchModal }       from '@/src/components/instructor/InSearchModal';
 import { DHLogoutModal }       from '@/src/components/dh/DHLogoutModal';
 
-import { InOverviewView }      from '@/src/components/instructor/views/InOverviewView';
-import { InMyClassesView }     from '@/src/components/instructor/views/InMyClassesView';
-import { InAttendanceView }    from '@/src/components/instructor/views/InAttendanceView';
-import { InStudentsView }      from '@/src/components/instructor/views/InStudentsView';
-import { InGradesView }        from '@/src/components/instructor/views/InGradesView';
-import { InMaterialsView }     from '@/src/components/instructor/views/InMaterialsView';
-import { InAnnouncementsView } from '@/src/components/instructor/views/InAnnouncementsView';
-import { InReportsView }       from '@/src/components/instructor/views/InReportsView';
-import { InNotificationsView } from '@/src/components/instructor/views/InNotificationsView';
-import { InAuditLogView }      from '@/src/components/instructor/views/InAuditLogView';
-import { InSettingsView }      from '@/src/components/instructor/views/InSettingsView';
+import dynamic from 'next/dynamic';
+
+import { InOverviewView } from '@/src/components/instructor/views/InOverviewView';
+
+const InMyClassesView = dynamic(() => import('@/src/components/instructor/views/InMyClassesView').then(m => m.InMyClassesView), { ssr: false });
+const InAttendanceView = dynamic(() => import('@/src/components/instructor/views/InAttendanceView').then(m => m.InAttendanceView), { ssr: false });
+const InStudentsView = dynamic(() => import('@/src/components/instructor/views/InStudentsView').then(m => m.InStudentsView), { ssr: false });
+const InGradesView = dynamic(() => import('@/src/components/instructor/views/InGradesView').then(m => m.InGradesView), { ssr: false });
+const InMaterialsView = dynamic(() => import('@/src/components/instructor/views/InMaterialsView').then(m => m.InMaterialsView), { ssr: false });
+const InAnnouncementsView = dynamic(() => import('@/src/components/instructor/views/InAnnouncementsView').then(m => m.InAnnouncementsView), { ssr: false });
+const InReportsView = dynamic(() => import('@/src/components/instructor/views/InReportsView').then(m => m.InReportsView), { ssr: false });
+const InNotificationsView = dynamic(() => import('@/src/components/instructor/views/InNotificationsView').then(m => m.InNotificationsView), { ssr: false });
+const InAuditLogView = dynamic(() => import('@/src/components/instructor/views/InAuditLogView').then(m => m.InAuditLogView), { ssr: false });
+const InSettingsView = dynamic(() => import('@/src/components/instructor/views/InSettingsView').then(m => m.InSettingsView), { ssr: false });
 
 export default function InstructorDashboardPage() {
   const [activeTab,     setActiveTab]     = useState<InstructorNavTab>('overview');
