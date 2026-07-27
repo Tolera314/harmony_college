@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { BarChart3, Download, Users, TrendingUp, CalendarCheck, Banknote } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { LineChart, BarChart, DonutChart, HorizontalBarChart } from '../../dh/DHCharts';
@@ -15,14 +16,14 @@ export const HRReportsView: React.FC = () => {
   const deptBar = departments.map(d => ({
     label: d.name.split(' ')[0].slice(0, 6),
     value: d.employeeCount,
-    color: '#E9C349',
+    color: 'var(--brand-gold)',
   }));
 
   // Employment type donut
   const empTypes = [
-    { label: 'Full-Time', value: employees.filter(e => e.employmentType === 'Full-Time').length,  color: '#34d399' },
-    { label: 'Part-Time', value: employees.filter(e => e.employmentType === 'Part-Time').length,  color: '#E9C349' },
-    { label: 'Contract',  value: employees.filter(e => e.employmentType === 'Contract').length,   color: '#fb923c' },
+    { label: 'Full-Time', value: employees.filter(e => e.employmentType === 'Full-Time').length,  color: 'var(--status-success)' },
+    { label: 'Part-Time', value: employees.filter(e => e.employmentType === 'Part-Time').length,  color: 'var(--brand-gold)' },
+    { label: 'Contract',  value: employees.filter(e => e.employmentType === 'Contract').length,   color: 'var(--status-warning)' },
     { label: 'Intern',    value: employees.filter(e => e.employmentType === 'Intern').length,     color: '#a78bfa' },
   ].filter(s => s.value > 0);
 
@@ -36,14 +37,14 @@ export const HRReportsView: React.FC = () => {
   const payrollTrend = payrollRecords.slice().reverse().map(p => ({
     label: p.month.slice(0, 3),
     value: Math.round(p.totalNet / 1_000_000 * 10) / 10,
-    color: '#E9C349',
+    color: 'var(--brand-gold)',
   }));
 
   // Performance score distribution
   const scoreSegs = [
-    { label: '4.5–5.0 Excellent', value: performanceReviews.filter(r => (r.overallScore ?? 0) >= 4.5).length, color: '#34d399' },
-    { label: '3.5–4.4 Good',      value: performanceReviews.filter(r => (r.overallScore ?? 0) >= 3.5 && (r.overallScore ?? 0) < 4.5).length, color: '#E9C349' },
-    { label: '< 3.5 Needs Work',  value: performanceReviews.filter(r => (r.overallScore ?? 0) > 0 && (r.overallScore ?? 0) < 3.5).length, color: '#fb923c' },
+    { label: '4.5–5.0 Excellent', value: performanceReviews.filter(r => (r.overallScore ?? 0) >= 4.5).length, color: 'var(--status-success)' },
+    { label: '3.5–4.4 Good',      value: performanceReviews.filter(r => (r.overallScore ?? 0) >= 3.5 && (r.overallScore ?? 0) < 4.5).length, color: 'var(--brand-gold)' },
+    { label: '< 3.5 Needs Work',  value: performanceReviews.filter(r => (r.overallScore ?? 0) > 0 && (r.overallScore ?? 0) < 3.5).length, color: 'var(--status-warning)' },
   ].filter(s => s.value > 0);
 
   // Gender distribution
@@ -65,7 +66,7 @@ export const HRReportsView: React.FC = () => {
   const avgScore     = performanceReviews.filter(r => r.overallScore).reduce((s, r) => s + (r.overallScore ?? 0), 0) / Math.max(1, performanceReviews.filter(r => r.overallScore).length);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="HR Reports"
         subtitle="Analytics overview · Academic Year 2024–2025"
@@ -76,15 +77,15 @@ export const HRReportsView: React.FC = () => {
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Active Staff',     value: activeCount,                                icon: <Users className="w-4 h-4" />,        color: 'text-white' },
-          { label: 'Avg Perf. Score',  value: `${avgScore.toFixed(1)}/5`,                 icon: <TrendingUp className="w-4 h-4" />,   color: 'text-[#E9C349]' },
-          { label: 'Pending Leave',    value: pendingLeave,                               icon: <CalendarCheck className="w-4 h-4" />, color: pendingLeave > 0 ? 'text-amber-400' : 'text-emerald-400' },
-          { label: 'Payroll (Jul)',     value: `ETB ${(avgPayroll / 1_000_000).toFixed(2)}M`, icon: <Banknote className="w-4 h-4" />, color: 'text-emerald-400' },
+          { label: 'Active Staff',     value: activeCount,                                icon: <Users className="w-4 h-4" />,        color: 'text-(--text-primary)' },
+          { label: 'Avg Perf. Score',  value: `${avgScore.toFixed(1)}/5`,                 icon: <TrendingUp className="w-4 h-4" />,   color: 'text-(--brand-gold)' },
+          { label: 'Pending Leave',    value: pendingLeave,                               icon: <CalendarCheck className="w-4 h-4" />, color: pendingLeave > 0 ? 'text-(--status-warning)' : 'text-(--status-success)' },
+          { label: 'Payroll (Jul)',     value: `ETB ${(avgPayroll / 1_000_000).toFixed(2)}M`, icon: <Banknote className="w-4 h-4" />, color: 'text-(--status-success)' },
         ].map(item => (
-          <div key={item.label} className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+          <div key={item.label} className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-white/40">{item.icon}</span>
-              <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">{item.label}</p>
+              <span className="text-(--text-faint)">{item.icon}</span>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{item.label}</p>
             </div>
             <p className={`font-mono text-2xl font-bold mt-1 ${item.color}`}>{item.value}</p>
           </div>
@@ -96,8 +97,8 @@ export const HRReportsView: React.FC = () => {
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Department Headcount</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Active employees per department</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Department Headcount</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Active employees per department</p>
             </div>
             <Badge variant="glass">{employees.length} total</Badge>
           </div>
@@ -105,7 +106,7 @@ export const HRReportsView: React.FC = () => {
         </Card>
 
         <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-white">Contract Types</h3>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Contract Types</h3>
           <DonutChart segments={empTypes} total={employees.length} centerLabel={String(employees.length)} />
         </Card>
       </div>
@@ -114,16 +115,16 @@ export const HRReportsView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card hoverable={false} className="space-y-4">
           <div>
-            <h3 className="font-serif text-lg font-bold text-white">Leave Trend</h3>
-            <p className="font-sans text-xs text-white/40 mt-0.5">Total leave requests per month</p>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Leave Trend</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Total leave requests per month</p>
           </div>
           <LineChart data={leaveTrend} color="#fb923c" height={140} />
         </Card>
 
         <Card hoverable={false} className="space-y-4">
           <div>
-            <h3 className="font-serif text-lg font-bold text-white">Payroll Summary</h3>
-            <p className="font-sans text-xs text-white/40 mt-0.5">Net payroll (ETB millions)</p>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Payroll Summary</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Net payroll (ETB millions)</p>
           </div>
           <BarChart data={payrollTrend} height={140} />
         </Card>
@@ -132,18 +133,18 @@ export const HRReportsView: React.FC = () => {
       {/* Row 3 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-white">Performance Scores</h3>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Performance Scores</h3>
           <DonutChart segments={scoreSegs} total={performanceReviews.filter(r => r.overallScore).length} centerLabel={`${avgScore.toFixed(1)}`} />
         </Card>
 
         <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-white">Gender Distribution</h3>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Gender Distribution</h3>
           <DonutChart segments={genderSegs} total={employees.length} centerLabel={String(employees.length)} />
         </Card>
 
         <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-white">Staff by Department</h3>
-          <p className="font-sans text-xs text-white/40">vs. max 20 target</p>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Staff by Department</h3>
+          <p className="font-sans text-xs text-(--text-faint)">vs. max 20 target</p>
           <HorizontalBarChart data={deptWorkload} />
         </Card>
       </div>

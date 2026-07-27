@@ -10,10 +10,11 @@ interface SkeletonCardProps {
 
 function Shimmer({ className, style }: { className: string; style?: React.CSSProperties }) {
   return (
-    <div className={`relative overflow-hidden bg-white/8 rounded-xl ${className}`} style={style}>
+    <div className={`relative overflow-hidden ds-skeleton rounded-xl ${className}`} style={style}>
       <motion.div
-        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent"
-        animate={{ translateX: ['−100%', '200%'] }}
+        className="absolute inset-0 -translate-x-full"
+        style={{ background: 'linear-gradient(to right, transparent, var(--hover-overlay), transparent)' }}
+        animate={{ translateX: ['-100%', '200%'] }}
         transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
       />
     </div>
@@ -21,7 +22,9 @@ function Shimmer({ className, style }: { className: string; style?: React.CSSPro
 }
 
 export const SkeletonCard: React.FC<SkeletonCardProps> = ({ rows = 3, className = '' }) => (
-  <div className={`bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4 ${className}`}>
+  <div
+    className={`ds-card rounded-2xl p-5 space-y-4 border ${className}`}
+  >
     <div className="flex items-center justify-between">
       <Shimmer className="h-4 w-32" />
       <Shimmer className="h-8 w-8 rounded-xl" />
@@ -34,7 +37,7 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ rows = 3, className 
 );
 
 export const SkeletonRow: React.FC = () => (
-  <div className="flex items-center gap-4 p-4 border-b border-white/5">
+  <div className="flex items-center gap-4 p-4 border-b ds-sidebar-divider">
     <Shimmer className="w-8 h-8 rounded-full" />
     <div className="flex-1 space-y-2">
       <Shimmer className="h-3 w-48" />
@@ -46,9 +49,9 @@ export const SkeletonRow: React.FC = () => (
 );
 
 export const SkeletonTable: React.FC<{ rows?: number }> = ({ rows = 5 }) => (
-  <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-    <div className="p-4 border-b border-white/10 flex gap-4">
-      {[60, 120, 80, 90, 70].map((w, i) => <Shimmer key={i} className={`h-3`} style={{ width: w }} />)}
+  <div className="ds-card border rounded-2xl overflow-hidden">
+    <div className="p-4 border-b ds-sidebar-divider flex gap-4">
+      {[60, 120, 80, 90, 70].map((w, i) => <Shimmer key={i} className="h-3" style={{ width: w }} />)}
     </div>
     {Array.from({ length: rows }).map((_, i) => <SkeletonRow key={i} />)}
   </div>

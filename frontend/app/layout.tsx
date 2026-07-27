@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Manrope, Playfair_Display } from 'next/font/google';
 import './globals.css';
+import { OfflineBanner } from '@/src/components/ui/States';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -22,14 +23,17 @@ export const metadata: Metadata = {
   description: 'Nurturing Creative & Professional Talent — Harmony College, Sheger, Burayu, Ethiopia',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${manrope.variable} ${playfair.variable}`}>
-      <body>{children}</body>
+      <body>
+        {/* Skip navigation — first focusable element on every page */}
+        <a href="#main-content" className="skip-nav">
+          Skip to main content
+        </a>
+        <OfflineBanner />
+        {children}
+      </body>
     </html>
   );
 }

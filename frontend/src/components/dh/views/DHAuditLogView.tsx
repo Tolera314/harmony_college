@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { ClipboardList, Search, Download } from 'lucide-react';
 import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
+import { EmptyState } from '../../ui/States';
 import { Input } from '../../ui/Input';
 import { auditLog } from '../../../data/departmentData';
 import { AuditLogEntry } from '../../../types/department';
@@ -35,7 +37,7 @@ export const DHAuditLogView: React.FC = () => {
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Audit Log"
         subtitle={`${auditLog.length} events recorded`}
@@ -51,7 +53,7 @@ export const DHAuditLogView: React.FC = () => {
         <div className="flex gap-2 flex-wrap">
           {modules.map((m) => (
             <button key={m} onClick={() => { setModuleFilter(m); setPage(1); }}
-              className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all whitespace-nowrap ${moduleFilter === m ? 'bg-[#E9C349]/15 border-[#E9C349]/40 text-[#E9C349]' : 'bg-white/5 border-white/10 text-white/60 hover:text-white'}`}>
+              className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all whitespace-nowrap ${moduleFilter === m ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
               {m}
             </button>
           ))}
@@ -59,29 +61,29 @@ export const DHAuditLogView: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-left text-xs sm:text-sm font-sans min-w-[700px]">
-          <thead className="bg-white/5 border-b border-white/10">
+          <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
             <tr>
               {['Date & Time', 'Action', 'User', 'Module', 'Description', 'Status'].map((h) => (
-                <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-white/50 font-semibold">{h}</th>
+                <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-white/85">
+          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
             {paginated.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-16 text-white/30 font-sans text-sm">No log entries found.</td></tr>
+              <tr><td colSpan={6} className="p-0"><EmptyState variant="audit" compact /></td></tr>
             ) : paginated.map((entry) => {
               const sc = statusConfig[entry.status];
               return (
-                <tr key={entry.id} className="hover:bg-white/[0.04] transition-colors">
-                  <td className="px-4 py-3.5 font-mono text-[11px] text-white/50 whitespace-nowrap">{entry.date}</td>
-                  <td className="px-4 py-3.5 font-sans text-xs font-semibold text-white">{entry.action}</td>
-                  <td className="px-4 py-3.5 text-white/70 text-xs">{entry.user}</td>
+                <tr key={entry.id} className="hover:bg-(--hover-overlay) transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-[11px] text-(--text-muted) whitespace-nowrap">{entry.date}</td>
+                  <td className="px-4 py-3.5 font-sans text-xs font-semibold text-(--text-primary)">{entry.action}</td>
+                  <td className="px-4 py-3.5 text-(--text-secondary) text-xs">{entry.user}</td>
                   <td className="px-4 py-3.5">
                     <Badge variant="glass" className="text-[10px]">{entry.module}</Badge>
                   </td>
-                  <td className="px-4 py-3.5 text-white/55 text-xs max-w-[240px] truncate">{entry.description}</td>
+                  <td className="px-4 py-3.5 text-(--text-muted) text-xs max-w-[240px] truncate">{entry.description}</td>
                   <td className="px-4 py-3.5">
                     <Badge variant={sc.variant}>{entry.status}</Badge>
                   </td>
@@ -95,7 +97,7 @@ export const DHAuditLogView: React.FC = () => {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="font-sans text-xs text-white/40">{filtered.length} entries · Page {page} of {totalPages}</p>
+          <p className="font-sans text-xs text-(--text-faint)">{filtered.length} entries · Page {page} of {totalPages}</p>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
             <Button variant="secondary" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</Button>

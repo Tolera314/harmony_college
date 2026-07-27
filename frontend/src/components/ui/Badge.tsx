@@ -1,8 +1,10 @@
+'use client';
+
 import React from 'react';
 
 export interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'gold' | 'emerald' | 'amber' | 'rose' | 'glass';
+  variant?: 'gold' | 'emerald' | 'amber' | 'rose' | 'glass' | 'success' | 'warning' | 'danger' | 'info';
   className?: string;
 }
 
@@ -11,17 +13,21 @@ export const Badge: React.FC<BadgeProps> = ({
   variant = 'gold',
   className = ''
 }) => {
-  const variants = {
-    gold: "bg-[#E9C349]/15 text-[#E9C349] border border-[#E9C349]/30",
-    emerald: "bg-emerald-950/40 text-emerald-300 border border-emerald-800/40",
-    amber: "bg-amber-950/40 text-amber-300 border border-amber-800/40",
-    rose: "bg-rose-950/40 text-rose-300 border border-rose-800/40",
-    glass: "bg-white/10 text-white/90 border border-white/15"
+  const variants: Record<string, string> = {
+    gold:    "bg-[--accent-gold-subtle] text-[--brand-gold] border border-[--accent-gold-border]",
+    emerald: "ds-badge-success border",
+    amber:   "ds-badge-warning border",
+    rose:    "ds-badge-danger border",
+    glass:   "bg-[--hover-overlay] text-[--text-secondary] border border-[--border-default]",
+    success: "ds-badge-success border",
+    warning: "ds-badge-warning border",
+    danger:  "ds-badge-danger border",
+    info:    "ds-badge-info border",
   };
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-mono text-xs font-semibold ${variants[variant]} ${className}`}
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-mono text-xs font-semibold ${variants[variant] ?? variants.gold} ${className}`}
     >
       {children}
     </span>

@@ -68,8 +68,8 @@ export const RegistrarSettings: React.FC = () => {
       className="space-y-6"
     >
       <div>
-        <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Account & Settings</h2>
-        <p className="text-xs text-white/50">Manage personal registrar profile details, credentials security, and layout options.</p>
+        <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Account & Settings</h2>
+        <p className="text-xs text-(--text-muted)">Manage personal registrar profile details, credentials security, and layout options.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -78,58 +78,58 @@ export const RegistrarSettings: React.FC = () => {
         <div className="lg:col-span-7 space-y-6">
           
           {/* Profile Edit Form */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
-            <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
-              <User className="w-5 h-5 text-[#D4AF37]" /> Personal Profile Information
+          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary) flex items-center gap-2">
+              <User className="w-5 h-5 text-(--brand-gold)" /> Personal Profile Information
             </h3>
 
             <form onSubmit={handleProfileSave} className="space-y-4 font-sans">
-              <div className="flex items-center gap-4 border-b border-white/5 pb-4">
-                <img src={profile.avatar} alt={profile.name} className="w-14 h-14 rounded-xl border border-white/10 object-cover" />
+              <div className="flex items-center gap-4 border-b border-(--border-subtle) pb-4">
+                <img src={profile.avatar} alt={profile.name} className="w-14 h-14 rounded-xl border border-(--border-default) object-cover" />
                 <div className="space-y-1">
-                  <p className="text-xs text-white/40">Profile Photo</p>
+                  <p className="text-xs text-(--text-faint)">Profile Photo</p>
                   <Button variant="secondary" size="xs" type="button" className="font-semibold text-[10px] py-1.5">Change Photo</Button>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">Full Name</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Full Name</label>
                   <input
                     type="text"
                     required
                     value={profile.name}
                     onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3.5 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">Designation / Role Title</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Designation / Role Title</label>
                   <input
                     type="text"
                     disabled
                     value={profile.title}
-                    className="w-full px-3.5 py-2.5 bg-white/5 border border-white/5 rounded-xl text-xs text-white/40 cursor-not-allowed"
+                    className="w-full px-3.5 py-2.5 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl text-xs text-(--text-faint) cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">Email Address</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Email Address</label>
                   <input
                     type="email"
                     required
                     value={profile.email}
                     onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3.5 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">Phone Number</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Phone Number</label>
                   <input
                     type="text"
                     required
                     value={profile.phone}
                     onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3.5 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                   />
                 </div>
               </div>
@@ -143,45 +143,45 @@ export const RegistrarSettings: React.FC = () => {
           </div>
 
           {/* Change Password Form */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
-            <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
-              <Key className="w-5 h-5 text-[#D4AF37]" /> Change Account Password
+          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary) flex items-center gap-2">
+              <Key className="w-5 h-5 text-(--brand-gold)" /> Change Account Password
             </h3>
 
             <form onSubmit={handlePasswordSave} className="space-y-4 font-sans">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/80">Current Password</label>
+                <label className="text-xs font-semibold text-(--text-secondary)">Current Password</label>
                 <input
                   type="password"
                   required
                   placeholder="••••••••••••"
                   value={password.current}
                   onChange={(e) => setPassword(prev => ({ ...prev, current: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                  className="w-full px-3.5 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">New Password</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">New Password</label>
                   <input
                     type="password"
                     required
                     placeholder="••••••••••••"
                     value={password.newPass}
                     onChange={(e) => setPassword(prev => ({ ...prev, newPass: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3.5 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">Confirm New Password</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Confirm New Password</label>
                   <input
                     type="password"
                     required
                     placeholder="••••••••••••"
                     value={password.confirm}
                     onChange={(e) => setPassword(prev => ({ ...prev, confirm: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3.5 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                   />
                 </div>
               </div>
@@ -200,9 +200,9 @@ export const RegistrarSettings: React.FC = () => {
         <div className="lg:col-span-5 space-y-6">
           
           {/* Security Preferences Toggles */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
-            <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-[#D4AF37]" /> Security Toggles
+          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary) flex items-center gap-2">
+              <Shield className="w-5 h-5 text-(--brand-gold)" /> Security Toggles
             </h3>
 
             <div className="space-y-4 font-sans">
@@ -210,20 +210,20 @@ export const RegistrarSettings: React.FC = () => {
                 { key: 'twoFa', label: 'Two-Factor Auth (2FA)', desc: 'Secures login with verification code dispatches.' },
                 { key: 'darkMode', label: 'Default Theme preferences', desc: 'Sets visual viewport colors to dark theme.' }
               ].map(sw => (
-                <div key={sw.key} className="flex justify-between items-start gap-4 p-3 bg-black/20 border border-white/5 rounded-xl">
+                <div key={sw.key} className="flex justify-between items-start gap-4 p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
                   <div className="space-y-0.5">
-                    <p className="text-xs font-semibold text-white">{sw.label}</p>
-                    <p className="text-[10px] text-white/40">{sw.desc}</p>
+                    <p className="text-xs font-semibold text-(--text-primary)">{sw.label}</p>
+                    <p className="text-[10px] text-(--text-faint)">{sw.desc}</p>
                   </div>
                   
                   <button
                     onClick={() => handleToggle(sw.key as any)}
                     className={`w-9 h-5 rounded-full shrink-0 relative transition-colors duration-200 focus:outline-none ${
-                      toggles[sw.key as keyof typeof toggles] ? 'bg-[#D4AF37]' : 'bg-white/10'
+                      toggles[sw.key as keyof typeof toggles] ? 'bg-(--brand-gold)' : 'bg-(--hover-overlay)'
                     }`}
                   >
                     <span 
-                      className={`block w-4 h-4 rounded-full bg-[#0F0F10] shadow absolute top-0.5 transition-transform duration-200 ${
+                      className={`block w-4 h-4 rounded-full bg-(--bg-base) shadow absolute top-0.5 transition-transform duration-200 ${
                         toggles[sw.key as keyof typeof toggles] ? 'translate-x-4.5' : 'translate-x-0.5'
                       }`}
                     />
@@ -234,16 +234,16 @@ export const RegistrarSettings: React.FC = () => {
           </div>
 
           {/* Session Manager list */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4 font-sans">
-            <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
-              <Clock className="w-5 h-5 text-[#D4AF37]" /> Active Login Sessions
+          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4 font-sans">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary) flex items-center gap-2">
+              <Clock className="w-5 h-5 text-(--brand-gold)" /> Active Login Sessions
             </h3>
 
             <div className="space-y-3">
               {sessions.map(s => (
-                <div key={s.id} className="p-3.5 bg-black/20 border border-white/5 rounded-xl flex items-start gap-3 justify-between">
+                <div key={s.id} className="p-3.5 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl flex items-start gap-3 justify-between">
                   <div className="flex gap-2.5">
-                    <div className="p-2.5 bg-white/5 border border-white/8 rounded-xl text-white/55 shrink-0 flex items-center justify-center">
+                    <div className="p-2.5 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl text-(--text-muted) shrink-0 flex items-center justify-center">
                       {s.device.includes('iPhone') ? (
                         <Smartphone className="w-4 h-4" />
                       ) : (
@@ -251,16 +251,16 @@ export const RegistrarSettings: React.FC = () => {
                       )}
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-white">{s.device}</p>
-                      <p className="text-[9px] font-mono text-white/45">{s.ip} · {s.location}</p>
-                      <span className="text-[9px] text-[#D4AF37] font-mono font-bold block mt-1">{s.status}</span>
+                      <p className="text-xs font-semibold text-(--text-primary)">{s.device}</p>
+                      <p className="text-[9px] font-mono text-(--text-faint)">{s.ip} · {s.location}</p>
+                      <span className="text-[9px] text-(--brand-gold) font-mono font-bold block mt-1">{s.status}</span>
                     </div>
                   </div>
 
                   {!s.current && (
                     <button 
                       onClick={() => handleRevokeSession(s.id)}
-                      className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/35 rounded-lg text-white/40 hover:text-red-400 transition-all shrink-0"
+                      className="p-1.5 bg-(--hover-overlay) border border-(--border-default) hover:border-red-500/35 rounded-lg text-(--text-faint) hover:text-(--status-danger) transition-all shrink-0"
                       title="Revoke Session"
                     >
                       <LogOut className="w-3.5 h-3.5" />

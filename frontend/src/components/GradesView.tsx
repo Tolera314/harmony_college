@@ -9,6 +9,7 @@ import {
   X
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -50,11 +51,11 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
     },
     {
       header: 'Title',
-      cell: (g) => <span className="font-semibold text-white">{g.courseTitle}</span>
+      cell: (g) => <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{g.courseTitle}</span>
     },
     {
       header: 'Term',
-      cell: (g) => <span className="font-mono text-white/60">{g.term}</span>
+      cell: (g) => <span className="font-mono" style={{ color: "var(--text-secondary)" }}>{g.term}</span>
     },
     {
       header: 'Credits',
@@ -74,46 +75,42 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }}
       className="space-y-8 pb-8"
     >
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card hoverable={false} className="space-y-2">
-          <p className="font-mono text-xs text-white/50 uppercase font-bold tracking-wider">
+          <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: "var(--text-faint)" }}>
             Cumulative GPA
           </p>
           <div className="flex items-baseline justify-between">
-            <h3 className="font-serif text-4xl font-bold text-white">
+            <h3 className="font-serif text-4xl font-bold" style={{ color: "var(--text-primary)" }}>
               {profile.cumulativeGpa.toFixed(2)}
             </h3>
             <Badge variant="gold">Summa Cum Laude</Badge>
           </div>
-          <p className="font-sans text-xs text-white/60">
-            Based on {profile.completedCredits} graded semester credits
+          <p className="font-sans text-xs" style={{ color: "var(--text-secondary)" }}>  Based on {profile.completedCredits} graded semester credits
           </p>
         </Card>
 
         <Card hoverable={false} className="space-y-2">
-          <p className="font-mono text-xs text-white/50 uppercase font-bold tracking-wider">
+          <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: "var(--text-faint)" }}>
             Academic Status
           </p>
-          <h3 className="font-serif text-2xl sm:text-3xl font-bold text-emerald-400">
+          <h3 className="font-serif text-2xl sm:text-3xl font-bold" style={{ color: "var(--status-success)" }}>
             Good Standing
           </h3>
-          <p className="font-sans text-xs text-white/60">
-            Dean's List honors achieved 4 consecutive terms
+          <p className="font-sans text-xs" style={{ color: "var(--text-secondary)" }}>  Dean's List honors achieved 4 consecutive terms
           </p>
         </Card>
 
         <Card hoverable={false} className="flex flex-col justify-between">
           <div>
-            <p className="font-mono text-xs text-white/50 uppercase font-bold tracking-wider">
+            <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: "var(--text-faint)" }}>
               Official Transcript
             </p>
-            <p className="font-sans text-xs text-white/60 mt-1">
+            <p className="font-sans text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
               Digitally verified watermarked academic record available.
             </p>
           </div>
@@ -133,8 +130,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
         {/* Left 8 Cols: Grade Records */}
         <div className="lg:col-span-8 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-            <h3 className="font-serif text-2xl font-bold text-white">
-              Grade History Records
+            <h3 className="font-serif text-2xl font-bold" style={{ color: "var(--text-primary)" }}>  Grade History Records
             </h3>
 
             {/* Term Filter Chips */}
@@ -144,9 +140,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
                   key={term}
                   onClick={() => setSelectedTerm(term)}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all touch-target ${
-                    selectedTerm === term
-                      ? 'bg-[#E9C349] text-[#0F0F10] font-semibold'
-                      : 'bg-white/5 text-white/60 border border-white/10'
+                    selectedTerm === term ? "font-semibold" : "border"} style={selectedTerm === term ? { backgroundColor: "var(--brand-gold)", color: "var(--text-inverse)" } : { backgroundColor: "var(--hover-overlay)", color: "var(--text-muted)", borderColor: "var(--border-default)"
                   }`}
                 >
                   {term}
@@ -174,10 +168,9 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
                     {g.grade} ({g.numericGpa.toFixed(1)})
                   </Badge>
                 </div>
-                <h4 className="font-sans text-sm font-semibold text-white">
-                  {g.courseTitle}
+                <h4 className="font-sans text-sm font-semibold" style={{ color: "var(--text-primary)" }}>  {g.courseTitle}
                 </h4>
-                <div className="flex justify-between text-xs font-mono text-white/50 pt-1">
+                <div className="flex justify-between text-xs font-mono pt-1" style={{ color: "var(--text-faint)" }}>
                   <span>Term: {g.term}</span>
                   <span>{g.credits} Credits</span>
                 </div>
@@ -188,22 +181,22 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
 
         {/* Right 4 Cols: Interactive GPA Calculator Simulator */}
         <Card hoverable={false} className="lg:col-span-4 space-y-6">
-          <div className="flex items-center gap-2.5 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2.5 border-b pb-4" style={{ borderColor: "var(--border-default)" }}>
             <Calculator className="w-5 h-5 text-[#E9C349]" />
-            <h3 className="font-sans font-bold text-base text-white">
+            <h3 className="font-sans font-bold text-base" style={{ color: "var(--text-primary)" }}>
               Fall 2024 GPA Simulator
             </h3>
           </div>
 
-          <p className="text-xs text-white/60 leading-relaxed">
+          <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             Test prospective term grades to project your final graduation GPA.
           </p>
 
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-semibold text-white">
+              <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
                 <span>CS402: Software Eng II (4 cr)</span>
-                <span className="font-mono text-[#E9C349]">
+                <span className="font-mono" style={{ color: "var(--brand-gold)" }}>
                   {simCs402 === 4 ? 'A (4.0)' : simCs402 === 3.7 ? 'A- (3.7)' : 'B+ (3.3)'}
                 </span>
               </div>
@@ -219,9 +212,9 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-semibold text-white">
+              <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
                 <span>DS301: Database Systems (4 cr)</span>
-                <span className="font-mono text-[#E9C349]">
+                <span className="font-mono" style={{ color: "var(--brand-gold)" }}>
                   {simDs301 === 4 ? 'A (4.0)' : simDs301 === 3.7 ? 'A- (3.7)' : 'B+ (3.3)'}
                 </span>
               </div>
@@ -237,9 +230,9 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-semibold text-white">
+              <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
                 <span>AI440: Artificial Intelligence (4 cr)</span>
-                <span className="font-mono text-[#E9C349]">
+                <span className="font-mono" style={{ color: "var(--brand-gold)" }}>
                   {simAi440 === 4 ? 'A (4.0)' : simAi440 === 3.7 ? 'A- (3.7)' : 'B+ (3.3)'}
                 </span>
               </div>
@@ -255,12 +248,12 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             </div>
           </div>
 
-          <div className="p-4 bg-white/5 rounded-2xl space-y-1 text-center border border-[#E9C349]/20">
-            <p className="text-xs font-mono text-white/50">Projected Cumulative GPA</p>
-            <p className="font-serif text-3xl font-bold text-[#E9C349]">
+          <div className="p-4 rounded-2xl space-y-1 text-center border" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--accent-gold-border)" }}>
+            <p className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>Projected Cumulative GPA</p>
+            <p className="font-serif text-3xl font-bold" style={{ color: "var(--brand-gold)" }}>
               {calculateSimulatedGpa()}
             </p>
-            <p className="text-[10px] text-emerald-400 font-bold">
+            <p className="text-[10px] font-bold" style={{ color: "var(--status-success)" }}>
               On track for Graduation with Highest Honors
             </p>
           </div>
@@ -326,7 +319,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
 
           <div className="pt-4 border-t border-gray-300 flex flex-col sm:flex-row justify-between items-center text-xs font-mono text-gray-500 gap-3">
             <div className="flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <FileCheck className="w-4 h-4 shrink-0" style={{ color: "var(--status-success)" }} />
               <span>Digitally Signed Token: HC-2024-X8921</span>
             </div>
             <button

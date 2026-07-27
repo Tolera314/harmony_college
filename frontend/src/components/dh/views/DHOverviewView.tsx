@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { Users, BookOpen, GraduationCap, CheckSquare, TrendingUp, CalendarCheck } from 'lucide-react';
 import { KPICard } from '../KPICard';
 import { DHPageHeader } from '../DHPageHeader';
@@ -22,7 +23,7 @@ interface DHOverviewViewProps {
 }
 
 const standingColor: Record<string, string> = {
-  Excellent: 'text-emerald-400', Good: 'text-white/80', Warning: 'text-amber-400', Probation: 'text-rose-400',
+  Excellent: 'text-(--status-success)', Good: 'text-(--text-secondary)', Warning: 'text-(--status-warning)', Probation: 'text-(--status-danger)',
 };
 
 export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActiveTab }) => {
@@ -31,34 +32,34 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
   const atRisk  = students.filter((s) => s.riskLevel === 'High' || s.riskLevel === 'Critical');
 
   const enrollLine = enrollmentTrend.map((e) => ({ label: e.semester, value: e.count }));
-  const gpaBar     = gpaByCourseTrend.map((g) => ({ label: g.course, value: g.avgGpa, color: '#E9C349' }));
+  const gpaBar     = gpaByCourseTrend.map((g) => ({ label: g.course, value: g.avgGpa, color: 'var(--brand-gold)' }));
   const attendLine = attendanceTrend.map((a) => ({ label: a.week, value: a.rate }));
   const workload   = facultyWorkload.map((w) => ({ label: w.facultyName, value: w.hours, max: w.maxHours }));
 
   const capacitySegments = [
-    { label: '≥ 90% full', value: courses.filter((c) => c.registered / c.capacity >= 0.9).length, color: '#f87171' },
-    { label: '70–89% full', value: courses.filter((c) => { const r = c.registered / c.capacity; return r >= 0.7 && r < 0.9; }).length, color: '#E9C349' },
-    { label: '< 70% full', value: courses.filter((c) => c.registered / c.capacity < 0.7).length, color: '#34d399' },
+    { label: '≥ 90% full', value: courses.filter((c) => c.registered / c.capacity >= 0.9).length, color: 'var(--status-danger)' },
+    { label: '70–89% full', value: courses.filter((c) => { const r = c.registered / c.capacity; return r >= 0.7 && r < 0.9; }).length, color: 'var(--brand-gold)' },
+    { label: '< 70% full', value: courses.filter((c) => c.registered / c.capacity < 0.7).length, color: 'var(--status-success)' },
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-8 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-8 pb-16">
 
       {/* Hero banner */}
-      <section className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl min-h-[200px]">
+      <section className="relative rounded-3xl overflow-hidden border border-(--border-default) shadow-2xl min-h-[200px]">
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#E9C349]/10 via-transparent to-transparent" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#E9C349]/6 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-br from-(--accent-gold-subtle) via-transparent to-transparent" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-(--accent-gold-subtle) rounded-full blur-3xl pointer-events-none" />
         </div>
         <div className="relative z-10 p-6 sm:p-8 lg:p-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9C349]/10 border border-[#E9C349]/30 text-[11px] font-mono font-semibold text-[#E9C349] uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[11px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" /> {profile.currentSemester} · Active
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-white leading-tight">
+            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
               Welcome back, {profile.name.split(' ')[1]}.
             </h2>
-            <p className="font-sans text-sm text-white/60 max-w-xl leading-relaxed">
+            <p className="font-sans text-sm text-(--text-secondary) max-w-xl leading-relaxed">
               {profile.department} · {profile.college}
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
@@ -78,10 +79,10 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
             </div>
           </div>
           <div className="hidden lg:flex flex-col items-center gap-2 shrink-0">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#E9C349]/40 shadow-xl">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-(--accent-gold-border) shadow-xl">
               <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
             </div>
-            <p className="font-sans text-xs text-white/50 text-center">{profile.employeeId}</p>
+            <p className="font-sans text-xs text-(--text-muted) text-center">{profile.employeeId}</p>
           </div>
         </div>
       </section>
@@ -142,8 +143,8 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Enrollment Trend</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Total students enrolled per semester</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Enrollment Trend</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Total students enrolled per semester</p>
             </div>
             <Badge variant="emerald">+5.1% this term</Badge>
           </div>
@@ -153,8 +154,8 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
         {/* Capacity Utilization */}
         <Card hoverable={false} className="space-y-5">
           <div>
-            <h3 className="font-serif text-lg font-bold text-white">Capacity Utilization</h3>
-            <p className="font-sans text-xs text-white/40 mt-0.5">Current semester — {courses.filter(c=>c.status==='Active').length} active courses</p>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Capacity Utilization</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Current semester — {courses.filter(c=>c.status==='Active').length} active courses</p>
           </div>
           <DonutChart
             segments={capacitySegments}
@@ -170,8 +171,8 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Average GPA by Course</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Fall 2024 semester</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Average GPA by Course</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Fall 2024 semester</p>
             </div>
           </div>
           <BarChart data={gpaBar} height={150} />
@@ -181,8 +182,8 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Weekly Attendance Trend</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Dept-wide average · Fall 2024</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Weekly Attendance Trend</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Dept-wide average · Fall 2024</p>
             </div>
             <Badge variant="amber">Week 8</Badge>
           </div>
@@ -196,8 +197,8 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Faculty Workload</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Weekly teaching hours vs maximum</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Faculty Workload</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Weekly teaching hours vs maximum</p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('faculty')}>View all</Button>
           </div>
@@ -207,21 +208,21 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
         {/* At-Risk Students */}
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">At-Risk Students</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">At-Risk Students</h3>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('students')}>View all</Button>
           </div>
           {atRisk.length === 0 ? (
-            <p className="font-sans text-sm text-white/40 py-4 text-center">No at-risk students currently.</p>
+            <p className="font-sans text-sm text-(--text-faint) py-4 text-center">No at-risk students currently.</p>
           ) : (
             <div className="space-y-3">
               {atRisk.slice(0, 4).map((s) => (
-                <div key={s.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/8">
-                  <img src={s.avatar} alt={s.name} className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+                <div key={s.id} className="flex items-center gap-3 p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <img src={s.avatar} alt={s.name} className="w-8 h-8 rounded-full object-cover border border-(--border-default) shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="font-sans text-xs font-semibold text-white truncate">{s.name}</p>
+                    <p className="font-sans text-xs font-semibold text-(--text-primary) truncate">{s.name}</p>
                     <p className={`font-mono text-[10px] ${standingColor[s.standing]}`}>{s.standing} · {s.riskLevel} Risk</p>
                   </div>
-                  <span className="font-mono text-xs text-white/50">{s.cgpa}</span>
+                  <span className="font-mono text-xs text-(--text-muted)">{s.cgpa}</span>
                 </div>
               ))}
             </div>
@@ -233,18 +234,18 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
       <section>
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">Recent Notifications</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Recent Notifications</h3>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('notifications')}>View all</Button>
           </div>
           <div className="space-y-2">
             {allNotifs.slice(0, 5).map((n) => (
-              <div key={n.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${n.read ? 'border-white/5 bg-transparent' : 'border-[#E9C349]/15 bg-[#E9C349]/5'}`}>
-                <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${n.read ? 'bg-white/20' : n.type === 'alert' || n.type === 'warning' ? 'bg-amber-400' : 'bg-[#E9C349]'}`} />
+              <div key={n.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${n.read ? 'border-(--border-subtle) bg-transparent' : 'border-[#E9C349]/15 bg-[#E9C349]/5'}`}>
+                <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${n.read ? 'bg-(--active-overlay)' : n.type === 'alert' || n.type === 'warning' ? 'bg-(--status-warning)' : 'bg-[#E9C349]'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className={`font-sans text-xs font-semibold ${n.read ? 'text-white/60' : 'text-white'}`}>{n.title}</p>
-                  <p className="font-sans text-xs text-white/40 truncate mt-0.5">{n.message}</p>
+                  <p className={`font-sans text-xs font-semibold ${n.read ? 'text-(--text-secondary)' : 'text-(--text-primary)'}`}>{n.title}</p>
+                  <p className="font-sans text-xs text-(--text-faint) truncate mt-0.5">{n.message}</p>
                 </div>
-                <p className="font-mono text-[10px] text-white/30 shrink-0 hidden sm:block">{n.timestamp.split(' ')[0]}</p>
+                <p className="font-mono text-[10px] text-(--text-faint) shrink-0 hidden sm:block">{n.timestamp.split(' ')[0]}</p>
               </div>
             ))}
           </div>

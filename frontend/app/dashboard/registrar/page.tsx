@@ -10,6 +10,7 @@ import {
   Grid, LayoutDashboard, Clock, BarChart3, Settings
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
+import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 
 // Import sub-components
 import { DashboardOverview }     from '@/src/components/registrar/DashboardOverview';
@@ -40,7 +41,15 @@ interface SidebarItem {
 }
 
 export default function RegistrarDashboardPage() {
-  const [activeTab, setActiveTab] = useState<RegistrarTab>('dashboard');
+  const [activeTab, setRawTab] = useState<RegistrarTab>('dashboard');
+  const [tabLoading, setTabLoading] = useState(false);
+  const { toast, show: showToast, hide: hideToast } = useToast();
+
+  const setActiveTab = (tab: RegistrarTab) => {
+    if (tab === (activeTab as string)) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab as RegistrarTab); setTabLoading(false); }, 120);
+  };
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -116,6 +125,7 @@ export default function RegistrarDashboardPage() {
   ];
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'dashboard':
         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={triggerCreateCourse} />;
@@ -159,6 +169,7 @@ export default function RegistrarDashboardPage() {
 
   return (
     <>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
       {/* Background radial glow */}
       <div className="fixed inset-0 bg-[#0F0F10] pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#D4AF37]/5 rounded-full blur-[140px]" />
@@ -339,7 +350,7 @@ export default function RegistrarDashboardPage() {
           </header>
 
           {/* Main 12-Column Responsive Layout Body content */}
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}

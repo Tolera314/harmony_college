@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { SPRING } from '@/src/lib/motion';
 import { 
   Search, Filter, X, Eye, ShieldAlert, 
   HelpCircle, MoreVertical, Plus, Trash2, 
   BookOpen, Clock, AlertTriangle, ArrowRight, UserCheck
 } from 'lucide-react';
+import { EmptyState } from '../ui/States';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 
@@ -192,20 +194,20 @@ export const EnrollmentManagement: React.FC = () => {
       className="space-y-6"
     >
       <div>
-        <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Enrollments & Overrides</h2>
-        <p className="text-xs text-white/50">Audit class registration status and execute manual enrollment overrides.</p>
+        <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Enrollments & Overrides</h2>
+        <p className="text-xs text-(--text-muted)">Audit class registration status and execute manual enrollment overrides.</p>
       </div>
 
       {/* Roster Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl backdrop-blur-md">
         <div className="relative col-span-1 md:col-span-2">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by Student Name or Student ID..."
-            className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white"
+            className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-primary)"
           />
         </div>
 
@@ -213,7 +215,7 @@ export const EnrollmentManagement: React.FC = () => {
           <select
             value={programFilter}
             onChange={(e) => setProgramFilter(e.target.value)}
-            className="w-full px-3 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white/70"
+            className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-secondary)"
           >
             <option value="All">All Programs</option>
             <option value="Computer Science">Computer Science</option>
@@ -224,9 +226,9 @@ export const EnrollmentManagement: React.FC = () => {
       </div>
 
       {/* Roster Table */}
-      <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-left text-xs font-sans">
-          <thead className="bg-white/5 border-b border-white/10 text-white/50 font-mono text-[10px] uppercase tracking-wider">
+          <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-5 py-4">Student</th>
               <th className="px-5 py-4">Student ID</th>
@@ -237,25 +239,25 @@ export const EnrollmentManagement: React.FC = () => {
               <th className="px-5 py-4 text-right">Audit</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-white/80">
+          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
             {filteredStudents.map((st) => (
               <tr 
                 key={st.id} 
                 onClick={() => { setSelectedStudent(st); setOverrideAction(null); }}
-                className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                className="hover:bg-(--hover-overlay) transition-colors cursor-pointer group"
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
-                    <img src={st.avatar} alt={st.name} className="w-8 h-8 rounded-full border border-white/15 object-cover" />
+                    <img src={st.avatar} alt={st.name} className="w-8 h-8 rounded-full border border-(--border-strong) object-cover" />
                     <div>
-                      <p className="font-semibold text-white group-hover:text-[#D4AF37] transition-colors">{st.name}</p>
-                      <p className="text-[10px] text-white/40">{st.email}</p>
+                      <p className="font-semibold text-(--text-primary) group-hover:text-(--brand-gold) transition-colors">{st.name}</p>
+                      <p className="text-[10px] text-(--text-faint)">{st.email}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-5 py-4 font-mono text-[11px] text-white/60">{st.studentId}</td>
-                <td className="px-5 py-4 text-white/70">{st.program}</td>
-                <td className="px-5 py-4 font-mono text-white/70">{st.credits} Cr (Yr {st.year})</td>
+                <td className="px-5 py-4 font-mono text-[11px] text-(--text-secondary)">{st.studentId}</td>
+                <td className="px-5 py-4 text-(--text-secondary)">{st.program}</td>
+                <td className="px-5 py-4 font-mono text-(--text-secondary)">{st.credits} Cr (Yr {st.year})</td>
                 <td className="px-5 py-4">
                   <Badge variant={st.standing === 'Excellent' ? 'emerald' : st.standing === 'Good' ? 'glass' : 'rose'}>
                     {st.standing}
@@ -269,7 +271,7 @@ export const EnrollmentManagement: React.FC = () => {
                 <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <button 
                     onClick={() => { setSelectedStudent(st); setOverrideAction(null); }}
-                    className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-white/60 hover:text-[#D4AF37] hover:border-[#D4AF37]/30 text-[10px] font-semibold transition-all"
+                    className="px-3 py-1.5 rounded-xl border border-(--border-default) bg-(--hover-overlay) text-(--text-secondary) hover:text-(--brand-gold) hover:border-(--brand-gold)/30 text-[10px] font-semibold transition-all"
                   >
                     Manage
                   </button>
@@ -297,17 +299,17 @@ export const EnrollmentManagement: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed right-0 top-0 bottom-0 w-full md:w-[650px] bg-[#0F0F10] border-l border-white/10 z-50 overflow-y-auto flex flex-col shadow-2xl font-sans"
+              className="fixed right-0 top-0 bottom-0 w-full md:w-[650px] bg-(--bg-base) border-l border-(--border-default) z-50 overflow-y-auto flex flex-col shadow-2xl font-sans"
             >
               {/* Header */}
-              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-[#0F0F10] sticky top-0 z-10">
+              <div className="p-6 border-b border-(--border-default) flex items-center justify-between bg-(--bg-base) sticky top-0 z-10">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Enrollment Registry Drawer</span>
-                  <h3 className="text-lg font-serif font-bold text-white">{selectedStudent.name} ({selectedStudent.studentId})</h3>
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">Enrollment Registry Drawer</span>
+                  <h3 className="text-lg font-serif font-bold text-(--text-primary)">{selectedStudent.name} ({selectedStudent.studentId})</h3>
                 </div>
                 <button 
                   onClick={() => setSelectedStudent(null)}
-                  className="p-2 bg-white/5 border border-white/10 rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay) transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -318,15 +320,15 @@ export const EnrollmentManagement: React.FC = () => {
                 
                 {/* Course List */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-white/40">Registered Semesters Courses</h4>
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Registered Semesters Courses</h4>
                   <div className="space-y-2">
                     {selectedStudent.courses.map((c) => (
-                      <div key={c.code} className="p-3 bg-white/5 border border-white/8 rounded-xl flex items-center justify-between">
+                      <div key={c.code} className="p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <BookOpen className="w-4 h-4 text-[#D4AF37]" />
+                          <BookOpen className="w-4 h-4 text-(--brand-gold)" />
                           <div>
-                            <p className="text-xs font-semibold text-white">{c.code} · {c.name}</p>
-                            <p className="text-[10px] text-white/40 font-mono">{c.credits} Credits</p>
+                            <p className="text-xs font-semibold text-(--text-primary)">{c.code} · {c.name}</p>
+                            <p className="text-[10px] text-(--text-faint) font-mono">{c.credits} Credits</p>
                           </div>
                         </div>
                         <Badge variant={c.status === 'Completed' ? 'glass' : 'emerald'}>
@@ -335,7 +337,7 @@ export const EnrollmentManagement: React.FC = () => {
                       </div>
                     ))}
                     {selectedStudent.courses.length === 0 && (
-                      <div className="text-center py-6 border border-dashed border-white/10 rounded-xl text-white/30 text-xs">
+                      <div className="text-center py-6 border border-dashed border-(--border-default) rounded-xl text-(--text-faint) text-xs">
                         No courses registered for this term.
                       </div>
                     )}
@@ -344,15 +346,15 @@ export const EnrollmentManagement: React.FC = () => {
 
                 {/* Overrides Selection Panel */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-white/40">Manual Registration Overrides</h4>
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Manual Registration Overrides</h4>
                   
                   <div className="flex gap-3">
                     <button
                       onClick={() => { setOverrideAction('add'); setTargetCourseCode(availableCoursesToForceAdd[0].code); }}
                       className={`flex-1 p-3 border rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all ${
                         overrideAction === 'add'
-                          ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-white'
-                          : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+                          ? 'bg-(--accent-gold-subtle) border-(--brand-gold) text-(--text-primary)'
+                          : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-strong)'
                       }`}
                     >
                       <Plus className="w-4 h-4" /> Force Add Course
@@ -365,8 +367,8 @@ export const EnrollmentManagement: React.FC = () => {
                       disabled={selectedStudent.courses.length === 0}
                       className={`flex-1 p-3 border rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
                         overrideAction === 'drop'
-                          ? 'bg-rose-500/10 border-rose-500 text-white'
-                          : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+                          ? 'bg-(--status-danger-bg) border-rose-500 text-(--text-primary)'
+                          : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-strong)'
                       }`}
                     >
                       <Trash2 className="w-4 h-4" /> Force Drop Course
@@ -381,16 +383,16 @@ export const EnrollmentManagement: React.FC = () => {
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         onSubmit={handleOverrideSubmit}
-                        className="p-4 bg-black/40 border border-white/10 rounded-2xl space-y-4 overflow-hidden"
+                        className="p-4 bg-(--bg-input) border border-(--border-default) rounded-2xl space-y-4 overflow-hidden"
                       >
                         <div className="space-y-1">
-                          <label className="text-xs font-semibold text-white/80">
+                          <label className="text-xs font-semibold text-(--text-secondary)">
                             {overrideAction === 'add' ? 'Select Course to Force Add' : 'Select Course to Force Drop'}
                           </label>
                           <select
                             value={targetCourseCode}
                             onChange={(e) => setTargetCourseCode(e.target.value)}
-                            className="w-full px-3 py-2 bg-[#0F0F10] border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                            className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
                           >
                             {overrideAction === 'add' ? (
                               availableCoursesToForceAdd.map(c => (
@@ -406,8 +408,8 @@ export const EnrollmentManagement: React.FC = () => {
 
                         {/* Mandatory Reason */}
                         <div className="space-y-1">
-                          <label className="text-xs font-semibold text-white/80 flex items-center gap-1">
-                            Override Reason <span className="text-red-400 font-mono text-[10px]">*Mandatory</span>
+                          <label className="text-xs font-semibold text-(--text-secondary) flex items-center gap-1">
+                            Override Reason <span className="text-(--status-danger) font-mono text-[10px]">*Mandatory</span>
                           </label>
                           <input
                             type="text"
@@ -415,7 +417,7 @@ export const EnrollmentManagement: React.FC = () => {
                             placeholder="Enter administrative justification..."
                             value={overrideReason}
                             onChange={(e) => setOverrideReason(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-[#0F0F10] border border-white/10 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]"
+                            className="w-full px-3.5 py-2.5 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold)"
                           />
                         </div>
 
@@ -427,7 +429,7 @@ export const EnrollmentManagement: React.FC = () => {
                             variant={overrideAction === 'add' ? 'gold' : 'rose'} 
                             size="sm" 
                             type="submit"
-                            className={overrideAction === 'drop' ? 'bg-rose-500 text-white font-semibold' : 'font-semibold'}
+                            className={overrideAction === 'drop' ? 'bg-rose-500 text-(--text-primary) font-semibold' : 'font-semibold'}
                           >
                             Execute Override
                           </Button>
@@ -438,23 +440,23 @@ export const EnrollmentManagement: React.FC = () => {
                 </div>
 
                 {/* Audit Trail Timeline */}
-                <div className="space-y-3 border-t border-white/5 pt-4">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
-                    <ShieldAlert className="w-4 h-4 text-[#D4AF37]" /> Override Audit Trail & Authorization Log
+                <div className="space-y-3 border-t border-(--border-subtle) pt-4">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint) flex items-center gap-1">
+                    <ShieldAlert className="w-4 h-4 text-(--brand-gold)" /> Override Audit Trail & Authorization Log
                   </h4>
-                  <div className="space-y-4 pl-3 border-l border-white/10">
+                  <div className="space-y-4 pl-3 border-l border-(--border-default)">
                     {selectedStudent.overrides.map((ov, idx) => (
                       <div key={idx} className="relative text-xs">
-                        <span className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-red-400 border-2 border-[#0F0F10]" />
+                        <span className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-red-400 border-2 border-(--bg-base)" />
                         <div className="space-y-0.5">
-                          <p className="text-white/40 font-mono text-[9px]">{ov.time} · Authorizer: {ov.actor}</p>
-                          <p className="text-white/90 font-bold">{ov.action}</p>
-                          <p className="text-white/60 italic">&quot;{ov.reason}&quot;</p>
+                          <p className="text-(--text-faint) font-mono text-[9px]">{ov.time} · Authorizer: {ov.actor}</p>
+                          <p className="text-(--text-primary) font-bold">{ov.action}</p>
+                          <p className="text-(--text-secondary) italic">&quot;{ov.reason}&quot;</p>
                         </div>
                       </div>
                     ))}
                     {selectedStudent.overrides.length === 0 && (
-                      <span className="text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20 block text-center w-full">
+                      <span className="text-[10px] font-mono text-(--status-success) font-semibold bg-(--status-success-bg) px-2.5 py-0.5 rounded border border-(--status-success-border) block text-center w-full">
                         Zero Manual Overrides Logged (Clean Registry Record)
                       </span>
                     )}

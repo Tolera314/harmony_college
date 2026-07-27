@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import {
   CalendarCheck, QrCode, RefreshCw, Clock, Users, CheckCircle2,
   XCircle, AlertCircle, FileDown, Pencil, ChevronDown,
@@ -17,10 +18,10 @@ import { AttendanceStatus, AttendanceRecord } from '../../../types/instructor';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 const statusCfg: Record<AttendanceStatus, { variant: 'emerald'|'amber'|'rose'|'glass'; icon: React.ReactNode; bg: string }> = {
-  Present: { variant: 'emerald', icon: <CheckCircle2 className="w-3.5 h-3.5" />, bg: 'bg-emerald-950/30 border-emerald-800/40' },
-  Late:    { variant: 'amber',   icon: <Clock className="w-3.5 h-3.5" />,         bg: 'bg-amber-950/30 border-amber-800/40' },
-  Absent:  { variant: 'rose',    icon: <XCircle className="w-3.5 h-3.5" />,       bg: 'bg-rose-950/30 border-rose-800/40' },
-  Excused: { variant: 'glass',   icon: <AlertCircle className="w-3.5 h-3.5" />,   bg: 'bg-white/5 border-white/10' },
+  Present: { variant: 'emerald', icon: <CheckCircle2 className="w-3.5 h-3.5" />, bg: 'bg-(--status-success-bg) border-(--status-success-border)' },
+  Late:    { variant: 'amber',   icon: <Clock className="w-3.5 h-3.5" />,         bg: 'bg-(--status-warning-bg) border-(--status-warning-border)' },
+  Absent:  { variant: 'rose',    icon: <XCircle className="w-3.5 h-3.5" />,       bg: 'bg-(--status-danger-bg) border-(--status-danger-border)' },
+  Excused: { variant: 'glass',   icon: <AlertCircle className="w-3.5 h-3.5" />,   bg: 'bg-(--hover-overlay) border-(--border-default)' },
 };
 
 function QRPattern({ seed }: { seed: number }) {
@@ -36,7 +37,7 @@ function QRPattern({ seed }: { seed: number }) {
   return (
     <div className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${size}, 1fr)`, width: 220, height: 220 }}>
       {cells.map((on, i) => (
-        <div key={i} className={`rounded-[1px] ${on ? 'bg-[#0F0F10]' : 'bg-transparent'}`} />
+        <div key={i} className={`rounded-[1px] ${on ? 'bg-(--bg-base)' : 'bg-transparent'}`} />
       ))}
     </div>
   );
@@ -97,7 +98,7 @@ export const InAttendanceView: React.FC = () => {
     : 0;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Attendance"
         subtitle={sessionActive ? 'QR session active' : 'No active session'}
@@ -109,12 +110,12 @@ export const InAttendanceView: React.FC = () => {
               <select
                 value={selectedCourse}
                 onChange={e => setSelectedCourse(e.target.value as 'c01' | 'c02')}
-                className="appearance-none pl-3 pr-7 py-2 bg-white/5 border border-white/10 rounded-xl font-sans text-xs text-white focus:outline-none focus:border-[#E9C349]"
+                className="appearance-none pl-3 pr-7 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
               >
-                <option className="bg-[#1a1a1b]" value="c01">FILM402</option>
-                <option className="bg-[#1a1a1b]" value="c02">FILM301</option>
+                <option className="bg-(--bg-card-solid)" value="c01">FILM402</option>
+                <option className="bg-(--bg-card-solid)" value="c02">FILM301</option>
               </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-white/40 pointer-events-none" />
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-(--text-faint) pointer-events-none" />
             </div>
             {!sessionActive
               ? <Button variant="primary" size="sm" icon={<QrCode className="w-4 h-4" />} onClick={() => setSessionActive(true)}>Start Session</Button>
@@ -128,7 +129,7 @@ export const InAttendanceView: React.FC = () => {
       <div className="flex gap-2 flex-wrap">
         {([['qr', 'QR Attendance'], ['manual', 'Manual Entry'], ['history', 'Session History']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setView(id)}
-            className={`px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${view === id ? 'bg-[#E9C349]/15 border-[#E9C349]/40 text-[#E9C349]' : 'bg-white/5 border-white/10 text-white/60 hover:text-white'}`}>
+            className={`px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${view === id ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
             {label}
           </button>
         ))}
@@ -141,10 +142,10 @@ export const InAttendanceView: React.FC = () => {
           <Card hoverable={false} className="lg:col-span-2 space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-serif text-xl font-bold text-white">
+                <h3 className="font-serif text-xl font-bold text-(--text-primary)">
                   {sessionActive ? 'Live QR Code' : 'Session Ended'}
                 </h3>
-                <p className="font-sans text-xs text-white/50 mt-0.5">
+                <p className="font-sans text-xs text-(--text-muted) mt-0.5">
                   {course?.code} · {course?.title} · {session?.date}
                 </p>
               </div>
@@ -161,25 +162,25 @@ export const InAttendanceView: React.FC = () => {
                   key={qrSeed}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ ...DURATION.medium, ...EASE.out }}
                 >
                   <QRPattern seed={qrSeed} />
                 </motion.div>
                 {/* Countdown ring overlay */}
                 {sessionActive && (
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[#141617] border border-white/15 px-3 py-1 rounded-full shadow-lg">
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-(--bg-card-solid) border border-(--border-strong) px-3 py-1 rounded-full shadow-lg">
                     <motion.div
                       className="w-1.5 h-1.5 rounded-full bg-[#E9C349]"
                       animate={{ opacity: [1, 0.3, 1] }}
                       transition={{ duration: 1, repeat: Infinity }}
                     />
-                    <span className="font-mono text-[11px] text-[#E9C349] font-bold">Refreshes in {countdown}s</span>
+                    <span className="font-mono text-[11px] text-(--brand-gold) font-bold">Refreshes in {countdown}s</span>
                   </div>
                 )}
               </div>
 
               <div className="text-center">
-                <p className="font-mono text-[10px] text-white/30 tracking-wider">{session?.qrCode}</p>
+                <p className="font-mono text-[10px] text-(--text-faint) tracking-wider">{session?.qrCode}</p>
               </div>
 
               <div className="flex gap-2">
@@ -199,25 +200,25 @@ export const InAttendanceView: React.FC = () => {
             {/* Summary stats */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Present', value: presentCount, color: 'text-emerald-400', bg: 'bg-emerald-950/30 border-emerald-800/40' },
-                { label: 'Late',    value: lateCount,    color: 'text-amber-400',   bg: 'bg-amber-950/30 border-amber-800/40' },
-                { label: 'Absent',  value: absentCount,  color: 'text-rose-400',    bg: 'bg-rose-950/30 border-rose-800/40' },
-                { label: 'Excused', value: excusedCount, color: 'text-white/60',    bg: 'bg-white/5 border-white/10' },
+                { label: 'Present', value: presentCount, color: 'text-(--status-success)', bg: 'bg-(--status-success-bg) border-(--status-success-border)' },
+                { label: 'Late',    value: lateCount,    color: 'text-(--status-warning)',   bg: 'bg-(--status-warning-bg) border-(--status-warning-border)' },
+                { label: 'Absent',  value: absentCount,  color: 'text-(--status-danger)',    bg: 'bg-(--status-danger-bg) border-(--status-danger-border)' },
+                { label: 'Excused', value: excusedCount, color: 'text-(--text-secondary)',    bg: 'bg-(--hover-overlay) border-(--border-default)' },
               ].map(item => (
                 <div key={item.label} className={`p-3.5 border rounded-xl ${item.bg}`}>
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">{item.label}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{item.label}</p>
                   <p className={`font-mono text-2xl font-bold mt-0.5 ${item.color}`}>{item.value}</p>
                 </div>
               ))}
             </div>
 
             {/* Attendance rate */}
-            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+            <div className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-xl">
               <div className="flex items-center justify-between mb-2">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Session Rate</p>
-                <p className={`font-mono text-xl font-bold ${attendancePct >= 80 ? 'text-emerald-400' : 'text-rose-400'}`}>{attendancePct}%</p>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Session Rate</p>
+                <p className={`font-mono text-xl font-bold ${attendancePct >= 80 ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>{attendancePct}%</p>
               </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div className="h-2 bg-(--hover-overlay) rounded-full overflow-hidden">
                 <motion.div
                   className="h-full rounded-full"
                   style={{ backgroundColor: attendancePct >= 80 ? '#34d399' : '#f87171' }}
@@ -226,12 +227,12 @@ export const InAttendanceView: React.FC = () => {
                   transition={{ duration: 0.8, ease: 'easeOut' }}
                 />
               </div>
-              <p className="font-sans text-[10px] text-white/30 mt-2">{allStudents.length} enrolled · {session?.startTime}–{session?.endTime}</p>
+              <p className="font-sans text-[10px] text-(--text-faint) mt-2">{allStudents.length} enrolled · {session?.startTime}–{session?.endTime}</p>
             </div>
 
             {/* Live check-in feed */}
             <Card hoverable={false} className="space-y-3 p-4">
-              <p className="font-mono text-[11px] uppercase tracking-wider text-white/40">Check-in Feed</p>
+              <p className="font-mono text-[11px] uppercase tracking-wider text-(--text-faint)">Check-in Feed</p>
               <div className="space-y-2 max-h-52 overflow-y-auto">
                 {session?.records.map((rec, i) => {
                   const student = students.find(s => s.id === rec.studentId);
@@ -240,11 +241,11 @@ export const InAttendanceView: React.FC = () => {
                     <motion.div key={rec.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
                       className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <img src={student?.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-white/10 shrink-0" />
-                        <p className="font-sans text-xs text-white/80 truncate">{student?.name}</p>
+                        <img src={student?.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-(--border-default) shrink-0" />
+                        <p className="font-sans text-xs text-(--text-secondary) truncate">{student?.name}</p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        {rec.markedAt && <span className="font-mono text-[10px] text-white/30">{rec.markedAt}</span>}
+                        {rec.markedAt && <span className="font-mono text-[10px] text-(--text-faint)">{rec.markedAt}</span>}
                         <Badge variant={cfg.variant} className="text-[10px] py-0">{rec.status}</Badge>
                       </div>
                     </motion.div>
@@ -261,14 +262,14 @@ export const InAttendanceView: React.FC = () => {
         <Card hoverable={false} className="space-y-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Manual Attendance</h3>
-              <p className="font-sans text-xs text-white/50 mt-0.5">{course?.code} · {allStudents.length} students</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Manual Attendance</h3>
+              <p className="font-sans text-xs text-(--text-muted) mt-0.5">{course?.code} · {allStudents.length} students</p>
             </div>
             <div className="flex gap-2 flex-wrap">
               <Button variant="secondary" size="sm" onClick={() => handleMarkAll('Present')}>Mark All Present</Button>
               <Button variant="secondary" size="sm" onClick={() => handleMarkAll('Absent')}>Reset All</Button>
               {saved && (
-                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 text-emerald-400 font-sans text-xs">
+                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 text-(--status-success) font-sans text-xs">
                   <CheckCircle2 className="w-4 h-4" /> Saved
                 </motion.span>
               )}
@@ -278,23 +279,23 @@ export const InAttendanceView: React.FC = () => {
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-sans min-w-[600px]">
-              <thead className="bg-white/5 border-b border-white/10">
+              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
                 <tr>
                   {['Student', 'ID', 'Status', 'Note'].map(h => (
-                    <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-white/50 text-left">{h}</th>
+                    <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) text-left">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-(--border-subtle)">
                 {allStudents.map(student => (
-                  <tr key={student.id} className="hover:bg-white/4 transition-colors">
+                  <tr key={student.id} className="hover:bg-(--hover-overlay) transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <img src={student.avatar} alt={student.name} className="w-7 h-7 rounded-full border border-white/10 shrink-0" />
-                        <span className="font-semibold text-white">{student.name}</span>
+                        <img src={student.avatar} alt={student.name} className="w-7 h-7 rounded-full border border-(--border-default) shrink-0" />
+                        <span className="font-semibold text-(--text-primary)">{student.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-white/40">{student.studentId}</td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-(--text-faint)">{student.studentId}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => (
@@ -303,11 +304,11 @@ export const InAttendanceView: React.FC = () => {
                             onClick={() => setStatuses(prev => ({ ...prev, [student.id]: s }))}
                             className={`px-2 py-1 rounded-lg font-sans text-[10px] font-semibold border transition-all ${
                               statuses[student.id] === s
-                                ? s === 'Present' ? 'bg-emerald-950/50 border-emerald-700 text-emerald-300'
-                                  : s === 'Late'    ? 'bg-amber-950/50 border-amber-700 text-amber-300'
-                                  : s === 'Absent'  ? 'bg-rose-950/50 border-rose-700 text-rose-300'
-                                  : 'bg-white/10 border-white/20 text-white/70'
-                                : 'bg-transparent border-white/10 text-white/30 hover:border-white/30 hover:text-white/60'
+                                ? s === 'Present' ? 'bg-(--status-success-bg) border-(--status-success-border) text-(--status-success)'
+                                  : s === 'Late'    ? 'bg-(--status-warning-bg) border-(--status-warning-border) text-(--status-warning)'
+                                  : s === 'Absent'  ? 'bg-(--status-danger-bg) border-(--status-danger-border) text-(--status-danger)'
+                                  : 'bg-(--hover-overlay) border-(--border-strong) text-(--text-secondary)'
+                                : 'bg-transparent border-(--border-default) text-(--text-faint) hover:border-(--border-strong) hover:text-(--text-secondary)'
                             }`}
                           >
                             {s}
@@ -321,7 +322,7 @@ export const InAttendanceView: React.FC = () => {
                         value={remarks[student.id] ?? ''}
                         onChange={e => setRemarks(prev => ({ ...prev, [student.id]: e.target.value }))}
                         placeholder="Optional note..."
-                        className="w-full bg-transparent border-b border-white/10 focus:border-[#E9C349] outline-none font-sans text-xs text-white/60 py-0.5 transition-colors placeholder:text-white/20"
+                        className="w-full bg-transparent border-b border-(--border-default) focus:border-(--brand-gold) outline-none font-sans text-xs text-(--text-secondary) py-0.5 transition-colors placeholder:text-(--text-faint)"
                       />
                     </td>
                   </tr>
@@ -343,19 +344,19 @@ export const InAttendanceView: React.FC = () => {
               <Card key={s.id} hoverable className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="font-mono text-xs font-bold text-[#E9C349]">{c?.code}</span>
-                    <p className="font-sans text-sm font-semibold text-white mt-0.5">{s.date} · {s.startTime}–{s.endTime}</p>
+                    <span className="font-mono text-xs font-bold text-(--brand-gold)">{c?.code}</span>
+                    <p className="font-sans text-sm font-semibold text-(--text-primary) mt-0.5">{s.date} · {s.startTime}–{s.endTime}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={pct >= 80 ? 'emerald' : 'rose'}>{pct}%</Badge>
                     {s.isActive && <Badge variant="emerald" className="animate-pulse">Active</Badge>}
                   </div>
                 </div>
-                <div className="flex gap-4 text-xs font-mono text-white/50">
-                  <span className="text-emerald-400">{s.records.filter(r => r.status === 'Present').length} Present</span>
-                  <span className="text-amber-400">{s.records.filter(r => r.status === 'Late').length} Late</span>
-                  <span className="text-rose-400">{s.records.filter(r => r.status === 'Absent').length} Absent</span>
-                  <span className="text-white/40">{s.records.filter(r => r.status === 'Excused').length} Excused</span>
+                <div className="flex gap-4 text-xs font-mono text-(--text-muted)">
+                  <span className="text-(--status-success)">{s.records.filter(r => r.status === 'Present').length} Present</span>
+                  <span className="text-(--status-warning)">{s.records.filter(r => r.status === 'Late').length} Late</span>
+                  <span className="text-(--status-danger)">{s.records.filter(r => r.status === 'Absent').length} Absent</span>
+                  <span className="text-(--text-faint)">{s.records.filter(r => r.status === 'Excused').length} Excused</span>
                 </div>
               </Card>
             );
@@ -366,20 +367,20 @@ export const InAttendanceView: React.FC = () => {
       {/* Manual Quick-Add Modal */}
       <Modal isOpen={manualModal} onClose={() => setManualModal(false)} title="Quick Mark — Manual Attendance" maxWidth="max-w-md">
         <div className="space-y-3 font-sans text-sm">
-          <p className="text-white/60 text-xs">Select a student to quickly mark their attendance status.</p>
+          <p className="text-(--text-secondary) text-xs">Select a student to quickly mark their attendance status.</p>
           {allStudents.map(student => (
-            <div key={student.id} className="flex items-center justify-between gap-3 p-3 bg-white/5 rounded-xl">
+            <div key={student.id} className="flex items-center justify-between gap-3 p-3 bg-(--hover-overlay) rounded-xl">
               <div className="flex items-center gap-2">
-                <img src={student.avatar} alt="" className="w-7 h-7 rounded-full border border-white/10" />
-                <span className="font-sans text-xs font-semibold text-white">{student.name}</span>
+                <img src={student.avatar} alt="" className="w-7 h-7 rounded-full border border-(--border-default)" />
+                <span className="font-sans text-xs font-semibold text-(--text-primary)">{student.name}</span>
               </div>
               <select
                 value={statuses[student.id]}
                 onChange={e => setStatuses(prev => ({ ...prev, [student.id]: e.target.value as AttendanceStatus }))}
-                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 font-sans text-xs text-white focus:outline-none focus:border-[#E9C349]"
+                className="bg-(--hover-overlay) border border-(--border-default) rounded-lg px-2 py-1 font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
               >
                 {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => (
-                  <option key={s} className="bg-[#1a1a1b]" value={s}>{s}</option>
+                  <option key={s} className="bg-(--bg-card-solid)" value={s}>{s}</option>
                 ))}
               </select>
             </div>

@@ -89,8 +89,8 @@ export const DigitalCertificates: React.FC = () => {
       className="space-y-6"
     >
       <div>
-        <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Digital Certificates</h2>
-        <p className="text-xs text-white/50">Issue secure cryptographic credentials, monitor verification links, and audit revocation records.</p>
+        <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Digital Certificates</h2>
+        <p className="text-xs text-(--text-muted)">Issue secure cryptographic credentials, monitor verification links, and audit revocation records.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -99,41 +99,41 @@ export const DigitalCertificates: React.FC = () => {
         <div className="lg:col-span-5 space-y-6">
           
           {/* Issue Certificate Form */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-            <h3 className="font-serif text-base font-bold text-white">Generate Graduate Certificate</h3>
+          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+            <h3 className="font-serif text-base font-bold text-(--text-primary)">Generate Graduate Certificate</h3>
             
             <form onSubmit={handleGenerate} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-mono text-white/40 uppercase">Student ID</label>
+                  <label className="text-[10px] font-mono text-(--text-faint) uppercase">Student ID</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. HC-2023-0182"
                     value={newCert.studentId}
                     onChange={(e) => setNewCert(prev => ({ ...prev, studentId: e.target.value }))}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-strong) rounded-xl text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold)"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-mono text-white/40 uppercase">Full Name</label>
+                  <label className="text-[10px] font-mono text-(--text-faint) uppercase">Full Name</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Kidus Tilahun"
                     value={newCert.name}
                     onChange={(e) => setNewCert(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-strong) rounded-xl text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold)"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-mono text-white/40 uppercase">Degree Type & Program</label>
+                <label className="text-[10px] font-mono text-(--text-faint) uppercase">Degree Type & Program</label>
                 <select
                   value={newCert.program}
                   onChange={(e) => setNewCert(prev => ({ ...prev, program: e.target.value }))}
-                  className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white/80 focus:outline-none"
+                  className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-strong) rounded-xl text-xs text-(--text-secondary) focus:outline-none"
                 >
                   <option value="Bachelor of Science in Computer Science">B.Sc. Computer Science</option>
                   <option value="Bachelor of Science in Mechanical Engineering">B.Sc. Mechanical Engineering</option>
@@ -153,17 +153,17 @@ export const DigitalCertificates: React.FC = () => {
           </div>
 
           {/* List of Issued Certificates */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-            <h3 className="font-serif text-base font-bold text-white">Issued Credentials</h3>
+          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+            <h3 className="font-serif text-base font-bold text-(--text-primary)">Issued Credentials</h3>
             
             <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
               <input
                 type="text"
                 placeholder="Search by Name or Cert ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white"
+                className="w-full pl-10 pr-4 py-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-primary)"
               />
             </div>
 
@@ -174,13 +174,13 @@ export const DigitalCertificates: React.FC = () => {
                   onClick={() => setSelectedCert(c)}
                   className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
                     selectedCert?.id === c.id 
-                      ? 'bg-[#D4AF37]/10 border-[#D4AF37]' 
-                      : 'bg-black/20 border-white/5 hover:border-white/12'
+                      ? 'bg-(--accent-gold-subtle) border-(--brand-gold)' 
+                      : 'bg-(--hover-overlay) border-(--border-subtle) hover:border-(--border-default)'
                   }`}
                 >
                   <div>
-                    <h4 className="text-xs font-semibold text-white">{c.name}</h4>
-                    <p className="text-[9px] text-white/40 font-mono">{c.code} · {c.date}</p>
+                    <h4 className="text-xs font-semibold text-(--text-primary)">{c.name}</h4>
+                    <p className="text-[9px] text-(--text-faint) font-mono">{c.code} · {c.date}</p>
                   </div>
                   <Badge variant={c.status === 'Issued' ? 'emerald' : 'rose'}>
                     {c.status}
@@ -198,8 +198,8 @@ export const DigitalCertificates: React.FC = () => {
             <div className="space-y-4">
               
               {/* Controls */}
-              <div className="p-3 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between">
-                <span className="text-xs font-semibold text-white/60">Certificate verification: {selectedCert.code}</span>
+              <div className="p-3 bg-(--hover-overlay) border border-(--border-default) rounded-2xl flex items-center justify-between">
+                <span className="text-xs font-semibold text-(--text-secondary)">Certificate verification: {selectedCert.code}</span>
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
@@ -207,7 +207,7 @@ export const DigitalCertificates: React.FC = () => {
                     onClick={() => handleCopyLink(selectedCert.code)}
                     className="flex items-center gap-1 font-semibold text-xs py-1.5"
                   >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? <Check className="w-3.5 h-3.5 text-(--status-success)" /> : <Copy className="w-3.5 h-3.5" />}
                     Copy Link
                   </Button>
                   <Button
@@ -215,7 +215,7 @@ export const DigitalCertificates: React.FC = () => {
                     size="sm"
                     disabled={selectedCert.status === 'Revoked'}
                     onClick={() => handleRevoke(selectedCert.id)}
-                    className="flex items-center gap-1 font-semibold text-xs py-1.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20"
+                    className="flex items-center gap-1 font-semibold text-xs py-1.5 bg-(--status-danger-bg) border border-(--status-danger-border) text-(--status-danger) hover:bg-rose-500/20"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Revoke
                   </Button>
@@ -307,11 +307,11 @@ export const DigitalCertificates: React.FC = () => {
 
             </div>
           ) : (
-            <div className="h-[480px] border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-3 text-center text-white/30 p-6 bg-white/5">
-              <QrCode className="w-8 h-8 text-white/20 animate-pulse" />
+            <div className="h-[480px] border border-dashed border-(--border-default) rounded-2xl flex flex-col items-center justify-center gap-3 text-center text-(--text-faint) p-6 bg-(--hover-overlay)">
+              <QrCode className="w-8 h-8 text-(--text-faint) animate-pulse" />
               <div>
-                <h4 className="text-xs font-bold text-white font-sans">No Certificate Selected</h4>
-                <p className="text-[10px] text-white/45 max-w-xs mt-1">Select an issued credential from the list, or generate a new digital certificate using the generation form.</p>
+                <h4 className="text-xs font-bold text-(--text-primary) font-sans">No Certificate Selected</h4>
+                <p className="text-[10px] text-(--text-faint) max-w-xs mt-1">Select an issued credential from the list, or generate a new digital certificate using the generation form.</p>
               </div>
             </div>
           )}
