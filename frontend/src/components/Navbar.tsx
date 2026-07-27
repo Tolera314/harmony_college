@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Menu, Search, X } from 'lucide-react';
 import Link from 'next/link';
+import ThemeToggle from './ThemeToggle';
 
 interface NavbarProps {
   onOpenSearch: () => void;
@@ -11,7 +12,7 @@ interface NavbarProps {
 export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('about');
+  const [activeSection, setActiveSection] = useState('About');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,7 +28,7 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
           const top = el.offsetTop;
           const height = el.offsetHeight;
           if (scrollPosition >= top && scrollPosition < top + height) {
-            setActiveSection(section);
+            setActiveSection(section.charAt(0).toUpperCase() + section.slice(1));
             break;
           }
         }
@@ -40,7 +41,7 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
 
   const scrollToSection = (id: string) => {
     setIsMobileMenuOpen(false);
-    const element = document.getElementById(id);
+    const element = document.getElementById(id.toLowerCase());
     if (element) {
       const offset = 80; // height of sticky nav
       const bodyRect = document.body.getBoundingClientRect().top;
@@ -59,9 +60,13 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
     <nav
       className={`fixed top-0 left-0 w-full z-40 transition-all duration-300 border-b ${
         isScrolled
-          ? 'bg-[#0F0F10]/90 backdrop-blur-xl py-3 border-white/10 shadow-xl'
-          : 'bg-transparent py-5 border-white/5'
+          ? 'bg-[--bg-base]/90 backdrop-blur-xl py-3 border-[--border-default] shadow-xl'
+          : 'bg-transparent py-5 border-transparent'
       }`}
+      style={{
+        backgroundColor: isScrolled ? undefined : 'transparent',
+        borderBottomColor: isScrolled ? 'var(--border-default)' : 'transparent',
+      }}
     >
       <div className="w-full px-6 sm:px-12 max-w-7xl mx-auto flex justify-between items-center">
         {/* Brand Logo */}
@@ -78,7 +83,7 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
             priority
           />
           <div className="flex flex-col">
-            <span className="font-serif text-lg tracking-wider font-extrabold text-white">
+            <span className="font-serif text-lg tracking-wider font-extrabold" style={{ color: 'var(--text-primary)' }}>
               HARMONY
             </span>
             <span className="text-[9px] font-mono tracking-[0.3em] text-[#E9C349] -mt-1 font-semibold">
@@ -89,14 +94,13 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          <ul className="flex items-center gap-8 font-sans text-xs font-semibold uppercase tracking-wider text-gray-400">
-            {['about', 'programs', 'admissions', 'campus', 'research'].map((section) => (
+          <ul className="flex items-center gap-8 font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            {['About', 'Programs', 'Admissions', 'Campus', 'Research'].map((section) => (
               <li key={section}>
                 <button
                   onClick={() => scrollToSection(section)}
-                  className={`hover:text-[#E9C349] transition-all cursor-pointer relative py-1 ${
-                    activeSection === section ? 'text-white' : ''
-                  }`}
+                  className={`hover:text-[#E9C349] transition-all cursor-pointer relative py-1`}
+                  style={{ color: activeSection === section ? 'var(--text-primary)' : undefined }}
                 >
                   {section}
                   {activeSection === section && (
@@ -107,14 +111,16 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
             ))}
           </ul>
 
-          <div className="flex items-center gap-5 border-l border-white/10 pl-5">
+          <div className="flex items-center gap-3 border-l pl-5" style={{ borderColor: 'var(--border-default)' }}>
             <button
               onClick={onOpenSearch}
               aria-label="Search site"
-              className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+              className="p-1 rounded-full transition-all cursor-pointer hover:text-[#E9C349]"
+              style={{ color: 'var(--text-muted)' }}
             >
               <Search className="w-4 h-4" />
             </button>
+            <ThemeToggle />
             <Link
               href="/apply"
               className="bg-[#E9C349] text-black px-6 py-2.5 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md shadow-[#E9C349]/20 cursor-pointer inline-flex items-center justify-center"
@@ -131,17 +137,20 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
         </div>
 
         {/* Mobile Menu Actions */}
-        <div className="md:hidden flex items-center gap-4">
+        <div className="md:hidden flex items-center gap-2">
           <button
             onClick={onOpenSearch}
             aria-label="Search site"
-            className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/5"
+            className="p-1.5 rounded-full transition-colors hover:text-[#E9C349]"
+            style={{ color: 'var(--text-muted)' }}
           >
             <Search className="w-4 h-4" />
           </button>
+          <ThemeToggle />
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white"
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)' }}
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -150,15 +159,15 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
 
       {/* Mobile Menu Drawer */}
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-[70px] bg-[#0F0F10] border-b border-white/10 p-6 flex flex-col gap-6 shadow-2xl z-30">
-          <ul className="flex flex-col gap-4 font-sans text-xs font-semibold uppercase tracking-wider text-gray-400">
-            {['about', 'programs', 'admissions', 'campus', 'research'].map((section) => (
+        <div className="md:hidden fixed inset-x-0 top-[70px] border-b p-6 flex flex-col gap-6 shadow-2xl z-30 transition-colors"
+          style={{ backgroundColor: 'var(--bg-base)', borderColor: 'var(--border-default)' }}>
+          <ul className="flex flex-col gap-4 font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            {['About', 'Programs', 'Admissions', 'Campus', 'Research'].map((section) => (
               <li key={section}>
                 <button
                   onClick={() => scrollToSection(section)}
-                  className={`w-full text-left py-2 hover:text-[#E9C349] transition-all ${
-                    activeSection === section ? 'text-white font-bold' : ''
-                  }`}
+                  className={`w-full text-left py-2 hover:text-[#E9C349] transition-all`}
+                  style={{ color: activeSection === section ? 'var(--text-primary)' : undefined, fontWeight: activeSection === section ? 700 : undefined }}
                 >
                   {section}
                 </button>

@@ -114,7 +114,7 @@ export default function AdminDashboardPage() {
   return (
     <>
       {/* Background */}
-      <div className="fixed inset-0 bg-[#0F0F10] pointer-events-none z-0" aria-hidden="true">
+      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#E9C349]/4 rounded-full blur-[140px]" />
         <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#E9C349]/3 rounded-full blur-[120px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.7)_0%,transparent_65%)]" />

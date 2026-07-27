@@ -57,7 +57,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   return (
     <aside
       aria-label="Super Admin Navigation"
-      className="h-screen w-16 xl:w-60 fixed left-0 top-0 bg-[#0F0F10]/98 backdrop-blur-xl border-r border-white/8 flex-col py-4 px-2 xl:px-3 z-50 hidden md:flex! transition-all duration-300 shadow-2xl overflow-y-auto"
+      className="h-screen w-16 xl:w-60 fixed left-0 top-0 bg-[var(--bg-sidebar)]/98 backdrop-blur-xl border-r border-white/8 flex-col py-4 px-2 xl:px-3 z-50 hidden md:flex! transition-all duration-300 shadow-2xl overflow-y-auto"
     >
       {/* Logo */}
       <div className="mb-5 px-1.5 flex items-center gap-2.5 shrink-0">

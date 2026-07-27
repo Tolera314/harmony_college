@@ -9,7 +9,10 @@ interface CTAProps {
 
 export default function CTA({ onOpenContact }: CTAProps) {
   return (
-    <section className="relative py-28 bg-[#0E0E0E] overflow-hidden border-t border-white/5">
+    <section
+      className="relative py-28 overflow-hidden transition-colors duration-300"
+      style={{ backgroundColor: 'var(--bg-surface)', borderTop: '1px solid var(--border-subtle)' }}
+    >
       {/* Background radial highlight */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-[#E9C349]/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -24,10 +27,10 @@ export default function CTA({ onOpenContact }: CTAProps) {
           <span className="text-[#E9C349] font-sans text-[10px] font-bold uppercase tracking-[0.25em] block">
             Admissions Open for 2025/2026
           </span>
-          <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-[1.1]">
+          <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.1]" style={{ color: 'var(--text-primary)' }}>
             Your Creative Future <span className="text-[#E9C349] italic font-medium">Starts</span> Here
           </h2>
-          <p className="font-sans text-sm sm:text-base text-gray-400 max-w-lg mx-auto leading-relaxed">
+          <p className="font-sans text-sm sm:text-base max-w-lg mx-auto leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             Harmony College is now enrolling. Take the first step toward a professional career in photography, music, design, film, journalism, IT, or languages.
           </p>
         </motion.div>
@@ -45,10 +48,10 @@ export default function CTA({ onOpenContact }: CTAProps) {
           >
             Apply Now <ArrowRight className="w-4 h-4" />
           </Link>
-          
           <button
             onClick={onOpenContact}
-            className="border border-white/20 text-white hover:bg-white/10 px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer"
+            className="px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer hover:bg-white/5"
+            style={{ border: '1px solid var(--border-strong)', color: 'var(--text-primary)' }}
           >
             Contact Admissions <Send className="w-4 h-4 text-[#E9C349]" />
           </button>

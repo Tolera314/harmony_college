@@ -38,7 +38,7 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.2 }}
-            className={`bg-[#141617] rounded-3xl ${maxWidth} w-full p-6 sm:p-8 space-y-6 border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto`}
+            className={`bg-[var(--bg-panel)] rounded-3xl ${maxWidth} w-full p-6 sm:p-8 space-y-6 border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto`}
           >
             {title && (
               <div className="flex justify-between items-center border-b border-white/10 pb-4">

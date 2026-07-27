@@ -223,7 +223,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
           <div
             key={kpi.id}
             onClick={() => setActiveTab(kpi.tab)}
-            className="p-5 bg-[#0F0F10] border border-white/10 rounded-2xl hover:border-[#D4AF37]/40 hover:shadow-[0_0_20px_rgba(212,175,55,0.05)] cursor-pointer transition-all duration-300 group relative overflow-hidden"
+            className="p-5 bg-[var(--bg-panel)] border border-white/10 rounded-2xl hover:border-[#D4AF37]/40 hover:shadow-[0_0_20px_rgba(212,175,55,0.05)] cursor-pointer transition-all duration-300 group relative overflow-hidden"
           >
             <div className="flex justify-between items-start mb-4">
               <div className="p-2.5 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center text-white/40 group-hover:text-white group-hover:border-white/20 transition-all">

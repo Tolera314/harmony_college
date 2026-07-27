@@ -3,8 +3,6 @@ import { StudentProfile } from '../types';
 import {
   User,
   Bell,
-  Moon,
-  Sun,
   CheckCircle2,
   Save
 } from 'lucide-react';
@@ -12,6 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { AppearanceSection } from './ui/AppearanceSection';
 
 interface SettingsViewProps {
   profile: StudentProfile;
@@ -147,26 +146,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </Card>
 
       {/* Theme & Contrast Preferences */}
-      <Card hoverable={false} className="space-y-4">
-        <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-          {darkMode ? <Moon className="w-5 h-5 text-[#E9C349]" /> : <Sun className="w-5 h-5 text-[#E9C349]" />}
-          Appearance & Contrast Mode
-        </h3>
-
-        <div className="flex items-center justify-between p-5 bg-white/5 rounded-2xl text-xs sm:text-sm font-sans border border-white/10">
-          <div>
-            <p className="font-bold text-sm sm:text-base text-white">Dark / High Contrast Theme</p>
-            <p className="text-white/60">
-              Harmony College default dark obsidian interface optimized for student study.
-            </p>
-          </div>
-          <Button
-            variant={darkMode ? 'primary' : 'secondary'}
-            onClick={() => setDarkMode((prev) => !prev)}
-          >
-            {darkMode ? 'Light Mode' : 'Dark Mode'}
-          </Button>
-        </div>
+      <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
+        <AppearanceSection variant="inline" title="Appearance & Theme" />
       </Card>
 
       {/* Notifications Switch Panel */}

@@ -121,7 +121,7 @@ function InputField({ icon: Icon, label, type = 'text', required = false, value,
           ${error ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-white/10 focus:border-[#D4AF37] focus:ring-[#D4AF37]'}`}
         placeholder={label}
       />
-      <label className={`absolute left-12 -top-2.5 bg-[#0F0F10] px-1 text-xs transition-all peer-focus:text-[#D4AF37] peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-focus:-top-2.5 peer-focus:text-xs ${error ? 'text-red-400' : 'text-gray-500'}`}>
+      <label className={`absolute left-12 -top-2.5 bg-[var(--bg-base)] px-1 text-xs transition-all peer-focus:text-[#D4AF37] peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-focus:-top-2.5 peer-focus:text-xs ${error ? 'text-red-400' : 'text-gray-500'}`}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       {error && (
@@ -370,7 +370,7 @@ function ApplyPageInner() {
     ));
 
   return (
-    <div className="h-screen w-full flex flex-col md:flex-row bg-[#0F0F10] text-white overflow-hidden font-sans">
+    <div className="h-screen w-full flex flex-col md:flex-row bg-[var(--bg-base)] text-white overflow-hidden font-sans">
 
       {/* ── LEFT PANEL ── */}
       <div className="relative w-full md:w-[45%] h-[25vh] md:h-full shrink-0 border-r border-white/5 overflow-hidden">
@@ -422,7 +422,7 @@ function ApplyPageInner() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="w-full max-w-2xl bg-[#0F0F10]/80 backdrop-blur-3xl rounded-[22px] border border-[#D4AF37]/20 p-8 md:p-10 shadow-[0_8px_40px_0_rgba(0,0,0,0.6)] relative z-10 flex flex-col"
+          className="w-full max-w-2xl bg-[var(--bg-base)]/80 backdrop-blur-3xl rounded-[22px] border border-[#D4AF37]/20 p-8 md:p-10 shadow-[0_8px_40px_0_rgba(0,0,0,0.6)] relative z-10 flex flex-col"
           style={{ maxHeight: '90vh' }}
         >
           {isSuccess && (
@@ -532,7 +532,7 @@ function ApplyPageInner() {
                           <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-[#D4AF37] transition-colors" />
                           <input type="date" required value={formData.dob} onChange={update('dob')}
                             className="w-full bg-black/40 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all [color-scheme:dark]" />
-                          <label className="absolute left-12 -top-2.5 bg-[#0F0F10] px-1 text-xs text-gray-500">Date of Birth *</label>
+                          <label className="absolute left-12 -top-2.5 bg-[var(--bg-base)] px-1 text-xs text-gray-500">Date of Birth *</label>
                         </div>
                         <InputField icon={User} label="Age (auto)" type="text" value={formData.age} onChange={() => {}} readOnly />
                       </div>
