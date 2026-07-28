@@ -79,7 +79,7 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
           </div>
           <div className="hidden lg:flex flex-col items-center gap-2 shrink-0">
             <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#E9C349]/40 shadow-xl">
-              <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+              <img src={profile.avatar || undefined} alt={profile.name} className="w-full h-full object-cover" />
             </div>
             <p className="font-sans text-xs text-white/50 text-center">{profile.employeeId}</p>
           </div>

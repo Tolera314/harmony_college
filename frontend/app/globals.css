@@ -161,3 +161,98 @@ body {
   transition: var(--theme-transition);
 }
 
+/* ── Premium Scrollbar ───────────────────────────────────────────────────── */
+
+/* Width */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+/* Track — invisible, blends into background */
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+/* Corner where horizontal + vertical meet */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Thumb — subtle by default */
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+
+/* Thumb on hover — Harmony Gold glow */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(233, 195, 73, 0.50);
+  border-color: rgba(233, 195, 73, 0.15);
+}
+
+/* Thumb while dragging */
+::-webkit-scrollbar-thumb:active {
+  background: rgba(233, 195, 73, 0.75);
+}
+
+/* Sidebar — slightly wider for easier grabbing */
+aside::-webkit-scrollbar {
+  width: 3px;
+}
+
+/* Modals, dropdowns, overflow panels */
+[role="dialog"] ::-webkit-scrollbar,
+[data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  width: 4px;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+*:hover {
+  scrollbar-color: rgba(233, 195, 73, 0.45) transparent;
+}
+
+
+/* ── Print Styles ─────────────────────────────────────────────────────────── */
+@media print {
+  /* Hide everything by default */
+  body > * { display: none !important; }
+
+  /* Show only the element marked for printing */
+  .print-region {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 99999 !important;
+    background: white !important;
+    color: black !important;
+    padding: 24px !important;
+    font-family: 'Georgia', serif !important;
+  }
+
+  .print-region * {
+    color: black !important;
+    background: white !important;
+    border-color: #ccc !important;
+    box-shadow: none !important;
+  }
+
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+
+  @page {
+    margin: 18mm 16mm;
+    size: A4;
+  }
+}
+
+.print-only { display: none; }

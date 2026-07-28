@@ -77,7 +77,7 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, setActi
           </div>
           <div className="hidden lg:flex items-center gap-3 shrink-0">
             <div className="w-18 h-18 rounded-2xl overflow-hidden border-2 border-[#E9C349]/40 shadow-xl w-20 h-20">
-              <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+              <img src={profile.avatar || undefined} alt={profile.name} className="w-full h-full object-cover" />
             </div>
           </div>
         </div>

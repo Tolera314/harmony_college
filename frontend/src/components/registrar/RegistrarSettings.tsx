@@ -85,7 +85,7 @@ export const RegistrarSettings: React.FC = () => {
 
             <form onSubmit={handleProfileSave} className="space-y-4 font-sans">
               <div className="flex items-center gap-4 border-b border-white/5 pb-4">
-                <img src={profile.avatar} alt={profile.name} className="w-14 h-14 rounded-xl border border-white/10 object-cover" />
+                <img src={profile.avatar || undefined} alt={profile.name} className="w-14 h-14 rounded-xl border border-white/10 object-cover" />
                 <div className="space-y-1">
                   <p className="text-xs text-white/40">Profile Photo</p>
                   <Button variant="secondary" size="xs" type="button" className="font-semibold text-[10px] py-1.5">Change Photo</Button>

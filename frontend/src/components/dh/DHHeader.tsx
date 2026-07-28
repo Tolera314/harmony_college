@@ -137,7 +137,7 @@ export const DHHeader: React.FC<DHHeaderProps> = ({
             className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#E9C349]/40 hover:border-[#E9C349]/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349]"
             aria-label="Settings"
           >
-            <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+            <img src={profile.avatar || undefined} alt={profile.name} className="w-full h-full object-cover" />
           </button>
         </div>
       </div>

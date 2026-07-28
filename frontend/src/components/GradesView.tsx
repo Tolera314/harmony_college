@@ -14,6 +14,7 @@ import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
 import { Table, Column } from './ui/Table';
+import { printElement, shareContent } from '../lib/exportUtils';
 
 interface GradesViewProps {
   profile: StudentProfile;
@@ -372,7 +373,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
         isOpen={showTranscriptModal}
         onClose={() => setShowTranscriptModal(false)}
       >
-        <div className="bg-white text-black p-6 rounded-2xl space-y-6">
+        <div id="official-transcript" className="bg-white text-black p-6 rounded-2xl space-y-6">
           <div className="flex justify-between items-start border-b-2 border-black pb-4">
             <div>
               <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
@@ -430,7 +431,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
               <span>Digitally Signed Token: HC-2024-X8921</span>
             </div>
             <button
-              onClick={() => window.print()}
+              onClick={() => printElement('official-transcript')}
               className="px-5 py-2 bg-black text-white rounded-xl font-sans font-semibold flex items-center gap-2 hover:bg-gray-800 touch-target"
             >
               <Printer className="w-4 h-4" />

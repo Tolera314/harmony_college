@@ -98,12 +98,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             {/* Profile Photo Thumbnail */}
-            <div className="hidden lg:block w-40 h-40 rounded-2xl overflow-hidden border-4 border-[#E9C349]/30 shadow-2xl shrink-0">
-              <img
-                src={profile.avatar}
-                alt={profile.name}
-                className="w-full h-full object-cover"
-              />
+            <div className="hidden lg:block w-40 h-40 rounded-2xl overflow-hidden border-4 border-[#E9C349]/30 shadow-2xl shrink-0 bg-white/5 flex items-center justify-center">
+              {profile.avatar ? (
+                <img
+                  src={profile.avatar || undefined}
+                  alt={profile.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="font-serif text-4xl font-bold text-[#E9C349]">
+                  {profile.name.charAt(0).toUpperCase()}
+                </span>
+              )}
             </div>
           </div>
         </div>

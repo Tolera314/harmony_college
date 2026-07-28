@@ -50,7 +50,7 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({ profile })
             <Card hoverable={false} className="space-y-6">
               <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4"><User className="w-5 h-5 text-[#E9C349]" /> Super Admin Profile</h3>
               <div className="flex items-center gap-4">
-                <img src={profile.avatar} alt="" className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E9C349]/40" />
+                <img src={profile.avatar || undefined} alt="" className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E9C349]/40" />
                 <div>
                   <p className="font-serif text-base font-bold text-white">{profile.title}</p>
                   <Badge variant="gold" className="mt-1">{profile.adminId}</Badge>
