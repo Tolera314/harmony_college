@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { ClipboardList, CheckCircle2, Clock, TrendingUp, Save, AlertTriangle, BarChart3 } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
@@ -14,12 +15,12 @@ import { courses, students } from '../../../data/departmentData';
 import { Assessment } from '../../../types/instructor';
 
 const typeColor: Record<string, string> = {
-  Assignment:   'text-sky-400',
+  Assignment:   'text-(--status-info)',
   Quiz:         'text-purple-400',
-  Midterm:      'text-amber-400',
-  Final:        'text-rose-400',
-  Participation:'text-emerald-400',
-  Project:      'text-[#E9C349]',
+  Midterm:      'text-(--status-warning)',
+  Final:        'text-(--status-danger)',
+  Participation:'text-(--status-success)',
+  Project:      'text-(--brand-gold)',
 };
 
 function letterGrade(pct: number): string {
@@ -101,7 +102,7 @@ export const InGradesView: React.FC = () => {
   const classAvg = gradedCount ? Math.round(totalScore / gradedCount) : 0;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Grades"
         subtitle={`${pendingCount} pending · autosave enabled`}
@@ -112,14 +113,14 @@ export const InGradesView: React.FC = () => {
             <AnimatePresence mode="wait">
               {saveState === 'saving' && (
                 <motion.span key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="flex items-center gap-1.5 font-sans text-xs text-white/40">
-                  <motion.div className="w-3 h-3 border-2 border-white/30 border-t-[#E9C349] rounded-full" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
+                  className="flex items-center gap-1.5 font-sans text-xs text-(--text-faint)">
+                  <motion.div className="w-3 h-3 border-2 border-(--border-strong) border-t-[#E9C349] rounded-full" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
                   Saving…
                 </motion.span>
               )}
               {saveState === 'saved' && (
                 <motion.span key="saved" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  className="flex items-center gap-1.5 font-sans text-xs text-emerald-400">
+                  className="flex items-center gap-1.5 font-sans text-xs text-(--status-success)">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Saved
                 </motion.span>
               )}
@@ -137,7 +138,7 @@ export const InGradesView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Assessment sidebar */}
         <div className="space-y-1.5">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-white/40 px-1 mb-3">Assessments</p>
+          <p className="font-mono text-[11px] uppercase tracking-wider text-(--text-faint) px-1 mb-3">Assessments</p>
           {assessments.map(a => {
             const isActive = selected.id === a.id;
             const c = courses.find(x => x.id === a.courseId);
@@ -145,15 +146,15 @@ export const InGradesView: React.FC = () => {
             const hasPending = entries.some(g => g.status === 'Pending');
             return (
               <button key={a.id} onClick={() => handleSelectAssessment(a)}
-                className={`w-full text-left p-3 rounded-xl border transition-all ${isActive ? 'bg-[#E9C349]/12 border-[#E9C349]/30' : 'bg-white/5 border-white/8 hover:bg-white/8 hover:border-white/15'}`}>
+                className={`w-full text-left p-3 rounded-xl border transition-all ${isActive ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border)' : 'bg-(--hover-overlay) border-(--border-subtle) hover:bg-(--hover-overlay) hover:border-(--border-strong)'}`}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-mono text-[10px] text-white/40">{c?.code}</span>
-                  {hasPending && <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] shrink-0" />}
+                  <span className="font-mono text-[10px] text-(--text-faint)">{c?.code}</span>
+                  {hasPending && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: 'var(--brand-gold)' }} />}
                 </div>
-                <p className={`font-sans text-xs font-semibold truncate leading-snug ${isActive ? 'text-[#E9C349]' : 'text-white/80'}`}>{a.title}</p>
+                <p className={`font-sans text-xs font-semibold truncate leading-snug ${isActive ? 'text-(--brand-gold)' : 'text-(--text-secondary)'}`}>{a.title}</p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className={`font-mono text-[10px] font-medium ${typeColor[a.type]}`}>{a.type}</span>
-                  <span className="font-mono text-[10px] text-white/30">{a.weight}%</span>
+                  <span className="font-mono text-[10px] text-(--text-faint)">{a.weight}%</span>
                 </div>
               </button>
             );
@@ -164,21 +165,21 @@ export const InGradesView: React.FC = () => {
         <div className="lg:col-span-3 space-y-4">
 
           {/* Assessment header card */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">{selected.title}</h3>
-              <div className="flex items-center gap-3 mt-1.5 text-xs text-white/50 font-sans flex-wrap">
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">{selected.title}</h3>
+              <div className="flex items-center gap-3 mt-1.5 text-xs text-(--text-muted) font-sans flex-wrap">
                 <span className={typeColor[selected.type]}>{selected.type}</span>
-                <span>Max: <span className="text-white font-mono">{selected.maxScore}</span> pts</span>
-                <span>Weight: <span className="text-white font-mono">{selected.weight}%</span></span>
+                <span>Max: <span className="text-(--text-primary) font-mono">{selected.maxScore}</span> pts</span>
+                <span>Weight: <span className="text-(--text-primary) font-mono">{selected.weight}%</span></span>
                 <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{selected.dueDate}</span>
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               {gradedCount > 0 && (
                 <div className="text-right">
-                  <p className="font-mono text-xs text-white/40">Class avg</p>
-                  <p className={`font-mono text-lg font-bold ${classAvg >= 80 ? 'text-emerald-400' : classAvg >= 60 ? 'text-[#E9C349]' : 'text-rose-400'}`}>{classAvg}</p>
+                  <p className="font-mono text-xs text-(--text-faint)">Class avg</p>
+                  <p className={`font-mono text-lg font-bold ${classAvg >= 80 ? 'text-(--status-success)' : classAvg >= 60 ? 'text-(--brand-gold)' : 'text-(--status-danger)'}`}>{classAvg}</p>
                 </div>
               )}
               <Badge variant={selected.status === 'Published' ? 'emerald' : selected.status === 'Pending' ? 'amber' : 'glass'}>
@@ -192,7 +193,7 @@ export const InGradesView: React.FC = () => {
             {showChart && gradeDistribution.length > 0 && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
                 <Card hoverable={false} className="space-y-2">
-                  <p className="font-mono text-[11px] uppercase tracking-wider text-white/40">Score Distribution</p>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-(--text-faint)">Score Distribution</p>
                   <BarChart data={gradeDistribution} height={130} showValues />
                 </Card>
               </motion.div>
@@ -200,31 +201,31 @@ export const InGradesView: React.FC = () => {
           </AnimatePresence>
 
           {/* Grade table */}
-          <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+          <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
             <table className="w-full text-xs font-sans min-w-[640px]">
-              <thead className="bg-white/5 border-b border-white/10">
+              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
                 <tr>
                   {['Student', 'Score / Max', 'Percentage', 'Grade', 'Remarks', 'Status'].map(h => (
-                    <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-white/50 text-left">{h}</th>
+                    <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) text-left">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-(--border-subtle)">
                 {courseStudents.map(student => {
                   const scoreStr = getScore(student.id);
                   const score    = scoreStr !== '' ? Number(scoreStr) : null;
                   const pct      = score != null ? Math.round((score / selected.maxScore) * 100) : null;
                   const letter   = pct != null ? letterGrade(pct) : '—';
                   const entry    = gradeEntries.find(g => g.assessmentId === selected.id && g.studentId === student.id);
-                  const pctColor = pct == null ? '' : pct >= 80 ? 'text-emerald-400' : pct >= 60 ? 'text-[#E9C349]' : 'text-rose-400';
+                  const pctColor = pct == null ? '' : pct >= 80 ? 'text-(--status-success)' : pct >= 60 ? 'text-(--brand-gold)' : 'text-(--status-danger)';
                   return (
-                    <tr key={student.id} className="hover:bg-white/4 transition-colors">
+                    <tr key={student.id} className="hover:bg-(--hover-overlay) transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <img src={student.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-white/10 shrink-0" />
+                          <img src={student.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-(--border-default) shrink-0" />
                           <div>
-                            <p className="font-semibold text-white">{student.name}</p>
-                            <p className="font-mono text-[10px] text-white/40">{student.studentId}</p>
+                            <p className="font-semibold text-(--text-primary)">{student.name}</p>
+                            <p className="font-mono text-[10px] text-(--text-faint)">{student.studentId}</p>
                           </div>
                         </div>
                       </td>
@@ -236,16 +237,16 @@ export const InGradesView: React.FC = () => {
                             onChange={e => handleScoreChange(student.id, e.target.value)}
                             placeholder="—"
                             aria-label={`Score for ${student.name}`}
-                            className="w-16 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 font-mono text-sm text-white text-center focus:outline-none focus:border-[#E9C349] transition-colors"
+                            className="w-16 bg-(--hover-overlay) border border-(--border-default) rounded-lg px-2.5 py-1.5 font-mono text-sm text-(--text-primary) text-center focus:outline-none focus:border-(--brand-gold) transition-colors"
                           />
-                          <span className="font-mono text-xs text-white/30">/ {selected.maxScore}</span>
+                          <span className="font-mono text-xs text-(--text-faint)">/ {selected.maxScore}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-sm">
-                        {pct != null ? <span className={pctColor}>{pct}%</span> : <span className="text-white/20">—</span>}
+                        {pct != null ? <span className={pctColor}>{pct}%</span> : <span className="text-(--text-faint)">—</span>}
                       </td>
                       <td className="px-4 py-3 font-mono text-sm font-bold">
-                        {pct != null ? <span className={pctColor}>{letter}</span> : <span className="text-white/20">—</span>}
+                        {pct != null ? <span className={pctColor}>{letter}</span> : <span className="text-(--text-faint)">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         <input
@@ -254,7 +255,7 @@ export const InGradesView: React.FC = () => {
                           onChange={e => handleRemarkChange(student.id, e.target.value)}
                           placeholder="Add remark…"
                           aria-label={`Remark for ${student.name}`}
-                          className="w-full bg-transparent border-b border-white/10 focus:border-[#E9C349] outline-none font-sans text-xs text-white/60 py-0.5 transition-colors placeholder:text-white/20"
+                          className="w-full bg-transparent border-b border-(--border-default) focus:border-(--brand-gold) outline-none font-sans text-xs text-(--text-secondary) py-0.5 transition-colors placeholder:text-(--text-faint)"
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -271,10 +272,10 @@ export const InGradesView: React.FC = () => {
 
           {/* Footer summary */}
           {gradedCount > 0 && (
-            <div className="flex items-center gap-4 px-1 text-xs font-mono text-white/40">
+            <div className="flex items-center gap-4 px-1 text-xs font-mono text-(--text-faint)">
               <span>{gradedCount}/{courseStudents.length} graded</span>
               <span>·</span>
-              <span className={classAvg >= 80 ? 'text-emerald-400' : classAvg >= 60 ? 'text-[#E9C349]' : 'text-rose-400'}>
+              <span className={classAvg >= 80 ? 'text-(--status-success)' : classAvg >= 60 ? 'text-(--brand-gold)' : 'text-(--status-danger)'}>
                 Class avg: {classAvg}/{selected.maxScore} ({Math.round((classAvg / selected.maxScore) * 100)}%)
               </span>
             </div>
@@ -285,15 +286,15 @@ export const InGradesView: React.FC = () => {
       {/* Submit confirmation modal */}
       <Modal isOpen={confirmModal} onClose={() => setConfirmModal(false)} title="Submit Grades to Registrar" maxWidth="max-w-md">
         <div className="space-y-5 font-sans text-sm">
-          <div className="p-4 bg-amber-950/30 border border-amber-800/40 rounded-xl flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="p-4 bg-(--status-warning-bg) border border-(--status-warning-border) rounded-xl flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-(--status-warning) shrink-0 mt-0.5" />
             <p className="text-amber-200/80 text-xs leading-relaxed">
               Once submitted, grades are recorded in the registrar system and students will be notified. You can still edit and resubmit if needed.
             </p>
           </div>
-          <p className="text-white/70">
-            Submit <span className="font-semibold text-white">{selected.title}</span> grades for{' '}
-            <span className="text-[#E9C349] font-mono">{courses.find(c => c.id === selected.courseId)?.code}</span>?
+          <p className="text-(--text-secondary)">
+            Submit <span className="font-semibold text-(--text-primary)">{selected.title}</span> grades for{' '}
+            <span className="text-(--brand-gold) font-mono">{courses.find(c => c.id === selected.courseId)?.code}</span>?
             ({gradedCount} of {courseStudents.length} graded)
           </p>
           <div className="flex gap-3">

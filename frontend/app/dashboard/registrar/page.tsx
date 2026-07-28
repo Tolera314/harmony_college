@@ -5,31 +5,30 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ClipboardList, BookOpen, GraduationCap, FileText, 
   Users, ShieldAlert, LogOut,
-  Menu, Bell, Search, User, Sun, Moon, 
+  Menu, Bell, Search, User,
   ChevronRight, Calendar, Send, ShieldCheck,
   Grid, LayoutDashboard, Clock, BarChart3, Settings
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
+import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
+import ThemeToggle from '@/src/components/ThemeToggle';
 
-import dynamic from 'next/dynamic';
-
-// Dynamic sub-component imports for optimal LCP code splitting
-import { DashboardOverview } from '@/src/components/registrar/DashboardOverview';
-
-const AdmissionsManagement = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
-const CourseCatalog = dynamic(() => import('@/src/components/registrar/CourseCatalog').then(m => m.CourseCatalog), { ssr: false });
-const CourseOfferings = dynamic(() => import('@/src/components/registrar/CourseOfferings').then(m => m.CourseOfferings), { ssr: false });
-const ClassTimetable = dynamic(() => import('@/src/components/registrar/ClassTimetable').then(m => m.ClassTimetable), { ssr: false });
-const RegistrationSettings = dynamic(() => import('@/src/components/registrar/RegistrationSettings').then(m => m.RegistrationSettings), { ssr: false });
-const EnrollmentManagement = dynamic(() => import('@/src/components/registrar/EnrollmentManagement').then(m => m.EnrollmentManagement), { ssr: false });
-const TranscriptServices = dynamic(() => import('@/src/components/registrar/TranscriptServices').then(m => m.TranscriptServices), { ssr: false });
-const GraduationAuditing = dynamic(() => import('@/src/components/registrar/GraduationAuditing').then(m => m.GraduationAuditing), { ssr: false });
-const DigitalCertificates = dynamic(() => import('@/src/components/registrar/DigitalCertificates').then(m => m.DigitalCertificates), { ssr: false });
-const InteractiveReports = dynamic(() => import('@/src/components/registrar/InteractiveReports').then(m => m.InteractiveReports), { ssr: false });
-const AcademicCalendarView = dynamic(() => import('@/src/components/registrar/AcademicCalendarView').then(m => m.AcademicCalendarView), { ssr: false });
-const AnnouncementsManager = dynamic(() => import('@/src/components/registrar/AnnouncementsManager').then(m => m.AnnouncementsManager), { ssr: false });
-const AuditLogsTimeline = dynamic(() => import('@/src/components/registrar/AuditLogsTimeline').then(m => m.AuditLogsTimeline), { ssr: false });
-const RegistrarSettings = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
+// Import sub-components
+import { DashboardOverview }     from '@/src/components/registrar/DashboardOverview';
+import { AdmissionsManagement }   from '@/src/components/registrar/AdmissionsManagement';
+import { CourseCatalog }          from '@/src/components/registrar/CourseCatalog';
+import { CourseOfferings }         from '@/src/components/registrar/CourseOfferings';
+import { ClassTimetable }          from '@/src/components/registrar/ClassTimetable';
+import { RegistrationSettings }    from '@/src/components/registrar/RegistrationSettings';
+import { EnrollmentManagement }    from '@/src/components/registrar/EnrollmentManagement';
+import { TranscriptServices }      from '@/src/components/registrar/TranscriptServices';
+import { GraduationAuditing }      from '@/src/components/registrar/GraduationAuditing';
+import { DigitalCertificates }     from '@/src/components/registrar/DigitalCertificates';
+import { InteractiveReports }      from '@/src/components/registrar/InteractiveReports';
+import { AcademicCalendarView }    from '@/src/components/registrar/AcademicCalendarView';
+import { AnnouncementsManager }    from '@/src/components/registrar/AnnouncementsManager';
+import { AuditLogsTimeline }       from '@/src/components/registrar/AuditLogsTimeline';
+import { RegistrarSettings }       from '@/src/components/registrar/RegistrarSettings';
 
 type RegistrarTab =
   | 'dashboard' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
@@ -43,15 +42,20 @@ interface SidebarItem {
 }
 
 export default function RegistrarDashboardPage() {
-  const [activeTab, setActiveTab] = useState<RegistrarTab>('dashboard');
+  const [activeTab, setRawTab] = useState<RegistrarTab>('dashboard');
+  const [tabLoading, setTabLoading] = useState(false);
+  const { toast, show: showToast, hide: hideToast } = useToast();
+
+  const setActiveTab = (tab: RegistrarTab) => {
+    if (tab === (activeTab as string)) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab as RegistrarTab); setTabLoading(false); }, 120);
+  };
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Theme Toggle Mock
-  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Global Admissions & Notifications lists
   const [notifications, setNotifications] = useState([
@@ -119,6 +123,7 @@ export default function RegistrarDashboardPage() {
   ];
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'dashboard':
         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={triggerCreateCourse} />;
@@ -162,32 +167,32 @@ export default function RegistrarDashboardPage() {
 
   return (
     <>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
       {/* Background radial glow */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
+      <div className="fixed inset-0 bg-[#0F0F10] pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#D4AF37]/5 rounded-full blur-[140px]" />
         <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#D4AF37]/3 rounded-full blur-[120px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.75)_0%,transparent_65%)]" />
       </div>
 
-      <div className="relative z-10 min-h-screen text-white font-sans flex overflow-hidden">
+      <div className="dashboard-content font-sans flex overflow-hidden">
         
-        {/* Left Sidebar: Collapsible, Fixed, Glass */}
+        {/* Left Sidebar: Collapsible, Sticky, Glass */}
         <aside 
-          aria-label="Registrar Navigation"
-          className={`h-screen fixed left-0 top-0 bg-[#0F0F10]/95 backdrop-blur-xl border-r border-white/10 flex flex-col py-5 px-3 z-30 hidden md:flex transition-all duration-300 shadow-xl ${
+          className={`hidden md:flex flex-col border-r ds-sidebar backdrop-blur-xl transition-all duration-300 shrink-0 sticky top-0 h-screen z-30 ${
             sidebarCollapsed ? 'w-20' : 'w-64'
           }`}
         >
           {/* Sidebar Header */}
-          <div className="mb-6 px-2 flex items-center justify-between shrink-0">
+          <div className="p-5 border-b ds-sidebar-divider flex items-center justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-linear-to-br from-[#E9C349] to-[#b8951d] text-[#0F0F10] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
-                <GraduationCap className="w-5 h-5 text-[#0F0F10]" />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner" style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)' }}>
+                <GraduationCap className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
               </div>
               {!sidebarCollapsed && (
                 <div className="truncate">
-                  <h2 className="font-serif text-xl font-bold text-white tracking-tight block leading-none">Harmony</h2>
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-[#E9C349] font-bold block mt-1">Registrar Portal</p>
+                  <h2 className="text-xs font-serif font-bold tracking-widest uppercase" style={{ color: 'var(--text-primary)' }}>Harmony College</h2>
+                  <p className="text-[9px] font-mono uppercase tracking-widest mt-0.5" style={{ color: 'var(--text-faint)' }}>Registrar Portal</p>
                 </div>
               )}
             </div>
@@ -202,56 +207,46 @@ export default function RegistrarDashboardPage() {
           </div>
 
           {/* Navigation Menu */}
-          <nav className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" role="navigation">
+          <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto max-h-[calc(100vh-140px)]">
             {menuItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
-                <motion.button
+                <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  whileHover={{ x: 4 }}
-                  whileTap={{ scale: 0.97 }}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`relative flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl font-sans text-xs font-semibold tracking-wide transition-all group touch-target ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all group ${
                     isActive 
-                      ? 'text-[#E9C349] font-semibold' 
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                      ? 'border ds-nav-item-active-pill ds-nav-item-active' 
+                      : 'border border-transparent ds-nav-item'
                   }`}
                   title={sidebarCollapsed ? item.label : undefined}
                 >
-                  {isActive && (
-                    <div
-                      className="absolute inset-0 bg-[#E9C349]/12 rounded-xl border-l-[3px] border-[#E9C349] transition-all duration-150"
-                    />
-                  )}
-                  <item.icon className={`relative z-10 w-4 h-4 shrink-0 transition-colors ${
-                    isActive ? 'text-[#E9C349]' : 'text-white/50 group-hover:text-white'
+                  <item.icon className={`w-4 h-4 shrink-0 transition-colors ${
+                    isActive ? 'ds-nav-item-active' : 'ds-nav-item group-hover:text-(--text-primary)'
                   }`} />
-                  {!sidebarCollapsed && <span className="relative z-10 truncate flex-1">{item.label}</span>}
-                </motion.button>
+                  {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+                </button>
               );
             })}
           </nav>
 
           {/* Sidebar Footer */}
-          <div className="mt-auto border-t border-white/10 pt-4 space-y-1 shrink-0">
-            <motion.button 
+          <div className="p-3 border-t ds-sidebar-divider">
+            <button 
               onClick={() => setLogoutOpen(true)}
-              whileHover={{ x: 4 }}
-              whileTap={{ scale: 0.97 }}
-              className="w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/30 transition-colors group touch-target"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold border border-transparent transition-all group ds-logout-btn`}
             >
-              <LogOut className="w-4 h-4 text-rose-500/70 group-hover:text-rose-400 shrink-0 relative z-10" />
-              {!sidebarCollapsed && <span className="relative z-10 truncate">Logout Session</span>}
-            </motion.button>
+              <LogOut className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && <span>Logout Session</span>}
+            </button>
           </div>
         </aside>
 
         {/* Right Section Content viewport */}
-        <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 max-w-full ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
+        <div className="flex-1 flex flex-col min-h-screen overflow-y-auto max-w-full">
           
           {/* Top Sticky Navigation bar */}
-          <header className="sticky top-0 bg-[var(--bg-base)]/60 border-b border-white/10 backdrop-blur-md z-20 px-6 py-4 flex justify-between items-center">
+          <header className="sticky top-0 ds-header backdrop-blur-md z-20 px-6 py-4 flex justify-between items-center">
             
             {/* Left: Mobile Toggle & Breadcrumbs */}
             <div className="flex items-center gap-3">
@@ -275,21 +270,15 @@ export default function RegistrarDashboardPage() {
               {/* Instant global search button */}
               <button 
                 onClick={() => setSearchOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/8 border border-white/10 hover:border-white/15 rounded-xl text-xs text-white/40 transition-all font-sans cursor-pointer"
+                className="hidden sm:flex items-center gap-2 px-3 py-2 ds-search border rounded-xl text-xs transition-all font-sans cursor-pointer"
               >
                 <Search className="w-3.5 h-3.5 text-white/40" />
                 <span>Search Portal...</span>
                 <kbd className="bg-black/50 border border-white/10 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-widest text-white/35">Ctrl+K</kbd>
               </button>
 
-              {/* Theme Toggle Button */}
-              <button 
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2.5 bg-white/5 border border-white/10 hover:border-white/15 rounded-xl text-white/50 hover:text-white transition-all cursor-pointer"
-                title="Toggle Theme"
-              >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
+              {/* Theme Toggle — shared component using centralized useTheme */}
+              <ThemeToggle />
 
               {/* Notification dropdown */}
               <div className="relative">
@@ -313,7 +302,7 @@ export default function RegistrarDashboardPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
-                        className="absolute right-0 mt-2.5 w-72 bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-4 shadow-2xl z-40 space-y-3.5 font-sans text-xs"
+                        className="absolute right-0 mt-2.5 w-72 bg-[#0F0F10] border border-white/10 rounded-2xl p-4 shadow-2xl z-40 space-y-3.5 font-sans text-xs"
                       >
                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                           <h4 className="font-semibold text-white">Notifications</h4>
@@ -353,7 +342,7 @@ export default function RegistrarDashboardPage() {
           </header>
 
           {/* Main 12-Column Responsive Layout Body content */}
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
@@ -386,7 +375,7 @@ export default function RegistrarDashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-5 shadow-2xl z-10 font-sans"
+              className="relative w-full max-w-lg bg-[#0F0F10] border border-white/10 rounded-2xl p-5 shadow-2xl z-10 font-sans"
             >
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -442,7 +431,7 @@ export default function RegistrarDashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-sm bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-6 shadow-2xl z-10 font-sans text-center space-y-4"
+              className="relative w-full max-w-sm bg-[#0F0F10] border border-white/10 rounded-2xl p-6 shadow-2xl z-10 font-sans text-center space-y-4"
             >
               <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
                 <LogOut className="w-5 h-5" />

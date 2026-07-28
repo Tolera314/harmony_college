@@ -3,38 +3,42 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DHNavTab, DHNotification } from '@/src/types/department';
 import { dhProfile, notifications as initialNotifs, approvalRequests } from '@/src/data/departmentData';
-
 import { DHSidebar }           from '@/src/components/dh/DHSidebar';
 import { DHHeader }            from '@/src/components/dh/DHHeader';
 import { DHMobileNav }         from '@/src/components/dh/DHMobileNav';
 import { DHSearchModal }       from '@/src/components/dh/DHSearchModal';
 import { DHLogoutModal }       from '@/src/components/dh/DHLogoutModal';
-
-import dynamic from 'next/dynamic';
-
-import { DHOverviewView } from '@/src/components/dh/views/DHOverviewView';
-
-const DHCoursesView = dynamic(() => import('@/src/components/dh/views/DHCoursesView').then(m => m.DHCoursesView), { ssr: false });
-const DHFacultyView = dynamic(() => import('@/src/components/dh/views/DHFacultyView').then(m => m.DHFacultyView), { ssr: false });
-const DHStudentsView = dynamic(() => import('@/src/components/dh/views/DHStudentsView').then(m => m.DHStudentsView), { ssr: false });
-const DHApprovalsView = dynamic(() => import('@/src/components/dh/views/DHApprovalsView').then(m => m.DHApprovalsView), { ssr: false });
-const DHLeaveRequestsView = dynamic(() => import('@/src/components/dh/views/DHLeaveRequestsView').then(m => m.DHLeaveRequestsView), { ssr: false });
-const DHReportsView = dynamic(() => import('@/src/components/dh/views/DHReportsView').then(m => m.DHReportsView), { ssr: false });
-const DHAttendanceView = dynamic(() => import('@/src/components/dh/views/DHAttendanceView').then(m => m.DHAttendanceView), { ssr: false });
-const DHNotificationsView = dynamic(() => import('@/src/components/dh/views/DHNotificationsView').then(m => m.DHNotificationsView), { ssr: false });
-const DHAuditLogView = dynamic(() => import('@/src/components/dh/views/DHAuditLogView').then(m => m.DHAuditLogView), { ssr: false });
-const DHSettingsView = dynamic(() => import('@/src/components/dh/views/DHSettingsView').then(m => m.DHSettingsView), { ssr: false });
+import { DHOverviewView }      from '@/src/components/dh/views/DHOverviewView';
+import { DHCoursesView }       from '@/src/components/dh/views/DHCoursesView';
+import { DHFacultyView }       from '@/src/components/dh/views/DHFacultyView';
+import { DHStudentsView }      from '@/src/components/dh/views/DHStudentsView';
+import { DHApprovalsView }     from '@/src/components/dh/views/DHApprovalsView';
+import { DHLeaveRequestsView } from '@/src/components/dh/views/DHLeaveRequestsView';
+import { DHReportsView }       from '@/src/components/dh/views/DHReportsView';
+import { DHAttendanceView }    from '@/src/components/dh/views/DHAttendanceView';
+import { DHNotificationsView } from '@/src/components/dh/views/DHNotificationsView';
+import { DHAuditLogView }      from '@/src/components/dh/views/DHAuditLogView';
+import { DHSettingsView }      from '@/src/components/dh/views/DHSettingsView';
+import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
+import { AnimatePresence, motion } from 'motion/react';
 
 export default function DepartmentHeadPage() {
-  const [activeTab,     setActiveTab]     = useState<DHNavTab>('overview');
+  const [activeTab,     setRawTab]       = useState<DHNavTab>('overview');
   const [notifications, setNotifications] = useState<DHNotification[]>(initialNotifs);
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [logoutOpen,    setLogoutOpen]    = useState(false);
+  const [tabLoading,    setTabLoading]    = useState(false);
+  const { toast, show: showToast, hide: hideToast } = useToast();
 
-  const pendingCount = approvalRequests.filter((a) => a.status === 'Pending').length;
-  const unreadCount  = notifications.filter((n) => !n.read).length;
+  const pendingCount = approvalRequests.filter(a => a.status === 'Pending').length;
+  const unreadCount  = notifications.filter(n => !n.read).length;
 
-  // Ctrl+K global search shortcut
+  const setActiveTab = (tab: DHNavTab) => {
+    if (tab === activeTab) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab); setTabLoading(false); }, 120);
+  };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true); }
@@ -44,22 +48,23 @@ export default function DepartmentHeadPage() {
   }, []);
 
   const handleMarkRead = useCallback((id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   }, []);
 
   const handleMarkAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }, []);
 
   const handleLogout = async () => {
     await fetch(
       `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/auth/signout`,
       { method: 'POST', credentials: 'include' }
-    );
+    ).catch(() => {});
     window.location.href = '/signin';
   };
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':       return <DHOverviewView profile={dhProfile} setActiveTab={setActiveTab} />;
       case 'courses':        return <DHCoursesView />;
@@ -85,63 +90,36 @@ export default function DepartmentHeadPage() {
 
   return (
     <>
-      {/* Background — deep obsidian with subtle radial gold glow */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-[#E9C349]/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] bg-[#E9C349]/4 rounded-full blur-[100px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.6)_0%,transparent_70%)]" />
-      </div>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
+      <SessionExpiredOverlay isVisible={false} onSignIn={() => { window.location.href = '/signin'; }} />
 
-      <div className="relative z-10 min-h-screen text-white">
-        {/* Sidebar */}
+      <div className="dashboard-bg" aria-hidden="true" />
+
+      <div className="dashboard-content">
         <DHSidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          profile={dhProfile}
-          pendingCount={pendingCount}
-          unreadCount={unreadCount}
-          onLogout={() => setLogoutOpen(true)}
+          activeTab={activeTab} setActiveTab={setActiveTab} profile={dhProfile}
+          pendingCount={pendingCount} unreadCount={unreadCount} onLogout={() => setLogoutOpen(true)}
         />
-
-        {/* Main content area */}
         <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen transition-all duration-300">
           <DHHeader
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            profile={dhProfile}
-            notifications={notifications}
-            unreadCount={unreadCount}
-            onMarkRead={handleMarkRead}
-            onOpenSearch={() => setSearchOpen(true)}
+            activeTab={activeTab} setActiveTab={setActiveTab} profile={dhProfile}
+            notifications={notifications} unreadCount={unreadCount}
+            onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)}
             semesterLabel={dhProfile.currentSemester}
           />
-
-          {/* Page content */}
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
-            {renderView()}
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
-
-        {/* Mobile bottom nav */}
-        <DHMobileNav
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          pendingCount={pendingCount}
-          unreadCount={unreadCount}
-        />
+        <DHMobileNav activeTab={activeTab} setActiveTab={setActiveTab} pendingCount={pendingCount} unreadCount={unreadCount} />
       </div>
 
-      {/* Global modals */}
-      <DHSearchModal
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onNavigate={(tab) => { setActiveTab(tab); setSearchOpen(false); }}
-      />
-      <DHLogoutModal
-        isOpen={logoutOpen}
-        onClose={() => setLogoutOpen(false)}
-        onConfirm={handleLogout}
-      />
+      <DHSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onNavigate={tab => { setActiveTab(tab); setSearchOpen(false); }} />
+      <DHLogoutModal isOpen={logoutOpen} onClose={() => setLogoutOpen(false)} onConfirm={handleLogout} />
     </>
   );
 }

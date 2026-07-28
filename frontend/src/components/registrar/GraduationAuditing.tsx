@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   GraduationCap, Search, FileText, CheckCircle2, 
   XCircle, Award, Check, Info, ShieldAlert, AlertTriangle,
@@ -139,24 +140,24 @@ export const GraduationAuditing: React.FC = () => {
       className="space-y-6"
     >
       <div>
-        <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Graduation Auditing</h2>
-        <p className="text-xs text-white/50">Audit student degree requirements, verify clearance metrics, and authorize graduation lists.</p>
+        <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Graduation Auditing</h2>
+        <p className="text-xs text-(--text-muted)">Audit student degree requirements, verify clearance metrics, and authorize graduation lists.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Side: Candidates list (5 cols) */}
-        <div className="lg:col-span-5 bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-          <h3 className="font-serif text-base font-bold text-white">Graduation Applicants</h3>
+        <div className="lg:col-span-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+          <h3 className="font-serif text-base font-bold text-(--text-primary)">Graduation Applicants</h3>
           
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
             <input
               type="text"
               placeholder="Search Candidate by Name or ID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white"
+              className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-primary)"
             />
           </div>
 
@@ -167,15 +168,15 @@ export const GraduationAuditing: React.FC = () => {
                 onClick={() => setSelectedCandidate(cand)}
                 className={`p-4 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
                   selectedCandidate?.id === cand.id 
-                    ? 'bg-[#D4AF37]/10 border-[#D4AF37] shadow-lg' 
-                    : 'bg-black/20 border-white/5 hover:border-white/15'
+                    ? 'bg-(--accent-gold-subtle) border-(--brand-gold) shadow-lg' 
+                    : 'bg-(--hover-overlay) border-(--border-subtle) hover:border-(--border-strong)'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <img src={cand.avatar} alt={cand.name} className="w-8 h-8 rounded-full border border-white/10 object-cover" />
+                  <img src={cand.avatar} alt={cand.name} className="w-8 h-8 rounded-full border border-(--border-default) object-cover" />
                   <div>
-                    <h4 className="text-xs font-semibold text-white">{cand.name}</h4>
-                    <p className="text-[10px] text-white/40 font-mono">{cand.studentId} · {cand.program}</p>
+                    <h4 className="text-xs font-semibold text-(--text-primary)">{cand.name}</h4>
+                    <p className="text-[10px] text-(--text-faint) font-mono">{cand.studentId} · {cand.program}</p>
                   </div>
                 </div>
 
@@ -193,31 +194,31 @@ export const GraduationAuditing: React.FC = () => {
             <div className="space-y-6">
               
               {/* Candidate Info Overview */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-                <div className="flex justify-between items-start border-b border-white/5 pb-4">
+              <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+                <div className="flex justify-between items-start border-b border-(--border-subtle) pb-4">
                   <div className="flex items-center gap-3">
-                    <img src={selectedCandidate.avatar} alt={selectedCandidate.name} className="w-11 h-11 rounded-xl border border-white/10 object-cover" />
+                    <img src={selectedCandidate.avatar} alt={selectedCandidate.name} className="w-11 h-11 rounded-xl border border-(--border-default) object-cover" />
                     <div>
-                      <h3 className="text-sm font-semibold text-white">{selectedCandidate.name}</h3>
-                      <p className="text-xs text-white/40">{selectedCandidate.program} · Yr 4</p>
+                      <h3 className="text-sm font-semibold text-(--text-primary)">{selectedCandidate.name}</h3>
+                      <p className="text-xs text-(--text-faint)">{selectedCandidate.program} · Yr 4</p>
                     </div>
                   </div>
-                  <Badge variant="gold" className="font-mono text-xs font-bold bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20">
+                  <Badge variant="gold" className="font-mono text-xs font-bold bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--brand-gold)/20">
                     CGPA: {selectedCandidate.cgpa.toFixed(2)}
                   </Badge>
                 </div>
 
                 {/* Credit progress bar */}
                 <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-white/60">
+                  <div className="flex justify-between text-xs text-(--text-secondary)">
                     <span>Credit Progress Requirement</span>
-                    <span className="font-mono font-bold text-white">
+                    <span className="font-mono font-bold text-(--text-primary)">
                       {selectedCandidate.creditsCompleted} / {selectedCandidate.creditsRequired} Credits Completed
                     </span>
                   </div>
-                  <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-2.5 bg-(--hover-overlay) rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-[#B49020] to-[#D4AF37] rounded-full"
+                      className="h-full bg-gradient-to-r from-[#B49020] to-(--brand-gold) rounded-full"
                       style={{ width: `${(selectedCandidate.creditsCompleted / selectedCandidate.creditsRequired) * 100}%` }}
                     />
                   </div>
@@ -225,8 +226,8 @@ export const GraduationAuditing: React.FC = () => {
               </div>
 
               {/* Requirements Checklist */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-white/40">Clearance Checklist Verification</h4>
+              <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Clearance Checklist Verification</h4>
                 
                 <div className="space-y-3">
                   {selectedCandidate.checklist.map(item => (
@@ -239,16 +240,16 @@ export const GraduationAuditing: React.FC = () => {
                       }`}
                     >
                       <div className="space-y-1">
-                        <p className="text-xs font-semibold text-white">{item.name}</p>
-                        <p className="text-[10px] text-white/50">{item.details}</p>
+                        <p className="text-xs font-semibold text-(--text-primary)">{item.name}</p>
+                        <p className="text-[10px] text-(--text-muted)">{item.details}</p>
                       </div>
 
                       {item.met ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                        <CheckCircle2 className="w-5 h-5 text-(--status-success) shrink-0" />
                       ) : (
                         <button
                           onClick={() => handleClearChecklistItem(item.id)}
-                          className="px-2.5 py-1 bg-red-500/10 hover:bg-[#D4AF37]/15 border border-red-500/30 hover:border-[#D4AF37]/45 rounded-lg text-[9px] font-semibold text-red-400 hover:text-white transition-all flex items-center gap-1"
+                          className="px-2.5 py-1 bg-(--status-danger-bg) hover:bg-(--accent-gold-subtle) border border-(--status-danger-border) hover:border-(--accent-gold-border) rounded-lg text-[9px] font-semibold text-(--status-danger) hover:text-(--text-primary) transition-all flex items-center gap-1"
                         >
                           <Check className="w-3 h-3" /> Force Clear
                         </button>
@@ -259,18 +260,18 @@ export const GraduationAuditing: React.FC = () => {
               </div>
 
               {/* Graduation Approval Decision Box */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-white/40">Audit Assessment Decision</h4>
+              <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Audit Assessment Decision</h4>
                 
                 {/* Check if checklist is fully cleared */}
                 {selectedCandidate.checklist.every(item => item.met) ? (
-                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/25 rounded-xl text-[11px] leading-relaxed text-emerald-400 flex gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/25 rounded-xl text-[11px] leading-relaxed text-(--status-success) flex gap-2">
+                    <ShieldCheck className="w-4 h-4 text-(--status-success) shrink-0" />
                     <span>Degree Candidate meets all graduation prerequisites. Ready to authorize.</span>
                   </div>
                 ) : (
-                  <div className="p-3 bg-red-500/5 border border-red-500/25 rounded-xl text-[11px] leading-relaxed text-red-400 flex gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                  <div className="p-3 bg-red-500/5 border border-red-500/25 rounded-xl text-[11px] leading-relaxed text-(--status-danger) flex gap-2">
+                    <AlertTriangle className="w-4 h-4 text-(--status-danger) shrink-0" />
                     <span>Candidacy Blocked: Student has pending library returns or outstanding fees.</span>
                   </div>
                 )}
@@ -281,7 +282,7 @@ export const GraduationAuditing: React.FC = () => {
                     placeholder="Enter audit review comments or rejection reason..."
                     value={reasonMsg}
                     onChange={(e) => setReasonMsg(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3.5 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold)"
                   />
                   <div className="flex gap-3">
                     <Button
@@ -296,7 +297,7 @@ export const GraduationAuditing: React.FC = () => {
                       variant="rose"
                       size="sm"
                       onClick={() => handleDecision('Rejected', reasonMsg || 'Cleared check failures.')}
-                      className="flex-1 font-semibold text-xs flex items-center justify-center gap-1.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20"
+                      className="flex-1 font-semibold text-xs flex items-center justify-center gap-1.5 bg-(--status-danger-bg) border border-(--status-danger-border) text-(--status-danger) hover:bg-rose-500/20"
                     >
                       <XCircle className="w-4 h-4" /> Reject Degree Candidacy
                     </Button>
@@ -304,15 +305,15 @@ export const GraduationAuditing: React.FC = () => {
                 </div>
 
                 {/* Audit history timeline */}
-                <div className="border-t border-white/5 pt-4 space-y-3">
-                  <p className="text-[10px] font-mono text-white/40 uppercase">Audit Clearance Logs</p>
-                  <div className="space-y-3 pl-3 border-l border-white/10">
+                <div className="border-t border-(--border-subtle) pt-4 space-y-3">
+                  <p className="text-[10px] font-mono text-(--text-faint) uppercase">Audit Clearance Logs</p>
+                  <div className="space-y-3 pl-3 border-l border-(--border-default)">
                     {selectedCandidate.history.map((h, idx) => (
                       <div key={idx} className="relative text-xs">
-                        <span className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#D4AF37] border-2 border-[#0F0F10]" />
+                        <span className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-(--brand-gold) border-2 border-(--bg-base)" />
                         <div className="space-y-0.5">
-                          <p className="text-white/40 font-mono text-[9px]">{h.time} · {h.user}</p>
-                          <p className="text-white/90 font-medium">{h.action}</p>
+                          <p className="text-(--text-faint) font-mono text-[9px]">{h.time} · {h.user}</p>
+                          <p className="text-(--text-primary) font-medium">{h.action}</p>
                         </div>
                       </div>
                     ))}
@@ -322,11 +323,11 @@ export const GraduationAuditing: React.FC = () => {
 
             </div>
           ) : (
-            <div className="h-[480px] border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-3 text-center text-white/30 p-6 bg-white/5">
-              <GraduationCap className="w-8 h-8 text-white/20 animate-bounce" />
+            <div className="h-[480px] border border-dashed border-(--border-default) rounded-2xl flex flex-col items-center justify-center gap-3 text-center text-(--text-faint) p-6 bg-(--hover-overlay)">
+              <GraduationCap className="w-8 h-8 text-(--text-faint) animate-bounce" />
               <div>
-                <h4 className="text-xs font-bold text-white font-sans">No Candidate Audited</h4>
-                <p className="text-[10px] text-white/45 max-w-xs mt-1">Select a graduation applicant from the list to display their degree requirements audit checklist sheet.</p>
+                <h4 className="text-xs font-bold text-(--text-primary) font-sans">No Candidate Audited</h4>
+                <p className="text-[10px] text-(--text-faint) max-w-xs mt-1">Select a graduation applicant from the list to display their degree requirements audit checklist sheet.</p>
               </div>
             </div>
           )}

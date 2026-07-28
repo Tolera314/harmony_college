@@ -7,6 +7,7 @@ import {
   BarChart3, RefreshCw, Bell, ClipboardList, Settings, LogOut, Landmark,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
 
 interface FOSidebarProps {
@@ -54,28 +55,28 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
   return (
     <aside
       aria-label="Finance Officer Navigation"
-      className="h-screen w-20 xl:w-64 fixed left-0 top-0 bg-[var(--bg-sidebar)]/95 backdrop-blur-xl border-r border-white/10 flex-col py-6 px-3 xl:px-4 z-50 hidden md:!flex transition-all duration-300 shadow-xl"
+      className="h-screen w-20 xl:w-64 fixed left-0 top-0 ds-sidebar backdrop-blur-xl border-r flex-col py-6 px-3 xl:px-4 z-50 hidden md:!flex transition-all duration-300 shadow-xl"
     >
       {/* Logo */}
       <div className="mb-8 px-2">
         <button
           onClick={() => setActiveTab('overview')}
-          className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] rounded-xl"
+          className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-(--brand-gold) rounded-xl"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E9C349] to-[#b8951d] text-[#0F0F10] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E9C349] to-[#b8951d] text-(--text-inverse) flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
             <Landmark className="w-5 h-5" />
           </div>
           <div className="hidden xl:block">
-            <span className="font-serif text-xl font-bold text-white tracking-tight block leading-none">Harmony</span>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-[#E9C349] font-bold block mt-1">Finance</span>
+            <span className="font-serif text-xl font-bold text-(--text-primary) tracking-tight block leading-none">Harmony</span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-(--brand-gold) font-bold block mt-1">Finance</span>
           </div>
         </button>
 
         {/* Semester badge */}
         <div className="hidden xl:block mt-4 px-1">
-          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
-            <p className="font-sans text-[11px] font-semibold text-white/80 leading-tight">{profile.department}</p>
-            <p className="font-mono text-[10px] text-[#E9C349] mt-0.5">{profile.currentSemester}</p>
+          <div className="p-3 bg-(--hover-overlay) border border-(--border-default) rounded-xl">
+            <p className="font-sans text-[11px] font-semibold text-(--text-secondary) leading-tight">{profile.department}</p>
+            <p className="font-mono text-[10px] text-(--brand-gold) mt-0.5">{profile.currentSemester}</p>
           </div>
         </div>
       </div>
@@ -88,21 +89,21 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
             <motion.button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              whileHover={{ x: 4 }}
+              whileHover={GESTURE.navHover}
               whileTap={{ scale: 0.97 }}
               aria-current={isActive ? 'page' : undefined}
               className={`relative flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl font-sans text-sm font-medium transition-all group touch-target ${
-                isActive ? 'text-[#E9C349] font-semibold' : 'text-white/60 hover:text-white hover:bg-white/5'
+                isActive ? 'ds-nav-item-active font-semibold' : 'ds-nav-item'
               }`}
             >
               {isActive && (
                 <motion.div
                   layoutId="foActivePill"
-                  className="absolute inset-0 bg-[#E9C349]/12 rounded-xl"
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  className="absolute inset-0 bg-(--accent-gold-subtle) rounded-xl"
+                  transition={{ ...SPRING.pill }}
                 />
               )}
-              <span className={`relative z-10 ${isActive ? 'text-[#E9C349]' : 'text-white/50 group-hover:text-white transition-colors'}`}>
+              <span className={`relative z-10 ${isActive ? 'text-(--brand-gold)' : 'text-(--text-muted) group-hover:text-(--text-primary) transition-colors'}`}>
                 {item.icon}
               </span>
               <span className="relative z-10 hidden xl:inline truncate flex-1">{item.label}</span>
@@ -117,13 +118,13 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
       </nav>
 
       {/* Bottom section */}
-      <div className="mt-auto border-t border-white/10 pt-4 space-y-1">
+      <div className="mt-auto ds-sidebar-divider border-t pt-4 space-y-1">
         <motion.button
           onClick={() => setActiveTab('settings')}
-          whileHover={{ x: 4 }}
+          whileHover={GESTURE.navHover}
           whileTap={{ scale: 0.97 }}
           className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl transition-all font-sans text-sm font-medium touch-target ${
-            activeTab === 'settings' ? 'bg-[#E9C349]/12 text-[#E9C349]' : 'text-white/60 hover:bg-white/5 hover:text-white'
+            activeTab === 'settings' ? 'bg-(--accent-gold-subtle) text-(--brand-gold)' : 'ds-nav-item'
           }`}
         >
           <Settings className="w-5 h-5 shrink-0" />
@@ -132,22 +133,22 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
 
         <motion.button
           onClick={onLogout}
-          whileHover={{ x: 4 }}
+          whileHover={GESTURE.navHover}
           whileTap={{ scale: 0.97 }}
-          className="w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl text-rose-400 hover:bg-rose-950/30 transition-colors font-sans text-sm font-medium touch-target"
+          className="w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl ds-logout-btn transition-colors font-sans text-sm font-medium touch-target"
         >
           <LogOut className="w-5 h-5 shrink-0" />
           <span className="hidden xl:inline">Log Out</span>
         </motion.button>
 
         {/* Profile chip */}
-        <div className="flex items-center gap-3 px-2 pt-3 border-t border-white/5 mt-2">
-          <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#E9C349]/40 shrink-0">
-            <img src={profile.avatar || undefined} alt={profile.name} className="w-full h-full object-cover" />
+        <div className="flex items-center gap-3 px-2 pt-3 ds-sidebar-divider border-t mt-2">
+          <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-(--accent-gold-border) shrink-0">
+            <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
           </div>
           <div className="overflow-hidden hidden xl:block">
-            <p className="font-sans text-xs font-semibold text-white truncate">{profile.name}</p>
-            <p className="font-mono text-[10px] text-white/50 truncate">{profile.employeeId}</p>
+            <p className="font-sans text-xs font-semibold text-(--text-primary) truncate">{profile.name}</p>
+            <p className="font-mono text-[10px] truncate ds-profile-id">{profile.employeeId}</p>
           </div>
         </div>
       </div>

@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   KanbanSquare, Table as TableIcon, Users, MapPin, 
   Clock, Plus, CheckCircle2, ChevronRight, 
   HelpCircle, MoreVertical, ShieldAlert, Sparkles, X, Check
 } from 'lucide-react';
+import { EmptyState } from '../ui/States';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 
@@ -108,18 +110,18 @@ export const CourseOfferings: React.FC = () => {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Course Offerings</h2>
-          <p className="text-xs text-white/50">Schedule courses, assign academic staff, and audit room seating capacities.</p>
+          <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Course Offerings</h2>
+          <p className="text-xs text-(--text-muted)">Schedule courses, assign academic staff, and audit room seating capacities.</p>
         </div>
 
         {/* View Toggle */}
-        <div className="flex bg-white/5 border border-white/10 p-1.5 rounded-xl self-start md:self-center">
+        <div className="flex bg-(--hover-overlay) border border-(--border-default) p-1.5 rounded-xl self-start md:self-center">
           <button
             onClick={() => setViewMode('kanban')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
               viewMode === 'kanban' 
-                ? 'bg-[#D4AF37] text-[#0F0F10] shadow' 
-                : 'text-white/60 hover:text-white'
+                ? 'bg-(--brand-gold) text-(--text-inverse) shadow' 
+                : 'text-(--text-secondary) hover:text-(--text-primary)'
             }`}
           >
             <KanbanSquare className="w-3.5 h-3.5" /> Kanban Board
@@ -128,8 +130,8 @@ export const CourseOfferings: React.FC = () => {
             onClick={() => setViewMode('table')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
               viewMode === 'table' 
-                ? 'bg-[#D4AF37] text-[#0F0F10] shadow' 
-                : 'text-white/60 hover:text-white'
+                ? 'bg-(--brand-gold) text-(--text-inverse) shadow' 
+                : 'text-(--text-secondary) hover:text-(--text-primary)'
             }`}
           >
             <TableIcon className="w-3.5 h-3.5" /> Data Table
@@ -143,10 +145,10 @@ export const CourseOfferings: React.FC = () => {
           {columns.map(col => {
             const list = offerings.filter(o => o.status === col);
             return (
-              <div key={col} className="bg-white/5 border border-white/8 p-4 rounded-2xl space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                  <span className="text-xs font-mono font-bold text-white/70">{col}</span>
-                  <Badge variant="glass" className="font-mono text-[10px] text-white/40">
+              <div key={col} className="bg-(--hover-overlay) border border-(--border-subtle) p-4 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between border-b border-(--border-subtle) pb-2">
+                  <span className="text-xs font-mono font-bold text-(--text-secondary)">{col}</span>
+                  <Badge variant="glass" className="font-mono text-[10px] text-(--text-faint)">
                     {list.length} Sections
                   </Badge>
                 </div>
@@ -158,10 +160,10 @@ export const CourseOfferings: React.FC = () => {
                       <div
                         key={off.id}
                         onClick={() => handleEditClick(off)}
-                        className="p-4 bg-black/40 border border-white/10 rounded-xl hover:border-[#D4AF37]/50 hover:bg-black/60 transition-all cursor-pointer space-y-3 group"
+                        className="p-4 bg-(--bg-input) border border-(--border-default) rounded-xl hover:border-(--brand-gold)/50 hover:bg-black/60 transition-all cursor-pointer space-y-3 group"
                       >
                         <div className="flex justify-between items-start">
-                          <span className="font-mono font-bold text-[#D4AF37] text-xs">{off.code}</span>
+                          <span className="font-mono font-bold text-(--brand-gold) text-xs">{off.code}</span>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {col !== 'Closed' && (
                               <button 
@@ -170,7 +172,7 @@ export const CourseOfferings: React.FC = () => {
                                   const nextStatus = col === 'Draft' ? 'Instructor Assigned' : col === 'Instructor Assigned' ? 'Scheduled' : 'Closed';
                                   handleMoveStatus(off.id, nextStatus);
                                 }}
-                                className="text-[10px] text-emerald-400 hover:underline flex items-center font-mono"
+                                className="text-[10px] text-(--status-success) hover:underline flex items-center font-mono"
                                 title="Promote Stage"
                               >
                                 Next <ChevronRight className="w-3 h-3" />
@@ -180,31 +182,31 @@ export const CourseOfferings: React.FC = () => {
                         </div>
 
                         <div>
-                          <p className="text-xs font-semibold text-white truncate">{off.name}</p>
-                          <p className="text-[10px] text-white/40 font-mono truncate">{off.instructor}</p>
+                          <p className="text-xs font-semibold text-(--text-primary) truncate">{off.name}</p>
+                          <p className="text-[10px] text-(--text-faint) font-mono truncate">{off.instructor}</p>
                         </div>
 
                         {/* Schedule Meta */}
-                        <div className="space-y-1.5 border-t border-white/5 pt-2.5">
-                          <div className="flex items-center gap-1.5 text-[10px] text-white/50">
-                            <MapPin className="w-3 h-3 text-white/30 shrink-0" />
+                        <div className="space-y-1.5 border-t border-(--border-subtle) pt-2.5">
+                          <div className="flex items-center gap-1.5 text-[10px] text-(--text-muted)">
+                            <MapPin className="w-3 h-3 text-(--text-faint) shrink-0" />
                             <span className="truncate">{off.building === 'TBD' ? 'No Room Allocated' : `${off.building} · Rm ${off.room}`}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-white/50">
-                            <Clock className="w-3 h-3 text-white/30 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-[10px] text-(--text-muted)">
+                            <Clock className="w-3 h-3 text-(--text-faint) shrink-0" />
                             <span className="truncate">{off.time === 'TBD' ? 'Unscheduled Time' : off.time}</span>
                           </div>
                         </div>
 
                         {/* Seating Utilization */}
                         <div className="space-y-1">
-                          <div className="flex justify-between text-[9px] font-mono text-white/40">
+                          <div className="flex justify-between text-[9px] font-mono text-(--text-faint)">
                             <span>Capacity</span>
                             <span>{off.enrolled} / {off.capacity} Seats ({utilization}%)</span>
                           </div>
-                          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-(--hover-overlay) rounded-full overflow-hidden">
                             <div 
-                              className={`h-full rounded-full ${utilization >= 100 ? 'bg-red-500' : utilization > 80 ? 'bg-[#D4AF37]' : 'bg-emerald-500'}`}
+                              className={`h-full rounded-full ${utilization >= 100 ? 'bg-(--status-danger)' : utilization > 80 ? 'bg-(--brand-gold)' : 'bg-(--status-success)'}`}
                               style={{ width: `${Math.min(100, utilization)}%` }}
                             />
                           </div>
@@ -213,7 +215,7 @@ export const CourseOfferings: React.FC = () => {
                     );
                   })}
                   {list.length === 0 && (
-                    <div className="text-center py-12 border border-dashed border-white/5 rounded-xl text-white/20 text-[10px] font-mono">
+                    <div className="text-center py-12 border border-dashed border-(--border-subtle) rounded-xl text-(--text-faint) text-[10px] font-mono">
                       No courses in stage
                     </div>
                   )}
@@ -224,9 +226,9 @@ export const CourseOfferings: React.FC = () => {
         </div>
       ) : (
         /* Table View */
-        <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+        <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
           <table className="w-full text-left text-xs font-sans">
-            <thead className="bg-white/5 border-b border-white/10 text-white/50 font-mono text-[10px] uppercase tracking-wider">
+            <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
               <tr>
                 <th className="px-5 py-4">Section Code</th>
                 <th className="px-5 py-4">Course Name</th>
@@ -238,31 +240,31 @@ export const CourseOfferings: React.FC = () => {
                 <th className="px-5 py-4 text-right">Edit</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-white/80">
+            <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
               {offerings.map(off => {
                 const utilization = Math.round((off.enrolled / off.capacity) * 100);
                 return (
-                  <tr key={off.id} className="hover:bg-white/[0.04] transition-colors">
-                    <td className="px-5 py-4 font-mono font-bold text-white tracking-wider">{off.code}</td>
-                    <td className="px-5 py-4 text-white/90 font-medium">{off.name}</td>
-                    <td className="px-5 py-4 text-white/70">{off.instructor}</td>
-                    <td className="px-5 py-4 font-mono text-white/60">
+                  <tr key={off.id} className="hover:bg-(--hover-overlay) transition-colors">
+                    <td className="px-5 py-4 font-mono font-bold text-(--text-primary) tracking-wider">{off.code}</td>
+                    <td className="px-5 py-4 text-(--text-primary) font-medium">{off.name}</td>
+                    <td className="px-5 py-4 text-(--text-secondary)">{off.instructor}</td>
+                    <td className="px-5 py-4 font-mono text-(--text-secondary)">
                       {off.building === 'TBD' ? (
-                        <span className="text-red-400">Unallocated</span>
+                        <span className="text-(--status-danger)">Unallocated</span>
                       ) : (
                         `${off.building} · Rm ${off.room}`
                       )}
                     </td>
-                    <td className="px-5 py-4 text-white/60 truncate max-w-[200px]" title={off.time}>{off.time}</td>
+                    <td className="px-5 py-4 text-(--text-secondary) truncate max-w-[200px]" title={off.time}>{off.time}</td>
                     <td className="px-5 py-4">
                       <div className="space-y-1.5 w-32">
-                        <div className="flex justify-between text-[9px] font-mono text-white/40">
+                        <div className="flex justify-between text-[9px] font-mono text-(--text-faint)">
                           <span>{off.enrolled}/{off.capacity} seats</span>
                           <span>{utilization}%</span>
                         </div>
-                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-1 bg-(--hover-overlay) rounded-full overflow-hidden">
                           <div 
-                            className={`h-full rounded-full ${utilization >= 100 ? 'bg-red-500' : utilization > 80 ? 'bg-[#D4AF37]' : 'bg-emerald-500'}`}
+                            className={`h-full rounded-full ${utilization >= 100 ? 'bg-(--status-danger)' : utilization > 80 ? 'bg-(--brand-gold)' : 'bg-(--status-success)'}`}
                             style={{ width: `${Math.min(100, utilization)}%` }}
                           />
                         </div>
@@ -276,7 +278,7 @@ export const CourseOfferings: React.FC = () => {
                     <td className="px-5 py-4 text-right">
                       <button
                         onClick={() => handleEditClick(off)}
-                        className="px-2.5 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-semibold hover:text-[#D4AF37] hover:border-[#D4AF37]/30 transition-all"
+                        className="px-2.5 py-1.5 bg-(--hover-overlay) border border-(--border-default) rounded-lg text-[10px] font-semibold hover:text-(--brand-gold) hover:border-(--brand-gold)/30 transition-all"
                       >
                         Configure
                       </button>
@@ -305,27 +307,27 @@ export const CourseOfferings: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-6 shadow-2xl z-10 font-sans"
+              className="relative w-full max-w-md bg-(--bg-base) border border-(--border-default) rounded-2xl p-6 shadow-2xl z-10 font-sans"
             >
               <button 
                 onClick={() => setEditingOffering(null)}
-                className="absolute top-4 right-4 p-2 bg-white/5 border border-white/10 rounded-xl text-white/50 hover:text-white transition-colors"
+                className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
 
-              <h3 className="text-lg font-serif font-bold text-white mb-2">Configure Course Section</h3>
-              <p className="text-xs text-white/40 mb-4">Update scheduler details for section {editingOffering.code}.</p>
+              <h3 className="text-lg font-serif font-bold text-(--text-primary) mb-2">Configure Course Section</h3>
+              <p className="text-xs text-(--text-faint) mb-4">Update scheduler details for section {editingOffering.code}.</p>
 
               <form onSubmit={handleSaveOffering} className="space-y-4">
                 
                 {/* Instructor assignment */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">Assign Lecturer / Instructor</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Assign Lecturer / Instructor</label>
                   <select
                     value={editFields.instructor}
                     onChange={(e) => setEditFields(prev => ({ ...prev, instructor: e.target.value }))}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
                   >
                     <option value="TBD">TBD (To Be Decided)</option>
                     {mockInstructors.map(ins => (
@@ -337,11 +339,11 @@ export const CourseOfferings: React.FC = () => {
                 {/* Building / Classroom */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-white/80">Building</label>
+                    <label className="text-xs font-semibold text-(--text-secondary)">Building</label>
                     <select
                       value={editFields.building}
                       onChange={(e) => setEditFields(prev => ({ ...prev, building: e.target.value }))}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
                     >
                       <option value="TBD">TBD</option>
                       <option value="Block A">Block A</option>
@@ -350,11 +352,11 @@ export const CourseOfferings: React.FC = () => {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-white/80">Room Number</label>
+                    <label className="text-xs font-semibold text-(--text-secondary)">Room Number</label>
                     <select
                       value={editFields.room}
                       onChange={(e) => setEditFields(prev => ({ ...prev, room: e.target.value }))}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
                     >
                       <option value="TBD">TBD</option>
                       <option value="101">101 (60 cap)</option>
@@ -369,24 +371,24 @@ export const CourseOfferings: React.FC = () => {
                 {/* Seating capacity */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-white/80">Seating Capacity</label>
+                    <label className="text-xs font-semibold text-(--text-secondary)">Seating Capacity</label>
                     <input
                       type="number"
                       min={10}
                       max={120}
                       value={editFields.capacity}
                       onChange={(e) => setEditFields(prev => ({ ...prev, capacity: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-white/80">Meeting Time Slot</label>
+                    <label className="text-xs font-semibold text-(--text-secondary)">Meeting Time Slot</label>
                     <input
                       type="text"
                       placeholder="e.g. Mon/Wed 09:00 AM - 10:30 AM"
                       value={editFields.time}
                       onChange={(e) => setEditFields(prev => ({ ...prev, time: e.target.value }))}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                     />
                   </div>
                 </div>

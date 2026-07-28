@@ -3,13 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FONavTab, FONotification } from '@/src/types/finance';
 import { foProfile, foNotifications as initialNotifs, reconciliationEntries, financeStudents } from '@/src/data/financeData';
-
 import { FOSidebar }           from '@/src/components/fo/FOSidebar';
 import { FOHeader }            from '@/src/components/fo/FOHeader';
 import { FOMobileNav }         from '@/src/components/fo/FOMobileNav';
 import { FOSearchModal }       from '@/src/components/fo/FOSearchModal';
 import { FOLogoutModal }       from '@/src/components/fo/FOLogoutModal';
-
 import { FOOverviewView }        from '@/src/components/fo/views/FOOverviewView';
 import { FOStudentAccountsView } from '@/src/components/fo/views/FOStudentAccountsView';
 import { FOPaymentsView }        from '@/src/components/fo/views/FOPaymentsView';
@@ -20,16 +18,26 @@ import { FOReconciliationView }  from '@/src/components/fo/views/FOReconciliatio
 import { FONotificationsView }   from '@/src/components/fo/views/FONotificationsView';
 import { FOAuditLogView }        from '@/src/components/fo/views/FOAuditLogView';
 import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView';
+import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
+import { AnimatePresence, motion } from 'motion/react';
 
 export default function FinanceOfficerPage() {
-  const [activeTab,     setActiveTab]     = useState<FONavTab>('overview');
+  const [activeTab,     setRawTab]       = useState<FONavTab>('overview');
   const [notifications, setNotifications] = useState<FONotification[]>(initialNotifs);
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [logoutOpen,    setLogoutOpen]    = useState(false);
+  const [tabLoading,    setTabLoading]    = useState(false);
+  const { toast, show: showToast, hide: hideToast } = useToast();
 
   const unreadCount           = notifications.filter((n) => !n.read).length;
   const pendingReconciliation = reconciliationEntries.filter((e) => e.status === 'Unmatched' || e.status === 'Pending Review').length;
   const overdueCount          = financeStudents.filter((s) => s.riskLevel === 'Critical' || s.paymentStatus === 'Overdue').length;
+
+  const setActiveTab = (tab: FONavTab) => {
+    if (tab === (activeTab as string)) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab as FONavTab); setTabLoading(false); }, 120);
+  };
 
   // Ctrl+K global search shortcut
   useEffect(() => {
@@ -64,6 +72,7 @@ export default function FinanceOfficerPage() {
   };
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':         return <FOOverviewView setActiveTab={setActiveTab} />;
       case 'student_accounts': return <FOStudentAccountsView />;
@@ -88,15 +97,12 @@ export default function FinanceOfficerPage() {
 
   return (
     <>
-      {/* Background — deep obsidian with soft radial gold gradients */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#E9C349]/5 rounded-full blur-[140px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#E9C349]/4 rounded-full blur-[120px]" />
-        <div className="absolute top-3/4 left-1/4 w-[400px] h-[400px] bg-[#E9C349]/3 rounded-full blur-[100px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.5)_0%,transparent_70%)]" />
-      </div>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
 
-      <div className="relative z-10 min-h-screen text-white">
+      {/* Background — theme-aware: obsidian+gold in dark, warm layered in light */}
+      <div className="dashboard-bg" aria-hidden="true" />
+
+      <div className="dashboard-content">
         {/* Sidebar */}
         <FOSidebar
           activeTab={activeTab}
@@ -122,8 +128,12 @@ export default function FinanceOfficerPage() {
             academicYear={foProfile.academicYear}
           />
 
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
-            {renderView()}
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
 

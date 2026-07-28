@@ -2,12 +2,14 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { CheckSquare, CheckCircle2, XCircle, Eye, Clock } from 'lucide-react';
 import { ApprovalRequest } from '../../../types/department';
 import { approvalRequests, courses, classrooms } from '../../../data/departmentData';
 import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
+import { EmptyState } from '../../ui/States';
 import { Modal } from '../../ui/Modal';
 
 const statusConfig: Record<ApprovalRequest['status'], { variant: 'amber'|'emerald'|'rose'; label: string }> = {
@@ -37,7 +39,7 @@ export const DHApprovalsView: React.FC = () => {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Approval Center"
         subtitle={`${approvalRequests.filter(r => getStatus(r) === 'Pending').length} pending · ${approvalRequests.filter(r => getStatus(r) === 'Approved').length} approved`}
@@ -48,7 +50,7 @@ export const DHApprovalsView: React.FC = () => {
       <div className="flex gap-2 flex-wrap">
         {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((s) => (
           <button key={s} onClick={() => setFilter(s)}
-            className={`px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${filter === s ? 'bg-[#E9C349]/15 border-[#E9C349]/40 text-[#E9C349]' : 'bg-white/5 border-white/10 text-white/60 hover:text-white'}`}>
+            className={`px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${filter === s ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
             {s}
             {s !== 'All' && (
               <span className="ml-1.5 font-mono text-[10px] opacity-70">
@@ -63,9 +65,8 @@ export const DHApprovalsView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <AnimatePresence>
           {filtered.length === 0 ? (
-            <div className="col-span-2 py-20 text-center">
-              <CheckCircle2 className="w-10 h-10 text-white/20 mx-auto mb-3" />
-              <p className="font-sans text-sm text-white/30">No approval requests in this category.</p>
+            <div className="col-span-2">
+              <EmptyState variant="default" description="No approval requests in this category." compact />
             </div>
           ) : filtered.map((req) => {
             const course = courses.find((c) => c.id === req.courseId);
@@ -75,7 +76,7 @@ export const DHApprovalsView: React.FC = () => {
             const isPending = status === 'Pending';
             return (
               <motion.div key={req.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }}
-                className={`relative bg-white/5 border rounded-2xl p-5 transition-all ${isPending ? 'border-[#E9C349]/20 bg-[#E9C349]/[0.03]' : 'border-white/10'}`}>
+                className={`relative bg-(--hover-overlay) border rounded-2xl p-5 transition-all ${isPending ? 'border-(--accent-gold-border) bg-[#E9C349]/[0.03]' : 'border-(--border-default)'}`}>
                 {isPending && <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-[#E9C349] animate-pulse" />}
 
                 <div className="flex items-start justify-between gap-3 mb-4">
@@ -84,7 +85,7 @@ export const DHApprovalsView: React.FC = () => {
                       <Badge variant="glass" className="text-[10px]">{req.type}</Badge>
                       <Badge variant={sc.variant} className="text-[10px]">{sc.label}</Badge>
                     </div>
-                    <h3 className="font-serif text-base font-bold text-white">
+                    <h3 className="font-serif text-base font-bold text-(--text-primary)">
                       {course ? `${course.code} — ${course.title}` : req.courseId}
                     </h3>
                   </div>
@@ -92,32 +93,32 @@ export const DHApprovalsView: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3 mb-4 text-xs font-sans">
                   {course && <>
-                    <div className="p-2.5 bg-white/5 rounded-xl border border-white/8">
-                      <p className="text-white/40 text-[10px] font-mono uppercase">Credits</p>
-                      <p className="text-white font-semibold mt-0.5">{course.credits} cr</p>
+                    <div className="p-2.5 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                      <p className="text-(--text-faint) text-[10px] font-mono uppercase">Credits</p>
+                      <p className="text-(--text-primary) font-semibold mt-0.5">{course.credits} cr</p>
                     </div>
-                    <div className="p-2.5 bg-white/5 rounded-xl border border-white/8">
-                      <p className="text-white/40 text-[10px] font-mono uppercase">Room</p>
-                      <p className="text-white font-semibold mt-0.5 truncate">{room?.name ?? '—'}</p>
+                    <div className="p-2.5 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                      <p className="text-(--text-faint) text-[10px] font-mono uppercase">Room</p>
+                      <p className="text-(--text-primary) font-semibold mt-0.5 truncate">{room?.name ?? '—'}</p>
                     </div>
-                    <div className="p-2.5 bg-white/5 rounded-xl border border-white/8">
-                      <p className="text-white/40 text-[10px] font-mono uppercase">Capacity</p>
-                      <p className="text-white font-semibold mt-0.5">{course.capacity}</p>
+                    <div className="p-2.5 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                      <p className="text-(--text-faint) text-[10px] font-mono uppercase">Capacity</p>
+                      <p className="text-(--text-primary) font-semibold mt-0.5">{course.capacity}</p>
                     </div>
-                    <div className="p-2.5 bg-white/5 rounded-xl border border-white/8">
-                      <p className="text-white/40 text-[10px] font-mono uppercase">Semester</p>
-                      <p className="text-white font-semibold mt-0.5">{course.semester}</p>
+                    <div className="p-2.5 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                      <p className="text-(--text-faint) text-[10px] font-mono uppercase">Semester</p>
+                      <p className="text-(--text-primary) font-semibold mt-0.5">{course.semester}</p>
                     </div>
                   </>}
                 </div>
 
-                <div className="flex items-center gap-2 mb-4 text-xs text-white/50">
+                <div className="flex items-center gap-2 mb-4 text-xs text-(--text-muted)">
                   <Clock className="w-3.5 h-3.5" />
-                  <span>Submitted by <span className="text-white/70 font-medium">{req.submittedBy}</span> · {req.submittedAt}</span>
+                  <span>Submitted by <span className="text-(--text-secondary) font-medium">{req.submittedBy}</span> · {req.submittedAt}</span>
                 </div>
 
                 {req.notes && (
-                  <p className="text-xs text-white/50 italic bg-white/5 rounded-xl px-3 py-2 border border-white/8 mb-4 line-clamp-2">
+                  <p className="text-xs text-(--text-muted) italic bg-(--hover-overlay) rounded-xl px-3 py-2 border border-(--border-subtle) mb-4 line-clamp-2">
                     &quot;{req.notes}&quot;
                   </p>
                 )}
@@ -153,21 +154,21 @@ export const DHApprovalsView: React.FC = () => {
                 <Badge variant={statusConfig[status].variant}>{status}</Badge>
               </div>
               {course && (
-                <div className="p-4 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-xs text-[#E9C349] mb-1">{course.code}</p>
-                  <p className="font-semibold text-white">{course.title}</p>
-                  <p className="text-white/50 text-xs mt-1">{course.description}</p>
+                <div className="p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-xs text-(--brand-gold) mb-1">{course.code}</p>
+                  <p className="font-semibold text-(--text-primary)">{course.title}</p>
+                  <p className="text-(--text-muted) text-xs mt-1">{course.description}</p>
                 </div>
               )}
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-wider text-white/40 mb-1">Submitted By</p>
-                <p className="text-white/80">{selected.submittedBy}</p>
-                <p className="text-white/40 text-xs">{selected.submittedAt}</p>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-1">Submitted By</p>
+                <p className="text-(--text-secondary)">{selected.submittedBy}</p>
+                <p className="text-(--text-faint) text-xs">{selected.submittedAt}</p>
               </div>
               {selected.notes && (
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40 mb-1">Notes</p>
-                  <p className="text-white/70 leading-relaxed">{selected.notes}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-1">Notes</p>
+                  <p className="text-(--text-secondary) leading-relaxed">{selected.notes}</p>
                 </div>
               )}
               {status === 'Pending' && (
@@ -185,14 +186,14 @@ export const DHApprovalsView: React.FC = () => {
       <Modal isOpen={!!confirmModal} onClose={() => setConfirmModal(null)} title={`Confirm ${confirmModal?.action}`} maxWidth="max-w-md">
         {confirmModal && (
           <div className="space-y-4">
-            <p className="font-sans text-sm text-white/70">
-              Are you sure you want to <span className="font-semibold text-white">{confirmModal.action.toLowerCase()}</span> this request?
+            <p className="font-sans text-sm text-(--text-secondary)">
+              Are you sure you want to <span className="font-semibold text-(--text-primary)">{confirmModal.action.toLowerCase()}</span> this request?
             </p>
             {confirmModal.action === 'Reject' && (
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-sans text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#E9C349] resize-none"
+                className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-3 font-sans text-sm text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold) resize-none"
                 rows={3} placeholder="Reason for rejection (recommended)..."
               />
             )}
