@@ -4,7 +4,7 @@ import React from 'react';
 import { NavTab } from '../../types';
 import {
   LayoutDashboard,
-  UserCheck,
+  BookOpen,
   GraduationCap,
   CreditCard,
   BarChart3,

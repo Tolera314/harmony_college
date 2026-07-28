@@ -46,7 +46,7 @@ export interface NewsArticle {
 
 export type NavTab =
   | 'dashboard'
-  | 'registration'
+  | 'my_courses'
   | 'grades'
   | 'financials'
   | 'degree_audit'
@@ -100,7 +100,14 @@ export interface Course {
   room: string;
   description: string;
   syllabusOverview: string;
-  status: 'registered' | 'available' | 'dropped';
+  /** All enrolled curriculum courses have status 'enrolled' */
+  status: 'enrolled' | 'completed' | 'upcoming';
+  /** Semester this course belongs to e.g. "Semester 5 — Fall 2024" */
+  semester?: string;
+  /** Attendance percentage 0–100 */
+  attendanceRate?: number;
+  /** Letter grade if graded */
+  currentGrade?: string;
   assignments: Assignment[];
 }
 
