@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Send, Users, Eye, FileText, Plus, 
   Paperclip, Bold, Italic, Link2, List, 

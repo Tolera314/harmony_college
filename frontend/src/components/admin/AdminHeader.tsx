@@ -5,6 +5,7 @@ import { AdminNavTab, AdminProfile, AdminNotification } from '../../types/admin'
 import { Search, Bell, ChevronRight, Command, X, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
+import ThemeToggle from '../ThemeToggle';
 
 interface AdminHeaderProps {
   activeTab: AdminNavTab;
@@ -136,6 +137,9 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Theme Toggle */}
+            <ThemeToggle />
 
             <button onClick={() => setActiveTab('settings')}
               className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#E9C349]/40 hover:border-[#E9C349]/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349]"

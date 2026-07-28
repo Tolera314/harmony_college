@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Award, QrCode, Search, Trash2, CheckCircle2, 
   XCircle, Copy, Check, Download, AlertTriangle, ShieldCheck

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import {
   CreditCard, Search, Filter, X, ChevronDown, ChevronUp,
   Download, Eye, Plus,
@@ -40,32 +41,32 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
   const selected = financeStudents.find((s) => s.id === form.studentId);
 
   return (
-    <Modal isOpen onClose={onClose} title={<><Plus className="w-5 h-5 inline mr-2 text-[#E9C349]" />Record Payment</>} maxWidth="max-w-xl">
+    <Modal isOpen onClose={onClose} title={<><Plus className="w-5 h-5 inline mr-2 text-(--brand-gold)" />Record Payment</>} maxWidth="max-w-xl">
       <div className="space-y-5">
         {/* Student selector */}
         <div>
-          <label className="block font-mono text-[11px] text-white/50 uppercase tracking-wider mb-2">Student *</label>
+          <label className="block font-mono text-[11px] text-(--text-muted) uppercase tracking-wider mb-2">Student *</label>
           <select
             value={form.studentId}
             onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors"
+            className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-sans text-sm text-(--text-primary) outline-none focus:border-(--brand-gold)/50 transition-colors"
           >
-            <option value="" className="bg-[#141617]">Select student...</option>
+            <option value="" className="bg-(--bg-card-solid)">Select student...</option>
             {financeStudents.map((s) => (
-              <option key={s.id} value={s.id} className="bg-[#141617]">
+              <option key={s.id} value={s.id} className="bg-(--bg-card-solid)">
                 {s.name} — {s.studentId}
               </option>
             ))}
           </select>
-          {errors.studentId && <p className="font-sans text-xs text-rose-400 mt-1">{errors.studentId}</p>}
+          {errors.studentId && <p className="font-sans text-xs text-(--status-danger) mt-1">{errors.studentId}</p>}
         </div>
 
         {/* Outstanding balance hint */}
         {selected && (
-          <div className="p-3 bg-[#E9C349]/5 border border-[#E9C349]/20 rounded-xl flex items-center justify-between">
+          <div className="p-3 bg-[#E9C349]/5 border border-(--accent-gold-border) rounded-xl flex items-center justify-between">
             <div>
-              <p className="font-sans text-xs text-white/70">Outstanding Balance</p>
-              <p className="font-mono text-lg font-bold text-[#E9C349]">ETB {selected.outstanding.toLocaleString()}</p>
+              <p className="font-sans text-xs text-(--text-secondary)">Outstanding Balance</p>
+              <p className="font-mono text-lg font-bold text-(--brand-gold)">ETB {selected.outstanding.toLocaleString()}</p>
             </div>
             <Badge variant={selected.outstanding > 0 ? 'rose' : 'emerald'}>{selected.paymentStatus}</Badge>
           </div>
@@ -74,28 +75,28 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
         {/* Amount + Method */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block font-mono text-[11px] text-white/50 uppercase tracking-wider mb-2">Amount (ETB) *</label>
+            <label className="block font-mono text-[11px] text-(--text-muted) uppercase tracking-wider mb-2">Amount (ETB) *</label>
             <input
               type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               placeholder="0.00"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-mono text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E9C349]/50 transition-colors"
+              className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-mono text-sm text-(--text-primary) placeholder:text-(--text-faint) outline-none focus:border-(--brand-gold)/50 transition-colors"
             />
-            {errors.amount && <p className="font-sans text-xs text-rose-400 mt-1">{errors.amount}</p>}
+            {errors.amount && <p className="font-sans text-xs text-(--status-danger) mt-1">{errors.amount}</p>}
             {selected && Number(form.amount) > 0 && (
-              <p className="font-sans text-[10px] text-white/40 mt-1">
+              <p className="font-sans text-[10px] text-(--text-faint) mt-1">
                 Remaining after: ETB {Math.max(0, selected.outstanding - Number(form.amount)).toLocaleString()}
               </p>
             )}
           </div>
           <div>
-            <label className="block font-mono text-[11px] text-white/50 uppercase tracking-wider mb-2">Payment Method *</label>
+            <label className="block font-mono text-[11px] text-(--text-muted) uppercase tracking-wider mb-2">Payment Method *</label>
             <select
               value={form.method}
               onChange={(e) => setForm((f) => ({ ...f, method: e.target.value as PaymentMethod }))}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors"
+              className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-sans text-sm text-(--text-primary) outline-none focus:border-(--brand-gold)/50 transition-colors"
             >
               {(['Cash', 'Bank Transfer', 'Telebirr', 'Chapa', 'Cheque'] as PaymentMethod[]).map((m) => (
-                <option key={m} value={m} className="bg-[#141617]">{m}</option>
+                <option key={m} value={m} className="bg-(--bg-card-solid)">{m}</option>
               ))}
             </select>
           </div>
@@ -104,30 +105,30 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
         {/* Reference + Date */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block font-mono text-[11px] text-white/50 uppercase tracking-wider mb-2">Reference No. *</label>
+            <label className="block font-mono text-[11px] text-(--text-muted) uppercase tracking-wider mb-2">Reference No. *</label>
             <input
               type="text" value={form.reference} onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))}
               placeholder="e.g. BT-HC-12345"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-mono text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E9C349]/50 transition-colors"
+              className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-mono text-sm text-(--text-primary) placeholder:text-(--text-faint) outline-none focus:border-(--brand-gold)/50 transition-colors"
             />
-            {errors.reference && <p className="font-sans text-xs text-rose-400 mt-1">{errors.reference}</p>}
+            {errors.reference && <p className="font-sans text-xs text-(--status-danger) mt-1">{errors.reference}</p>}
           </div>
           <div>
-            <label className="block font-mono text-[11px] text-white/50 uppercase tracking-wider mb-2">Payment Date</label>
+            <label className="block font-mono text-[11px] text-(--text-muted) uppercase tracking-wider mb-2">Payment Date</label>
             <input
               type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-mono text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors"
+              className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-mono text-sm text-(--text-primary) outline-none focus:border-(--brand-gold)/50 transition-colors"
             />
           </div>
         </div>
 
         {/* Notes */}
         <div>
-          <label className="block font-mono text-[11px] text-white/50 uppercase tracking-wider mb-2">Notes (optional)</label>
+          <label className="block font-mono text-[11px] text-(--text-muted) uppercase tracking-wider mb-2">Notes (optional)</label>
           <textarea
             value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             rows={2} placeholder="Add any notes about this payment..."
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E9C349]/50 transition-colors resize-none"
+            className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-sans text-sm text-(--text-primary) placeholder:text-(--text-faint) outline-none focus:border-(--brand-gold)/50 transition-colors resize-none"
           />
         </div>
 
@@ -160,15 +161,15 @@ function TxnDetailModal({ txn, onClose }: { txn: Transaction; onClose: () => voi
           ['Date & Time', `${txn.date} ${txn.time}`],
           ['Status', txn.status],
         ].map(([label, value]) => (
-          <div key={label} className="flex justify-between items-start border-b border-white/5 pb-3">
-            <span className="font-mono text-[11px] text-white/40 uppercase tracking-wider shrink-0">{label}</span>
-            <span className={`font-sans text-sm text-right ml-4 ${label === 'Amount' ? 'font-mono font-bold text-[#E9C349]' : 'text-white/80'}`}>{value}</span>
+          <div key={label} className="flex justify-between items-start border-b border-(--border-subtle) pb-3">
+            <span className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider shrink-0">{label}</span>
+            <span className={`font-sans text-sm text-right ml-4 ${label === 'Amount' ? 'font-mono font-bold text-(--brand-gold)' : 'text-(--text-secondary)'}`}>{value}</span>
           </div>
         ))}
         {txn.gatewayTxnId && (
-          <div className="flex justify-between items-start border-b border-white/5 pb-3">
-            <span className="font-mono text-[11px] text-white/40 uppercase tracking-wider">Gateway ID</span>
-            <span className="font-mono text-xs text-white/60">{txn.gatewayTxnId}</span>
+          <div className="flex justify-between items-start border-b border-(--border-subtle) pb-3">
+            <span className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider">Gateway ID</span>
+            <span className="font-mono text-xs text-(--text-secondary)">{txn.gatewayTxnId}</span>
           </div>
         )}
       </div>
@@ -212,8 +213,8 @@ export const FOPaymentsView: React.FC = () => {
   const totalAmount = filtered.filter((t) => t.status === 'Completed').reduce((s, t) => s + t.amount, 0);
 
   const methodColors: Record<string, string> = {
-    Cash: 'text-amber-400', 'Bank Transfer': 'text-blue-400',
-    Telebirr: 'text-green-400', Chapa: 'text-purple-400', Cheque: 'text-white/60',
+    Cash: 'text-(--status-warning)', 'Bank Transfer': 'text-blue-400',
+    Telebirr: 'text-green-400', Chapa: 'text-purple-400', Cheque: 'text-(--text-secondary)',
   };
 
   return (
@@ -232,13 +233,13 @@ export const FOPaymentsView: React.FC = () => {
       {/* Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Transactions', value: transactions.length, mono: true, color: 'text-white' },
-          { label: 'Total Collected', value: `ETB ${(totalAmount/1000).toFixed(0)}K`, mono: true, color: 'text-[#E9C349]' },
-          { label: 'Cash Payments', value: transactions.filter((t) => t.paymentMethod === 'Cash').length, mono: true, color: 'text-amber-400' },
+          { label: 'Total Transactions', value: transactions.length, mono: true, color: 'text-(--text-primary)' },
+          { label: 'Total Collected', value: `ETB ${(totalAmount/1000).toFixed(0)}K`, mono: true, color: 'text-(--brand-gold)' },
+          { label: 'Cash Payments', value: transactions.filter((t) => t.paymentMethod === 'Cash').length, mono: true, color: 'text-(--status-warning)' },
           { label: 'Online Payments', value: transactions.filter((t) => t.paymentMethod !== 'Cash').length, mono: true, color: 'text-blue-400' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/5 border border-white/10 rounded-2xl p-4">
-            <p className="font-mono text-[10px] text-white/40 uppercase tracking-wider">{s.label}</p>
+          <div key={s.label} className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-4">
+            <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{s.label}</p>
             <p className={`font-mono text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -248,19 +249,19 @@ export const FOPaymentsView: React.FC = () => {
       <Card hoverable={false} className="p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
             <input
               type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search by student, reference, type..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 font-sans text-sm text-white placeholder:text-white/30 outline-none focus:border-[#E9C349]/50 transition-colors"
+              className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl pl-9 pr-4 py-2.5 font-sans text-sm text-(--text-primary) placeholder:text-(--text-faint) outline-none focus:border-(--brand-gold)/50 transition-colors"
             />
-            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"><X className="w-4 h-4" /></button>}
+            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-(--text-faint) hover:text-(--text-secondary)"><X className="w-4 h-4" /></button>}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-4 h-4 text-white/40 shrink-0" />
+            <Filter className="w-4 h-4 text-(--text-faint) shrink-0" />
             {(['All', 'Cash', 'Bank Transfer', 'Telebirr', 'Chapa'] as const).map((m) => (
               <button key={m} onClick={() => { setMethodFilter(m as PaymentMethod | 'All'); setPage(1); }}
-                className={`px-3 py-1.5 rounded-full font-mono text-xs transition-all border ${methodFilter === m ? 'bg-[#E9C349]/20 text-[#E9C349] border-[#E9C349]/40' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}>
+                className={`px-3 py-1.5 rounded-full font-mono text-xs transition-all border ${methodFilter === m ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border-(--accent-gold-border)' : 'bg-(--hover-overlay) text-(--text-muted) border-(--border-default) hover:bg-(--hover-overlay)'}`}>
                 {m}
               </button>
             ))}
@@ -270,49 +271,49 @@ export const FOPaymentsView: React.FC = () => {
       </Card>
 
       {/* Table */}
-      <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-xs sm:text-sm font-sans min-w-[860px]">
-          <thead className="bg-white/5 border-b border-white/10">
+          <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
             <tr>
-              <th className="p-4 text-left font-mono text-[10px] text-white/40 uppercase tracking-wider">Student</th>
-              <th className="p-4 text-left font-mono text-[10px] text-white/40 uppercase tracking-wider">Type</th>
-              <th className="p-4 text-left font-mono text-[10px] text-white/40 uppercase tracking-wider">Method</th>
-              <th className="p-4 text-left font-mono text-[10px] text-white/40 uppercase tracking-wider">Reference</th>
-              <th className="p-4 text-right font-mono text-[10px] text-white/40 uppercase tracking-wider cursor-pointer hover:text-white/70 select-none" onClick={() => { setSortField('amount'); setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); }}>
+              <th className="p-4 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Student</th>
+              <th className="p-4 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Type</th>
+              <th className="p-4 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Method</th>
+              <th className="p-4 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Reference</th>
+              <th className="p-4 text-right font-mono text-[10px] text-(--text-faint) uppercase tracking-wider cursor-pointer hover:text-(--text-secondary) select-none" onClick={() => { setSortField('amount'); setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); }}>
                 <div className="flex items-center justify-end gap-1">Amount {sortField === 'amount' && (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
               </th>
-              <th className="p-4 text-left font-mono text-[10px] text-white/40 uppercase tracking-wider cursor-pointer hover:text-white/70 select-none" onClick={() => { setSortField('date'); setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); }}>
+              <th className="p-4 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider cursor-pointer hover:text-(--text-secondary) select-none" onClick={() => { setSortField('date'); setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); }}>
                 <div className="flex items-center gap-1">Date {sortField === 'date' && (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
               </th>
-              <th className="p-4 text-left font-mono text-[10px] text-white/40 uppercase tracking-wider">Status</th>
-              <th className="p-4 text-center font-mono text-[10px] text-white/40 uppercase tracking-wider">View</th>
+              <th className="p-4 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Status</th>
+              <th className="p-4 text-center font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">View</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-(--border-subtle)">
             {paginated.map((t) => (
               <tr key={t.id} className="hover:bg-white/[0.04] transition-colors">
                 <td className="p-4">
-                  <p className="font-sans text-sm text-white font-medium truncate max-w-[140px]">{t.studentName}</p>
-                  <p className="font-mono text-[10px] text-white/40 truncate">{t.studentProgramName}</p>
+                  <p className="font-sans text-sm text-(--text-primary) font-medium truncate max-w-[140px]">{t.studentName}</p>
+                  <p className="font-mono text-[10px] text-(--text-faint) truncate">{t.studentProgramName}</p>
                 </td>
-                <td className="p-4 font-sans text-xs text-white/60">{t.type}</td>
+                <td className="p-4 font-sans text-xs text-(--text-secondary)">{t.type}</td>
                 <td className="p-4">
-                  <span className={`font-sans text-xs font-medium ${methodColors[t.paymentMethod] ?? 'text-white/60'}`}>{t.paymentMethod}</span>
+                  <span className={`font-sans text-xs font-medium ${methodColors[t.paymentMethod] ?? 'text-(--text-secondary)'}`}>{t.paymentMethod}</span>
                 </td>
-                <td className="p-4 font-mono text-xs text-white/50">{t.referenceNumber}</td>
-                <td className="p-4 text-right font-mono text-sm font-bold text-[#E9C349]">
+                <td className="p-4 font-mono text-xs text-(--text-muted)">{t.referenceNumber}</td>
+                <td className="p-4 text-right font-mono text-sm font-bold text-(--brand-gold)">
                   ETB {t.amount.toLocaleString()}
                 </td>
-                <td className="p-4 font-mono text-xs text-white/50">{t.date}<br /><span className="text-white/30">{t.time}</span></td>
+                <td className="p-4 font-mono text-xs text-(--text-muted)">{t.date}<br /><span className="text-(--text-faint)">{t.time}</span></td>
                 <td className="p-4">
                   <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full border ${
-                    t.status === 'Completed' ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40' :
-                    t.status === 'Pending'   ? 'bg-amber-950/40 text-amber-300 border-amber-800/40' :
-                    'bg-rose-950/40 text-rose-300 border-rose-800/40'
+                    t.status === 'Completed' ? 'bg-(--status-success-bg) text-(--status-success) border-(--status-success-border)' :
+                    t.status === 'Pending'   ? 'bg-(--status-warning-bg) text-(--status-warning) border-(--status-warning-border)' :
+                    'bg-(--status-danger-bg) text-(--status-danger) border-rose-800/40'
                   }`}>{t.status}</span>
                 </td>
                 <td className="p-4 text-center">
-                  <button onClick={() => setDetailTxn(t)} className="p-1.5 rounded-lg bg-white/5 hover:bg-[#E9C349]/15 text-white/40 hover:text-[#E9C349] transition-colors touch-target">
+                  <button onClick={() => setDetailTxn(t)} className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-(--accent-gold-subtle) text-(--text-faint) hover:text-(--brand-gold) transition-colors touch-target">
                     <Eye className="w-3.5 h-3.5" />
                   </button>
                 </td>
@@ -321,7 +322,7 @@ export const FOPaymentsView: React.FC = () => {
             {paginated.length === 0 && (
               <tr><td colSpan={8} className="p-12 text-center">
                 <CreditCard className="w-10 h-10 text-white/10 mx-auto mb-3" />
-                <p className="font-sans text-sm text-white/30">No transactions found.</p>
+                <p className="font-sans text-sm text-(--text-faint)">No transactions found.</p>
               </td></tr>
             )}
           </tbody>
@@ -331,12 +332,12 @@ export const FOPaymentsView: React.FC = () => {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="font-mono text-xs text-white/40">Showing {(page-1)*pageSize+1}–{Math.min(page*pageSize, filtered.length)} of {filtered.length}</p>
+          <p className="font-mono text-xs text-(--text-faint)">Showing {(page-1)*pageSize+1}–{Math.min(page*pageSize, filtered.length)} of {filtered.length}</p>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Prev</Button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
               <button key={p} onClick={() => setPage(p)}
-                className={`w-8 h-8 rounded-lg font-mono text-xs transition-colors ${p === page ? 'bg-[#E9C349]/20 text-[#E9C349] border border-[#E9C349]/40' : 'text-white/40 hover:bg-white/5'}`}>
+                className={`w-8 h-8 rounded-lg font-mono text-xs transition-colors ${p === page ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border)' : 'text-(--text-faint) hover:bg-(--hover-overlay)'}`}>
                 {p}
               </button>
             ))}

@@ -5,6 +5,7 @@ import { InstructorNavTab, InstructorProfile, InstructorNotification } from '../
 import { Search, Bell, ChevronRight, Command, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
+import ThemeToggle from '../ThemeToggle';
 
 interface InHeaderProps {
   activeTab: InstructorNavTab;
@@ -128,6 +129,9 @@ export const InHeader: React.FC<InHeaderProps> = ({
               )}
             </AnimatePresence>
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Avatar */}
           <button onClick={() => setActiveTab('settings')}

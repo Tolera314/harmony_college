@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Search, Filter, Plus, BookOpen, ChevronRight, 
   ChevronDown, HelpCircle, FileDown, FileUp, 

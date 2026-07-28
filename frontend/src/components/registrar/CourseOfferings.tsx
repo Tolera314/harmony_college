@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   KanbanSquare, Table as TableIcon, Users, MapPin, 
   Clock, Plus, CheckCircle2, ChevronRight, 

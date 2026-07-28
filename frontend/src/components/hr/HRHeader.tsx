@@ -5,6 +5,7 @@ import { HRNavTab, HROfficerProfile, HRNotification } from '../../types/hr';
 import { Search, Bell, ChevronRight, Command, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
+import ThemeToggle from '../ThemeToggle';
 
 interface HRHeaderProps {
   activeTab: HRNavTab;
@@ -126,6 +127,9 @@ export const HRHeader: React.FC<HRHeaderProps> = ({
               )}
             </AnimatePresence>
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Avatar */}
           <button onClick={() => setActiveTab('settings')}

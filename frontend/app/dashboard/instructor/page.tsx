@@ -83,12 +83,8 @@ export default function InstructorDashboardPage() {
   return (
     <>
       <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
-      <div className="fixed inset-0 bg-[#0F0F10] pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-[#E9C349]/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] bg-[#E9C349]/4 rounded-full blur-[100px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.6)_0%,transparent_70%)]" />
-      </div>
-      <div className="relative z-10 min-h-screen text-white">
+      <div className="dashboard-bg" aria-hidden="true" />
+      <div className="dashboard-content">
         <InSidebar activeTab={activeTab} setActiveTab={setActiveTab} profile={instructorProfile} unreadCount={unreadCount} pendingGrades={pendingGrades} activeSession={activeSession} onLogout={() => setLogoutOpen(true)} />
         <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen transition-all duration-300">
           <InHeader activeTab={activeTab} setActiveTab={setActiveTab} profile={instructorProfile} notifications={notifications} unreadCount={unreadCount} onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)} />

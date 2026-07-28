@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Search, Filter, ShieldAlert, Clock, 
   User, Database, RefreshCw, Terminal, Globe

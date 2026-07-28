@@ -4,6 +4,7 @@ import React from 'react';
 import { FONavTab } from '../../types/finance';
 import { LayoutDashboard, Users, CreditCard, AlertTriangle, BarChart3, Bell } from 'lucide-react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 
 interface FOMobileNavProps {
   activeTab: FONavTab;
@@ -28,7 +29,7 @@ export const FOMobileNav: React.FC<FOMobileNavProps> = ({
     <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden p-3 pointer-events-none">
       <nav
         aria-label="Mobile Finance Navigation"
-        className="pointer-events-auto max-w-lg mx-auto bg-[#141617]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-around px-2 py-1.5"
+        className="pointer-events-auto max-w-lg mx-auto ds-mobile-nav backdrop-blur-xl border rounded-2xl shadow-2xl flex items-center justify-around px-2 py-1.5"
       >
         {items.map((item) => {
           const isActive = activeTab === item.id;
@@ -39,13 +40,13 @@ export const FOMobileNav: React.FC<FOMobileNavProps> = ({
               whileTap={{ scale: 0.88 }}
               aria-current={isActive ? 'page' : undefined}
               className={`relative flex flex-col items-center justify-center w-full py-1.5 touch-target font-sans text-xs font-medium transition-colors ${
-                isActive ? 'text-[#E9C349] font-bold' : 'text-white/60'
+                isActive ? 'text-(--brand-gold) font-bold' : 'text-(--text-secondary)'
               }`}
             >
               {isActive && (
                 <motion.div
                   layoutId="foMobileActivePill"
-                  className="absolute inset-0 bg-[#E9C349]/15 rounded-xl border-b-2 border-[#E9C349]"
+                  className="absolute inset-0 bg-(--accent-gold-subtle) rounded-xl border-b-2 border-[#E9C349]"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}

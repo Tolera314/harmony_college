@@ -5,6 +5,7 @@ import { DHNavTab, DHProfile, DHNotification } from '../../types/department';
 import { Search, Bell, ChevronRight, Command, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
+import ThemeToggle from '../ThemeToggle';
 
 interface DHHeaderProps {
   activeTab: DHNavTab;
@@ -121,6 +122,9 @@ export const DHHeader: React.FC<DHHeaderProps> = ({
               )}
             </AnimatePresence>
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Avatar */}
           <button onClick={() => setActiveTab('settings')}

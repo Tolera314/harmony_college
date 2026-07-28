@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ClipboardList, BookOpen, GraduationCap, FileText, 
   Users, ShieldAlert, LogOut,
-  Menu, Bell, Search, User, Sun, Moon, 
+  Menu, Bell, Search, User,
   ChevronRight, Calendar, Send, ShieldCheck,
   Grid, LayoutDashboard, Clock, BarChart3, Settings
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
+import ThemeToggle from '@/src/components/ThemeToggle';
 
 // Import sub-components
 import { DashboardOverview }     from '@/src/components/registrar/DashboardOverview';
@@ -55,9 +56,6 @@ export default function RegistrarDashboardPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Theme Toggle Mock
-  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Global Admissions & Notifications lists
   const [notifications, setNotifications] = useState([
@@ -177,24 +175,24 @@ export default function RegistrarDashboardPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.75)_0%,transparent_65%)]" />
       </div>
 
-      <div className="relative z-10 min-h-screen text-white font-sans flex overflow-hidden">
+      <div className="dashboard-content font-sans flex overflow-hidden">
         
         {/* Left Sidebar: Collapsible, Sticky, Glass */}
         <aside 
-          className={`hidden md:flex flex-col border-r border-white/10 bg-white/5 backdrop-blur-xl transition-all duration-300 shrink-0 sticky top-0 h-screen z-30 ${
+          className={`hidden md:flex flex-col border-r ds-sidebar backdrop-blur-xl transition-all duration-300 shrink-0 sticky top-0 h-screen z-30 ${
             sidebarCollapsed ? 'w-20' : 'w-64'
           }`}
         >
           {/* Sidebar Header */}
-          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div className="p-5 border-b ds-sidebar-divider flex items-center justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0 shadow-inner">
-                <GraduationCap className="w-5 h-5 text-[#D4AF37]" />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner" style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)' }}>
+                <GraduationCap className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
               </div>
               {!sidebarCollapsed && (
                 <div className="truncate">
-                  <h2 className="text-xs font-serif font-bold text-white tracking-widest uppercase">Harmony College</h2>
-                  <p className="text-[9px] font-mono text-white/40 uppercase tracking-widest mt-0.5">Registrar Portal</p>
+                  <h2 className="text-xs font-serif font-bold tracking-widest uppercase" style={{ color: 'var(--text-primary)' }}>Harmony College</h2>
+                  <p className="text-[9px] font-mono uppercase tracking-widest mt-0.5" style={{ color: 'var(--text-faint)' }}>Registrar Portal</p>
                 </div>
               )}
             </div>
@@ -218,13 +216,13 @@ export default function RegistrarDashboardPage() {
                   onClick={() => setActiveTab(item.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all group ${
                     isActive 
-                      ? 'bg-[#D4AF37]/15 border border-[#D4AF37]/35 text-[#D4AF37]' 
-                      : 'border border-transparent text-white/60 hover:text-white hover:bg-white/5'
+                      ? 'border ds-nav-item-active-pill ds-nav-item-active' 
+                      : 'border border-transparent ds-nav-item'
                   }`}
                   title={sidebarCollapsed ? item.label : undefined}
                 >
                   <item.icon className={`w-4 h-4 shrink-0 transition-colors ${
-                    isActive ? 'text-[#D4AF37]' : 'text-white/40 group-hover:text-white'
+                    isActive ? 'ds-nav-item-active' : 'ds-nav-item group-hover:text-(--text-primary)'
                   }`} />
                   {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
                 </button>
@@ -233,12 +231,12 @@ export default function RegistrarDashboardPage() {
           </nav>
 
           {/* Sidebar Footer */}
-          <div className="p-3 border-t border-white/10">
+          <div className="p-3 border-t ds-sidebar-divider">
             <button 
               onClick={() => setLogoutOpen(true)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25 transition-all group`}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold border border-transparent transition-all group ds-logout-btn`}
             >
-              <LogOut className="w-4 h-4 text-rose-500/70 group-hover:text-rose-400 shrink-0" />
+              <LogOut className="w-4 h-4 shrink-0" />
               {!sidebarCollapsed && <span>Logout Session</span>}
             </button>
           </div>
@@ -248,7 +246,7 @@ export default function RegistrarDashboardPage() {
         <div className="flex-1 flex flex-col min-h-screen overflow-y-auto max-w-full">
           
           {/* Top Sticky Navigation bar */}
-          <header className="sticky top-0 bg-[#0F0F10]/60 border-b border-white/10 backdrop-blur-md z-20 px-6 py-4 flex justify-between items-center">
+          <header className="sticky top-0 ds-header backdrop-blur-md z-20 px-6 py-4 flex justify-between items-center">
             
             {/* Left: Mobile Toggle & Breadcrumbs */}
             <div className="flex items-center gap-3">
@@ -272,21 +270,15 @@ export default function RegistrarDashboardPage() {
               {/* Instant global search button */}
               <button 
                 onClick={() => setSearchOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/8 border border-white/10 hover:border-white/15 rounded-xl text-xs text-white/40 transition-all font-sans cursor-pointer"
+                className="hidden sm:flex items-center gap-2 px-3 py-2 ds-search border rounded-xl text-xs transition-all font-sans cursor-pointer"
               >
                 <Search className="w-3.5 h-3.5 text-white/40" />
                 <span>Search Portal...</span>
                 <kbd className="bg-black/50 border border-white/10 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-widest text-white/35">Ctrl+K</kbd>
               </button>
 
-              {/* Theme Toggle Button */}
-              <button 
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2.5 bg-white/5 border border-white/10 hover:border-white/15 rounded-xl text-white/50 hover:text-white transition-all cursor-pointer"
-                title="Toggle Theme"
-              >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
+              {/* Theme Toggle — shared component using centralized useTheme */}
+              <ThemeToggle />
 
               {/* Notification dropdown */}
               <div className="relative">

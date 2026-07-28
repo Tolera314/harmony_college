@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   GraduationCap, Search, FileText, CheckCircle2, 
   XCircle, Award, Check, Info, ShieldAlert, AlertTriangle,

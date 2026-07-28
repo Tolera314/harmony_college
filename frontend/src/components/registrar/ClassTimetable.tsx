@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Calendar as CalendarIcon, Clock, AlertTriangle, 
   MapPin, User, Sparkles, RefreshCw, Check, Info, X

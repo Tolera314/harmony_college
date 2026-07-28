@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Settings, User, Lock, Bell, Palette, Globe,
   Shield, Monitor, Save, Eye, EyeOff, CheckCircle2,
@@ -88,8 +89,8 @@ export const FOSettingsView: React.FC = () => {
               <button key={t.id} onClick={() => setActiveTab(t.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-sans text-sm transition-all ${
                   activeTab === t.id
-                    ? 'bg-[#E9C349]/12 text-[#E9C349] border border-[#E9C349]/20'
-                    : 'text-white/60 hover:bg-white/5 hover:text-white'
+                    ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border)'
+                    : 'text-(--text-secondary) hover:bg-(--hover-overlay) hover:text-(--text-primary)'
                 }`}>
                 {t.icon}
                 {t.label}
@@ -103,18 +104,18 @@ export const FOSettingsView: React.FC = () => {
           {/* ── Profile ──────────────────────────────────────────────────────── */}
           {activeTab === 'profile' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white">Finance Profile</h3>
+              <h3 className="font-serif text-xl font-bold text-(--text-primary)">Finance Profile</h3>
               <div className="flex items-center gap-5">
                 <div className="relative">
-                  <img src={foProfile.avatar} alt={foProfile.name} className="w-20 h-20 rounded-2xl object-cover border-2 border-[#E9C349]/40" />
-                  <button className="absolute -bottom-2 -right-2 w-7 h-7 bg-[#E9C349] rounded-full flex items-center justify-center text-[#0F0F10]">
+                  <img src={foProfile.avatar} alt={foProfile.name} className="w-20 h-20 rounded-2xl object-cover border-2 border-(--accent-gold-border)" />
+                  <button className="absolute -bottom-2 -right-2 w-7 h-7 bg-[#E9C349] rounded-full flex items-center justify-center text-(--text-inverse)">
                     <User className="w-3.5 h-3.5" />
                   </button>
                 </div>
                 <div>
-                  <p className="font-serif text-lg font-bold text-white">{foProfile.name}</p>
-                  <p className="font-mono text-xs text-[#E9C349]">{foProfile.employeeId}</p>
-                  <p className="font-sans text-xs text-white/50 mt-0.5">{foProfile.title}</p>
+                  <p className="font-serif text-lg font-bold text-(--text-primary)">{foProfile.name}</p>
+                  <p className="font-mono text-xs text-(--brand-gold)">{foProfile.employeeId}</p>
+                  <p className="font-sans text-xs text-(--text-muted) mt-0.5">{foProfile.title}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -127,10 +128,10 @@ export const FOSettingsView: React.FC = () => {
                   { label: 'Employee ID',  value: foProfile.employeeId, field: 'empid' },
                 ].map((f) => (
                   <div key={f.field}>
-                    <label className="block font-mono text-[11px] text-white/40 uppercase tracking-wider mb-2">{f.label}</label>
+                    <label className="block font-mono text-[11px] text-(--text-faint) uppercase tracking-wider mb-2">{f.label}</label>
                     <input defaultValue={f.value}
                       disabled={f.field === 'empid'}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" />
+                      className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-sans text-sm text-(--text-primary) outline-none focus:border-(--brand-gold)/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" />
                   </div>
                 ))}
               </div>
@@ -138,7 +139,7 @@ export const FOSettingsView: React.FC = () => {
                 <Button variant="primary" onClick={handleSave} icon={saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}>
                   {saved ? 'Saved!' : 'Save Changes'}
                 </Button>
-                {saved && <p className="font-sans text-xs text-emerald-400">Profile updated successfully.</p>}
+                {saved && <p className="font-sans text-xs text-(--status-success)">Profile updated successfully.</p>}
               </div>
             </Card>
           )}
@@ -146,7 +147,7 @@ export const FOSettingsView: React.FC = () => {
           {/* ── Password ──────────────────────────────────────────────────────── */}
           {activeTab === 'password' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white">Change Password</h3>
+              <h3 className="font-serif text-xl font-bold text-(--text-primary)">Change Password</h3>
               <div className="space-y-4 max-w-sm">
                 {[
                   { label: 'Current Password',  id: 'cur' },
@@ -154,22 +155,22 @@ export const FOSettingsView: React.FC = () => {
                   { label: 'Confirm Password',   id: 'con' },
                 ].map((f) => (
                   <div key={f.id}>
-                    <label className="block font-mono text-[11px] text-white/40 uppercase tracking-wider mb-2">{f.label}</label>
+                    <label className="block font-mono text-[11px] text-(--text-faint) uppercase tracking-wider mb-2">{f.label}</label>
                     <div className="relative">
                       <input type={showPass ? 'text' : 'password'} placeholder="••••••••"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pr-10 font-sans text-sm text-white placeholder:text-white/20 outline-none focus:border-[#E9C349]/50 transition-colors" />
-                      <button onClick={() => setShowPass((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+                        className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 pr-10 font-sans text-sm text-(--text-primary) placeholder:text-(--text-faint) outline-none focus:border-(--brand-gold)/50 transition-colors" />
+                      <button onClick={() => setShowPass((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-(--text-faint) hover:text-(--text-secondary)">
                         {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
                 ))}
-                <div className="p-3 bg-white/5 rounded-xl border border-white/10 space-y-1">
-                  <p className="font-mono text-[10px] text-white/40 uppercase tracking-wider">Requirements</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-default) space-y-1">
+                  <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Requirements</p>
                   {['At least 8 characters','One uppercase letter','One number','One special character'].map((r) => (
                     <div key={r} className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                      <span className="font-sans text-xs text-white/50">{r}</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-(--active-overlay)" />
+                      <span className="font-sans text-xs text-(--text-muted)">{r}</span>
                     </div>
                   ))}
                 </div>
@@ -183,7 +184,7 @@ export const FOSettingsView: React.FC = () => {
           {/* ── Notifications ─────────────────────────────────────────────────── */}
           {activeTab === 'notifications' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white">Notification Preferences</h3>
+              <h3 className="font-serif text-xl font-bold text-(--text-primary)">Notification Preferences</h3>
               <div className="space-y-3">
                 {([
                   { key: 'paymentReceived',      label: 'Payment Received',        desc: 'Alert when a student payment is recorded' },
@@ -194,14 +195,14 @@ export const FOSettingsView: React.FC = () => {
                   { key: 'systemAlerts',          label: 'System Alerts',           desc: 'System maintenance and portal announcements' },
                   { key: 'reminders',             label: 'Task Reminders',          desc: 'Report deadlines and pending action reminders' },
                 ] as { key: keyof typeof notifPrefs; label: string; desc: string }[]).map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-4 bg-white/5 border border-white/8 rounded-xl">
+                  <div key={item.key} className="flex items-center justify-between p-4 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
                     <div>
-                      <p className="font-sans text-sm font-medium text-white">{item.label}</p>
-                      <p className="font-sans text-xs text-white/40 mt-0.5">{item.desc}</p>
+                      <p className="font-sans text-sm font-medium text-(--text-primary)">{item.label}</p>
+                      <p className="font-sans text-xs text-(--text-faint) mt-0.5">{item.desc}</p>
                     </div>
                     <button
                       onClick={() => setNotifPrefs((p) => ({ ...p, [item.key]: !p[item.key] }))}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${notifPrefs[item.key] ? 'bg-[#E9C349]' : 'bg-white/10'}`}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${notifPrefs[item.key] ? 'bg-[#E9C349]' : 'bg-(--hover-overlay)'}`}
                       role="switch" aria-checked={notifPrefs[item.key]}
                     >
                       <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${notifPrefs[item.key] ? 'left-6' : 'left-1'}`} />
@@ -218,11 +219,11 @@ export const FOSettingsView: React.FC = () => {
           {/* ── Appearance ────────────────────────────────────────────────────── */}
           {activeTab === 'appearance' && (
             <Card hoverable={false} className="space-y-8">
-              <h3 className="font-serif text-xl font-bold text-white">Appearance</h3>
+              <h3 className="font-serif text-xl font-bold text-(--text-primary)">Appearance</h3>
 
               {/* Theme */}
               <div className="space-y-3">
-                <p className="font-mono text-[11px] text-white/40 uppercase tracking-wider">Theme</p>
+                <p className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider">Theme</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {themes.map((t) => {
                     const isActive = activeTheme === t.id;
@@ -232,10 +233,10 @@ export const FOSettingsView: React.FC = () => {
                         onClick={() => applyTheme(t.id)}
                         whileHover={{ y: -3 }}
                         whileTap={{ scale: 0.97 }}
-                        className={`relative p-4 rounded-2xl border text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] ${
+                        className={`relative p-4 rounded-2xl border text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-(--brand-gold) ${
                           isActive
                             ? 'border-[#E9C349]/60 ring-2 ring-[#E9C349]/20'
-                            : 'border-white/10 hover:border-white/25'
+                            : 'border-(--border-default) hover:border-white/25'
                         }`}
                         style={{ backgroundColor: t.bg }}
                       >
@@ -243,17 +244,17 @@ export const FOSettingsView: React.FC = () => {
                         <div className="flex gap-1.5 mb-3">
                           <div className="h-6 w-6 rounded-lg" style={{ backgroundColor: 'rgba(233,195,73,0.25)' }} />
                           <div className="flex-1 space-y-1.5 pt-0.5">
-                            <div className="h-1.5 rounded-full bg-white/20 w-3/4" />
-                            <div className="h-1.5 rounded-full bg-white/10 w-1/2" />
+                            <div className="h-1.5 rounded-full bg-(--active-overlay) w-3/4" />
+                            <div className="h-1.5 rounded-full bg-(--hover-overlay) w-1/2" />
                           </div>
                         </div>
 
-                        <p className="font-sans text-sm font-semibold text-white">{t.name}</p>
-                        <p className="font-mono text-[10px] text-white/40 mt-0.5">{t.desc}</p>
+                        <p className="font-sans text-sm font-semibold text-(--text-primary)">{t.name}</p>
+                        <p className="font-mono text-[10px] text-(--text-faint) mt-0.5">{t.desc}</p>
 
                         {isActive && (
                           <div className="absolute top-3 right-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E9C349]/20 border border-[#E9C349]/40 text-[#E9C349] font-mono text-[9px] font-bold uppercase tracking-wider">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-(--brand-gold) font-mono text-[9px] font-bold uppercase tracking-wider">
                               <CheckCircle2 className="w-2.5 h-2.5" />
                               Active
                             </span>
@@ -264,14 +265,14 @@ export const FOSettingsView: React.FC = () => {
                   })}
                 </div>
                 {/* Live feedback */}
-                <p className="font-sans text-xs text-white/40">
+                <p className="font-sans text-xs text-(--text-faint)">
                   Theme applied instantly. Change persists across sessions.
                 </p>
               </div>
 
               {/* Accent Color */}
               <div className="space-y-3">
-                <p className="font-mono text-[11px] text-white/40 uppercase tracking-wider">Accent Color</p>
+                <p className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider">Accent Color</p>
                 <div className="flex gap-3 flex-wrap">
                   {[
                     { color: '#E9C349', label: 'Harmony Gold' },
@@ -295,15 +296,15 @@ export const FOSettingsView: React.FC = () => {
 
               {/* Table Density */}
               <div className="space-y-3">
-                <p className="font-mono text-[11px] text-white/40 uppercase tracking-wider">Table Density</p>
+                <p className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider">Table Density</p>
                 <div className="flex gap-3 flex-wrap">
                   {['Comfortable', 'Compact', 'Spacious'].map((d) => (
                     <button
                       key={d}
                       className={`px-4 py-2 rounded-xl border font-sans text-sm transition-all ${
                         d === 'Comfortable'
-                          ? 'border-[#E9C349]/40 bg-[#E9C349]/10 text-[#E9C349]'
-                          : 'border-white/10 text-white/50 hover:bg-white/5 hover:text-white'
+                          ? 'border-(--accent-gold-border) bg-(--accent-gold-subtle) text-(--brand-gold)'
+                          : 'border-(--border-default) text-(--text-muted) hover:bg-(--hover-overlay) hover:text-(--text-primary)'
                       }`}
                     >
                       {d}
@@ -317,7 +318,7 @@ export const FOSettingsView: React.FC = () => {
           {/* ── Language ──────────────────────────────────────────────────────── */}
           {activeTab === 'language' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white">Language & Region</h3>
+              <h3 className="font-serif text-xl font-bold text-(--text-primary)">Language & Region</h3>
               <div className="space-y-4 max-w-sm">
                 {[
                   { label: 'Display Language', options: ['English', 'Amharic (አማርኛ)', 'Afaan Oromo'], selected: 'English' },
@@ -326,9 +327,9 @@ export const FOSettingsView: React.FC = () => {
                   { label: 'Number Format',    options: ['1,234,567.89', '1.234.567,89'], selected: '1,234,567.89' },
                 ].map((s) => (
                   <div key={s.label}>
-                    <label className="block font-mono text-[11px] text-white/40 uppercase tracking-wider mb-2">{s.label}</label>
-                    <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 font-sans text-sm text-white outline-none focus:border-[#E9C349]/50 transition-colors">
-                      {s.options.map((o) => <option key={o} value={o} className="bg-[#141617]">{o}</option>)}
+                    <label className="block font-mono text-[11px] text-(--text-faint) uppercase tracking-wider mb-2">{s.label}</label>
+                    <select className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-sans text-sm text-(--text-primary) outline-none focus:border-(--brand-gold)/50 transition-colors">
+                      {s.options.map((o) => <option key={o} value={o} className="bg-(--bg-card-solid)">{o}</option>)}
                     </select>
                   </div>
                 ))}
@@ -342,7 +343,7 @@ export const FOSettingsView: React.FC = () => {
           {/* ── Security ──────────────────────────────────────────────────────── */}
           {activeTab === 'security' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white">Security</h3>
+              <h3 className="font-serif text-xl font-bold text-(--text-primary)">Security</h3>
               <div className="space-y-3">
                 {[
                   { label: 'Two-Factor Authentication', desc: 'Add an extra layer of security to your account', enabled: false },
@@ -350,10 +351,10 @@ export const FOSettingsView: React.FC = () => {
                   { label: 'Require Password on Receipt Export', desc: 'Prompt for password before bulk PDF export', enabled: true },
                   { label: 'Auto Logout on Inactivity',  desc: 'Automatically sign out after 30 minutes of inactivity', enabled: true },
                 ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between p-4 bg-white/5 border border-white/8 rounded-xl">
+                  <div key={item.label} className="flex items-center justify-between p-4 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
                     <div>
-                      <p className="font-sans text-sm font-medium text-white">{item.label}</p>
-                      <p className="font-sans text-xs text-white/40 mt-0.5">{item.desc}</p>
+                      <p className="font-sans text-sm font-medium text-(--text-primary)">{item.label}</p>
+                      <p className="font-sans text-xs text-(--text-faint) mt-0.5">{item.desc}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={item.enabled ? 'emerald' : 'glass'}>{item.enabled ? 'Enabled' : 'Disabled'}</Badge>
@@ -367,20 +368,20 @@ export const FOSettingsView: React.FC = () => {
           {/* ── Sessions ──────────────────────────────────────────────────────── */}
           {activeTab === 'sessions' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white">Active Sessions</h3>
+              <h3 className="font-serif text-xl font-bold text-(--text-primary)">Active Sessions</h3>
               <div className="space-y-3">
                 {[
                   { device: 'Chrome on Windows 11', ip: '192.168.1.10', location: 'Addis Ababa, ET', time: 'Now — Current session', current: true },
                   { device: 'Firefox on Windows 10', ip: '192.168.1.11', location: 'Addis Ababa, ET', time: '2024-10-14 14:22', current: false },
                   { device: 'Chrome on Android',     ip: '10.0.0.15',   location: 'Addis Ababa, ET', time: '2024-10-13 09:10', current: false },
                 ].map((s, i) => (
-                  <div key={i} className={`flex items-center justify-between p-4 rounded-xl border ${s.current ? 'border-[#E9C349]/30 bg-[#E9C349]/5' : 'border-white/8 bg-white/5'}`}>
+                  <div key={i} className={`flex items-center justify-between p-4 rounded-xl border ${s.current ? 'border-(--accent-gold-border) bg-[#E9C349]/5' : 'border-(--border-subtle) bg-(--hover-overlay)'}`}>
                     <div className="flex items-center gap-3">
-                      <Monitor className={`w-5 h-5 shrink-0 ${s.current ? 'text-[#E9C349]' : 'text-white/40'}`} />
+                      <Monitor className={`w-5 h-5 shrink-0 ${s.current ? 'text-(--brand-gold)' : 'text-(--text-faint)'}`} />
                       <div>
-                        <p className="font-sans text-sm font-medium text-white">{s.device}</p>
-                        <p className="font-mono text-[10px] text-white/40">{s.ip} · {s.location}</p>
-                        <p className="font-mono text-[10px] text-white/30">{s.time}</p>
+                        <p className="font-sans text-sm font-medium text-(--text-primary)">{s.device}</p>
+                        <p className="font-mono text-[10px] text-(--text-faint)">{s.ip} · {s.location}</p>
+                        <p className="font-mono text-[10px] text-(--text-faint)">{s.time}</p>
                       </div>
                     </div>
                     {s.current
