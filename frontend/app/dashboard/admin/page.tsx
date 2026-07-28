@@ -4,54 +4,53 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AdminNavTab, AdminNotification, UserRole } from '@/src/types/admin';
 import { adminProfile } from '@/src/data/adminData';
 import { adminNotifications as initialNotifs, maintenanceConfig } from '@/src/data/adminData2';
-
 import { AdminSidebar }        from '@/src/components/admin/AdminSidebar';
 import { AdminHeader }         from '@/src/components/admin/AdminHeader';
 import { AdminMobileNav }      from '@/src/components/admin/AdminMobileNav';
 import { AdminSearchModal }    from '@/src/components/admin/AdminSearchModal';
 import { AdminLogoutModal }    from '@/src/components/admin/AdminLogoutModal';
 import { ImpersonationBanner } from '@/src/components/admin/ImpersonationBanner';
-
-import dynamic from 'next/dynamic';
-
-import { AdminOverviewView } from '@/src/components/admin/views/AdminOverviewView';
-
-const AdminUsersView = dynamic(() => import('@/src/components/admin/views/AdminUsersView').then(m => m.AdminUsersView), { ssr: false });
-const AdminStudentsView = dynamic(() => import('@/src/components/admin/views/AdminStudentsView').then(m => m.AdminStudentsView), { ssr: false });
-const AdminFacultyView = dynamic(() => import('@/src/components/admin/views/AdminFacultyView').then(m => m.AdminFacultyView), { ssr: false });
-const AdminDepartmentsView = dynamic(() => import('@/src/components/admin/views/AdminDepartmentsView').then(m => m.AdminDepartmentsView), { ssr: false });
-const AdminProgramsView = dynamic(() => import('@/src/components/admin/views/AdminProgramsView').then(m => m.AdminProgramsView), { ssr: false });
-const AdminAdmissionsView = dynamic(() => import('@/src/components/admin/views/AdminAdmissionsView').then(m => m.AdminAdmissionsView), { ssr: false });
-const AdminSecurityView = dynamic(() => import('@/src/components/admin/views/AdminSecurityView').then(m => m.AdminSecurityView), { ssr: false });
-const AdminBackupView = dynamic(() => import('@/src/components/admin/views/AdminBackupView').then(m => m.AdminBackupView), { ssr: false });
-const AdminPaymentsView = dynamic(() => import('@/src/components/admin/views/AdminPaymentsView').then(m => m.AdminPaymentsView), { ssr: false });
-const AdminNotificationsView = dynamic(() => import('@/src/components/admin/views/AdminNotificationsView').then(m => m.AdminNotificationsView), { ssr: false });
-const AdminAuditLogsView = dynamic(() => import('@/src/components/admin/views/AdminAuditLogsView').then(m => m.AdminAuditLogsView), { ssr: false });
-const AdminSettingsView = dynamic(() => import('@/src/components/admin/views/AdminSettingsView').then(m => m.AdminSettingsView), { ssr: false });
-const AdminSystemConfigView = dynamic(() => import('@/src/components/admin/views/AdminSystemConfigView').then(m => m.AdminSystemConfigView), { ssr: false });
-
-const AdminRegistrarView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminRegistrarView), { ssr: false });
-const AdminAttendanceView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminAttendanceView), { ssr: false });
-const AdminFinanceView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminFinanceView), { ssr: false });
-const AdminHRView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminHRView), { ssr: false });
-const AdminDocumentsView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminDocumentsView), { ssr: false });
-const AdminReportsView = dynamic(() => import('@/src/components/admin/views/AdminGenericViews').then(m => m.AdminReportsView), { ssr: false });
+import { AdminOverviewView }   from '@/src/components/admin/views/AdminOverviewView';
+import { AdminUsersView }      from '@/src/components/admin/views/AdminUsersView';
+import { AdminStudentsView }   from '@/src/components/admin/views/AdminStudentsView';
+import { AdminFacultyView }    from '@/src/components/admin/views/AdminFacultyView';
+import { AdminDepartmentsView} from '@/src/components/admin/views/AdminDepartmentsView';
+import { AdminProgramsView }   from '@/src/components/admin/views/AdminProgramsView';
+import { AdminAdmissionsView } from '@/src/components/admin/views/AdminAdmissionsView';
+import { AdminSecurityView }   from '@/src/components/admin/views/AdminSecurityView';
+import { AdminBackupView }     from '@/src/components/admin/views/AdminBackupView';
+import { AdminPaymentsView }   from '@/src/components/admin/views/AdminPaymentsView';
+import { AdminNotificationsView } from '@/src/components/admin/views/AdminNotificationsView';
+import { AdminAuditLogsView }  from '@/src/components/admin/views/AdminAuditLogsView';
+import { AdminSettingsView }   from '@/src/components/admin/views/AdminSettingsView';
+import { AdminSystemConfigView } from '@/src/components/admin/views/AdminSystemConfigView';
+import {
+  AdminRegistrarView, AdminAttendanceView, AdminFinanceView,
+  AdminHRView, AdminDocumentsView, AdminReportsView,
+} from '@/src/components/admin/views/AdminGenericViews';
+import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
+import { AnimatePresence, motion } from 'motion/react';
 
 export default function AdminDashboardPage() {
-  const [activeTab,       setActiveTab]       = useState<AdminNavTab>('overview');
-  const [notifications,   setNotifications]   = useState<AdminNotification[]>(initialNotifs);
-  const [searchOpen,      setSearchOpen]      = useState(false);
-  const [logoutOpen,      setLogoutOpen]      = useState(false);
+  const [activeTab,       setRawTab]       = useState<AdminNavTab>('overview');
+  const [notifications,   setNotifications] = useState<AdminNotification[]>(initialNotifs);
+  const [searchOpen,      setSearchOpen]    = useState(false);
+  const [logoutOpen,      setLogoutOpen]    = useState(false);
+  const [tabLoading,      setTabLoading]    = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(maintenanceConfig.enabled);
-
-  // Impersonation state
-  const [impersonating, setImpersonating] = useState<{
+  const [impersonating, setImpersonating]   = useState<{
     targetName: string; targetRole: UserRole; startTime: string;
   } | null>(null);
+  const { toast, show: showToast, hide: hideToast } = useToast();
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Ctrl+K
+  const setActiveTab = (tab: AdminNavTab) => {
+    if (tab === activeTab) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab); setTabLoading(false); }, 120);
+  };
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true); }
@@ -77,6 +76,7 @@ export default function AdminDashboardPage() {
   };
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':      return <AdminOverviewView setActiveTab={setActiveTab} />;
       case 'users':         return <AdminUsersView />;
@@ -104,45 +104,30 @@ export default function AdminDashboardPage() {
           setActiveTab={setActiveTab}
         />
       );
-      case 'settings': return <AdminSettingsView profile={adminProfile} />;
-      default: return null;
+      case 'settings':      return <AdminSettingsView profile={adminProfile} />;
+      default:              return null;
     }
   };
 
-  const sidebarOffset = impersonating ? 'md:pl-16 xl:pl-60' : 'md:pl-16 xl:pl-60';
-
   return (
     <>
-      {/* Background */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#E9C349]/4 rounded-full blur-[140px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#E9C349]/3 rounded-full blur-[120px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.7)_0%,transparent_65%)]" />
-      </div>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
+      <SessionExpiredOverlay isVisible={false} onSignIn={() => { window.location.href = '/signin'; }} />
 
-      <div className="relative z-10 min-h-screen text-white">
+      <div className="dashboard-bg" aria-hidden="true" />
+
+      <div className="dashboard-content">
         <AdminSidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          profile={adminProfile}
-          unreadCount={unreadCount}
-          onLogout={() => setLogoutOpen(true)}
+          activeTab={activeTab} setActiveTab={setActiveTab} profile={adminProfile}
+          unreadCount={unreadCount} onLogout={() => setLogoutOpen(true)}
         />
-
-        <div className={`${sidebarOffset} flex flex-col min-h-screen transition-all duration-300`}>
+        <div className="md:pl-16 xl:pl-60 flex flex-col min-h-screen transition-all duration-300">
           <AdminHeader
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            profile={adminProfile}
-            notifications={notifications}
-            unreadCount={unreadCount}
-            onMarkRead={handleMarkRead}
-            onOpenSearch={() => setSearchOpen(true)}
-            academicYear="2024–2025"
-            maintenanceMode={maintenanceMode}
+            activeTab={activeTab} setActiveTab={setActiveTab} profile={adminProfile}
+            notifications={notifications} unreadCount={unreadCount}
+            onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)}
+            academicYear="2024–2025" maintenanceMode={maintenanceMode}
           />
-
-          {/* Impersonation banner */}
           {impersonating && (
             <ImpersonationBanner
               targetName={impersonating.targetName}
@@ -151,29 +136,19 @@ export default function AdminDashboardPage() {
               onExit={() => setImpersonating(null)}
             />
           )}
-
-          <main className={`flex-1 px-4 sm:px-5 lg:px-7 pt-7 pb-24 md:pb-7 ${impersonating ? 'mt-10' : ''}`}>
-            {renderView()}
+          <main id="main-content" className={`flex-1 px-4 sm:px-5 lg:px-7 pt-7 pb-24 md:pb-7 ${impersonating ? 'mt-10' : ''}`}>
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
-
-        <AdminMobileNav
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          unreadCount={unreadCount}
-        />
+        <AdminMobileNav activeTab={activeTab} setActiveTab={setActiveTab} unreadCount={unreadCount} />
       </div>
 
-      <AdminSearchModal
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onNavigate={tab => { setActiveTab(tab); setSearchOpen(false); }}
-      />
-      <AdminLogoutModal
-        isOpen={logoutOpen}
-        onClose={() => setLogoutOpen(false)}
-        onConfirm={handleLogout}
-      />
+      <AdminSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onNavigate={tab => { setActiveTab(tab); setSearchOpen(false); }} />
+      <AdminLogoutModal isOpen={logoutOpen} onClose={() => setLogoutOpen(false)} onConfirm={handleLogout} />
     </>
   );
 }

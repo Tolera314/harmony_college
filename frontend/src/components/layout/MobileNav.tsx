@@ -11,6 +11,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { GESTURE, SPRING } from '@/src/lib/motion';
 
 export interface GenericMobileNavItem<T extends string = string> {
   id: T;
@@ -41,7 +42,7 @@ export const MobileNav = <T extends string = NavTab>({ activeTab, setActiveTab, 
     <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden p-3 pointer-events-none">
       <nav
         aria-label="Mobile Bottom Navigation"
-        className="pointer-events-auto max-w-lg mx-auto bg-[var(--bg-panel)]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-around px-2 py-1.5"
+        className="pointer-events-auto max-w-lg mx-auto ds-mobile-nav backdrop-blur-xl border rounded-2xl shadow-2xl flex items-center justify-around px-2 py-1.5"
       >
         {navItems.map((item) => {
           const isActive = activeTab === item.id;

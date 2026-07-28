@@ -8,6 +8,7 @@ import {
   BarChart3, FileText, Shield, HardDrive, Settings2, Bell, Settings, LogOut,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
 
 interface AdminSidebarProps {
@@ -57,17 +58,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   return (
     <aside
       aria-label="Super Admin Navigation"
-      className="h-screen w-16 xl:w-60 fixed left-0 top-0 bg-[var(--bg-sidebar)]/98 backdrop-blur-xl border-r border-white/8 flex-col py-4 px-2 xl:px-3 z-50 hidden md:flex! transition-all duration-300 shadow-2xl overflow-y-auto"
+      className="h-screen w-16 xl:w-60 fixed left-0 top-0 ds-sidebar backdrop-blur-xl border-r flex-col py-4 px-2 xl:px-3 z-50 hidden md:flex! transition-all duration-300 shadow-2xl overflow-y-auto"
     >
       {/* Logo */}
       <div className="mb-5 px-1.5 flex items-center gap-2.5 shrink-0">
-        <button onClick={() => setActiveTab('overview')} className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] rounded-xl">
-          <div className="w-9 h-9 rounded-xl bg-linear-to-br from-[#E9C349] to-[#b8951d] text-[#0F0F10] flex items-center justify-center font-serif font-bold text-lg shadow-md shrink-0 group-hover:scale-105 transition-transform">
+        <button onClick={() => setActiveTab('overview')} className="flex items-center gap-2.5 group focus:outline-none ds-focus-ring rounded-xl">
+          <div className="w-9 h-9 rounded-xl bg-linear-to-br text-[--text-inverse] flex items-center justify-center font-serif font-bold text-lg shadow-md shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundImage: 'linear-gradient(to bottom right, var(--brand-gold), var(--brand-gold-dark))' }}>
             H
           </div>
           <div className="hidden xl:block">
-            <span className="font-serif text-base font-bold text-white tracking-tight block leading-none">Harmony</span>
-            <span className="text-[9px] font-mono uppercase tracking-widest text-[#E9C349] font-bold block mt-0.5">Super Admin</span>
+            <span className="font-serif text-base font-bold tracking-tight block leading-none" style={{ color: 'var(--text-primary)' }}>Harmony</span>
+            <span className="text-[9px] font-mono uppercase tracking-widest font-bold block mt-0.5" style={{ color: 'var(--brand-gold)' }}>Super Admin</span>
           </div>
         </button>
       </div>
@@ -76,7 +77,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       <nav className="flex-1 space-y-4" role="navigation">
         {groups.map(group => (
           <div key={group}>
-            <p className="hidden xl:block font-mono text-[9px] uppercase tracking-widest text-white/25 px-2 mb-1">{GROUP_LABELS[group]}</p>
+            <p className="hidden xl:block font-mono text-[9px] uppercase tracking-widest ds-nav-group-label px-2 mb-1">{GROUP_LABELS[group]}</p>
             <div className="space-y-0.5">
               {NAV_ITEMS.filter(n => n.group === group).map(item => {
                 const isActive = activeTab === item.id;
@@ -85,19 +86,21 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   <motion.button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    whileHover={{ x: 3 }}
+                    whileHover={GESTURE.navHover}
                     whileTap={{ scale: 0.97 }}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`relative w-full flex items-center gap-2.5 px-2.5 py-2 text-left rounded-lg font-sans text-xs font-medium transition-all group touch-target ${
-                      isActive ? 'text-[#E9C349] font-semibold' : 'text-white/55 hover:text-white hover:bg-white/5'
+                    aria-label={item.label} title={item.label} className={`relative w-full flex items-center gap-2.5 px-2.5 py-2 text-left rounded-lg font-sans text-xs font-medium transition-all group touch-target ${
+                      isActive ? 'ds-nav-item-active font-semibold' : 'ds-nav-item'
                     }`}
                   >
                     {isActive && (
-                      <div
-                        className="absolute inset-0 bg-[#E9C349]/10 rounded-lg border-l-[2px] border-[#E9C349] transition-all duration-150"
+                      <motion.div
+                        layoutId="adminActivePill"
+                        className="absolute inset-0 ds-nav-item-active-pill rounded-lg border-l-[2px]"
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                       />
                     )}
-                    <span className={`relative z-10 shrink-0 ${isActive ? 'text-[#E9C349]' : 'text-white/40 group-hover:text-white transition-colors'}`}>
+                    <span className={`relative z-10 shrink-0 ${isActive ? 'ds-nav-item-active' : 'ds-nav-item group-hover:text-[--text-primary] transition-colors'}`}>
                       {item.icon}
                     </span>
                     <span className="relative z-10 hidden xl:inline truncate flex-1">{item.label}</span>
@@ -115,30 +118,30 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       </nav>
 
       {/* Bottom */}
-      <div className="mt-3 border-t border-white/8 pt-3 space-y-0.5 shrink-0">
-        <motion.button onClick={() => setActiveTab('notifications')} whileHover={{ x: 3 }} whileTap={{ scale: 0.97 }}
-          className={`relative w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-sans text-xs font-medium transition-all touch-target ${activeTab === 'notifications' ? 'bg-[#E9C349]/10 text-[#E9C349]' : 'text-white/55 hover:bg-white/5 hover:text-white'}`}>
-          <Bell className="w-4 h-4 shrink-0" />
+      <div className="mt-3 ds-sidebar-divider border-t pt-3 space-y-0.5 shrink-0">
+        <motion.button onClick={() => setActiveTab('notifications')} whileHover={GESTURE.navHover} whileTap={{ scale: 0.97 }}
+          className={`relative w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-sans text-xs font-medium transition-all touch-target ${activeTab === 'notifications' ? 'ds-nav-item-active-pill ds-nav-item-active' : 'ds-nav-item'}`}>
+          <Bell className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span className="hidden xl:inline">Notifications</span>
           {unreadCount > 0 && <Badge variant="rose" className="hidden xl:inline-block text-[9px] py-0">{unreadCount}</Badge>}
         </motion.button>
-        <motion.button onClick={() => setActiveTab('settings')} whileHover={{ x: 3 }} whileTap={{ scale: 0.97 }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-sans text-xs font-medium transition-all touch-target ${activeTab === 'settings' ? 'bg-[#E9C349]/10 text-[#E9C349]' : 'text-white/55 hover:bg-white/5 hover:text-white'}`}>
-          <Settings className="w-4 h-4 shrink-0" />
+        <motion.button onClick={() => setActiveTab('settings')} whileHover={GESTURE.navHover} whileTap={{ scale: 0.97 }}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-sans text-xs font-medium transition-all touch-target ${activeTab === 'settings' ? 'ds-nav-item-active-pill ds-nav-item-active' : 'ds-nav-item'}`}>
+          <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span className="hidden xl:inline">Settings</span>
         </motion.button>
-        <motion.button onClick={onLogout} whileHover={{ x: 3 }} whileTap={{ scale: 0.97 }}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-rose-400 hover:bg-rose-950/30 transition-colors font-sans text-xs font-medium touch-target">
-          <LogOut className="w-4 h-4 shrink-0" />
+        <motion.button onClick={onLogout} whileHover={GESTURE.navHover} whileTap={{ scale: 0.97 }}
+          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg ds-logout-btn transition-colors font-sans text-xs font-medium touch-target">
+          <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span className="hidden xl:inline">Log Out</span>
         </motion.button>
-        <div className="flex items-center gap-2.5 px-1.5 pt-2.5 border-t border-white/5 mt-1">
-          <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#E9C349]/40 shrink-0">
+        <div className="flex items-center gap-2.5 px-1.5 pt-2.5 ds-sidebar-divider border-t mt-1">
+          <div className="w-8 h-8 rounded-full overflow-hidden border-2 shrink-0" style={{ borderColor: 'var(--accent-gold-border)' }}>
             <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
           </div>
           <div className="overflow-hidden hidden xl:block">
-            <p className="font-sans text-xs font-semibold text-white truncate">{profile.name}</p>
-            <p className="font-mono text-[9px] text-[#E9C349] truncate">Super Admin</p>
+            <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{profile.name}</p>
+            <p className="font-mono text-[9px] truncate" style={{ color: 'var(--brand-gold)' }}>Super Admin</p>
           </div>
         </div>
       </div>

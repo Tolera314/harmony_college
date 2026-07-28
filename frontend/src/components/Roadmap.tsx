@@ -206,7 +206,7 @@ export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
                           <div key={String(label)} className="space-y-1">
                             <label className="text-[10px] font-mono uppercase" style={{ color: 'var(--text-secondary)' }}>{String(label)}</label>
                             <input type="number" step={step as string} min={min as string} max={max as string} required
-                              value={val as string} onChange={e => (setter as (v: string) => void)(e.target.value)}
+                              value={val as string} onChange={e => { (setter as any)(e.target.value); }}
                               className="w-full rounded px-3 py-2 text-xs focus:outline-none transition-colors" style={inputStyle}
                               onFocus={inputFocus as any} onBlur={inputBlur as any} />
                           </div>

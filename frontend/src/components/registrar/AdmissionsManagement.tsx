@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { SPRING } from '@/src/lib/motion';
 import { 
   Search, Filter, X, ChevronRight, CheckCircle2, 
   XCircle, AlertCircle, FileText, Download, 
@@ -9,6 +10,7 @@ import {
   Image as ImageIcon, Calendar, User, Phone, MapPin, 
   FileCheck2, ChevronLeft, ChevronDown
 } from 'lucide-react';
+import { EmptyState } from '../ui/States';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 
@@ -221,21 +223,21 @@ export const AdmissionsManagement: React.FC = () => {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Admissions Management</h2>
-          <p className="text-xs text-white/50">Verify documents and process applications for the incoming cohort.</p>
+          <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Admissions Management</h2>
+          <p className="text-xs text-(--text-muted)">Verify documents and process applications for the incoming cohort.</p>
         </div>
       </div>
 
       {/* Advanced Filter and Search Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl backdrop-blur-md">
         <div className="relative col-span-1 md:col-span-2">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by Applicant Name or Application ID..."
-            className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white"
+            className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-primary)"
           />
         </div>
 
@@ -243,7 +245,7 @@ export const AdmissionsManagement: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-3 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white/70"
+            className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-secondary)"
           >
             <option value="All">All Statuses</option>
             <option value="Applied">Applied</option>
@@ -257,7 +259,7 @@ export const AdmissionsManagement: React.FC = () => {
           <select
             value={programFilter}
             onChange={(e) => setProgramFilter(e.target.value)}
-            className="w-full px-3 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white/70"
+            className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-secondary)"
           >
             <option value="All">All Programs</option>
             <option value="Computer Science">Computer Science</option>
@@ -268,9 +270,9 @@ export const AdmissionsManagement: React.FC = () => {
       </div>
 
       {/* Applicant Records Table */}
-      <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-left text-xs font-sans">
-          <thead className="bg-white/5 border-b border-white/10 text-white/50 font-mono text-[10px] uppercase tracking-wider">
+          <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-5 py-4">Applicant</th>
               <th className="px-5 py-4">Application ID</th>
@@ -280,25 +282,25 @@ export const AdmissionsManagement: React.FC = () => {
               <th className="px-5 py-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-white/80">
+          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
             {filteredApplicants.map((app) => (
               <tr 
                 key={app.id} 
                 onClick={() => { setSelectedApp(app); setActiveDoc(null); }}
-                className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                className="hover:bg-(--hover-overlay) transition-colors cursor-pointer group"
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
-                    <img src={app.avatar} alt={app.name} className="w-8 h-8 rounded-full border border-white/15 object-cover" />
+                    <img src={app.avatar} alt={app.name} className="w-8 h-8 rounded-full border border-(--border-strong) object-cover" />
                     <div>
-                      <p className="font-semibold text-white group-hover:text-[#D4AF37] transition-colors">{app.name}</p>
-                      <p className="text-[10px] text-white/40">{app.email}</p>
+                      <p className="font-semibold text-(--text-primary) group-hover:text-(--brand-gold) transition-colors">{app.name}</p>
+                      <p className="text-[10px] text-(--text-faint)">{app.email}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-5 py-4 font-mono text-[11px] text-white/60">{app.applicationId}</td>
-                <td className="px-5 py-4 text-white/70">{app.program}</td>
-                <td className="px-5 py-4 font-mono text-white/50">{app.submittedAt}</td>
+                <td className="px-5 py-4 font-mono text-[11px] text-(--text-secondary)">{app.applicationId}</td>
+                <td className="px-5 py-4 text-(--text-secondary)">{app.program}</td>
+                <td className="px-5 py-4 font-mono text-(--text-muted)">{app.submittedAt}</td>
                 <td className="px-5 py-4">
                   <Badge variant={statusBadgeColors[app.status as keyof typeof statusBadgeColors] as any}>
                     {app.status}
@@ -307,7 +309,7 @@ export const AdmissionsManagement: React.FC = () => {
                 <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <button 
                     onClick={() => { setSelectedApp(app); setActiveDoc(null); }}
-                    className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-white/60 hover:text-[#D4AF37] hover:border-[#D4AF37]/30 text-[10px] font-semibold transition-all"
+                    className="px-3 py-1.5 rounded-xl border border-(--border-default) bg-(--hover-overlay) text-(--text-secondary) hover:text-(--brand-gold) hover:border-(--brand-gold)/30 text-[10px] font-semibold transition-all"
                   >
                     View Details
                   </button>
@@ -316,9 +318,7 @@ export const AdmissionsManagement: React.FC = () => {
             ))}
             {filteredApplicants.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center py-8 text-white/40 font-mono text-[11px]">
-                  No applications found matching the search criteria.
-                </td>
+                <td colSpan={6} className="p-0"><EmptyState variant="default" compact /></td>
               </tr>
             )}
           </tbody>
@@ -344,19 +344,19 @@ export const AdmissionsManagement: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed right-0 top-0 bottom-0 w-full md:w-[750px] bg-[var(--bg-base)] border-l border-white/10 z-50 overflow-y-auto flex flex-col shadow-2xl font-sans"
+              className="fixed right-0 top-0 bottom-0 w-full md:w-[750px] bg-(--bg-base) border-l border-(--border-default) z-50 overflow-y-auto flex flex-col shadow-2xl font-sans"
             >
               {/* Header */}
-              <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[var(--bg-base)] z-10">
+              <div className="p-6 border-b border-(--border-default) flex items-center justify-between sticky top-0 bg-(--bg-base) z-10">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Applicant Profile Drawer</span>
-                  <h3 className="text-lg font-serif font-bold text-white flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">Applicant Profile Drawer</span>
+                  <h3 className="text-lg font-serif font-bold text-(--text-primary) flex items-center gap-2">
                     {selectedApp.name}
                   </h3>
                 </div>
                 <button 
                   onClick={() => setSelectedApp(null)}
-                  className="p-2 bg-white/5 border border-white/10 rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay) transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -366,12 +366,12 @@ export const AdmissionsManagement: React.FC = () => {
               <div className="flex-1 p-6 space-y-6">
                 
                 {/* Personal Information Card */}
-                <div className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-4">
-                  <div className="flex items-center gap-4 border-b border-white/5 pb-4">
-                    <img src={selectedApp.avatar} alt={selectedApp.name} className="w-12 h-12 rounded-xl object-cover border border-white/15" />
+                <div className="p-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl space-y-4">
+                  <div className="flex items-center gap-4 border-b border-(--border-subtle) pb-4">
+                    <img src={selectedApp.avatar} alt={selectedApp.name} className="w-12 h-12 rounded-xl object-cover border border-(--border-strong)" />
                     <div>
-                      <p className="text-sm font-semibold text-white">{selectedApp.name}</p>
-                      <p className="text-xs text-white/40">{selectedApp.email} · {selectedApp.phone}</p>
+                      <p className="text-sm font-semibold text-(--text-primary)">{selectedApp.name}</p>
+                      <p className="text-xs text-(--text-faint)">{selectedApp.email} · {selectedApp.phone}</p>
                     </div>
                   </div>
 
@@ -384,11 +384,11 @@ export const AdmissionsManagement: React.FC = () => {
                       { icon: MapPin, label: 'Location', val: `${selectedApp.city}, ${selectedApp.nationality}` },
                       { icon: FileCheck2, label: 'Study Mode', val: `${selectedApp.studyMode} (${selectedApp.program})` }
                     ].map((item, idx) => (
-                      <div key={idx} className="space-y-1 p-2.5 bg-white/5 rounded-xl border border-white/5">
-                        <span className="text-[10px] font-mono text-white/40 flex items-center gap-1">
-                          <item.icon className="w-3 h-3 text-[#D4AF37]" /> {item.label}
+                      <div key={idx} className="space-y-1 p-2.5 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                        <span className="text-[10px] font-mono text-(--text-faint) flex items-center gap-1">
+                          <item.icon className="w-3 h-3 text-(--brand-gold)" /> {item.label}
                         </span>
-                        <p className="text-xs text-white/90 font-medium truncate">{item.val}</p>
+                        <p className="text-xs text-(--text-primary) font-medium truncate">{item.val}</p>
                       </div>
                     ))}
                   </div>
@@ -396,7 +396,7 @@ export const AdmissionsManagement: React.FC = () => {
 
                 {/* Uploaded Documents List & Premium File Viewer */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-white/40">Uploaded Documents Verification</h4>
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Uploaded Documents Verification</h4>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     {selectedApp.documents.map((doc) => (
                       <button
@@ -408,12 +408,12 @@ export const AdmissionsManagement: React.FC = () => {
                         }}
                         className={`p-3 border rounded-xl flex flex-col items-center justify-center gap-2 text-center text-[10px] font-semibold transition-all ${
                           activeDoc?.id === doc.id
-                            ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-white shadow-md shadow-[#D4AF37]/10'
-                            : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+                            ? 'bg-(--accent-gold-subtle) border-(--brand-gold) text-(--text-primary) shadow-md shadow-(--brand-gold)/10'
+                            : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-strong)'
                         }`}
                       >
                         {doc.type === 'PDF' ? (
-                          <FileText className="w-5 h-5 text-red-400" />
+                          <FileText className="w-5 h-5 text-(--status-danger)" />
                         ) : (
                           <ImageIcon className="w-5 h-5 text-blue-400" />
                         )}
@@ -424,26 +424,26 @@ export const AdmissionsManagement: React.FC = () => {
 
                   {/* PDF/Image Preview Workspace */}
                   {activeDoc && (
-                    <div className="p-4 bg-black/60 border border-white/10 rounded-2xl space-y-3">
-                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                        <span className="text-[10px] font-mono text-[#D4AF37]">{activeDoc.file}</span>
+                    <div className="p-4 bg-black/60 border border-(--border-default) rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between border-b border-(--border-subtle) pb-2">
+                        <span className="text-[10px] font-mono text-(--brand-gold)">{activeDoc.file}</span>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => setZoom(prev => Math.max(0.5, prev - 0.2))} className="p-1 hover:bg-white/10 rounded transition-colors text-white/50 hover:text-white" title="Zoom Out"><ZoomOut className="w-3.5 h-3.5" /></button>
-                          <span className="text-[10px] font-mono text-white/60">{Math.round(zoom * 100)}%</span>
-                          <button onClick={() => setZoom(prev => Math.min(2.5, prev + 0.2))} className="p-1 hover:bg-white/10 rounded transition-colors text-white/50 hover:text-white" title="Zoom In"><ZoomIn className="w-3.5 h-3.5" /></button>
-                          <div className="w-[1px] h-3 bg-white/10" />
-                          <button onClick={() => setRotation(prev => (prev + 90) % 360)} className="p-1 hover:bg-white/10 rounded transition-colors text-white/50 hover:text-white" title="Rotate"><RotateCw className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => setFullscreen(!fullscreen)} className="p-1 hover:bg-white/10 rounded transition-colors text-white/50 hover:text-white" title="Toggle Fullscreen"><Maximize2 className="w-3.5 h-3.5" /></button>
-                          <a href={activeDoc.url} download={activeDoc.file} target="_blank" rel="noreferrer" className="p-1 hover:bg-white/10 rounded transition-colors text-white/50 hover:text-white" title="Download File"><Download className="w-3.5 h-3.5" /></a>
+                          <button onClick={() => setZoom(prev => Math.max(0.5, prev - 0.2))} className="p-1 hover:bg-(--hover-overlay) rounded transition-colors text-(--text-muted) hover:text-(--text-primary)" title="Zoom Out"><ZoomOut className="w-3.5 h-3.5" /></button>
+                          <span className="text-[10px] font-mono text-(--text-secondary)">{Math.round(zoom * 100)}%</span>
+                          <button onClick={() => setZoom(prev => Math.min(2.5, prev + 0.2))} className="p-1 hover:bg-(--hover-overlay) rounded transition-colors text-(--text-muted) hover:text-(--text-primary)" title="Zoom In"><ZoomIn className="w-3.5 h-3.5" /></button>
+                          <div className="w-[1px] h-3 bg-(--hover-overlay)" />
+                          <button onClick={() => setRotation(prev => (prev + 90) % 360)} className="p-1 hover:bg-(--hover-overlay) rounded transition-colors text-(--text-muted) hover:text-(--text-primary)" title="Rotate"><RotateCw className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setFullscreen(!fullscreen)} className="p-1 hover:bg-(--hover-overlay) rounded transition-colors text-(--text-muted) hover:text-(--text-primary)" title="Toggle Fullscreen"><Maximize2 className="w-3.5 h-3.5" /></button>
+                          <a href={activeDoc.url} download={activeDoc.file} target="_blank" rel="noreferrer" className="p-1 hover:bg-(--hover-overlay) rounded transition-colors text-(--text-muted) hover:text-(--text-primary)" title="Download File"><Download className="w-3.5 h-3.5" /></a>
                         </div>
                       </div>
 
                       {/* Display Window */}
-                      <div className={`relative overflow-hidden flex items-center justify-center bg-[var(--bg-base)] border border-white/5 rounded-xl transition-all ${fullscreen ? 'fixed inset-4 z-50 shadow-2xl p-8 border-white/20' : 'h-[240px]'}`}>
+                      <div className={`relative overflow-hidden flex items-center justify-center bg-(--bg-base) border border-(--border-subtle) rounded-xl transition-all ${fullscreen ? 'fixed inset-4 z-50 shadow-2xl p-8 border-(--border-strong)' : 'h-[240px]'}`}>
                         {fullscreen && (
                           <button 
                             onClick={() => setFullscreen(false)} 
-                            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white/80 z-50"
+                            className="absolute top-4 right-4 p-2 bg-(--hover-overlay) hover:bg-(--active-overlay) border border-(--border-default) rounded-xl text-(--text-secondary) z-50"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -468,11 +468,11 @@ export const AdmissionsManagement: React.FC = () => {
 
                 {/* Approve / Reject Actions Panel */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-white/40">Status Assessment Actions</h4>
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Status Assessment Actions</h4>
                   
                   {/* Status Badges Info */}
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs text-white/60">Current Application Status:</span>
+                    <span className="text-xs text-(--text-secondary)">Current Application Status:</span>
                     <Badge variant={statusBadgeColors[selectedApp.status as keyof typeof statusBadgeColors] as any}>
                       {selectedApp.status}
                     </Badge>
@@ -493,7 +493,7 @@ export const AdmissionsManagement: React.FC = () => {
                       size="sm"
                       disabled={selectedApp.status === 'Rejected'}
                       onClick={() => handleUpdateStatus(selectedApp.id, 'Rejected', 'Application rejected due to criteria mismatches.')}
-                      className="flex-1 min-w-[130px] font-semibold flex items-center justify-center gap-1.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20"
+                      className="flex-1 min-w-[130px] font-semibold flex items-center justify-center gap-1.5 bg-(--status-danger-bg) border border-(--status-danger-border) text-(--status-danger) hover:bg-rose-500/20"
                     >
                       <XCircle className="w-4 h-4" /> Reject Application
                     </Button>
@@ -503,14 +503,14 @@ export const AdmissionsManagement: React.FC = () => {
                       onClick={() => handleUpdateStatus(selectedApp.id, 'Under Review', 'Requested document correction / clarifications.')}
                       className="flex-1 min-w-[130px] font-semibold flex items-center justify-center gap-1.5"
                     >
-                      <AlertCircle className="w-4 h-4 text-amber-400" /> Request Correction
+                      <AlertCircle className="w-4 h-4 text-(--status-warning)" /> Request Correction
                     </Button>
                   </div>
                 </div>
 
                 {/* Comments / Notes Input */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-white/40">Admissions Staff Comments</h4>
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Admissions Staff Comments</h4>
                   <form onSubmit={handleAddComment} className="flex gap-3">
                     <input
                       type="text"
@@ -518,7 +518,7 @@ export const AdmissionsManagement: React.FC = () => {
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
                       placeholder="Type internal review notes or corrective remarks..."
-                      className="flex-1 px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]"
+                      className="flex-1 px-4 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold)"
                     />
                     <Button variant="gold" size="sm" type="submit" className="shrink-0 flex items-center gap-1.5">
                       <Send className="w-3.5 h-3.5" /> Post
@@ -527,15 +527,15 @@ export const AdmissionsManagement: React.FC = () => {
                 </div>
 
                 {/* Audit Timeline / History logs */}
-                <div className="space-y-3 border-t border-white/5 pt-4">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-white/40">Approval History & Timeline logs</h4>
-                  <div className="space-y-3 pl-3 border-l border-white/10">
+                <div className="space-y-3 border-t border-(--border-subtle) pt-4">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Approval History & Timeline logs</h4>
+                  <div className="space-y-3 pl-3 border-l border-(--border-default)">
                     {selectedApp.history.map((h, idx) => (
                       <div key={idx} className="relative text-xs">
-                        <span className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#D4AF37] border-2 border-[#0F0F10]" />
+                        <span className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-(--brand-gold) border-2 border-(--bg-base)" />
                         <div className="space-y-0.5">
-                          <p className="text-white/60 font-mono text-[10px]">{h.time} · {h.user}</p>
-                          <p className="text-white/95 font-medium leading-relaxed">{h.action}</p>
+                          <p className="text-(--text-secondary) font-mono text-[10px]">{h.time} · {h.user}</p>
+                          <p className="text-(--text-primary) font-medium leading-relaxed">{h.action}</p>
                         </div>
                       </div>
                     ))}

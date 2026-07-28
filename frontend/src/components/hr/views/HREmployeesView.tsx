@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { Users, Search, Download, Eye, EyeOff, UserX, Edit, Plus, Phone, Mail, MapPin, X } from 'lucide-react';
 import { Employee } from '../../../types/hr';
 import { employees, departments, getDeptById } from '../../../data/hrData';
@@ -36,8 +37,8 @@ function MaskedField({ value, label }: { value: string; label: string }) {
   }, [revealed]);
   return (
     <div className="flex items-center gap-2">
-      <span className="font-mono text-xs text-white/70">{revealed ? value : masked}</span>
-      <button onClick={() => setRevealed(p => !p)} className="text-white/40 hover:text-[#E9C349] transition-colors" aria-label={revealed ? 'Hide' : 'Reveal'}>
+      <span className="font-mono text-xs text-(--text-secondary)">{revealed ? value : masked}</span>
+      <button onClick={() => setRevealed(p => !p)} className="text-(--text-faint) hover:text-(--brand-gold) transition-colors" aria-label={revealed ? 'Hide' : 'Reveal'}>
         {revealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
       </button>
     </div>
@@ -66,7 +67,7 @@ export const HREmployeesView: React.FC = () => {
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Employees"
         subtitle={`${employees.filter(e => e.status === 'Active').length} active · ${employees.filter(e => e.contractStatus === 'Expiring Soon').length} contracts expiring`}
@@ -83,59 +84,59 @@ export const HREmployeesView: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1"><Input icon={<Search className="w-4 h-4" />} placeholder="Search by name, ID, or position..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} /></div>
         <div className="flex gap-2 flex-wrap">
-          <select value={deptFilter} onChange={e => { setDeptFilter(e.target.value); setPage(1); }} className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl font-sans text-xs text-white/70 focus:outline-none focus:border-[#E9C349]">
-            <option className="bg-[#1a1a1b]" value="All">All Departments</option>
-            {departments.map(d => <option key={d.id} className="bg-[#1a1a1b]" value={d.id}>{d.name.split(' ')[0]}</option>)}
+          <select value={deptFilter} onChange={e => { setDeptFilter(e.target.value); setPage(1); }} className="px-3 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)">
+            <option className="bg-(--bg-card-solid)" value="All">All Departments</option>
+            {departments.map(d => <option key={d.id} className="bg-(--bg-card-solid)" value={d.id}>{d.name.split(' ')[0]}</option>)}
           </select>
-          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1); }} className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl font-sans text-xs text-white/70 focus:outline-none focus:border-[#E9C349]">
-            {['All', 'Active', 'On Leave', 'Inactive', 'Terminated'].map(s => <option key={s} className="bg-[#1a1a1b]" value={s}>{s}</option>)}
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1); }} className="px-3 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)">
+            {['All', 'Active', 'On Leave', 'Inactive', 'Terminated'].map(s => <option key={s} className="bg-(--bg-card-solid)" value={s}>{s}</option>)}
           </select>
-          <select value={typeFilter} onChange={e => { setTypeFilter(e.target.value as typeof typeFilter); setPage(1); }} className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl font-sans text-xs text-white/70 focus:outline-none focus:border-[#E9C349]">
-            {['All', 'Full-Time', 'Part-Time', 'Contract', 'Intern'].map(t => <option key={t} className="bg-[#1a1a1b]" value={t}>{t}</option>)}
+          <select value={typeFilter} onChange={e => { setTypeFilter(e.target.value as typeof typeFilter); setPage(1); }} className="px-3 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)">
+            {['All', 'Full-Time', 'Part-Time', 'Contract', 'Intern'].map(t => <option key={t} className="bg-(--bg-card-solid)" value={t}>{t}</option>)}
           </select>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-left text-xs sm:text-sm font-sans min-w-[900px]">
-          <thead className="bg-white/5 border-b border-white/10">
+          <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
             <tr>
               {['Employee', 'Department', 'Position', 'Type', 'Contract', 'Status', 'Actions'].map(h => (
-                <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-white/50 font-semibold">{h}</th>
+                <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-white/85">
+          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
             {paginated.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-16 text-white/30">No employees match your filters.</td></tr>
+              <tr><td colSpan={7} className="text-center py-16 text-(--text-faint)">No employees match your filters.</td></tr>
             ) : paginated.map(emp => {
               const dept = getDeptById(emp.departmentId);
               return (
-                <motion.tr key={emp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-white/[0.04] transition-colors">
+                <motion.tr key={emp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-(--hover-overlay) transition-colors">
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="relative shrink-0">
-                        <img src={emp.avatar} alt={emp.name} className="w-9 h-9 rounded-full object-cover border border-white/10" />
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#0F0F10] ${emp.status === 'Active' ? 'bg-emerald-400' : emp.status === 'On Leave' ? 'bg-amber-400' : 'bg-white/20'}`} />
+                        <img src={emp.avatar} alt={emp.name} className="w-9 h-9 rounded-full object-cover border border-(--border-default)" />
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-(--bg-base) ${emp.status === 'Active' ? 'bg-(--status-success)' : emp.status === 'On Leave' ? 'bg-(--status-warning)' : 'bg-(--active-overlay)'}`} />
                       </div>
                       <div>
-                        <p className="font-semibold text-white text-xs">{emp.name}</p>
-                        <p className="font-mono text-[10px] text-white/40">{emp.employeeId}</p>
+                        <p className="font-semibold text-(--text-primary) text-xs">{emp.name}</p>
+                        <p className="font-mono text-[10px] text-(--text-faint)">{emp.employeeId}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-white/60 text-xs truncate max-w-[130px]">{dept?.name.split(' ')[0]}</td>
-                  <td className="px-4 py-3.5 text-white/70 text-xs truncate max-w-[160px]">{emp.position}</td>
+                  <td className="px-4 py-3.5 text-(--text-secondary) text-xs truncate max-w-[130px]">{dept?.name.split(' ')[0]}</td>
+                  <td className="px-4 py-3.5 text-(--text-secondary) text-xs truncate max-w-[160px]">{emp.position}</td>
                   <td className="px-4 py-3.5"><Badge variant="glass" className="text-[10px]">{emp.employmentType}</Badge></td>
                   <td className="px-4 py-3.5">{contractBadge(emp.contractStatus)}</td>
                   <td className="px-4 py-3.5">{statusBadge(emp.status)}</td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => setSelected(emp)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors" aria-label="View profile"><Eye className="w-4 h-4" /></button>
-                      <button className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors" aria-label="Edit"><Edit className="w-4 h-4" /></button>
+                      <button onClick={() => setSelected(emp)} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="View profile"><Eye className="w-4 h-4" /></button>
+                      <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit"><Edit className="w-4 h-4" /></button>
                       {emp.status === 'Active' && (
-                        <button onClick={() => setDeactivateModal(emp)} className="p-1.5 rounded-lg hover:bg-rose-950/30 text-white/50 hover:text-rose-400 transition-colors" aria-label="Deactivate"><UserX className="w-4 h-4" /></button>
+                        <button onClick={() => setDeactivateModal(emp)} className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors" aria-label="Deactivate"><UserX className="w-4 h-4" /></button>
                       )}
                     </div>
                   </td>
@@ -149,7 +150,7 @@ export const HREmployeesView: React.FC = () => {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="font-sans text-xs text-white/40">{filtered.length} employees · Page {page} of {totalPages}</p>
+          <p className="font-sans text-xs text-(--text-faint)">{filtered.length} employees · Page {page} of {totalPages}</p>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
             <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</Button>
@@ -164,54 +165,54 @@ export const HREmployeesView: React.FC = () => {
           return (
             <div className="space-y-5 text-sm font-sans">
               <div className="flex items-center gap-4">
-                <img src={selected.avatar} alt={selected.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-white/10" />
+                <img src={selected.avatar} alt={selected.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-(--border-default)" />
                 <div>
-                  <p className="font-sans text-base font-bold text-white">{selected.position}</p>
-                  <p className="font-sans text-xs text-white/50 mt-0.5">{dept?.name}</p>
+                  <p className="font-sans text-base font-bold text-(--text-primary)">{selected.position}</p>
+                  <p className="font-sans text-xs text-(--text-muted) mt-0.5">{dept?.name}</p>
                   <div className="flex gap-2 mt-1.5">{statusBadge(selected.status)}{contractBadge(selected.contractStatus)}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 {[['Employee ID', selected.employeeId], ['Hire Date', selected.hireDate], ['Type', selected.employmentType], ['Education', selected.education], ['Experience', `${selected.experience} years`]].map(([k, v]) => (
-                  <div key={String(k)} className="p-3 bg-white/5 rounded-xl border border-white/8">
-                    <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">{k}</p>
-                    <p className="text-white/80 text-xs mt-1">{v}</p>
+                  <div key={String(k)} className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{k}</p>
+                    <p className="text-(--text-secondary) text-xs mt-1">{v}</p>
                   </div>
                 ))}
-                <div className="p-3 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Monthly Salary</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Monthly Salary</p>
                   <MaskedField value={`ETB ${(selected.basicSalary + selected.allowances).toLocaleString()}`} label="Salary" />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <div className="p-3 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">National ID</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">National ID</p>
                   <MaskedField value={selected.nationalId} label="National ID" />
                 </div>
-                <div className="p-3 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Bank Account</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Bank Account</p>
                   <MaskedField value={selected.bankAccount} label="Bank Account" />
                 </div>
-                <div className="p-3 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Tax Number</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Tax Number</p>
                   <MaskedField value={selected.taxNumber} label="Tax Number" />
                 </div>
               </div>
 
-              <div className="p-3 bg-white/5 rounded-xl border border-white/8 space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Emergency Contact</p>
-                <div className="flex items-center gap-4 text-xs text-white/70">
-                  <span className="font-semibold text-white">{selected.emergencyName}</span>
+              <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle) space-y-2">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Emergency Contact</p>
+                <div className="flex items-center gap-4 text-xs text-(--text-secondary)">
+                  <span className="font-semibold text-(--text-primary)">{selected.emergencyName}</span>
                   <span>·</span><span>{selected.emergencyRelation}</span>
                   <span>·</span><span className="font-mono">{selected.emergencyPhone}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 text-xs text-white/60">
-                <Mail className="w-3.5 h-3.5 text-white/30" /><span>{selected.email}</span>
-                <Phone className="w-3.5 h-3.5 text-white/30 ml-2" /><span className="font-mono">{selected.phone}</span>
+              <div className="flex items-center gap-3 text-xs text-(--text-secondary)">
+                <Mail className="w-3.5 h-3.5 text-(--text-faint)" /><span>{selected.email}</span>
+                <Phone className="w-3.5 h-3.5 text-(--text-faint) ml-2" /><span className="font-mono">{selected.phone}</span>
               </div>
             </div>
           );
@@ -222,8 +223,8 @@ export const HREmployeesView: React.FC = () => {
       <Modal isOpen={!!deactivateModal} onClose={() => setDeactivateModal(null)} title="Deactivate Employee" maxWidth="max-w-md">
         {deactivateModal && (
           <div className="space-y-4 font-sans text-sm">
-            <div className="p-4 bg-rose-950/30 border border-rose-800/40 rounded-xl text-xs text-rose-300 leading-relaxed">
-              This will disable system access for <span className="font-semibold text-white">{deactivateModal.name}</span> and move them to Inactive status. Historical records will be preserved.
+            <div className="p-4 bg-(--status-danger-bg) border border-(--status-danger-border) rounded-xl text-xs text-(--status-danger) leading-relaxed">
+              This will disable system access for <span className="font-semibold text-(--text-primary)">{deactivateModal.name}</span> and move them to Inactive status. Historical records will be preserved.
             </div>
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setDeactivateModal(null)}>Cancel</Button>

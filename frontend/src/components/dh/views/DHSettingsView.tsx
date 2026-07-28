@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { Settings, User, Bell, Lock, Monitor, Globe, Shield, CheckCircle2, Save } from 'lucide-react';
 import { DHProfile } from '../../../types/department';
 import { DHPageHeader } from '../DHPageHeader';
@@ -9,7 +10,6 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
-import { AppearanceSection } from '../../ui/AppearanceSection';
 
 interface DHSettingsViewProps {
   profile: DHProfile;
@@ -43,14 +43,14 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader title="Settings" subtitle="Manage your account, preferences and security" icon={<Settings className="w-5 h-5" />} />
 
       <AnimatePresence>
         {saved && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="p-4 bg-emerald-950/40 border border-emerald-800 text-emerald-300 rounded-2xl font-sans text-xs font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            className="p-4 bg-(--status-success-bg) border border-emerald-800 text-(--status-success) rounded-2xl font-sans text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-(--status-success)" />
             Changes saved successfully.
           </motion.div>
         )}
@@ -62,9 +62,9 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
           {sections.map((s) => (
             <button key={s.id} onClick={() => setActiveSection(s.id)}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-sans text-sm font-medium transition-all text-left ${
-                activeSection === s.id ? 'bg-[#E9C349]/12 text-[#E9C349] border border-[#E9C349]/20' : 'text-white/60 hover:bg-white/5 hover:text-white border border-transparent'
+                activeSection === s.id ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border)' : 'text-(--text-secondary) hover:bg-(--hover-overlay) hover:text-(--text-primary) border border-transparent'
               }`}>
-              <span className={activeSection === s.id ? 'text-[#E9C349]' : 'text-white/40'}>{s.icon}</span>
+              <span className={activeSection === s.id ? 'text-(--brand-gold)' : 'text-(--text-faint)'}>{s.icon}</span>
               {s.label}
             </button>
           ))}
@@ -75,14 +75,14 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
           {/* Profile */}
           {activeSection === 'profile' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <User className="w-5 h-5 text-[#E9C349]" /> Department Head Profile
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <User className="w-5 h-5 text-(--brand-gold)" /> Department Head Profile
               </h3>
               <div className="flex items-center gap-4">
-                <img src={profile.avatar} alt={profile.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E9C349]/40" />
+                <img src={profile.avatar} alt={profile.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-(--accent-gold-border)" />
                 <div>
-                  <p className="font-serif text-base font-bold text-white">{profile.name}</p>
-                  <p className="font-sans text-xs text-white/50">{profile.title}</p>
+                  <p className="font-serif text-base font-bold text-(--text-primary)">{profile.name}</p>
+                  <p className="font-sans text-xs text-(--text-muted)">{profile.title}</p>
                   <Badge variant="gold" className="mt-1">{profile.employeeId}</Badge>
                 </div>
               </div>
@@ -109,8 +109,8 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
           {/* Notifications */}
           {activeSection === 'notifications' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Bell className="w-5 h-5 text-[#E9C349]" /> Notification Preferences
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <Bell className="w-5 h-5 text-(--brand-gold)" /> Notification Preferences
               </h3>
               <div className="space-y-3">
                 {Object.entries(notifications).map(([key, val]) => {
@@ -124,10 +124,10 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
                   };
                   const item = labels[key];
                   return (
-                    <label key={key} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl cursor-pointer border border-white/10 hover:bg-white/[0.08] transition-colors">
+                    <label key={key} className="flex items-center justify-between p-4 bg-(--hover-overlay) rounded-2xl cursor-pointer border border-(--border-default) hover:bg-(--hover-overlay) transition-colors">
                       <div>
-                        <p className="font-sans text-sm font-semibold text-white">{item.title}</p>
-                        <p className="font-sans text-xs text-white/50 mt-0.5">{item.desc}</p>
+                        <p className="font-sans text-sm font-semibold text-(--text-primary)">{item.title}</p>
+                        <p className="font-sans text-xs text-(--text-muted) mt-0.5">{item.desc}</p>
                       </div>
                       <input type="checkbox" checked={val} onChange={(e) => setNotifications({ ...notifications, [key]: e.target.checked })}
                         className="w-5 h-5 accent-[#E9C349] cursor-pointer" />
@@ -146,16 +146,16 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
           {/* Security */}
           {activeSection === 'security' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Lock className="w-5 h-5 text-[#E9C349]" /> Password & Security
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <Lock className="w-5 h-5 text-(--brand-gold)" /> Password & Security
               </h3>
               <div className="space-y-4">
                 <Input label="Current Password" type="password" placeholder="Enter current password" />
                 <Input label="New Password" type="password" placeholder="At least 12 characters" />
                 <Input label="Confirm New Password" type="password" placeholder="Repeat new password" />
               </div>
-              <div className="p-4 bg-amber-950/30 border border-amber-800/40 rounded-xl">
-                <p className="font-sans text-xs text-amber-300 leading-relaxed">Passwords must be at least 12 characters, include uppercase, lowercase, numbers, and a symbol. Your session will remain active after a password change.</p>
+              <div className="p-4 bg-(--status-warning-bg) border border-(--status-warning-border) rounded-xl">
+                <p className="font-sans text-xs text-(--status-warning) leading-relaxed">Passwords must be at least 12 characters, include uppercase, lowercase, numbers, and a symbol. Your session will remain active after a password change.</p>
               </div>
               <div className="flex justify-end">
                 <Button variant="primary" icon={<Save className="w-4 h-4" />}>Update Password</Button>
@@ -165,29 +165,39 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
 
           {/* Appearance */}
           {activeSection === 'appearance' && (
-            <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
-              <AppearanceSection variant="inline" />
+            <Card hoverable={false} className="space-y-5">
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <Monitor className="w-5 h-5 text-(--brand-gold)" /> Appearance
+              </h3>
+              <div className="p-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="font-sans text-sm font-bold text-(--text-primary)">Dark — Deep Obsidian</p>
+                  <p className="font-sans text-xs text-(--text-muted) mt-1">Official Harmony College dark theme. Recommended for reduced eye strain.</p>
+                </div>
+                <Badge variant="gold">Active</Badge>
+              </div>
+              <p className="font-sans text-xs text-(--text-faint)">Additional themes coming in a future release.</p>
             </Card>
           )}
 
           {/* Language */}
           {activeSection === 'language' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Globe className="w-5 h-5 text-[#E9C349]" /> Language & Region
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <Globe className="w-5 h-5 text-(--brand-gold)" /> Language & Region
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-sans text-xs font-semibold text-white/70">Display Language</label>
-                  <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-[#E9C349]">
-                    <option className="bg-[#1a1a1b]" value="en">English (US)</option>
-                    <option className="bg-[#1a1a1b]" value="am">Amharic (አማርኛ)</option>
+                  <label className="font-sans text-xs font-semibold text-(--text-secondary)">Display Language</label>
+                  <select className="w-full px-4 py-3 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-sm text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+                    <option className="bg-(--bg-card-solid)" value="en">English (US)</option>
+                    <option className="bg-(--bg-card-solid)" value="am">Amharic (አማርኛ)</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-sans text-xs font-semibold text-white/70">Timezone</label>
-                  <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-[#E9C349]">
-                    <option className="bg-[#1a1a1b]">Africa/Addis_Ababa (EAT, UTC+3)</option>
+                  <label className="font-sans text-xs font-semibold text-(--text-secondary)">Timezone</label>
+                  <select className="w-full px-4 py-3 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-sm text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+                    <option className="bg-(--bg-card-solid)">Africa/Addis_Ababa (EAT, UTC+3)</option>
                   </select>
                 </div>
               </div>
@@ -200,17 +210,17 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
           {/* Active Sessions */}
           {activeSection === 'sessions' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Shield className="w-5 h-5 text-[#E9C349]" /> Active Sessions
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <Shield className="w-5 h-5 text-(--brand-gold)" /> Active Sessions
               </h3>
               {[
                 { device: 'MacBook Pro 16" — Chrome 126', location: 'Addis Ababa, ET', time: 'Current session', current: true },
                 { device: 'iPhone 15 Pro — Safari', location: 'Addis Ababa, ET', time: '2 hours ago', current: false },
               ].map((s, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-white/5 border border-white/8 rounded-2xl">
+                <div key={i} className="flex items-center justify-between p-4 bg-(--hover-overlay) border border-(--border-subtle) rounded-2xl">
                   <div>
-                    <p className="font-sans text-sm font-semibold text-white">{s.device}</p>
-                    <p className="font-sans text-xs text-white/50 mt-0.5">{s.location} · {s.time}</p>
+                    <p className="font-sans text-sm font-semibold text-(--text-primary)">{s.device}</p>
+                    <p className="font-sans text-xs text-(--text-muted) mt-0.5">{s.location} · {s.time}</p>
                   </div>
                   {s.current ? <Badge variant="emerald">Current</Badge> : (
                     <Button variant="danger" size="sm">Revoke</Button>

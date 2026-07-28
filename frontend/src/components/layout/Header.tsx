@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
+import ThemeToggle from '../ThemeToggle';
 
 export interface HeaderProps<T extends string = NavTab> {
   activeTab: T;
@@ -113,7 +114,8 @@ export const Header = <T extends string = NavTab>({
   return (
     <header className="sticky top-0 z-40 w-full bg-[var(--bg-sidebar)]/90 backdrop-blur-xl border-b border-white/10 h-16 flex items-center transition-all duration-300">
       <div className="flex justify-between items-center w-full px-4 sm:px-8 py-3">
-        {/* Left Side: Brand & Breadcrumb Trail */}
+
+        {/* Left: Brand & Breadcrumb */}
         <div className="flex items-center gap-2 sm:gap-3">
           {onMobileMenuToggle && (
             <button 
@@ -324,9 +326,8 @@ export const Header = <T extends string = NavTab>({
             </AnimatePresence>
           </div>
 
-          {/* Icon Controls Group */}
           <div className="flex items-center gap-1 sm:gap-2">
-            {/* Notification Bell Drawer */}
+            {/* Notifications */}
             <div className="relative">
               <button
                 onClick={() => setShowAlertsDrawer(!showAlertsDrawer)}
@@ -351,10 +352,10 @@ export const Header = <T extends string = NavTab>({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.97 }}
                       transition={{ duration: 0.18 }}
-                      className="absolute right-0 top-12 w-80 sm:w-96 bg-[var(--bg-panel)] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                      className="absolute right-0 top-12 w-80 sm:w-96 ds-notif-panel border rounded-2xl shadow-2xl z-50 overflow-hidden"
                     >
-                      <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                        <span className="font-serif text-base font-bold text-white">Notifications</span>
+                      <div className="p-4 ds-notif-panel-header border-b flex items-center justify-between">
+                        <span className="font-serif text-base font-bold" style={{ color: 'var(--text-primary)' }}>Notifications</span>
                         <div className="flex items-center gap-2">
                           {onMarkAllRead && (
                             <button onClick={onMarkAllRead} className="text-[10px] text-[#E9C349] hover:underline">

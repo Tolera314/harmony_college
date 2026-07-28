@@ -3,6 +3,7 @@
 import React from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { GESTURE, DURATION, EASE } from '@/src/lib/motion';
 import { useTheme } from '../lib/useTheme';
 
 interface ThemeToggleProps {
@@ -27,8 +28,8 @@ export default function ThemeToggle({ className = '' }: ThemeToggleProps) {
   return (
     <motion.button
       onClick={toggle}
-      whileTap={{ scale: 0.88 }}
-      whileHover={{ scale: 1.08 }}
+      whileTap={GESTURE.iconTap}
+      whileHover={GESTURE.iconHover}
       aria-label={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
       title={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
       className={`

@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Search, Filter, Plus, BookOpen, ChevronRight, 
   ChevronDown, HelpCircle, FileDown, FileUp, 
   Trash2, Edit, AlertCircle, Sparkles, X, Check
 } from 'lucide-react';
+import { EmptyState } from '../ui/States';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 
@@ -125,8 +127,8 @@ export const CourseCatalog: React.FC = () => {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Course Catalog</h2>
-          <p className="text-xs text-white/50">Configure core curricula, prerequisite hierarchies, and departmental structures.</p>
+          <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Course Catalog</h2>
+          <p className="text-xs text-(--text-muted)">Configure core curricula, prerequisite hierarchies, and departmental structures.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -158,15 +160,15 @@ export const CourseCatalog: React.FC = () => {
       </div>
 
       {/* Advanced Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl backdrop-blur-md">
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by Course Code or Course Name..."
-            className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white"
+            className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-primary)"
           />
         </div>
 
@@ -174,7 +176,7 @@ export const CourseCatalog: React.FC = () => {
           <select
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
-            className="w-full px-3 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white/70"
+            className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-secondary)"
           >
             <option value="All">All Departments</option>
             {initialDepartments.map(d => (
@@ -187,7 +189,7 @@ export const CourseCatalog: React.FC = () => {
           <select
             value={semFilter}
             onChange={(e) => setSemFilter(e.target.value)}
-            className="w-full px-3 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white/70"
+            className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-secondary)"
           >
             <option value="All">All Semesters</option>
             <option value="Fall">Fall Term</option>
@@ -198,9 +200,9 @@ export const CourseCatalog: React.FC = () => {
       </div>
 
       {/* Expandable Rows Course Table */}
-      <div className="overflow-hidden border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+      <div className="overflow-hidden border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-left text-xs font-sans">
-          <thead className="bg-white/5 border-b border-white/10 text-white/50 font-mono text-[10px] uppercase tracking-wider">
+          <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-5 py-4 w-[60px]" />
               <th className="px-5 py-4">Course Code</th>
@@ -212,17 +214,17 @@ export const CourseCatalog: React.FC = () => {
               <th className="px-5 py-4 text-right">Delete</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-white/80">
+          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
             {filteredCourses.map((c) => {
               const isExpanded = !!expandedRows[c.id];
               return (
                 <React.Fragment key={c.id}>
                   <tr 
                     onClick={() => toggleRow(c.id)}
-                    className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                    className="hover:bg-(--hover-overlay) transition-colors cursor-pointer group"
                   >
                     <td className="px-5 py-4 text-center">
-                      <div className="w-5 h-5 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/50 group-hover:text-[#D4AF37] group-hover:border-[#D4AF37]/30 transition-all">
+                      <div className="w-5 h-5 rounded-lg bg-(--hover-overlay) border border-(--border-default) flex items-center justify-center text-(--text-muted) group-hover:text-(--brand-gold) group-hover:border-(--brand-gold)/30 transition-all">
                         {isExpanded ? (
                           <ChevronDown className="w-3.5 h-3.5" />
                         ) : (
@@ -230,11 +232,11 @@ export const CourseCatalog: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-4 font-mono font-bold text-white tracking-wider group-hover:text-[#D4AF37] transition-colors">{c.code}</td>
-                    <td className="px-5 py-4 text-white/95 font-medium">{c.name}</td>
-                    <td className="px-5 py-4 font-mono text-white/70">{c.credits} Cr</td>
-                    <td className="px-5 py-4 text-white/60">{c.department}</td>
-                    <td className="px-5 py-4 font-mono text-white/50">{c.semester}</td>
+                    <td className="px-5 py-4 font-mono font-bold text-(--text-primary) tracking-wider group-hover:text-(--brand-gold) transition-colors">{c.code}</td>
+                    <td className="px-5 py-4 text-(--text-primary) font-medium">{c.name}</td>
+                    <td className="px-5 py-4 font-mono text-(--text-secondary)">{c.credits} Cr</td>
+                    <td className="px-5 py-4 text-(--text-secondary)">{c.department}</td>
+                    <td className="px-5 py-4 font-mono text-(--text-muted)">{c.semester}</td>
                     <td className="px-5 py-4">
                       <Badge variant={c.status === 'Active' ? 'emerald' : 'amber'}>
                         {c.status}
@@ -243,7 +245,7 @@ export const CourseCatalog: React.FC = () => {
                     <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <button 
                         onClick={(e) => handleDeleteCourse(c.id, e)}
-                        className="p-1.5 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20 text-white/40 hover:text-red-400 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20 text-(--text-faint) hover:text-(--status-danger) transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -253,36 +255,36 @@ export const CourseCatalog: React.FC = () => {
                   {/* Expanded Syllabus and Prerequisites Panel */}
                   <AnimatePresence>
                     {isExpanded && (
-                      <tr className="bg-black/20">
+                      <tr className="bg-(--hover-overlay)">
                         <td />
-                        <td colSpan={7} className="px-5 py-5 border-l-2 border-[#D4AF37] space-y-4">
+                        <td colSpan={7} className="px-5 py-5 border-l-2 border-(--brand-gold) space-y-4">
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="space-y-3.5 overflow-hidden text-xs text-white/70 leading-relaxed"
+                            className="space-y-3.5 overflow-hidden text-xs text-(--text-secondary) leading-relaxed"
                           >
                             <div className="space-y-1">
-                              <span className="text-[10px] font-mono text-[#D4AF37] uppercase tracking-wider">Course Syllabus Description</span>
-                              <p className="text-white/80 max-w-2xl">{c.desc}</p>
+                              <span className="text-[10px] font-mono text-(--brand-gold) uppercase tracking-wider">Course Syllabus Description</span>
+                              <p className="text-(--text-secondary) max-w-2xl">{c.desc}</p>
                             </div>
 
                             <div className="space-y-1.5">
-                              <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider block">Academic Prerequisites</span>
+                              <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-wider block">Academic Prerequisites</span>
                               <div className="flex flex-wrap gap-2">
                                 {c.prerequisites.length > 0 ? (
                                   c.prerequisites.map(pr => {
                                     const pRec = courses.find(cr => cr.code === pr);
                                     return (
-                                      <div key={pr} className="px-2.5 py-1 bg-white/5 border border-white/8 rounded-lg flex items-center gap-1.5 text-[11px]">
-                                        <BookOpen className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                        <span className="font-semibold text-white/95 font-mono">{pr}</span>
-                                        <span className="text-white/40 font-sans">({pRec?.name || 'Curriculum Course'})</span>
+                                      <div key={pr} className="px-2.5 py-1 bg-(--hover-overlay) border border-(--border-subtle) rounded-lg flex items-center gap-1.5 text-[11px]">
+                                        <BookOpen className="w-3.5 h-3.5 text-(--brand-gold)" />
+                                        <span className="font-semibold text-(--text-primary) font-mono">{pr}</span>
+                                        <span className="text-(--text-faint) font-sans">({pRec?.name || 'Curriculum Course'})</span>
                                       </div>
                                     );
                                   })
                                 ) : (
-                                  <span className="text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">
+                                  <span className="text-[10px] font-mono text-(--status-success) font-semibold bg-(--status-success-bg) px-2.5 py-0.5 rounded border border-(--status-success-border)">
                                     No Prerequisites Required (Introductory Course)
                                   </span>
                                 )}
@@ -298,9 +300,7 @@ export const CourseCatalog: React.FC = () => {
             })}
             {filteredCourses.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center py-8 text-white/40 font-mono text-[11px]">
-                  No courses found in the catalog matching the filter parameters.
-                </td>
+                <td colSpan={8} className="p-0"><EmptyState variant="default" compact /></td>
               </tr>
             )}
           </tbody>
@@ -323,33 +323,33 @@ export const CourseCatalog: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-[var(--bg-panel)] border border-white/10 rounded-2xl p-6 shadow-2xl z-10 font-sans"
+              className="relative w-full max-w-lg bg-(--bg-base) border border-(--border-default) rounded-2xl p-6 shadow-2xl z-10 font-sans"
             >
               {/* Modal Close */}
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="absolute top-4 right-4 p-2 bg-white/5 border border-white/10 rounded-xl text-white/50 hover:text-white transition-colors"
+                className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
 
-              <h3 className="text-lg font-serif font-bold text-white mb-4">Add Course to Catalog</h3>
+              <h3 className="text-lg font-serif font-bold text-(--text-primary) mb-4">Add Course to Catalog</h3>
               
               <form onSubmit={handleAddCourseSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-white/80">Course Code</label>
+                    <label className="text-xs font-semibold text-(--text-secondary)">Course Code</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. CS202"
                       value={newCourse.code}
                       onChange={(e) => setNewCourse(prev => ({ ...prev, code: e.target.value }))}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-white/80">Credits</label>
+                    <label className="text-xs font-semibold text-(--text-secondary)">Credits</label>
                     <input
                       type="number"
                       min={1}
@@ -357,30 +357,30 @@ export const CourseCatalog: React.FC = () => {
                       required
                       value={newCourse.credits}
                       onChange={(e) => setNewCourse(prev => ({ ...prev, credits: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37] font-mono"
+                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) font-mono"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">Course Title</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Course Title</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Advanced Operating Systems"
                     value={newCourse.name}
                     onChange={(e) => setNewCourse(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-white/80">Department</label>
+                    <label className="text-xs font-semibold text-(--text-secondary)">Department</label>
                     <select
                       value={newCourse.department}
                       onChange={(e) => setNewCourse(prev => ({ ...prev, department: e.target.value }))}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
                     >
                       {initialDepartments.map(d => (
                         <option key={d} value={d}>{d}</option>
@@ -388,11 +388,11 @@ export const CourseCatalog: React.FC = () => {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-white/80">Default Semester</label>
+                    <label className="text-xs font-semibold text-(--text-secondary)">Default Semester</label>
                     <select
                       value={newCourse.semester}
                       onChange={(e) => setNewCourse(prev => ({ ...prev, semester: e.target.value }))}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
                     >
                       <option value="Fall">Fall</option>
                       <option value="Spring">Spring</option>
@@ -403,8 +403,8 @@ export const CourseCatalog: React.FC = () => {
 
                 {/* Prerequisites Multi-Selector */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-white/80 block">Select Prerequisites</label>
-                  <div className="flex flex-wrap gap-2 max-h-[85px] overflow-y-auto p-2 bg-black/30 border border-white/8 rounded-xl">
+                  <label className="text-xs font-semibold text-(--text-secondary) block">Select Prerequisites</label>
+                  <div className="flex flex-wrap gap-2 max-h-[85px] overflow-y-auto p-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl">
                     {courses.map(c => {
                       const isSelected = newCourse.prerequisites.includes(c.code);
                       return (
@@ -414,8 +414,8 @@ export const CourseCatalog: React.FC = () => {
                           onClick={() => handlePrereqSelect(c.code)}
                           className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-semibold flex items-center gap-1 transition-all ${
                             isSelected 
-                              ? 'bg-[#D4AF37]/15 border-[#D4AF37] text-[#D4AF37]' 
-                              : 'bg-white/5 border-white/8 text-white/40 hover:text-white'
+                              ? 'bg-(--accent-gold-subtle) border-(--brand-gold) text-(--brand-gold)' 
+                              : 'bg-(--hover-overlay) border-(--border-subtle) text-(--text-faint) hover:text-(--text-primary)'
                           }`}
                         >
                           {isSelected && <Check className="w-3 h-3" />}
@@ -427,13 +427,13 @@ export const CourseCatalog: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-white/80">Syllabus Summary Description</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Syllabus Summary Description</label>
                   <textarea
                     rows={3}
                     placeholder="Enter short syllabus contents..."
                     value={newCourse.desc}
                     onChange={(e) => setNewCourse(prev => ({ ...prev, desc: e.target.value }))}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37] resize-none"
+                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) resize-none"
                   />
                 </div>
 

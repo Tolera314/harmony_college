@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import {
   DollarSign, AlertTriangle, Receipt, TrendingUp, TrendingDown,
   Clock, RefreshCw, BarChart3, CreditCard, Users,
@@ -23,11 +24,11 @@ interface FOOverviewViewProps {
 }
 
 const payStatusColor: Record<string, string> = {
-  Paid:     'text-emerald-400',
-  Partial:  'text-amber-400',
-  Unpaid:   'text-rose-400',
+  Paid:     'text-(--status-success)',
+  Partial:  'text-(--status-warning)',
+  Unpaid:   'text-(--status-danger)',
   Overdue:  'text-rose-500',
-  Deferred: 'text-white/50',
+  Deferred: 'text-(--text-muted)',
 };
 
 const payStatusBadge: Record<string, 'emerald' | 'amber' | 'rose' | 'glass'> = {
@@ -70,21 +71,21 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-8 pb-16">
 
       {/* Hero banner */}
-      <section className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl min-h-[200px]">
+      <section className="relative rounded-3xl overflow-hidden border border-(--border-default) shadow-2xl min-h-[200px]">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#E9C349]/10 via-transparent to-transparent" />
           <div className="absolute top-0 right-0 w-80 h-80 bg-[#E9C349]/6 rounded-full blur-3xl pointer-events-none" />
         </div>
         <div className="relative z-10 p-6 sm:p-8 lg:p-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9C349]/10 border border-[#E9C349]/30 text-[11px] font-mono font-semibold text-[#E9C349] uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[11px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" />
               {foProfile.currentSemester} · Finance Portal Active
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-white leading-tight">
+            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
               Good morning, {foProfile.name.split(' ')[1]}.
             </h2>
-            <p className="font-sans text-sm text-white/60 max-w-xl leading-relaxed">
+            <p className="font-sans text-sm text-(--text-secondary) max-w-xl leading-relaxed">
               {foProfile.department} · {foProfile.academicYear}
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
@@ -104,10 +105,10 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
             </div>
           </div>
           {/* Today's collection stat */}
-          <div className="hidden lg:flex flex-col items-center gap-1 shrink-0 bg-white/5 border border-white/10 rounded-2xl px-6 py-5">
-            <p className="font-mono text-[11px] text-white/40 uppercase tracking-wider">Today&apos;s Collections</p>
-            <p className="font-mono text-3xl font-bold text-[#E9C349]">ETB {fmtETB(foKpis.todaysCollections)}</p>
-            <div className="flex items-center gap-1 text-emerald-400 mt-1">
+          <div className="hidden lg:flex flex-col items-center gap-1 shrink-0 bg-(--hover-overlay) border border-(--border-default) rounded-2xl px-6 py-5">
+            <p className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider">Today&apos;s Collections</p>
+            <p className="font-mono text-3xl font-bold text-(--brand-gold)">ETB {fmtETB(foKpis.todaysCollections)}</p>
+            <div className="flex items-center gap-1 text-(--status-success) mt-1">
               <TrendingUp className="w-3.5 h-3.5" />
               <span className="font-sans text-xs">+12% vs yesterday</span>
             </div>
@@ -197,8 +198,8 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Revenue vs Target</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Monthly revenue compared to targets — {foProfile.academicYear}</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue vs Target</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Monthly revenue compared to targets — {foProfile.academicYear}</p>
             </div>
             <Badge variant="emerald">+8.4% YTD</Badge>
           </div>
@@ -207,8 +208,8 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
 
         <Card hoverable={false} className="space-y-5">
           <div>
-            <h3 className="font-serif text-lg font-bold text-white">Payment Methods</h3>
-            <p className="font-sans text-xs text-white/40 mt-0.5">Transaction count by channel</p>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Payment Methods</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Transaction count by channel</p>
           </div>
           <DonutChart
             segments={donutSegments}
@@ -224,8 +225,8 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Revenue Trend</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Monthly revenue — {foProfile.academicYear}</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue Trend</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Monthly revenue — {foProfile.academicYear}</p>
             </div>
           </div>
           <RevenueLineChart data={lineData} secondaryData={targetData} height={140} label="Revenue" secondaryLabel="Target" />
@@ -234,8 +235,8 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Outstanding Balance Trend</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Total overdue over time</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Outstanding Balance Trend</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Total overdue over time</p>
             </div>
             <Badge variant="rose">ETB {fmtETB(foKpis.totalOutstanding)}</Badge>
           </div>
@@ -248,8 +249,8 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Revenue by Department</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Total collected — {foProfile.currentSemester}</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue by Department</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Total collected — {foProfile.currentSemester}</p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('reports')}>Full report</Button>
           </div>
@@ -258,8 +259,8 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
 
         <Card hoverable={false} className="space-y-4">
           <div>
-            <h3 className="font-serif text-lg font-bold text-white">Daily Collections</h3>
-            <p className="font-sans text-xs text-white/40 mt-0.5">This week</p>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Daily Collections</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">This week</p>
           </div>
           <VerticalBarChart data={dailyData} height={130} />
         </Card>
@@ -269,33 +270,33 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">Recent Transactions</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Recent Transactions</h3>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('payments')}>View all</Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-sans">
               <thead>
-                <tr className="border-b border-white/8">
+                <tr className="border-b border-(--border-subtle)">
                   {['Student', 'Method', 'Amount', 'Date', 'Status'].map((h) => (
-                    <th key={h} className="pb-2 text-left font-mono text-[10px] text-white/40 uppercase tracking-wider pr-4">{h}</th>
+                    <th key={h} className="pb-2 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider pr-4">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-(--border-subtle)">
                 {recentTxns.map((t) => (
                   <tr key={t.id} className="hover:bg-white/3 transition-colors">
                     <td className="py-3 pr-4">
-                      <p className="font-sans text-xs text-white font-medium truncate max-w-[130px]">{t.studentName}</p>
-                      <p className="font-mono text-[10px] text-white/40">{t.type}</p>
+                      <p className="font-sans text-xs text-(--text-primary) font-medium truncate max-w-[130px]">{t.studentName}</p>
+                      <p className="font-mono text-[10px] text-(--text-faint)">{t.type}</p>
                     </td>
-                    <td className="py-3 pr-4 font-sans text-xs text-white/70">{t.paymentMethod}</td>
-                    <td className="py-3 pr-4 font-mono text-xs text-[#E9C349] font-bold">ETB {t.amount.toLocaleString()}</td>
-                    <td className="py-3 pr-4 font-mono text-xs text-white/40">{t.date}</td>
+                    <td className="py-3 pr-4 font-sans text-xs text-(--text-secondary)">{t.paymentMethod}</td>
+                    <td className="py-3 pr-4 font-mono text-xs text-(--brand-gold) font-bold">ETB {t.amount.toLocaleString()}</td>
+                    <td className="py-3 pr-4 font-mono text-xs text-(--text-faint)">{t.date}</td>
                     <td className="py-3">
                       <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full border ${
-                        t.status === 'Completed' ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40' :
-                        t.status === 'Pending'   ? 'bg-amber-950/40 text-amber-300 border-amber-800/40' :
-                        'bg-rose-950/40 text-rose-300 border-rose-800/40'
+                        t.status === 'Completed' ? 'bg-(--status-success-bg) text-(--status-success) border-(--status-success-border)' :
+                        t.status === 'Pending'   ? 'bg-(--status-warning-bg) text-(--status-warning) border-(--status-warning-border)' :
+                        'bg-(--status-danger-bg) text-(--status-danger) border-rose-800/40'
                       }`}>{t.status}</span>
                     </td>
                   </tr>
@@ -307,19 +308,19 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
 
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">High-Risk Accounts</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">High-Risk Accounts</h3>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('outstanding')}>View all</Button>
           </div>
           <div className="space-y-3">
             {overdue.slice(0, 5).map((s) => (
-              <div key={s.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/8 hover:border-rose-500/20 transition-colors">
-                <img src={s.avatar} alt={s.name} className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+              <div key={s.id} className="flex items-center gap-3 p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle) hover:border-(--status-danger-border) transition-colors">
+                <img src={s.avatar} alt={s.name} className="w-8 h-8 rounded-full object-cover border border-(--border-default) shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-sans text-xs font-semibold text-white truncate">{s.name}</p>
-                  <p className="font-mono text-[10px] text-rose-400">ETB {s.outstanding.toLocaleString()} · {s.daysOverdue}d overdue</p>
+                  <p className="font-sans text-xs font-semibold text-(--text-primary) truncate">{s.name}</p>
+                  <p className="font-mono text-[10px] text-(--status-danger)">ETB {s.outstanding.toLocaleString()} · {s.daysOverdue}d overdue</p>
                 </div>
                 <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full border ${
-                  s.riskLevel === 'Critical' ? 'bg-rose-950/50 text-rose-300 border-rose-800/40' : 'bg-amber-950/40 text-amber-300 border-amber-800/40'
+                  s.riskLevel === 'Critical' ? 'bg-(--status-danger-bg) text-(--status-danger) border-rose-800/40' : 'bg-(--status-warning-bg) text-(--status-warning) border-(--status-warning-border)'
                 }`}>{s.riskLevel}</span>
               </div>
             ))}
@@ -331,7 +332,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
       <section>
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">Recent Notifications</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Recent Notifications</h3>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('notifications')}>View all</Button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -339,19 +340,19 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
               <div
                 key={n.id}
                 className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
-                  n.read ? 'border-white/5' : 'border-[#E9C349]/20 bg-[#E9C349]/3'
+                  n.read ? 'border-(--border-subtle)' : 'border-(--accent-gold-border) bg-[#E9C349]/3'
                 }`}
               >
                 <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
-                  n.read ? 'bg-white/20' :
+                  n.read ? 'bg-(--active-overlay)' :
                   n.type === 'payment_overdue' || n.type === 'reconciliation_failed' ? 'bg-rose-400' :
                   n.type === 'large_payment' || n.type === 'payment_received' ? 'bg-emerald-400' : 'bg-[#E9C349]'
                 }`} />
                 <div className="flex-1 min-w-0">
-                  <p className={`font-sans text-xs font-semibold ${n.read ? 'text-white/60' : 'text-white'}`}>{n.title}</p>
-                  <p className="font-sans text-xs text-white/40 truncate mt-0.5">{n.message}</p>
+                  <p className={`font-sans text-xs font-semibold ${n.read ? 'text-(--text-secondary)' : 'text-(--text-primary)'}`}>{n.title}</p>
+                  <p className="font-sans text-xs text-(--text-faint) truncate mt-0.5">{n.message}</p>
                 </div>
-                <p className="font-mono text-[10px] text-white/30 shrink-0 hidden sm:block whitespace-nowrap">{n.timestamp.split(' ')[0]}</p>
+                <p className="font-mono text-[10px] text-(--text-faint) shrink-0 hidden sm:block whitespace-nowrap">{n.timestamp.split(' ')[0]}</p>
               </div>
             ))}
           </div>

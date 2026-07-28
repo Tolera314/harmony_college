@@ -44,14 +44,19 @@ interface SidebarItem {
 }
 
 export default function RegistrarDashboardPage() {
-  const [activeTab, setActiveTab] = useState<RegistrarTab>('dashboard');
+  const [activeTab, setRawTab] = useState<RegistrarTab>('dashboard');
+  const [tabLoading, setTabLoading] = useState(false);
+  const { toast, show: showToast, hide: hideToast } = useToast();
+
+  const setActiveTab = (tab: RegistrarTab) => {
+    if (tab === (activeTab as string)) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab as RegistrarTab); setTabLoading(false); }, 120);
+  };
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Theme Toggle Mock
-  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Global Admissions & Notifications lists
   const [notifications, setNotifications] = useState([
@@ -129,6 +134,7 @@ export default function RegistrarDashboardPage() {
   ];
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'dashboard':
         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={triggerCreateCourse} />;
@@ -172,8 +178,9 @@ export default function RegistrarDashboardPage() {
 
   return (
     <>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
       {/* Background radial glow */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
+      <div className="fixed inset-0 bg-[#0F0F10] pointer-events-none z-0" aria-hidden="true">
         <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#D4AF37]/5 rounded-full blur-[140px]" />
         <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#D4AF37]/3 rounded-full blur-[120px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.75)_0%,transparent_65%)]" />
@@ -198,7 +205,7 @@ export default function RegistrarDashboardPage() {
         />
 
         {/* Right Section Content viewport */}
-        <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 max-w-full ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
+        <div className="flex-1 flex flex-col min-h-screen overflow-y-auto max-w-full">
           
           {/* Reused Header component from src/components/layout */}
           <Header<RegistrarTab>
@@ -223,7 +230,7 @@ export default function RegistrarDashboardPage() {
           />
 
           {/* Main 12-Column Responsive Layout Body content */}
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}

@@ -2,13 +2,13 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   User, Shield, Key, Clock, 
   Save, Monitor, 
   Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, Settings
 } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { AppearanceSection } from '../ui/AppearanceSection';
 
 interface RegistrarSettingsProps {
   initialTab?: 'account' | 'registration';
@@ -34,6 +34,7 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
 
   const [toggles, setToggles] = useState({
     twoFa: false,
+    darkMode: true,
     emailAlerts: true
   });
 

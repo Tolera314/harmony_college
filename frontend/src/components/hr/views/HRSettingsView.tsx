@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, User, Bell, Lock, Globe, Shield, Save, CheckCircle2, Monitor } from 'lucide-react';
+import { DURATION, EASE } from '@/src/lib/motion';
+import { Settings, User, Bell, Lock, Globe, Shield, Save, CheckCircle2 } from 'lucide-react';
 import { HROfficerProfile } from '../../../types/hr';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
-import { AppearanceSection } from '../../ui/AppearanceSection';
 
 interface HRSettingsViewProps {
   profile: HROfficerProfile;
@@ -32,13 +32,12 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
     { id: 'profile',       label: 'HR Profile',      icon: <User className="w-4 h-4" /> },
     { id: 'notifications', label: 'Notifications',   icon: <Bell className="w-4 h-4" /> },
     { id: 'security',      label: 'Password',        icon: <Lock className="w-4 h-4" /> },
-    { id: 'appearance',    label: 'Appearance',      icon: <Monitor className="w-4 h-4" /> },
     { id: 'language',      label: 'Language',        icon: <Globe className="w-4 h-4" /> },
     { id: 'sessions',      label: 'Active Sessions', icon: <Shield className="w-4 h-4" /> },
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader title="Settings" subtitle="Manage your account and HR portal preferences" icon={<Settings className="w-5 h-5" />} />
 
       <AnimatePresence>
@@ -55,8 +54,8 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
         <nav className="lg:w-52 shrink-0 space-y-1">
           {sections.map(s => (
             <button key={s.id} onClick={() => setActiveSection(s.id)}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-sans text-sm font-medium transition-all text-left ${activeSection === s.id ? 'bg-[#E9C349]/12 text-[#E9C349] border border-[#E9C349]/20' : 'text-white/60 hover:bg-white/5 hover:text-white border border-transparent'}`}>
-              <span className={activeSection === s.id ? 'text-[#E9C349]' : 'text-white/40'}>{s.icon}</span>
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-sans text-sm font-medium transition-all text-left ${activeSection === s.id ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border)' : 'text-(--text-secondary) hover:bg-(--hover-overlay) hover:text-(--text-primary) border border-transparent'}`}>
+              <span className={activeSection === s.id ? 'text-(--brand-gold)' : 'text-(--text-faint)'}>{s.icon}</span>
               {s.label}
             </button>
           ))}
@@ -66,14 +65,14 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
         <div className="flex-1 min-w-0">
           {activeSection === 'profile' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <User className="w-5 h-5 text-[#E9C349]" /> HR Officer Profile
+              <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
+                <User className="w-5 h-5" style={{ color: "var(--brand-gold)" }} /> HR Officer Profile
               </h3>
               <div className="flex items-center gap-4">
                 <img src={profile.avatar} alt={profile.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E9C349]/40" />
                 <div>
-                  <p className="font-serif text-base font-bold text-white">{profile.title}</p>
-                  <p className="font-sans text-xs text-white/50">{profile.department}</p>
+                  <p className="font-serif text-base font-bold" style={{ color: "var(--text-primary)" }}>{profile.title}</p>
+                  <p className="font-sans text-xs" style={{ color: "var(--text-muted)" }}>{profile.department}</p>
                   <Badge variant="gold" className="mt-1">{profile.employeeId}</Badge>
                 </div>
               </div>
@@ -95,8 +94,8 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
 
           {activeSection === 'notifications' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Bell className="w-5 h-5 text-[#E9C349]" /> Notification Preferences
+              <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
+                <Bell className="w-5 h-5" style={{ color: "var(--brand-gold)" }} /> Notification Preferences
               </h3>
               <div className="space-y-3">
                 {Object.entries(notifications).map(([key, val]) => {
@@ -110,10 +109,10 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
                   };
                   const item = labels[key];
                   return (
-                    <label key={key} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl cursor-pointer border border-white/10 hover:bg-white/[0.08] transition-colors">
+                    <label key={key} className="flex items-center justify-between p-4 rounded-2xl cursor-pointer border transition-colors" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--border-default)" }}>
                       <div>
-                        <p className="font-sans text-sm font-semibold text-white">{item.title}</p>
-                        <p className="font-sans text-xs text-white/50 mt-0.5">{item.desc}</p>
+                        <p className="font-sans text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{item.title}</p>
+                        <p className="font-sans text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{item.desc}</p>
                       </div>
                       <input type="checkbox" checked={val} onChange={e => setNotifications({ ...notifications, [key]: e.target.checked })}
                         className="w-5 h-5 accent-[#E9C349] cursor-pointer" />
@@ -131,8 +130,8 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
 
           {activeSection === 'security' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Lock className="w-5 h-5 text-[#E9C349]" /> Password & Security
+              <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
+                <Lock className="w-5 h-5" style={{ color: "var(--brand-gold)" }} /> Password & Security
               </h3>
               <div className="space-y-4">
                 <Input label="Current Password" type="password" placeholder="Enter current password" />
@@ -148,29 +147,23 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
             </Card>
           )}
 
-          {activeSection === 'appearance' && (
-            <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
-              <AppearanceSection variant="inline" />
-            </Card>
-          )}
-
           {activeSection === 'language' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Globe className="w-5 h-5 text-[#E9C349]" /> Language & Region
+              <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
+                <Globe className="w-5 h-5" style={{ color: "var(--brand-gold)" }} /> Language & Region
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-sans text-xs font-semibold text-white/70">Display Language</label>
-                  <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-[#E9C349]">
-                    <option className="bg-[#1a1a1b]">English (US)</option>
-                    <option className="bg-[#1a1a1b]">Amharic (አማርኛ)</option>
+                  <label className="font-sans text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>Display Language</label>
+                  <select className="ds-input w-full px-4 py-3 rounded-xl font-sans text-sm focus:outline-none">
+                    <option style={{ backgroundColor: "var(--bg-card-solid)" }}>English (US)</option>
+                    <option style={{ backgroundColor: "var(--bg-card-solid)" }}>Amharic (አማርኛ)</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-sans text-xs font-semibold text-white/70">Timezone</label>
-                  <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-[#E9C349]">
-                    <option className="bg-[#1a1a1b]">Africa/Addis_Ababa (EAT, UTC+3)</option>
+                  <label className="font-sans text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>Timezone</label>
+                  <select className="ds-input w-full px-4 py-3 rounded-xl font-sans text-sm focus:outline-none">
+                    <option style={{ backgroundColor: "var(--bg-card-solid)" }}>Africa/Addis_Ababa (EAT, UTC+3)</option>
                   </select>
                 </div>
               </div>
@@ -182,17 +175,17 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
 
           {activeSection === 'sessions' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Shield className="w-5 h-5 text-[#E9C349]" /> Active Sessions
+              <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
+                <Shield className="w-5 h-5" style={{ color: "var(--brand-gold)" }} /> Active Sessions
               </h3>
               {[
                 { device: 'MacBook Pro — Chrome 126', location: 'Addis Ababa, ET', time: 'Current session', current: true },
                 { device: 'iPhone 15 — Safari',       location: 'Addis Ababa, ET', time: '3 hours ago',    current: false },
               ].map((s, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-white/5 border border-white/8 rounded-2xl">
+                <div key={i} className="flex items-center justify-between p-4 border rounded-2xl" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--border-subtle)" }}>
                   <div>
-                    <p className="font-sans text-sm font-semibold text-white">{s.device}</p>
-                    <p className="font-sans text-xs text-white/50 mt-0.5">{s.location} · {s.time}</p>
+                    <p className="font-sans text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{s.device}</p>
+                    <p className="font-sans text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.location} · {s.time}</p>
                   </div>
                   {s.current ? <Badge variant="emerald">Current</Badge> : <Button variant="danger" size="sm">Revoke</Button>}
                 </div>

@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Search, Filter, ShieldAlert, Clock, 
   User, Database, RefreshCw, Terminal, Globe
 } from 'lucide-react';
+import { EmptyState } from '../ui/States';
 import { Badge } from '../ui/Badge';
 
 // Mock system audit logs
@@ -39,20 +41,20 @@ export const AuditLogsTimeline: React.FC = () => {
       className="space-y-6"
     >
       <div>
-        <h2 className="text-2xl font-serif font-bold text-white tracking-wide">System Audit Logs</h2>
-        <p className="text-xs text-white/50">Trace administrative transactions, security audits, and course override justifications.</p>
+        <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">System Audit Logs</h2>
+        <p className="text-xs text-(--text-muted)">Trace administrative transactions, security audits, and course override justifications.</p>
       </div>
 
       {/* Advanced Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl backdrop-blur-md">
         <div className="relative col-span-1 md:col-span-2">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by Actor, Action description, or Affected Record..."
-            className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white"
+            className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-primary)"
           />
         </div>
 
@@ -60,7 +62,7 @@ export const AuditLogsTimeline: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-3 py-2.5 bg-black/30 border border-white/8 rounded-xl focus:outline-none focus:border-[#D4AF37] text-xs text-white/70"
+            className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-secondary)"
           >
             <option value="All">All Operations</option>
             <option value="Success">Success</option>
@@ -70,9 +72,9 @@ export const AuditLogsTimeline: React.FC = () => {
       </div>
 
       {/* Table Audit Logs */}
-      <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-left text-xs font-sans">
-          <thead className="bg-white/5 border-b border-white/10 text-white/50 font-mono text-[10px] uppercase tracking-wider">
+          <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-5 py-4">Timestamp</th>
               <th className="px-5 py-4">Authorized User</th>
@@ -82,27 +84,27 @@ export const AuditLogsTimeline: React.FC = () => {
               <th className="px-5 py-4 text-right">Result</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-white/80">
+          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
             {filteredLogs.map(l => (
-              <tr key={l.id} className="hover:bg-white/[0.02] transition-colors">
-                <td className="px-5 py-4 font-mono text-[10px] text-white/50">{l.time}</td>
+              <tr key={l.id} className="hover:bg-(--hover-overlay) transition-colors">
+                <td className="px-5 py-4 font-mono text-[10px] text-(--text-muted)">{l.time}</td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 text-white/30" />
+                    <User className="w-3.5 h-3.5 text-(--text-faint)" />
                     <div>
-                      <p className="font-semibold text-white">{l.user}</p>
-                      <p className="text-[9px] text-white/40 font-mono">{l.role}</p>
+                      <p className="font-semibold text-(--text-primary)">{l.user}</p>
+                      <p className="text-[9px] text-(--text-faint) font-mono">{l.role}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-5 py-4 font-medium text-white/90">{l.action}</td>
+                <td className="px-5 py-4 font-medium text-(--text-primary)">{l.action}</td>
                 <td className="px-5 py-4">
-                  <span className="font-mono text-[10px] bg-white/5 border border-white/8 px-1.5 py-0.5 rounded text-[#D4AF37]/90">{l.record}</span>
+                  <span className="font-mono text-[10px] bg-(--hover-overlay) border border-(--border-subtle) px-1.5 py-0.5 rounded text-(--brand-gold)/90">{l.record}</span>
                 </td>
-                <td className="px-5 py-4 font-mono text-[10px] text-white/50">
+                <td className="px-5 py-4 font-mono text-[10px] text-(--text-muted)">
                   <div className="flex items-center gap-1.5">
-                    <Globe className="w-3 h-3 text-white/20" />
-                    <span>{l.ip} <span className="text-white/30">({l.device})</span></span>
+                    <Globe className="w-3 h-3" style={{ color: "var(--text-faint)" }} />
+                    <span>{l.ip} <span className="text-(--text-faint)">({l.device})</span></span>
                   </div>
                 </td>
                 <td className="px-5 py-4 text-right">
@@ -114,17 +116,15 @@ export const AuditLogsTimeline: React.FC = () => {
             ))}
             {filteredLogs.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center py-8 text-white/40 font-mono text-[11px]">
-                  No system logs match search parameters.
-                </td>
+                <td colSpan={6} className="p-0"><EmptyState variant="default" compact /></td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="p-4 bg-white/5 border border-white/10 rounded-2xl flex gap-3 text-xs leading-relaxed text-white/60">
-        <ShieldAlert className="w-4 h-4 shrink-0 text-[#D4AF37]" />
+      <div className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl flex gap-3 text-xs leading-relaxed text-(--text-secondary)">
+        <ShieldAlert className="w-4 h-4 shrink-0 text-(--brand-gold)" />
         <div>
           <strong>Compliance Compliance Warning:</strong> Audit Logs represent write-once ledger transactions. Deletion, alteration, or tampering with audit timeline entries is strictly blocked by cryptography signatures.
         </div>

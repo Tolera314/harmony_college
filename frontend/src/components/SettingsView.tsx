@@ -3,14 +3,16 @@ import { StudentProfile } from '../types';
 import {
   User,
   Bell,
+  Moon,
+  Sun,
   CheckCircle2,
   Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { AppearanceSection } from './ui/AppearanceSection';
 
 interface SettingsViewProps {
   profile: StudentProfile;
@@ -54,18 +56,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }}
       className="space-y-8 max-w-4xl pb-8"
     >
       {/* Header Banner */}
       <Card hoverable={false} className="space-y-2">
-        <h2 className="font-serif text-3xl font-bold text-white">
-          Account Settings & Preferences
+        <h2 className="font-serif text-3xl font-bold" style={{ color: "var(--text-primary)" }}>  Account Settings & Preferences
         </h2>
-        <p className="font-sans text-xs sm:text-sm text-white/60">
-          Manage your student profile information, security, theme mode, and portal notification channels.
+        <p className="font-sans text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>  Manage your student profile information, security, theme mode, and portal notification channels.
         </p>
       </Card>
 
@@ -75,9 +73,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-4 bg-emerald-950/40 border border-emerald-800 text-emerald-300 rounded-2xl font-sans text-xs font-semibold flex items-center gap-2"
+            className="p-4 ds-badge-success border rounded-2xl font-sans text-xs font-semibold flex items-center gap-2"
           >
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <CheckCircle2 className="w-5 h-5" style={{ color: "var(--status-success)" }} />
             <span>Profile changes saved successfully!</span>
           </motion.div>
         )}
@@ -85,9 +83,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Student Information Form */}
       <Card hoverable={false} className="space-y-6">
-        <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-          <User className="w-5 h-5 text-[#E9C349]" />
-          Personal Student Profile
+        <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
+          <User className="w-5 h-5" style={{ color: "var(--brand-gold)" }} />  Personal Student Profile
         </h3>
 
         <form onSubmit={handleSaveProfile} className="space-y-5 text-xs sm:text-sm font-sans">
@@ -146,22 +143,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </Card>
 
       {/* Theme & Contrast Preferences */}
-      <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
-        <AppearanceSection variant="inline" title="Appearance & Theme" />
+      <Card hoverable={false} className="space-y-4">
+        <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
+          {darkMode ? <Moon className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} /> : <Sun className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />}
+          Appearance & Contrast Mode
+        </h3>
+
+        <div className="flex items-center justify-between p-5 rounded-2xl text-xs sm:text-sm font-sans border" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--border-default)" }}>
+          <div>
+            <p className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>Dark / High Contrast Theme</p>
+            <p className="" style={{ color: "var(--text-secondary)" }}>  Harmony College default dark obsidian interface optimized for student study.
+            </p>
+          </div>
+          <Button
+            variant={darkMode ? 'primary' : 'secondary'}
+            onClick={() => setDarkMode((prev) => !prev)}
+          >
+            {darkMode ? 'Light Mode' : 'Dark Mode'}
+          </Button>
+        </div>
       </Card>
 
       {/* Notifications Switch Panel */}
       <Card hoverable={false} className="space-y-4">
-        <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-          <Bell className="w-5 h-5 text-[#E9C349]" />
-          Portal Notifications & Alerts
+        <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
+          <Bell className="w-5 h-5" style={{ color: "var(--brand-gold)" }} />  Portal Notifications & Alerts
         </h3>
 
         <div className="space-y-3 text-xs sm:text-sm font-sans">
-          <label className="flex items-center justify-between p-4 bg-white/5 rounded-2xl cursor-pointer border border-white/10">
+          <label className="flex items-center justify-between p-4 rounded-2xl cursor-pointer border" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--border-default)" }}>
             <div>
-              <p className="font-semibold text-white">Grade Posting Alerts</p>
-              <p className="text-white/50">Instant push notification when professors release midterm or final marks.</p>
+              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Grade Posting Alerts</p>
+              <p className="" style={{ color: "var(--text-muted)" }}>Instant push notification when professors release midterm or final marks.</p>
             </div>
             <input
               type="checkbox"
@@ -171,10 +184,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             />
           </label>
 
-          <label className="flex items-center justify-between p-4 bg-white/5 rounded-2xl cursor-pointer border border-white/10">
+          <label className="flex items-center justify-between p-4 rounded-2xl cursor-pointer border" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--border-default)" }}>
             <div>
-              <p className="font-semibold text-white">Tuition & Billing Reminders</p>
-              <p className="text-white/50">Notices regarding scholarship renewal and tuition due dates.</p>
+              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Tuition & Billing Reminders</p>
+              <p className="" style={{ color: "var(--text-muted)" }}>Notices regarding scholarship renewal and tuition due dates.</p>
             </div>
             <input
               type="checkbox"
@@ -184,10 +197,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             />
           </label>
 
-          <label className="flex items-center justify-between p-4 bg-white/5 rounded-2xl cursor-pointer border border-white/10">
+          <label className="flex items-center justify-between p-4 rounded-2xl cursor-pointer border" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--border-default)" }}>
             <div>
-              <p className="font-semibold text-white">Advisor Direct Messages</p>
-              <p className="text-white/50">Notifications when Dr. Marcus Vance responds to advising inquiries.</p>
+              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Advisor Direct Messages</p>
+              <p className="" style={{ color: "var(--text-muted)" }}>Notifications when Dr. Marcus Vance responds to advising inquiries.</p>
             </div>
             <input
               type="checkbox"

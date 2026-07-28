@@ -3,44 +3,45 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { HRNavTab, HRNotification } from '@/src/types/hr';
 import { hrProfile, hrKPIs, hrNotifications as initialNotifs } from '@/src/data/hrData';
-
 import { HRSidebar }           from '@/src/components/hr/HRSidebar';
 import { HRHeader }            from '@/src/components/hr/HRHeader';
 import { HRMobileNav }         from '@/src/components/hr/HRMobileNav';
 import { HRSearchModal }       from '@/src/components/hr/HRSearchModal';
 import { HRLogoutModal }       from '@/src/components/hr/HRLogoutModal';
-
-import dynamic from 'next/dynamic';
-
-import { HROverviewView } from '@/src/components/hr/views/HROverviewView';
-
-const HREmployeesView = dynamic(() => import('@/src/components/hr/views/HREmployeesView').then(m => m.HREmployeesView), { ssr: false });
-const HROnboardingView = dynamic(() => import('@/src/components/hr/views/HROnboardingView').then(m => m.HROnboardingView), { ssr: false });
-const HRLeaveView = dynamic(() => import('@/src/components/hr/views/HRLeaveView').then(m => m.HRLeaveView), { ssr: false });
-const HRPayrollView = dynamic(() => import('@/src/components/hr/views/HRPayrollView').then(m => m.HRPayrollView), { ssr: false });
-const HRPerformanceView = dynamic(() => import('@/src/components/hr/views/HRPerformanceView').then(m => m.HRPerformanceView), { ssr: false });
-const HRDocumentsView = dynamic(() => import('@/src/components/hr/views/HRDocumentsView').then(m => m.HRDocumentsView), { ssr: false });
-const HRReportsView = dynamic(() => import('@/src/components/hr/views/HRReportsView').then(m => m.HRReportsView), { ssr: false });
-const HRNotificationsView = dynamic(() => import('@/src/components/hr/views/HRNotificationsView').then(m => m.HRNotificationsView), { ssr: false });
-const HRAuditLogView = dynamic(() => import('@/src/components/hr/views/HRAuditLogView').then(m => m.HRAuditLogView), { ssr: false });
-const HRSettingsView = dynamic(() => import('@/src/components/hr/views/HRSettingsView').then(m => m.HRSettingsView), { ssr: false });
+import { HROverviewView }      from '@/src/components/hr/views/HROverviewView';
+import { HREmployeesView }     from '@/src/components/hr/views/HREmployeesView';
+import { HROnboardingView }    from '@/src/components/hr/views/HROnboardingView';
+import { HRLeaveView }         from '@/src/components/hr/views/HRLeaveView';
+import { HRPayrollView }       from '@/src/components/hr/views/HRPayrollView';
+import { HRPerformanceView }   from '@/src/components/hr/views/HRPerformanceView';
+import { HRDocumentsView }     from '@/src/components/hr/views/HRDocumentsView';
+import { HRReportsView }       from '@/src/components/hr/views/HRReportsView';
+import { HRNotificationsView } from '@/src/components/hr/views/HRNotificationsView';
+import { HRAuditLogView }      from '@/src/components/hr/views/HRAuditLogView';
+import { HRSettingsView }      from '@/src/components/hr/views/HRSettingsView';
+import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
+import { AnimatePresence, motion } from 'motion/react';
 
 export default function HRDashboardPage() {
-  const [activeTab,     setActiveTab]     = useState<HRNavTab>('overview');
+  const [activeTab,     setRawTab]       = useState<HRNavTab>('overview');
   const [notifications, setNotifications] = useState<HRNotification[]>(initialNotifs);
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [logoutOpen,    setLogoutOpen]    = useState(false);
+  const [tabLoading,    setTabLoading]    = useState(false);
+  const { toast, show: showToast, hide: hideToast } = useToast();
 
   const unreadCount  = notifications.filter(n => !n.read).length;
   const pendingLeave = hrKPIs.pendingLeaveRequests;
 
-  // Ctrl+K global search shortcut
+  const setActiveTab = (tab: HRNavTab) => {
+    if (tab === activeTab) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab); setTabLoading(false); }, 120);
+  };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(true);
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -63,6 +64,7 @@ export default function HRDashboardPage() {
   };
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':       return <HROverviewView setActiveTab={setActiveTab} />;
       case 'employees':      return <HREmployeesView />;
@@ -88,61 +90,35 @@ export default function HRDashboardPage() {
 
   return (
     <>
-      {/* Background — deep obsidian with radial gold glow */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-[#E9C349]/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] bg-[#E9C349]/4 rounded-full blur-[100px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.6)_0%,transparent_70%)]" />
-      </div>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
+      <SessionExpiredOverlay isVisible={false} onSignIn={() => { window.location.href = '/signin'; }} />
 
-      <div className="relative z-10 min-h-screen text-white">
-        {/* Sidebar */}
+      <div className="dashboard-bg" aria-hidden="true" />
+
+      <div className="dashboard-content">
         <HRSidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          profile={hrProfile}
-          unreadCount={unreadCount}
-          pendingLeave={pendingLeave}
-          onLogout={() => setLogoutOpen(true)}
+          activeTab={activeTab} setActiveTab={setActiveTab} profile={hrProfile}
+          unreadCount={unreadCount} pendingLeave={pendingLeave} onLogout={() => setLogoutOpen(true)}
         />
-
-        {/* Main */}
         <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen transition-all duration-300">
           <HRHeader
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            profile={hrProfile}
-            notifications={notifications}
-            unreadCount={unreadCount}
-            onMarkRead={handleMarkRead}
-            onOpenSearch={() => setSearchOpen(true)}
+            activeTab={activeTab} setActiveTab={setActiveTab} profile={hrProfile}
+            notifications={notifications} unreadCount={unreadCount}
+            onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)}
           />
-
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
-            {renderView()}
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
-
-        {/* Mobile bottom nav */}
-        <HRMobileNav
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          unreadCount={unreadCount}
-          pendingLeave={pendingLeave}
-        />
+        <HRMobileNav activeTab={activeTab} setActiveTab={setActiveTab} unreadCount={unreadCount} pendingLeave={pendingLeave} />
       </div>
 
-      {/* Global modals */}
-      <HRSearchModal
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onNavigate={tab => { setActiveTab(tab); setSearchOpen(false); }}
-      />
-      <HRLogoutModal
-        isOpen={logoutOpen}
-        onClose={() => setLogoutOpen(false)}
-        onConfirm={handleLogout}
-      />
+      <HRSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onNavigate={tab => { setActiveTab(tab); setSearchOpen(false); }} />
+      <HRLogoutModal isOpen={logoutOpen} onClose={() => setLogoutOpen(false)} onConfirm={handleLogout} />
     </>
   );
 }

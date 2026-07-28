@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { Bell, CheckCheck, Filter } from 'lucide-react';
 import { FOPageHeader } from '../FOPageHeader';
 import { Badge } from '../../ui/Badge';
@@ -16,11 +17,11 @@ interface FONotificationsViewProps {
 }
 
 const typeConfig: Record<FONotification['type'], { label: string; color: string; dot: string }> = {
-  payment_received:      { label: 'Payment',       color: 'text-emerald-400', dot: 'bg-emerald-400' },
-  payment_overdue:       { label: 'Overdue',        color: 'text-rose-400',    dot: 'bg-rose-400'    },
-  installment_due:       { label: 'Installment',    color: 'text-amber-400',   dot: 'bg-amber-400'   },
+  payment_received:      { label: 'Payment',       color: 'text-(--status-success)', dot: 'bg-emerald-400' },
+  payment_overdue:       { label: 'Overdue',        color: 'text-(--status-danger)',    dot: 'bg-rose-400'    },
+  installment_due:       { label: 'Installment',    color: 'text-(--status-warning)',   dot: 'bg-amber-400'   },
   reconciliation_failed: { label: 'Reconciliation', color: 'text-red-400',     dot: 'bg-red-400'     },
-  large_payment:         { label: 'Large Payment',  color: 'text-[#E9C349]',   dot: 'bg-[#E9C349]'  },
+  large_payment:         { label: 'Large Payment',  color: 'text-(--brand-gold)',   dot: 'bg-[#E9C349]'  },
   system:                { label: 'System',         color: 'text-blue-400',    dot: 'bg-blue-400'    },
   reminder:              { label: 'Reminder',       color: 'text-purple-400',  dot: 'bg-purple-400'  },
 };
@@ -66,13 +67,13 @@ export const FONotificationsView: React.FC<FONotificationsViewProps> = ({
 
       {/* Filter chips */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Filter className="w-4 h-4 text-white/40 shrink-0" />
+        <Filter className="w-4 h-4 text-(--text-faint) shrink-0" />
         {filters.map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-full font-mono text-xs transition-all border ${
               filter === f
-                ? 'bg-[#E9C349]/20 text-[#E9C349] border-[#E9C349]/40'
-                : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
+                ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border-(--accent-gold-border)'
+                : 'bg-(--hover-overlay) text-(--text-muted) border-(--border-default) hover:bg-(--hover-overlay)'
             }`}>
             {filterLabel(f)}
           </button>
@@ -84,8 +85,8 @@ export const FONotificationsView: React.FC<FONotificationsViewProps> = ({
         {filtered.length === 0 && (
           <div className="py-16 text-center">
             <Bell className="w-12 h-12 text-white/10 mx-auto mb-4" />
-            <p className="font-serif text-lg font-bold text-white/20">No notifications</p>
-            <p className="font-sans text-sm text-white/30 mt-1">You&apos;re all caught up.</p>
+            <p className="font-serif text-lg font-bold text-(--text-faint)">No notifications</p>
+            <p className="font-sans text-sm text-(--text-faint) mt-1">You&apos;re all caught up.</p>
           </div>
         )}
         {filtered.map((n) => (
@@ -96,12 +97,12 @@ export const FONotificationsView: React.FC<FONotificationsViewProps> = ({
             onClick={() => { onMarkRead(n.id); setActiveTab(n.tab); }}
             className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all hover:border-white/20 ${
               n.read
-                ? 'border-white/5 bg-transparent'
-                : 'border-[#E9C349]/20 bg-[#E9C349]/3'
+                ? 'border-(--border-subtle) bg-transparent'
+                : 'border-(--accent-gold-border) bg-[#E9C349]/3'
             }`}
           >
             {/* Emoji icon */}
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${n.read ? 'bg-white/5' : 'bg-[#E9C349]/10'}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${n.read ? 'bg-(--hover-overlay)' : 'bg-(--accent-gold-subtle)'}`}>
               {typeEmoji[n.type]}
             </div>
 
@@ -109,15 +110,15 @@ export const FONotificationsView: React.FC<FONotificationsViewProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className={`font-sans text-sm font-semibold ${n.read ? 'text-white/60' : 'text-white'}`}>{n.title}</p>
+                  <p className={`font-sans text-sm font-semibold ${n.read ? 'text-(--text-secondary)' : 'text-(--text-primary)'}`}>{n.title}</p>
                   {!n.read && <span className="w-2 h-2 bg-[#E9C349] rounded-full shrink-0" />}
                   <span className={`font-mono text-[10px] ${typeConfig[n.type].color}`}>{typeConfig[n.type].label}</span>
                 </div>
-                <p className="font-mono text-[10px] text-white/30 shrink-0 whitespace-nowrap">{n.timestamp}</p>
+                <p className="font-mono text-[10px] text-(--text-faint) shrink-0 whitespace-nowrap">{n.timestamp}</p>
               </div>
-              <p className="font-sans text-xs text-white/50 mt-1 leading-relaxed line-clamp-2">{n.message}</p>
+              <p className="font-sans text-xs text-(--text-muted) mt-1 leading-relaxed line-clamp-2">{n.message}</p>
               {n.amount && (
-                <p className="font-mono text-xs text-[#E9C349] mt-1.5 font-bold">ETB {n.amount.toLocaleString()}</p>
+                <p className="font-mono text-xs text-(--brand-gold) mt-1.5 font-bold">ETB {n.amount.toLocaleString()}</p>
               )}
             </div>
           </motion.div>

@@ -48,33 +48,33 @@ export const DHSearchModal: React.FC<DHSearchModalProps> = ({ isOpen, onClose, o
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-start justify-center pt-[15vh] px-4" onClick={onClose}>
+        <div className="fixed inset-0 backdrop-blur-md z-50 flex items-start justify-center pt-[15vh] px-4" style={{ backgroundColor: "var(--overlay-modal-bg)" }} onClick={onClose}>
           <motion.div
             initial={{ opacity: 0, scale: 0.97, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: -10 }}
             transition={{ duration: 0.18 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl bg-[var(--bg-panel)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-xl ds-search-modal border rounded-2xl shadow-2xl overflow-hidden"
           >
             {/* Input */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/10">
-              <Search className="w-5 h-5 text-white/40 shrink-0" />
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b ds-search-modal-bar">
+              <Search className="w-5 h-5 shrink-0" style={{ color: "var(--text-faint)" }} />
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search faculty, courses, students..."
-                className="flex-1 bg-transparent font-sans text-sm text-white placeholder:text-white/30 outline-none"
+                className="flex-1 ds-search-modal-input font-sans text-sm outline-none"
                 aria-label="Global search"
               />
               {query && (
-                <button onClick={() => setQuery('')} className="p-1 rounded-full hover:bg-white/10 text-white/40 transition-colors">
+                <button onClick={() => setQuery('')} className="p-1 rounded-full transition-colors" style={{ color: "var(--text-faint)" }}>
                   <X className="w-4 h-4" />
                 </button>
               )}
-              <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 bg-white/8 border border-white/10 rounded text-[10px] font-mono text-white/40">
+              <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 border rounded text-[10px] font-mono" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--border-default)", color: "var(--text-faint)" }}>
                 Esc
               </kbd>
             </div>
@@ -86,12 +86,12 @@ export const DHSearchModal: React.FC<DHSearchModalProps> = ({ isOpen, onClose, o
                   <li key={r.id} role="option">
                     <button
                       onClick={() => handleSelect(r)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left" onMouseEnter={(e) => e.currentTarget.style.backgroundColor="var(--hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.backgroundColor=""}
                     >
-                      <span className="text-[#E9C349] shrink-0">{r.icon}</span>
+                      <span className="shrink-0" style={{ color: "var(--brand-gold)" }}>{r.icon}</span>
                       <div className="min-w-0">
-                        <p className="font-sans text-sm text-white truncate">{r.label}</p>
-                        <p className="font-mono text-[11px] text-white/40 truncate">{r.sub}</p>
+                        <p className="font-sans text-sm truncate" style={{ color: "var(--text-primary)" }}>{r.label}</p>
+                        <p className="font-mono text-[11px] truncate" style={{ color: "var(--text-faint)" }}>{r.sub}</p>
                       </div>
                     </button>
                   </li>
@@ -99,11 +99,11 @@ export const DHSearchModal: React.FC<DHSearchModalProps> = ({ isOpen, onClose, o
               </ul>
             ) : q.length >= 2 ? (
               <div className="py-12 text-center">
-                <p className="font-sans text-sm text-white/40">No results for &quot;{query}&quot;</p>
+                <p className="font-sans text-sm" style={{ color: "var(--text-muted)" }}>No results for &quot;{query}&quot;</p>
               </div>
             ) : (
               <div className="py-8 px-4">
-                <p className="font-mono text-[11px] text-white/30 uppercase tracking-wider mb-3">Quick navigate</p>
+                <p className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: "var(--text-faint)" }}>Quick navigate</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { tab: 'courses' as DHNavTab, label: 'Course Offerings', icon: <BookOpen className="w-4 h-4" /> },
@@ -113,9 +113,9 @@ export const DHSearchModal: React.FC<DHSearchModalProps> = ({ isOpen, onClose, o
                     { tab: 'reports' as DHNavTab, label: 'Reports', icon: <BarChart3 className="w-4 h-4" /> },
                   ].map((item) => (
                     <button key={item.tab} onClick={() => { onNavigate(item.tab); onClose(); }}
-                      className="flex items-center gap-2.5 px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 rounded-xl text-left transition-colors">
-                      <span className="text-[#E9C349]">{item.icon}</span>
-                      <span className="font-sans text-xs text-white/70">{item.label}</span>
+                      className="flex items-center gap-2.5 px-3 py-2.5 ds-search-quick-btn border rounded-xl text-left transition-colors">
+                      <span style={{ color: "var(--brand-gold)" }}>{item.icon}</span>
+                      <span className="font-sans text-xs" style={{ color: "var(--text-secondary)" }}>{item.label}</span>
                     </button>
                   ))}
                 </div>

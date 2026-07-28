@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { BookOpen, Users, Calendar, MapPin, Clock, TrendingUp } from 'lucide-react';
 import { InstructorNavTab } from '../../../types/instructor';
 import { DHPageHeader } from '../../dh/DHPageHeader';
@@ -18,7 +19,7 @@ export const InMyClassesView: React.FC<InMyClassesViewProps> = ({ setActiveTab }
   const myCourses = courses.filter(c => c.facultyId === 'f01');
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader title="My Classes" subtitle="Fall 2024 · 2 active courses" icon={<BookOpen className="w-5 h-5" />} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -34,40 +35,40 @@ export const InMyClassesView: React.FC<InMyClassesViewProps> = ({ setActiveTab }
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="font-mono text-xs font-bold text-[#E9C349]">{course.code}</span>
+                    <span className="font-mono text-xs font-bold text-(--brand-gold)">{course.code}</span>
                     <Badge variant={course.status === 'Active' ? 'emerald' : 'glass'}>{course.status}</Badge>
                   </div>
-                  <h3 className="font-serif text-lg font-bold text-white truncate">{course.title}</h3>
-                  <p className="font-sans text-xs text-white/50 mt-1">{course.description}</p>
+                  <h3 className="font-serif text-lg font-bold text-(--text-primary) truncate">{course.title}</h3>
+                  <p className="font-sans text-xs text-(--text-muted) mt-1">{course.description}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Credits</p>
-                  <p className="font-mono text-lg font-bold text-white mt-0.5">{course.credits}</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Credits</p>
+                  <p className="font-mono text-lg font-bold text-(--text-primary) mt-0.5">{course.credits}</p>
                 </div>
-                <div className="p-3 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Enrolled</p>
-                  <p className="font-mono text-lg font-bold text-white mt-0.5">{course.registered}/{course.capacity}</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Enrolled</p>
+                  <p className="font-mono text-lg font-bold text-(--text-primary) mt-0.5">{course.registered}/{course.capacity}</p>
                 </div>
-                <div className="p-3 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Avg Attendance</p>
-                  <p className={`font-mono text-lg font-bold mt-0.5 ${avgAtt >= 90 ? 'text-emerald-400' : avgAtt >= 80 ? 'text-[#E9C349]' : 'text-rose-400'}`}>{avgAtt}%</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Avg Attendance</p>
+                  <p className={`font-mono text-lg font-bold mt-0.5 ${avgAtt >= 90 ? 'text-(--status-success)' : avgAtt >= 80 ? 'text-(--brand-gold)' : 'text-(--status-danger)'}`}>{avgAtt}%</p>
                 </div>
-                <div className="p-3 bg-white/5 rounded-xl border border-white/8">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">Avg GPA</p>
-                  <p className="font-mono text-lg font-bold text-[#E9C349] mt-0.5">{avgGpa}</p>
+                <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Avg GPA</p>
+                  <p className="font-mono text-lg font-bold text-(--brand-gold) mt-0.5">{avgGpa}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-white/60">
-                  <Calendar className="w-3.5 h-3.5 text-white/40" />
+                <div className="flex items-center gap-2 text-xs text-(--text-secondary)">
+                  <Calendar className="w-3.5 h-3.5 text-(--text-faint)" />
                   <span className="font-sans">{course.schedule}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-white/60">
-                  <MapPin className="w-3.5 h-3.5 text-white/40" />
+                <div className="flex items-center gap-2 text-xs text-(--text-secondary)">
+                  <MapPin className="w-3.5 h-3.5 text-(--text-faint)" />
                   <span className="font-sans">{room?.name} · {room?.building}</span>
                 </div>
               </div>

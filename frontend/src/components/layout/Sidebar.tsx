@@ -14,6 +14,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
 
 export interface GenericNavItem<T extends string = string> {
@@ -76,7 +77,7 @@ export const Sidebar = <T extends string = NavTab>({
           onClick={() => setActiveTab(items[0]?.id)}
           className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] rounded-xl"
         >
-          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-[#E9C349] to-[#b8951d] text-[#0F0F10] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
+          <div className="w-10 h-10 rounded-xl text-[--text-inverse] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundImage: 'linear-gradient(to bottom right, var(--brand-gold), var(--brand-gold-dark))' }}>
             H
           </div>
           {!collapsed && (
@@ -112,16 +113,18 @@ export const Sidebar = <T extends string = NavTab>({
               whileHover={{ x: 4 }}
               whileTap={{ scale: 0.97 }}
               aria-current={isActive ? 'page' : undefined}
+              aria-label={item.label}
+              title={item.label}
               className={`relative flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl font-sans text-sm font-medium transition-all group touch-target ${
-                isActive
-                  ? 'text-[#E9C349] font-semibold'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                isActive ? 'ds-nav-item-active font-semibold' : 'ds-nav-item'
               }`}
               title={collapsed ? item.label : undefined}
             >
               {isActive && (
-                <div
-                  className="absolute inset-0 bg-[#E9C349]/12 rounded-xl border-l-[3px] border-[#E9C349] transition-all duration-150"
+                <motion.div
+                  layoutId="activeSidebarPill"
+                  className="absolute inset-0 ds-nav-item-active-pill rounded-xl border-l-[3px]"
+                  transition={SPRING.pill}
                 />
               )}
 
@@ -148,6 +151,8 @@ export const Sidebar = <T extends string = NavTab>({
           onClick={() => setActiveTab('settings' as T)}
           whileHover={{ x: 4 }}
           whileTap={{ scale: 0.97 }}
+          aria-label="Settings"
+          aria-current={activeTab === 'settings' ? 'page' : undefined}
           className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl transition-all font-sans text-sm font-medium touch-target ${
             activeTab === ('settings' as T)
               ? 'bg-[#E9C349]/12 text-[#E9C349] font-semibold'

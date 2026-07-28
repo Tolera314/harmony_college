@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { Users, CalendarCheck, TrendingUp, Banknote, UserPlus, AlertTriangle, ArrowRight } from 'lucide-react';
 import { HRNavTab } from '../../../types/hr';
 import { KPICard } from '../../dh/KPICard';
@@ -20,8 +21,8 @@ interface HROverviewViewProps {
 }
 
 const statusColor: Record<string, string> = {
-  Active: 'text-emerald-400', 'On Leave': 'text-amber-400',
-  Terminated: 'text-rose-400', Inactive: 'text-white/40',
+  Active: 'text-(--status-success)', 'On Leave': 'text-(--status-warning)',
+  Terminated: 'text-(--status-danger)', Inactive: 'text-(--text-faint)',
 };
 
 export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) => {
@@ -31,35 +32,35 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
   const currentPayroll = payrollRecords[0];
 
   // Chart data
-  const deptBar = departments.map(d => ({ label: d.name.split(' ')[0], value: d.employeeCount, color: '#E9C349' }));
+  const deptBar = departments.map(d => ({ label: d.name.split(' ')[0], value: d.employeeCount, color: 'var(--brand-gold)' }));
   const hiresByMonth = [
     { label: 'Feb', value: 1 }, { label: 'Mar', value: 0 }, { label: 'Apr', value: 0 },
     { label: 'May', value: 1 }, { label: 'Jun', value: 0 }, { label: 'Jul', value: 0 },
   ];
   const statusSegs = [
-    { label: 'Active',   value: employees.filter(e => e.status === 'Active').length,     color: '#34d399' },
-    { label: 'On Leave', value: employees.filter(e => e.status === 'On Leave').length,   color: '#E9C349' },
-    { label: 'Terminated', value: employees.filter(e => e.status === 'Terminated').length, color: '#f87171' },
+    { label: 'Active',   value: employees.filter(e => e.status === 'Active').length,     color: 'var(--status-success)' },
+    { label: 'On Leave', value: employees.filter(e => e.status === 'On Leave').length,   color: 'var(--brand-gold)' },
+    { label: 'Terminated', value: employees.filter(e => e.status === 'Terminated').length, color: 'var(--status-danger)' },
   ];
   const leaveTypeSpark = [4, 6, 5, 8, 7, 9, 12];
   const payrollSpark  = [5.6, 5.7, 5.7, 5.8, 5.8];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-7 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-7 pb-16">
 
       {/* Hero */}
-      <section className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl min-h-[180px]">
+      <section className="relative rounded-3xl overflow-hidden border border-(--border-default) shadow-2xl min-h-[180px]">
         <div className="absolute inset-0 bg-linear-to-br from-[#E9C349]/10 via-transparent to-transparent pointer-events-none" />
         <div className="absolute top-0 right-0 w-80 h-80 bg-[#E9C349]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
           <div className="space-y-2.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9C349]/10 border border-[#E9C349]/30 text-[11px] font-mono font-semibold text-[#E9C349] uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[11px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" /> Harmony College HRIS · Active
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-white leading-tight">
+            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
               HR Officer Dashboard
             </h2>
-            <p className="font-sans text-sm text-white/55 max-w-lg">Human Resources · Academic Year 2024–2025</p>
+            <p className="font-sans text-sm text-(--text-muted) max-w-lg">Human Resources · Academic Year 2024–2025</p>
             <div className="flex flex-wrap gap-2 pt-1">
               {pendingLeave.length > 0 && (
                 <Button variant="primary" size="sm" icon={<CalendarCheck className="w-4 h-4" />} onClick={() => setActiveTab('leave')}>
@@ -79,10 +80,10 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
             </div>
           </div>
           <div className="hidden lg:flex flex-col items-end gap-2 shrink-0">
-            <div className="p-3 bg-white/5 border border-white/10 rounded-2xl text-right">
-              <p className="font-mono text-[10px] text-white/40 uppercase tracking-wider">Payroll Stage</p>
-              <p className="font-mono text-sm font-bold text-[#E9C349] mt-0.5">{currentPayroll.stage}</p>
-              <p className="font-mono text-xs text-white/40 mt-0.5">{currentPayroll.month} {currentPayroll.year}</p>
+            <div className="p-3 bg-(--hover-overlay) border border-(--border-default) rounded-2xl text-right">
+              <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Payroll Stage</p>
+              <p className="font-mono text-sm font-bold text-(--brand-gold) mt-0.5">{currentPayroll.stage}</p>
+              <p className="font-mono text-xs text-(--text-faint) mt-0.5">{currentPayroll.month} {currentPayroll.year}</p>
             </div>
           </div>
         </div>
@@ -103,15 +104,15 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Department Headcount</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Active employees per department</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Department Headcount</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Active employees per department</p>
             </div>
             <Badge variant="glass">{employees.filter(e => e.status === 'Active').length} total</Badge>
           </div>
           <BarChart data={deptBar} height={140} />
         </Card>
         <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-white">Employee Status</h3>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Employee Status</h3>
           <DonutChart segments={statusSegs} total={employees.length} centerLabel={String(employees.length)} />
         </Card>
       </section>
@@ -120,22 +121,22 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">Pending Leave Requests</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Pending Leave Requests</h3>
             <Button variant="ghost" size="sm" icon={<ArrowRight className="w-4 h-4" />} onClick={() => setActiveTab('leave')}>View all</Button>
           </div>
           {pendingLeave.length === 0 ? (
-            <p className="text-sm text-white/30 text-center py-6">No pending leave requests.</p>
+            <p className="text-sm text-(--text-faint) text-center py-6">No pending leave requests.</p>
           ) : (
             <div className="space-y-2">
               {pendingLeave.slice(0, 4).map(req => {
                 const emp = employees.find(e => e.id === req.employeeId);
                 return (
-                  <div key={req.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/8 rounded-xl">
+                  <div key={req.id} className="flex items-center justify-between p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
                     <div className="flex items-center gap-3 min-w-0">
-                      <img src={emp?.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+                      <img src={emp?.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-(--border-default) shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-sans text-xs font-semibold text-white truncate">{emp?.name}</p>
-                        <p className="font-mono text-[10px] text-white/40">{req.type} · {req.days}d · {req.startDate}</p>
+                        <p className="font-sans text-xs font-semibold text-(--text-primary) truncate">{emp?.name}</p>
+                        <p className="font-mono text-[10px] text-(--text-faint)">{req.type} · {req.days}d · {req.startDate}</p>
                       </div>
                     </div>
                     <Badge variant="amber">Pending</Badge>
@@ -148,23 +149,23 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
 
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">Contract Alerts</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Contract Alerts</h3>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('employees')}>View all</Button>
           </div>
           <div className="space-y-2">
             {expiringContracts.map(emp => (
-              <div key={emp.id} className="flex items-center justify-between p-3 bg-amber-950/20 border border-amber-800/30 rounded-xl">
+              <div key={emp.id} className="flex items-center justify-between p-3 bg-(--status-warning-bg) border border-(--status-warning-border) rounded-xl">
                 <div className="flex items-center gap-3">
-                  <img src={emp.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+                  <img src={emp.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-(--border-default) shrink-0" />
                   <div>
-                    <p className="font-sans text-xs font-semibold text-white">{emp.name}</p>
-                    <p className="font-mono text-[10px] text-white/40">Expires {emp.contractEndDate}</p>
+                    <p className="font-sans text-xs font-semibold text-(--text-primary)">{emp.name}</p>
+                    <p className="font-mono text-[10px] text-(--text-faint)">Expires {emp.contractEndDate}</p>
                   </div>
                 </div>
                 <Badge variant="amber">Expiring Soon</Badge>
               </div>
             ))}
-            {expiringContracts.length === 0 && <p className="text-sm text-white/30 text-center py-6">No expiring contracts.</p>}
+            {expiringContracts.length === 0 && <p className="text-sm text-(--text-faint) text-center py-6">No expiring contracts.</p>}
           </div>
         </Card>
       </section>
@@ -172,18 +173,18 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
       {/* Recent activity */}
       <Card hoverable={false} className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-serif text-lg font-bold text-white">Recent HR Activity</h3>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Recent HR Activity</h3>
           <Button variant="ghost" size="sm" onClick={() => setActiveTab('audit_log')}>View log</Button>
         </div>
         <div className="space-y-2">
           {hrAuditLog.slice(0, 5).map(entry => (
-            <div key={entry.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors">
-              <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${entry.status === 'Success' ? 'bg-emerald-400' : entry.status === 'Warning' ? 'bg-amber-400' : 'bg-rose-400'}`} />
+            <div key={entry.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-(--hover-overlay) transition-colors">
+              <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${entry.status === 'Success' ? 'bg-(--status-success)' : entry.status === 'Warning' ? 'bg-(--status-warning)' : 'bg-(--status-danger)'}`} />
               <div className="flex-1 min-w-0">
-                <p className="font-sans text-xs font-semibold text-white">{entry.action} — <span className="text-white/60">{entry.employee}</span></p>
-                <p className="font-sans text-xs text-white/40 truncate mt-0.5">{entry.description}</p>
+                <p className="font-sans text-xs font-semibold text-(--text-primary)">{entry.action} — <span className="text-(--text-secondary)">{entry.employee}</span></p>
+                <p className="font-sans text-xs text-(--text-faint) truncate mt-0.5">{entry.description}</p>
               </div>
-              <p className="font-mono text-[10px] text-white/30 shrink-0 hidden sm:block">{entry.date.split(' ')[0]}</p>
+              <p className="font-mono text-[10px] text-(--text-faint) shrink-0 hidden sm:block">{entry.date.split(' ')[0]}</p>
             </div>
           ))}
         </div>
