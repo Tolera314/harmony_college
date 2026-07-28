@@ -64,7 +64,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="h-screen w-full flex flex-col md:flex-row bg-[#0F0F10] text-white overflow-hidden font-sans">
+    <div className="h-screen w-full flex flex-col md:flex-row bg-[var(--bg-base)] text-white overflow-hidden font-sans">
       
       {/* LEFT SECTION (50%) */}
       <div className="relative w-full md:w-1/2 h-[35vh] md:h-full shrink-0 overflow-hidden">
@@ -134,7 +134,7 @@ export default function SignInPage() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="w-full max-w-lg bg-[#0F0F10]/60 backdrop-blur-2xl rounded-2xl border border-[#D4AF37]/30 p-8 shadow-2xl z-10"
+          className="w-full max-w-lg bg-[var(--bg-base)]/60 backdrop-blur-2xl rounded-2xl border border-[#D4AF37]/30 p-8 shadow-2xl z-10"
         >
           {/* Header */}
           <div className="flex flex-col items-center mb-8 text-center">
@@ -169,7 +169,7 @@ export default function SignInPage() {
                 className="w-full bg-black/40 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all peer placeholder-transparent"
                 placeholder="Email Address"
               />
-              <label htmlFor="email" className="absolute left-12 -top-2.5 bg-[#0F0F10] px-1 text-xs text-gray-500 peer-focus:text-[#D4AF37] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-focus:-top-2.5 peer-focus:text-xs">
+              <label htmlFor="email" className="absolute left-12 -top-2.5 bg-[var(--bg-base)] px-1 text-xs text-gray-500 peer-focus:text-[#D4AF37] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-focus:-top-2.5 peer-focus:text-xs">
                 Email Address
               </label>
             </div>
@@ -185,7 +185,7 @@ export default function SignInPage() {
                 className="w-full bg-black/40 border border-white/10 rounded-xl py-3.5 pl-12 pr-12 text-white text-sm focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all peer placeholder-transparent"
                 placeholder="Password"
               />
-              <label htmlFor="password" className="absolute left-12 -top-2.5 bg-[#0F0F10] px-1 text-xs text-gray-500 peer-focus:text-[#D4AF37] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-focus:-top-2.5 peer-focus:text-xs">
+              <label htmlFor="password" className="absolute left-12 -top-2.5 bg-[var(--bg-base)] px-1 text-xs text-gray-500 peer-focus:text-[#D4AF37] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-focus:-top-2.5 peer-focus:text-xs">
                 Password
               </label>
               <button 

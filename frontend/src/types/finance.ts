@@ -86,7 +86,7 @@ export interface FinanceStudent {
 }
 
 // ── Transaction ───────────────────────────────────────────────────────────────
-export type PaymentMethod = 'Cash' | 'Bank Transfer' | 'Telebirr' | 'Chapa' | 'Cheque';
+export type PaymentMethod = 'Cash' | 'Bank Transfer' | 'Telebirr' | 'Chapa';
 export type TransactionType = 'Tuition' | 'Fee' | 'Fine' | 'Scholarship' | 'Refund' | 'Installment';
 
 export interface Transaction {

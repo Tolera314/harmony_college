@@ -17,6 +17,7 @@ import {
   dailyCollections, outstandingTrend, departments,
   financeStudents, foKpis,
 } from '../../../data/financeData';
+import { exportToExcel, downloadPDF, printTable } from '../../../lib/exportUtils';
 
 type ReportTab = 'revenue' | 'department' | 'payment_methods' | 'outstanding' | 'cash_flow' | 'collection';
 
@@ -31,6 +32,124 @@ const tabLabels: Record<ReportTab, string> = {
 
 export const FOReportsView: React.FC = () => {
   const [activeReport, setActiveReport] = useState<ReportTab>('revenue');
+
+  // ── Export helpers ──────────────────────────────────────────────────────────
+  const handleExportExcel = () => {
+    if (activeReport === 'revenue') {
+      exportToExcel(
+        monthlyRevenue.map((m) => ({ Month: m.month, Revenue: m.revenue, Target: m.target, Collections: m.collections })),
+        'harmony-revenue-by-period'
+      );
+    } else if (activeReport === 'department') {
+      exportToExcel(
+        departments.map((d) => ({ Department: d.name, Code: d.code, Students: d.studentCount, Revenue: d.totalRevenue, Outstanding: d.outstandingBalance })),
+        'harmony-revenue-by-department'
+      );
+    } else if (activeReport === 'payment_methods') {
+      exportToExcel(
+        paymentMethodBreakdown.map((p) => ({ Method: p.method, Transactions: p.count, Amount: p.amount })),
+        'harmony-payment-methods'
+      );
+    } else if (activeReport === 'outstanding') {
+      exportToExcel(
+        financeStudents.filter((s) => s.outstanding > 0).map((s) => ({
+          Student: s.name, ID: s.studentId, Program: s.programName,
+          'Total Charged': s.totalCharged, Paid: s.totalPaid,
+          Outstanding: s.outstanding, 'Days Overdue': s.daysOverdue, Risk: s.riskLevel,
+        })),
+        'harmony-outstanding-balances'
+      );
+    } else {
+      exportToExcel(
+        monthlyRevenue.map((m) => ({ Month: m.month, Revenue: m.revenue, Collections: m.collections })),
+        `harmony-${activeReport}-report`
+      );
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (activeReport === 'revenue') {
+      downloadPDF(
+        'Revenue by Period Report',
+        `${foKpis.totalRevenueSemester.toLocaleString()} ETB total · Fall 2024`,
+        ['Month', 'Revenue (ETB)', 'Target (ETB)', 'Collections (ETB)', 'Variance'],
+        monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString(), (m.revenue - m.target > 0 ? '+' : '') + (m.revenue - m.target).toLocaleString()])
+      );
+    } else if (activeReport === 'department') {
+      downloadPDF(
+        'Revenue by Department Report',
+        'Fall 2024 · All Colleges',
+        ['Department', 'Code', 'Students', 'Revenue (ETB)', 'Outstanding (ETB)'],
+        departments.map((d) => [d.name, d.code, d.studentCount, d.totalRevenue.toLocaleString(), d.outstandingBalance.toLocaleString()])
+      );
+    } else if (activeReport === 'outstanding') {
+      downloadPDF(
+        'Outstanding Balances Report',
+        `${financeStudents.filter((s) => s.outstanding > 0).length} students with unpaid balances`,
+        ['Student', 'ID', 'Program', 'Total Charged', 'Paid', 'Outstanding', 'Days Overdue', 'Risk'],
+        financeStudents.filter((s) => s.outstanding > 0).map((s) => [
+          s.name, s.studentId, s.programName,
+          `ETB ${s.totalCharged.toLocaleString()}`, `ETB ${s.totalPaid.toLocaleString()}`,
+          `ETB ${s.outstanding.toLocaleString()}`, `${s.daysOverdue}d`, s.riskLevel,
+        ])
+      );
+    } else if (activeReport === 'payment_methods') {
+      downloadPDF(
+        'Payment Method Analysis',
+        'Transaction breakdown by channel',
+        ['Method', 'Transactions', 'Amount (ETB)', 'Share %'],
+        paymentMethodBreakdown.map((p) => {
+          const total = paymentMethodBreakdown.reduce((s, x) => s + x.amount, 0);
+          return [p.method, p.count, p.amount.toLocaleString(), `${((p.amount / total) * 100).toFixed(1)}%`];
+        })
+      );
+    } else {
+      downloadPDF(`${tabLabels[activeReport]}`, 'Harmony College Finance', ['Month', 'Revenue', 'Collections'],
+        monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.collections.toLocaleString()])
+      );
+    }
+  };
+
+  const handlePrint = () => {
+    if (activeReport === 'revenue') {
+      printTable(
+        'Revenue by Period Report',
+        'Academic Year 2024–2025',
+        ['Month', 'Revenue (ETB)', 'Target (ETB)', 'Collections (ETB)', 'Variance'],
+        monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString(), (m.revenue - m.target > 0 ? '+' : '') + (m.revenue - m.target).toLocaleString()])
+      );
+    } else if (activeReport === 'department') {
+      printTable(
+        'Revenue by Department',
+        'Fall 2024 · All Colleges',
+        ['Department', 'Code', 'Students', 'Revenue (ETB)', 'Outstanding (ETB)'],
+        departments.map((d) => [d.name, d.code, d.studentCount, d.totalRevenue.toLocaleString(), d.outstandingBalance.toLocaleString()])
+      );
+    } else if (activeReport === 'outstanding') {
+      printTable(
+        'Outstanding Balances',
+        `${financeStudents.filter((s) => s.outstanding > 0).length} students`,
+        ['Student', 'Program', 'Outstanding (ETB)', 'Days Overdue', 'Risk'],
+        financeStudents.filter((s) => s.outstanding > 0).map((s) => [
+          s.name, s.programName, `ETB ${s.outstanding.toLocaleString()}`, `${s.daysOverdue}d`, s.riskLevel,
+        ])
+      );
+    } else if (activeReport === 'payment_methods') {
+      printTable(
+        'Payment Method Analysis',
+        'Transaction breakdown by channel',
+        ['Method', 'Transactions', 'Amount (ETB)'],
+        paymentMethodBreakdown.map((p) => [p.method, p.count, p.amount.toLocaleString()])
+      );
+    } else {
+      printTable(
+        tabLabels[activeReport],
+        'Harmony College Finance',
+        ['Month', 'Revenue (ETB)', 'Collections (ETB)'],
+        monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.collections.toLocaleString()])
+      );
+    }
+  };
 
   // ── Derived chart data ──────────────────────────────────────────────────────
   const revenueLineData   = monthlyRevenue.map((m) => ({ label: m.month, value: m.revenue }));
@@ -74,9 +193,9 @@ export const FOReportsView: React.FC = () => {
         icon={<BarChart3 className="w-5 h-5" />}
         actions={
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />}>Export Excel</Button>
-            <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />}>Export PDF</Button>
-            <Button variant="ghost" size="sm" icon={<Printer className="w-4 h-4" />}>Print</Button>
+            <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportExcel}>Export Excel</Button>
+            <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportPDF}>Export PDF</Button>
+            <Button variant="ghost" size="sm" icon={<Printer className="w-4 h-4" />} onClick={handlePrint}>Print</Button>
           </div>
         }
       />
