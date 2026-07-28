@@ -183,7 +183,7 @@ export const DegreeAuditView: React.FC<DegreeAuditViewProps> = ({
                           <Badge variant="gold">In Progress</Badge>
                         ) : (
                           <button
-                            onClick={() => setActiveTab('registration')}
+                            onClick={() => setActiveTab('my_courses')}
                             className="text-[10px] font-mono underline flex items-center font-semibold" style={{ color: "var(--brand-gold)" }}
                           >
                             Register <ChevronRight className="w-3 h-3" />

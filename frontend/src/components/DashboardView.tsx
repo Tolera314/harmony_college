@@ -14,7 +14,6 @@ import {
   FileText,
   GraduationCap,
   CreditCard,
-  UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
@@ -69,7 +68,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 for the {profile.major} major.
               </p>
               <div className="pt-2 flex flex-wrap gap-3">
-                <Button variant="primary" onClick={() => setActiveTab('registration')} icon={<UserCheck className="w-4 h-4" />}>Register Courses</Button>
+                <Button variant="primary" onClick={() => setActiveTab('my_courses')} icon={<BookOpen className="w-4 h-4" />}>My Courses</Button>
                 <Button variant="secondary" onClick={() => setActiveTab('grades')} icon={<GraduationCap className="w-4 h-4" />}>View Transcript</Button>
                 <Button variant="secondary" onClick={() => setActiveTab('financials')} icon={<CreditCard className="w-4 h-4" />}>Pay Tuition</Button>
               </div>
@@ -153,11 +152,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="lg:col-span-8 space-y-5">
           <div className="flex justify-between items-end">
             <div>
-              <h2 className="font-serif text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Active Courses</h2>
-              <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Fall 2024 Academic Term Schedule & Syllabus</p>
+              <h2 className="font-serif text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>My Courses</h2>
+              <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Semester 5 — Enrolled curriculum courses</p>
             </div>
-            <button onClick={() => setActiveTab('registration')} className="font-sans text-xs sm:text-sm font-semibold hover:underline flex items-center gap-1" style={{ color: 'var(--brand-gold)' }}>
-              View Full Schedule <ArrowRight className="w-4 h-4" />
+            <button onClick={() => setActiveTab('my_courses')} className="font-sans text-xs sm:text-sm font-semibold hover:underline flex items-center gap-1" style={{ color: 'var(--brand-gold)' }}>
+              View All Courses <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 

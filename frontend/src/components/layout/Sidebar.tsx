@@ -4,7 +4,7 @@ import React from 'react';
 import { NavTab, StudentProfile } from '../../types';
 import {
   LayoutDashboard,
-  UserCheck,
+  BookOpen,
   GraduationCap,
   CreditCard,
   BarChart3,
@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'registration', label: 'Course Registration', icon: <UserCheck className="w-5 h-5" />, badge: 'Fall 24' },
+    { id: 'my_courses', label: 'My Courses', icon: <BookOpen className="w-5 h-5" />, badge: 'Sem 5' },
     { id: 'grades', label: 'Grades & Transcript', icon: <GraduationCap className="w-5 h-5" /> },
     { id: 'financials', label: 'Financials & Tuition', icon: <CreditCard className="w-5 h-5" /> },
     { id: 'degree_audit', label: 'Degree Audit', icon: <BarChart3 className="w-5 h-5" />, badge: '85%' },

@@ -133,8 +133,7 @@ export const CourseRegistrationView: React.FC<CourseRegistrationViewProps> = ({
               <button
                 key={dept}
                 onClick={() => setSelectedDept(dept)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all touch-target ${
-                  selectedDept === dept ? "font-semibold shadow-sm" : "transition-colors"} style={selectedDept === dept ? { backgroundColor: "var(--brand-gold)", color: "var(--text-inverse)" } : { backgroundColor: "var(--hover-overlay)", color: "var(--text-secondary)"
+                className={`px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all touch-target ${selectedDept === dept ? "font-semibold shadow-sm" : "transition-colors"} style={selectedDept === dept ? { backgroundColor: "var(--brand-gold)", color: "var(--text-inverse)" } : { backgroundColor: "var(--hover-overlay)", color: "var(--text-secondary)"
                 }`}
               >
                 {dept}

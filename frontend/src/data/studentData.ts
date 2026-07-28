@@ -45,7 +45,10 @@ export const initialActiveCourses: Course[] = [
     room: 'Sheger Film Studio A',
     description: 'Advanced RED & ARRI camera operations, dramatic scene directing, multi-camera lighting setups, color grading in DaVinci Resolve, and cinematic narrative composition.',
     syllabusOverview: 'Covers camera movement mechanics, dramatic actor blocking, multi-track audio sync, and peer-reviewed film festival submissions.',
-    status: 'registered',
+    status: 'enrolled',
+    semester: 'Semester 5 — Fall 2024',
+    attendanceRate: 97,
+    currentGrade: 'A',
     assignments: [
       { id: 'a1', title: 'Short Narrative Dramatic Scene Edit', dueDate: 'Tomorrow, 11:59 PM', points: 100, status: 'pending' },
       { id: 'a2', title: 'Lighting Breakdown & Camera Test', dueDate: 'Jul 26, 2024', points: 50, status: 'pending' },
@@ -67,7 +70,10 @@ export const initialActiveCourses: Course[] = [
     room: 'Sound Lab B (Sheger)',
     description: 'Multi-track Cubase DAW recording, spatial acoustic isolation, vocal tuning, synthesizer patch design, mixing console routing, and stereo mastering for film scores.',
     syllabusOverview: 'Deep dive into Cubase Pro 13, MIDI sequencing, VST instrumentation, side-chain compression, and commercial audio mastering.',
-    status: 'registered',
+    status: 'enrolled',
+    semester: 'Semester 5 — Fall 2024',
+    attendanceRate: 91,
+    currentGrade: 'A-',
     assignments: [
       { id: 'b1', title: 'Full Track Stereo Mixing & Mastering', dueDate: 'Jul 15, 2024', points: 100, status: 'graded', grade: 'A (95%)' },
       { id: 'b2', title: 'Vocal Tuning & Compression Benchmark', dueDate: 'Jul 08, 2024', points: 50, status: 'graded', grade: 'A+ (100%)' }
@@ -88,7 +94,10 @@ export const initialActiveCourses: Course[] = [
     room: 'Media Center 204',
     description: 'Brand identity design, vector typography, social campaign analytics, UI/UX prototyping, digital poster art, and cross-channel marketing funnels.',
     syllabusOverview: 'Hands-on practice with Adobe Creative Cloud, Figma prototypes, audience analytics, and commercial brand launches.',
-    status: 'registered',
+    status: 'enrolled',
+    semester: 'Semester 5 — Fall 2024',
+    attendanceRate: 100,
+    currentGrade: 'A+',
     assignments: [
       { id: 'c1', title: 'Brand Identity & Digital Campaign Deck', dueDate: 'Tomorrow, 02:00 PM', points: 150, status: 'pending' },
       { id: 'c2', title: 'Vector Typography & Poster Portfolio', dueDate: 'Jul 28, 2024', points: 100, status: 'pending' },
@@ -97,60 +106,49 @@ export const initialActiveCourses: Course[] = [
   }
 ];
 
-export const catalogCourses: Course[] = [
-  ...initialActiveCourses,
-  {
-    id: 'photo210',
-    code: 'PHOTO210',
-    title: 'Commercial Photography & Studio Lighting',
-    department: 'Visual Arts & Photography',
-    credits: 3,
-    instructor: 'Prof. Helen Berhe',
-    instructorTitle: 'Master Photographer',
-    instructorPhoto: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
-    progress: 0,
-    schedule: 'Tue, Thu 10:00 - 11:30',
-    room: 'Burayu Photo Studio',
-    description: 'Studio strobe lighting, portrait retouching, fashion photography composition, and commercial print preparation.',
-    syllabusOverview: 'Professional lighting setups, high-key portraiture, RAW image editing, and gallery exhibition curation.',
-    status: 'available',
-    assignments: []
-  },
-  {
-    id: 'journ305',
-    code: 'JOURN305',
-    title: 'Digital Journalism & New Media Broadcast',
-    department: 'Journalism, IT & Languages',
-    credits: 3,
-    instructor: 'Prof. Dawit Solomon',
-    instructorTitle: 'Senior Journalist & Producer',
-    instructorPhoto: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80',
-    progress: 0,
-    schedule: 'Mon, Wed 15:30 - 17:00',
-    room: 'Broadcast Center 101 (Burayu)',
-    description: 'Investigative reporting, podcast production, live broadcast anchoring, mobile journalism techniques, and digital media publishing ethics.',
-    syllabusOverview: 'Field news gathering, teleprompter technique, video editing for news, and web publishing.',
-    status: 'available',
-    assignments: []
-  },
-  {
-    id: 'mus220',
-    code: 'MUS220',
-    title: 'Music Instruments & Vocal Performance',
-    department: 'Music Instruments & Vocal',
-    credits: 3,
-    instructor: 'Prof. Meron Haile',
-    instructorTitle: 'Vocal Masterclass Director',
-    instructorPhoto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
-    progress: 0,
-    schedule: 'Fri 09:00 - 12:00',
-    room: 'Harmony Music Suite',
-    description: 'Vocal breath control, keyboard technique, acoustic ensemble arrangement, stage presence, and song arrangement.',
-    syllabusOverview: 'Solo and ensemble performance, pitch control, ear training, and live stage sound synthesis.',
-    status: 'available',
-    assignments: []
-  }
-];
+/**
+ * Curriculum definition for the student's program.
+ * Courses are automatically assigned by the Registrar — students do NOT
+ * manually register. This data represents the official program curriculum.
+ */
+export const programCurriculum = {
+  program: 'Theatrical Art & Digital Media Production',
+  currentSemester: 'Semester 5 — Fall 2024',
+  semesters: [
+    {
+      id: 'sem1',
+      label: 'Semester 1',
+      status: 'completed' as const,
+      courses: [
+        { code: 'THEA101', title: 'Intro to Dramatic Arts', credits: 4 },
+        { code: 'PHOTO101', title: 'Introduction to Photography', credits: 4 },
+        { code: 'IT105', title: 'Web Technologies & Media Systems', credits: 4 },
+        { code: 'ENG101', title: 'Academic Writing & Public Rhetoric', credits: 3 },
+        { code: 'ART120', title: 'Visual Aesthetics & Art History', credits: 3 },
+      ]
+    },
+    {
+      id: 'sem5',
+      label: 'Semester 5 — Fall 2024',
+      status: 'current' as const,
+      courses: [
+        { code: 'FILM402', title: 'Advanced Digital Cinematography & Directing', credits: 4 },
+        { code: 'AUDIO301', title: 'Cubase Audio Engineering & Music Production', credits: 4 },
+        { code: 'DESN440', title: 'Graphic Design & Digital Marketing Strategy', credits: 4 },
+      ]
+    },
+    {
+      id: 'sem6',
+      label: 'Semester 6 — Spring 2025',
+      status: 'upcoming' as const,
+      courses: [
+        { code: 'FILM490', title: 'Senior Capstone Film Project', credits: 4 },
+        { code: 'JOURN305', title: 'Digital Journalism & New Media Broadcast', credits: 3 },
+        { code: 'HUM300', title: 'Creative Leadership Seminar', credits: 3 },
+      ]
+    }
+  ]
+};
 
 export const todayTimetable: TimetableEvent[] = [
   {

@@ -27,9 +27,12 @@ export const Header: React.FC<HeaderProps> = ({
   const [showMailModal, setShowMailModal] = useState(false);
 
   const tabLabels: Record<NavTab, string> = {
-    dashboard: 'Dashboard', registration: 'Course Registration',
-    grades: 'Grades & Transcript', financials: 'Financials & Tuition',
-    degree_audit: 'Degree Audit', support: 'Support & Advising',
+    dashboard: 'Dashboard',
+    my_courses: 'My Courses',
+    grades: 'Grades & Transcript',
+    financials: 'Financials & Tuition',
+    degree_audit: 'Degree Audit',
+    support: 'Support & Advising',
     settings: 'Settings & Preferences',
   };
 
