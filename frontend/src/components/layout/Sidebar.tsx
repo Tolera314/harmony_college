@@ -128,12 +128,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Student Avatar Card */}
         <div className="flex items-center gap-3 px-2 pt-3 border-t border-white/5 mt-2">
-          <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#E9C349]/40 shrink-0 shadow-sm">
-            <img
-              src={profile.avatar}
-              alt={profile.name}
-              className="w-full h-full object-cover"
-            />
+          <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#E9C349]/40 shrink-0 shadow-sm bg-white/5 flex items-center justify-center">
+            {profile.avatar ? (
+              <img
+                src={profile.avatar || undefined}
+                alt={profile.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="font-serif text-sm font-bold text-[#E9C349]">
+                {profile.name.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
           <div className="overflow-hidden hidden xl:block">
             <p className="font-sans text-xs font-semibold text-white truncate">

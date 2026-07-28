@@ -70,7 +70,7 @@ export const HRSettingsView: React.FC<HRSettingsViewProps> = ({ profile }) => {
                 <User className="w-5 h-5 text-[#E9C349]" /> HR Officer Profile
               </h3>
               <div className="flex items-center gap-4">
-                <img src={profile.avatar} alt={profile.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E9C349]/40" />
+                <img src={profile.avatar || undefined} alt={profile.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E9C349]/40" />
                 <div>
                   <p className="font-serif text-base font-bold text-white">{profile.title}</p>
                   <p className="font-sans text-xs text-white/50">{profile.department}</p>

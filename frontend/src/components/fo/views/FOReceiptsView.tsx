@@ -13,8 +13,37 @@ import { Modal } from '../../ui/Modal';
 import { receipts } from '../../../data/financeData';
 import type { Receipt as ReceiptType } from '../../../types/finance';
 
+import { printElement, shareContent, downloadPDF } from '../../../lib/exportUtils';
+
 // ── Receipt Preview Modal ─────────────────────────────────────────────────────
 function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClose: () => void }) {
+  const [shareMsg, setShareMsg] = React.useState('');
+
+  const handlePrint = () => printElement(`receipt-print-${receipt.id}`);
+
+  const handleDownloadPDF = () => {
+    downloadPDF(
+      `Receipt ${receipt.receiptNumber}`,
+      `${receipt.studentName} · ${receipt.date}`,
+      ['Item', 'Amount (ETB)'],
+      [
+        ...receipt.items.map((item) => [item.label, item.amount.toLocaleString()]),
+        ['TOTAL PAID', receipt.amount.toLocaleString()],
+      ],
+      `Receipt No: ${receipt.receiptNumber} · Method: ${receipt.paymentMethod} · Ref: ${receipt.referenceNumber} · Cashier: ${receipt.cashierName}`
+    );
+  };
+
+  const handleShare = () => {
+    shareContent(
+      {
+        title: `Receipt ${receipt.receiptNumber} — Harmony College`,
+        text: `Payment of ETB ${receipt.amount.toLocaleString()} by ${receipt.studentName} on ${receipt.date}. Receipt: ${receipt.receiptNumber}`,
+        url: window.location.href,
+      },
+      (msg) => { setShareMsg(msg); setTimeout(() => setShareMsg(''), 2500); }
+    );
+  };
   const methodColor: Record<string, string> = {
     Cash: 'text-amber-400', 'Bank Transfer': 'text-blue-400',
     Telebirr: 'text-green-400', Chapa: 'text-purple-400',
@@ -23,6 +52,8 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
   return (
     <Modal isOpen onClose={onClose} title={<><Receipt className="w-5 h-5 inline mr-2 text-[#E9C349]" />Receipt Preview</>} maxWidth="max-w-md">
       <div className="space-y-5">
+        {/* Printable region */}
+        <div id={`receipt-print-${receipt.id}`}>
         {/* Receipt header */}
         <div className="text-center space-y-1 pb-4 border-b border-white/10">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#E9C349] to-[#b8951d] flex items-center justify-center font-serif font-bold text-2xl text-[#0F0F10] mx-auto mb-2">H</div>
@@ -82,15 +113,21 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
           This is an official payment receipt issued by Harmony College Finance Office.
           Keep this receipt for your records.
         </p>
+        </div>{/* end printable region */}
+
+        {/* Share feedback */}
+        {shareMsg && (
+          <p className="font-sans text-xs text-emerald-400 text-center">{shareMsg}</p>
+        )}
 
         {/* Actions */}
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 pt-2 no-print">
           <Button variant="secondary" size="sm" className="flex-1" icon={<Printer className="w-4 h-4" />}
-            onClick={() => alert('Sending to printer…')}>Print</Button>
+            onClick={handlePrint}>Print</Button>
           <Button variant="secondary" size="sm" className="flex-1" icon={<Download className="w-4 h-4" />}
-            onClick={() => alert('Downloading PDF…')}>PDF</Button>
+            onClick={handleDownloadPDF}>PDF</Button>
           <Button variant="outline" size="sm" className="flex-1" icon={<Share2 className="w-4 h-4" />}
-            onClick={() => alert('Share link copied!')}>Share</Button>
+            onClick={handleShare}>Share</Button>
         </div>
       </div>
     </Modal>

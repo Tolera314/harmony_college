@@ -101,30 +101,28 @@ export default function StudentDashboardPage() {
   };
 
   return (
-    <div className={darkMode ? 'dark' : ''}>
-      <div className="min-h-screen bg-[var(--bg-base)] text-[#f2f0f0]">
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          profile={profile}
-          onLogout={handleLogout}
-        />
-        <Header
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          profile={profile}
-          alerts={recentAlerts}
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onOpenSearchModal={() => {}}
-        />
-        <main className="md:pl-20 xl:pl-64 pt-4 px-4 sm:px-8 pb-24 md:pb-8 max-w-[1600px]">
-          {renderView()}
-        </main>
-        <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
-      </div>
+    <div className="min-h-screen bg-[var(--bg-base)] text-[#f2f0f0]">
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        profile={profile}
+        onLogout={handleLogout}
+      />
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        profile={profile}
+        alerts={recentAlerts}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onOpenSearchModal={() => {}}
+      />
+      <main className="md:pl-20 xl:pl-64 pt-4 px-4 sm:px-8 pb-24 md:pb-8 max-w-[1600px]">
+        {renderView()}
+      </main>
+      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 }

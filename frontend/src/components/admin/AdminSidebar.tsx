@@ -134,7 +134,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </motion.button>
         <div className="flex items-center gap-2.5 px-1.5 pt-2.5 border-t border-white/5 mt-1">
           <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#E9C349]/40 shrink-0">
-            <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+            <img src={profile.avatar || undefined} alt={profile.name} className="w-full h-full object-cover" />
           </div>
           <div className="overflow-hidden hidden xl:block">
             <p className="font-sans text-xs font-semibold text-white truncate">{profile.name}</p>

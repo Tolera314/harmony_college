@@ -134,7 +134,7 @@ export const InSidebar: React.FC<InSidebarProps> = ({
 
         <div className="flex items-center gap-3 px-2 pt-3 border-t border-white/5 mt-2">
           <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#E9C349]/40 shrink-0">
-            <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+            <img src={profile.avatar || undefined} alt={profile.name} className="w-full h-full object-cover" />
           </div>
           <div className="overflow-hidden hidden xl:block">
             <p className="font-sans text-xs font-semibold text-white truncate">{profile.name}</p>

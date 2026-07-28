@@ -3,25 +3,19 @@
 import React, { useState } from 'react';
 import { NavTab, StudentProfile, AlertItem } from '../../types';
 import {
-  Search,
-  Bell,
-  Mail,
-  Sun,
-  Moon,
-  ChevronRight,
-  X,
-  Command
+  Search, Bell, Mail, ChevronRight, X, Command, Palette,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
+import { useTheme } from '../../context/ThemeContext';
 
 interface HeaderProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   profile: StudentProfile;
   alerts: AlertItem[];
-  darkMode: boolean;
-  setDarkMode: (val: boolean | ((prev: boolean) => boolean)) => void;
+  darkMode?: boolean;
+  setDarkMode?: (val: boolean | ((prev: boolean) => boolean)) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onOpenSearchModal: () => void;
@@ -32,14 +26,26 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   profile,
   alerts,
-  darkMode,
-  setDarkMode,
   searchQuery,
   setSearchQuery,
   onOpenSearchModal
 }) => {
   const [showAlertsDrawer, setShowAlertsDrawer] = useState(false);
-  const [showMailModal, setShowMailModal] = useState(false);
+  const [showMailModal, setShowMailModal]       = useState(false);
+  const { theme, setTheme, themes }             = useTheme();
+
+  // Cycle to next theme on button click
+  const cycleTheme = () => {
+    const idx  = themes.findIndex((t) => t.id === theme);
+    const next = themes[(idx + 1) % themes.length];
+    setTheme(next.id);
+  };
+
+  const themeIcon: Record<string, string> = {
+    dark:   '🌑',
+    navy:   '🌊',
+    forest: '🌲',
+  };
 
   const tabLabels: Record<NavTab, string> = {
     dashboard: 'Dashboard',
@@ -214,13 +220,14 @@ export const Header: React.FC<HeaderProps> = ({
               </AnimatePresence>
             </div>
 
-            {/* Theme Toggle */}
+            {/* Theme Cycle Button */}
             <button
-              onClick={() => setDarkMode((prev) => !prev)}
-              className="p-2 rounded-full hover:bg-white/10 transition-colors touch-target text-white/70 hover:text-white"
-              aria-label="Toggle Theme"
+              onClick={cycleTheme}
+              title={`Theme: ${theme} — click to cycle`}
+              className="p-2 rounded-full hover:bg-white/10 transition-colors touch-target text-white/70 hover:text-[#E9C349]"
+              aria-label="Cycle theme"
             >
-              {darkMode ? <Sun className="w-5 h-5 text-[#E9C349]" /> : <Moon className="w-5 h-5" />}
+              <Palette className="w-5 h-5" />
             </button>
           </div>
         </div>
