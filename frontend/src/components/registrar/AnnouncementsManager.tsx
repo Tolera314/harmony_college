@@ -3,9 +3,9 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { 
-  Send, Users, Eye, FileText, Plus, 
-  Paperclip, Bold, Italic, Link2, List, 
+import {
+  Send, Users, Eye, FileText, Plus,
+  Paperclip, Bold, Italic, Link2, List,
   Clock, Trash2, ShieldAlert
 } from 'lucide-react';
 import { EmptyState } from '../ui/States';
@@ -68,10 +68,10 @@ export const AnnouncementsManager: React.FC = () => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      transition={{ duration: 0.3 }} 
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
       className="space-y-6"
     >
       <div>
@@ -80,13 +80,13 @@ export const AnnouncementsManager: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* Editor Form Panel (7 cols) */}
         <div className="lg:col-span-7 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
           <h3 className="font-serif text-base font-bold text-(--text-primary)">Draft Announcement</h3>
 
           <form onSubmit={handlePublish} className="space-y-4 font-sans">
-            
+
             {/* Title */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-(--text-secondary)">Announcement Title</label>
@@ -130,7 +130,7 @@ export const AnnouncementsManager: React.FC = () => {
             {/* Text Editor Toolbar & Textarea */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-(--text-secondary) block">Announcement Content</label>
-              
+
               {/* Rich text editor controls toolbar mockup */}
               <div className="flex gap-2 p-2 bg-black/50 border border-(--border-default) border-b-transparent rounded-t-xl text-(--text-muted)">
                 <button type="button" className="p-1 hover:bg-(--hover-overlay) rounded text-xs font-semibold hover:text-(--text-primary)" title="Bold"><Bold className="w-3.5 h-3.5" /></button>
@@ -182,9 +182,9 @@ export const AnnouncementsManager: React.FC = () => {
             </div>
 
             {/* Submit */}
-            <Button 
-              variant="gold" 
-              size="sm" 
+            <Button
+              variant="gold"
+              size="sm"
               type="submit"
               className="w-full py-2.5 font-semibold text-xs flex items-center justify-center gap-1.5"
             >
@@ -196,13 +196,13 @@ export const AnnouncementsManager: React.FC = () => {
 
         {/* Right Side: Preview & History (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          
+
           {/* Announcement Preview */}
           <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
             <h3 className="font-serif text-base font-bold text-(--text-primary) flex items-center gap-1.5">
               <Eye className="w-4.5 h-4.5 text-(--brand-gold)" /> Live Preview
             </h3>
-            
+
             <div className="p-4 bg-(--bg-input) border border-(--border-subtle) rounded-xl space-y-3 min-h-[160px]">
               {form.title || form.content ? (
                 <div className="space-y-2">
@@ -251,8 +251,8 @@ export const AnnouncementsManager: React.FC = () => {
                     <p className="text-[10px] text-(--text-faint) truncate font-sans">{an.content}</p>
                     <p className="text-[9px] font-mono text-(--text-faint)">Target: {an.audience} · {an.date}</p>
                   </div>
-                  
-                  <button 
+
+                  <button
                     onClick={() => handleDelete(an.id)}
                     className="p-1 hover:bg-red-500/10 rounded text-(--text-faint) hover:text-(--status-danger) transition-all shrink-0"
                     title="Retract Announcement"

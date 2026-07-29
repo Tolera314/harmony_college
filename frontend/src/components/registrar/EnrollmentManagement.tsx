@@ -199,7 +199,7 @@ export const EnrollmentManagement: React.FC = () => {
       </div>
 
       {/* Roster Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl backdrop-blur-md">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ds-card p-4 rounded-2xl backdrop-blur-md">
         <div className="relative col-span-1 md:col-span-2">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
           <input
@@ -226,9 +226,9 @@ export const EnrollmentManagement: React.FC = () => {
       </div>
 
       {/* Roster Table */}
-      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+      <div className="overflow-x-auto border ds-card rounded-2xl backdrop-blur-xl">
         <table className="w-full text-left text-xs font-sans">
-          <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
+          <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-5 py-4">Student</th>
               <th className="px-5 py-4">Student ID</th>
@@ -239,12 +239,12 @@ export const EnrollmentManagement: React.FC = () => {
               <th className="px-5 py-4 text-right">Audit</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
+          <tbody className="divide-y ds-table-row ds-table-cell">
             {filteredStudents.map((st) => (
               <tr 
                 key={st.id} 
                 onClick={() => { setSelectedStudent(st); setOverrideAction(null); }}
-                className="hover:bg-(--hover-overlay) transition-colors cursor-pointer group"
+                className="ds-table-row transition-colors cursor-pointer group"
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">

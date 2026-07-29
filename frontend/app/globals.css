@@ -611,6 +611,11 @@ html.light .ds-card {
   background-color: var(--status-danger);
   border-color: var(--bg-base);
 }
+html.light .ds-mobile-nav {
+  background-color: rgba(255, 255, 255, 0.96);
+  border-color: rgba(15, 15, 16, 0.1);
+  box-shadow: 0 4px 20px rgba(15, 15, 16, 0.1), 0 1px 4px rgba(15, 15, 16, 0.05);
+}
 .ds-kpi-card {
   background-color: var(--bg-card);
   border-color: var(--border-card);

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { FONavTab, FOProfile, FONotification } from '../../types/finance';
-import { Search, Bell, ChevronRight, Command, X } from 'lucide-react';
+import { Search, Bell, ChevronRight, Command, X, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
@@ -18,6 +18,7 @@ interface FOHeaderProps {
   onOpenSearch: () => void;
   semesterLabel: string;
   academicYear: string;
+  onMobileMenuToggle?: () => void;
 }
 
 const tabLabels: Record<FONavTab, string> = {
@@ -45,7 +46,7 @@ const notifTypeIcon: Record<FONotification['type'], string> = {
 
 export const FOHeader: React.FC<FOHeaderProps> = ({
   activeTab, setActiveTab, profile, notifications, unreadCount,
-  onMarkRead, onOpenSearch, semesterLabel, academicYear,
+  onMarkRead, onOpenSearch, semesterLabel, academicYear, onMobileMenuToggle,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -55,9 +56,20 @@ export const FOHeader: React.FC<FOHeaderProps> = ({
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {onMobileMenuToggle && (
+            <button
+              onClick={onMobileMenuToggle}
+              className="p-2 md:hidden bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-primary) hover:text-[#E9C349] transition-colors"
+              aria-label="Toggle Navigation Menu"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('overview')}
             className="font-serif text-lg sm:text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity"
+            style={{ color: 'var(--text-primary)' }}
           >
             Harmony <span className="text-(--brand-gold)">Finance</span>
           </button>

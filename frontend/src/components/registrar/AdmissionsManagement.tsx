@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SPRING } from '@/src/lib/motion';
-import { 
-  Search, Filter, X, ChevronRight, CheckCircle2, 
-  XCircle, AlertCircle, FileText, Download, 
-  ZoomIn, ZoomOut, RotateCw, Maximize2, Send, 
-  Image as ImageIcon, Calendar, User, Phone, MapPin, 
+import {
+  Search, Filter, X, ChevronRight, CheckCircle2,
+  XCircle, AlertCircle, FileText, Download,
+  ZoomIn, ZoomOut, RotateCw, Maximize2, Send,
+  Image as ImageIcon, Calendar, User, Phone, MapPin,
   FileCheck2, ChevronLeft, ChevronDown
 } from 'lucide-react';
 import { EmptyState } from '../ui/States';
@@ -150,7 +150,7 @@ export const AdmissionsManagement: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [programFilter, setProgramFilter] = useState('All');
-  
+
   // Document preview state
   const [activeDoc, setActiveDoc] = useState<typeof initialApplicants[0]['documents'][0] | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -162,8 +162,8 @@ export const AdmissionsManagement: React.FC = () => {
 
   // Filtering
   const filteredApplicants = applicants.filter(app => {
-    const matchesSearch = app.name.toLowerCase().includes(search.toLowerCase()) || 
-                          app.applicationId.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = app.name.toLowerCase().includes(search.toLowerCase()) ||
+      app.applicationId.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'All' || app.status === statusFilter;
     const matchesProgram = programFilter === 'All' || app.program.includes(programFilter);
     return matchesSearch && matchesStatus && matchesProgram;
@@ -215,10 +215,10 @@ export const AdmissionsManagement: React.FC = () => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      transition={{ duration: 0.3 }} 
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
       className="space-y-6"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -270,9 +270,9 @@ export const AdmissionsManagement: React.FC = () => {
       </div>
 
       {/* Applicant Records Table */}
-      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+      <div className="overflow-x-auto border ds-card rounded-2xl backdrop-blur-xl">
         <table className="w-full text-left text-xs font-sans">
-          <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
+          <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-5 py-4">Applicant</th>
               <th className="px-5 py-4">Application ID</th>
@@ -282,12 +282,12 @@ export const AdmissionsManagement: React.FC = () => {
               <th className="px-5 py-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
+          <tbody className="divide-y ds-table-row ds-table-cell">
             {filteredApplicants.map((app) => (
-              <tr 
-                key={app.id} 
+              <tr
+                key={app.id}
                 onClick={() => { setSelectedApp(app); setActiveDoc(null); }}
-                className="hover:bg-(--hover-overlay) transition-colors cursor-pointer group"
+                className="ds-table-row transition-colors cursor-pointer group"
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
@@ -307,7 +307,7 @@ export const AdmissionsManagement: React.FC = () => {
                   </Badge>
                 </td>
                 <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                  <button 
+                  <button
                     onClick={() => { setSelectedApp(app); setActiveDoc(null); }}
                     className="px-3 py-1.5 rounded-xl border border-(--border-default) bg-(--hover-overlay) text-(--text-secondary) hover:text-(--brand-gold) hover:border-(--brand-gold)/30 text-[10px] font-semibold transition-all"
                   >
@@ -318,7 +318,9 @@ export const AdmissionsManagement: React.FC = () => {
             ))}
             {filteredApplicants.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-0"><EmptyState variant="default" compact /></td>
+                <td colSpan={6} className="px-5 py-8 text-center text-(--text-muted)">
+                  No applicants found matching the current search criteria.
+                </td>
               </tr>
             )}
           </tbody>
@@ -330,7 +332,7 @@ export const AdmissionsManagement: React.FC = () => {
         {selectedApp && (
           <>
             {/* Overlay */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
@@ -354,7 +356,7 @@ export const AdmissionsManagement: React.FC = () => {
                     {selectedApp.name}
                   </h3>
                 </div>
-                <button 
+                <button
                   onClick={() => setSelectedApp(null)}
                   className="p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay) transition-colors"
                 >
@@ -364,7 +366,7 @@ export const AdmissionsManagement: React.FC = () => {
 
               {/* Drawer Content */}
               <div className="flex-1 p-6 space-y-6">
-                
+
                 {/* Personal Information Card */}
                 <div className="p-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl space-y-4">
                   <div className="flex items-center gap-4 border-b border-(--border-subtle) pb-4">
@@ -406,11 +408,10 @@ export const AdmissionsManagement: React.FC = () => {
                           setZoom(1);
                           setRotation(0);
                         }}
-                        className={`p-3 border rounded-xl flex flex-col items-center justify-center gap-2 text-center text-[10px] font-semibold transition-all ${
-                          activeDoc?.id === doc.id
+                        className={`p-3 border rounded-xl flex flex-col items-center justify-center gap-2 text-center text-[10px] font-semibold transition-all ${activeDoc?.id === doc.id
                             ? 'bg-(--accent-gold-subtle) border-(--brand-gold) text-(--text-primary) shadow-md shadow-(--brand-gold)/10'
                             : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-strong)'
-                        }`}
+                          }`}
                       >
                         {doc.type === 'PDF' ? (
                           <FileText className="w-5 h-5 text-(--status-danger)" />
@@ -441,24 +442,24 @@ export const AdmissionsManagement: React.FC = () => {
                       {/* Display Window */}
                       <div className={`relative overflow-hidden flex items-center justify-center bg-(--bg-base) border border-(--border-subtle) rounded-xl transition-all ${fullscreen ? 'fixed inset-4 z-50 shadow-2xl p-8 border-(--border-strong)' : 'h-[240px]'}`}>
                         {fullscreen && (
-                          <button 
-                            onClick={() => setFullscreen(false)} 
+                          <button
+                            onClick={() => setFullscreen(false)}
                             className="absolute top-4 right-4 p-2 bg-(--hover-overlay) hover:bg-(--active-overlay) border border-(--border-default) rounded-xl text-(--text-secondary) z-50"
                           >
                             <X className="w-4 h-4" />
                           </button>
                         )}
-                        <div 
-                          style={{ 
+                        <div
+                          style={{
                             transform: `scale(${zoom}) rotate(${rotation}deg)`,
                             transition: 'transform 0.2s ease-out'
                           }}
                           className="w-full max-w-[90%] h-full max-h-[90%] flex items-center justify-center select-none"
                         >
-                          <img 
-                            src={activeDoc.url} 
-                            alt={activeDoc.name} 
-                            className="object-contain max-h-full max-w-full rounded" 
+                          <img
+                            src={activeDoc.url}
+                            alt={activeDoc.name}
+                            className="object-contain max-h-full max-w-full rounded"
                           />
                         </div>
                       </div>
@@ -469,7 +470,7 @@ export const AdmissionsManagement: React.FC = () => {
                 {/* Approve / Reject Actions Panel */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Status Assessment Actions</h4>
-                  
+
                   {/* Status Badges Info */}
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs text-(--text-secondary)">Current Application Status:</span>

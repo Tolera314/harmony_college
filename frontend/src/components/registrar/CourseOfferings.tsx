@@ -3,9 +3,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { 
-  KanbanSquare, Table as TableIcon, Users, MapPin, 
-  Clock, Plus, CheckCircle2, ChevronRight, 
+import {
+  KanbanSquare, Table as TableIcon, Users, MapPin,
+  Clock, Plus, CheckCircle2, ChevronRight,
   HelpCircle, MoreVertical, ShieldAlert, Sparkles, X, Check
 } from 'lucide-react';
 import { EmptyState } from '../ui/States';
@@ -102,10 +102,10 @@ export const CourseOfferings: React.FC = () => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      transition={{ duration: 0.3 }} 
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
       className="space-y-6"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -118,21 +118,19 @@ export const CourseOfferings: React.FC = () => {
         <div className="flex bg-(--hover-overlay) border border-(--border-default) p-1.5 rounded-xl self-start md:self-center">
           <button
             onClick={() => setViewMode('kanban')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              viewMode === 'kanban' 
-                ? 'bg-(--brand-gold) text-(--text-inverse) shadow' 
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${viewMode === 'kanban'
+                ? 'bg-(--brand-gold) text-(--text-inverse) shadow'
                 : 'text-(--text-secondary) hover:text-(--text-primary)'
-            }`}
+              }`}
           >
             <KanbanSquare className="w-3.5 h-3.5" /> Kanban Board
           </button>
           <button
             onClick={() => setViewMode('table')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              viewMode === 'table' 
-                ? 'bg-(--brand-gold) text-(--text-inverse) shadow' 
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${viewMode === 'table'
+                ? 'bg-(--brand-gold) text-(--text-inverse) shadow'
                 : 'text-(--text-secondary) hover:text-(--text-primary)'
-            }`}
+              }`}
           >
             <TableIcon className="w-3.5 h-3.5" /> Data Table
           </button>
@@ -166,7 +164,7 @@ export const CourseOfferings: React.FC = () => {
                           <span className="font-mono font-bold text-(--brand-gold) text-xs">{off.code}</span>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {col !== 'Closed' && (
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const nextStatus = col === 'Draft' ? 'Instructor Assigned' : col === 'Instructor Assigned' ? 'Scheduled' : 'Closed';
@@ -205,7 +203,7 @@ export const CourseOfferings: React.FC = () => {
                             <span>{off.enrolled} / {off.capacity} Seats ({utilization}%)</span>
                           </div>
                           <div className="h-1.5 bg-(--hover-overlay) rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className={`h-full rounded-full ${utilization >= 100 ? 'bg-(--status-danger)' : utilization > 80 ? 'bg-(--brand-gold)' : 'bg-(--status-success)'}`}
                               style={{ width: `${Math.min(100, utilization)}%` }}
                             />
@@ -263,7 +261,7 @@ export const CourseOfferings: React.FC = () => {
                           <span>{utilization}%</span>
                         </div>
                         <div className="h-1 bg-(--hover-overlay) rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className={`h-full rounded-full ${utilization >= 100 ? 'bg-(--status-danger)' : utilization > 80 ? 'bg-(--brand-gold)' : 'bg-(--status-success)'}`}
                             style={{ width: `${Math.min(100, utilization)}%` }}
                           />
@@ -295,7 +293,7 @@ export const CourseOfferings: React.FC = () => {
       <AnimatePresence>
         {editingOffering && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
@@ -309,7 +307,7 @@ export const CourseOfferings: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-md bg-(--bg-base) border border-(--border-default) rounded-2xl p-6 shadow-2xl z-10 font-sans"
             >
-              <button 
+              <button
                 onClick={() => setEditingOffering(null)}
                 className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) transition-colors"
               >
@@ -320,7 +318,7 @@ export const CourseOfferings: React.FC = () => {
               <p className="text-xs text-(--text-faint) mb-4">Update scheduler details for section {editingOffering.code}.</p>
 
               <form onSubmit={handleSaveOffering} className="space-y-4">
-                
+
                 {/* Instructor assignment */}
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-(--text-secondary)">Assign Lecturer / Instructor</label>

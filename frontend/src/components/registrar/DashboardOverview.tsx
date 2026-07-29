@@ -204,7 +204,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
       className="space-y-8"
     >
       {/* Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border border-(--border-default) rounded-2xl p-6 backdrop-blur-md relative overflow-hidden" style={{ backgroundColor: 'var(--hover-overlay)' }}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border border-(--border-default) rounded-2xl p-6 backdrop-blur-md relative overflow-hidden bg-(--bg-card)">
         <div className="absolute top-0 right-0 w-64 h-64 bg-(--accent-gold-subtle) rounded-full blur-[80px] pointer-events-none" />
         
         <div className="space-y-1.5">
@@ -244,7 +244,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
           <button
             key={i}
             onClick={() => act.tab ? setActiveTab(act.tab) : act.action?.()}
-            className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl flex items-center gap-3.5 text-left text-xs font-semibold text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent-gold-border) hover:bg-(--active-overlay) transition-all duration-300 group ds-focus-ring"
+            className="p-4 bg-(--bg-card) border border-(--border-default) rounded-2xl flex items-center gap-3.5 text-left text-xs font-semibold text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent-gold-border) hover:bg-(--hover-overlay) transition-all duration-300 group ds-focus-ring"
           >
             <div className="w-8 h-8 rounded-xl bg-(--hover-overlay) border border-(--border-default) flex items-center justify-center text-(--text-secondary) group-hover:text-(--brand-gold) group-hover:border-(--accent-gold-border) transition-colors">
               <act.icon className="w-4 h-4" />
@@ -260,7 +260,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
           <div
             key={kpi.id}
             onClick={() => setActiveTab(kpi.tab)}
-            className="p-5 bg-(--bg-card) border border-(--border-card) rounded-2xl hover:border-(--accent-gold-border) hover:shadow-[0_0_20px_var(--accent-gold-glow)] cursor-pointer transition-all duration-300 group relative overflow-hidden backdrop-blur-xl"
+            className="p-5 ds-card rounded-2xl hover:border-(--accent-gold-border) hover:shadow-[0_0_20px_var(--accent-gold-glow)] cursor-pointer transition-all duration-300 group relative overflow-hidden backdrop-blur-xl"
           >
             <div className="flex justify-between items-start mb-4">
               <div className="p-2.5 rounded-xl bg-(--hover-overlay) border border-(--border-subtle) flex items-center justify-center text-(--text-faint) group-hover:text-(--text-primary) group-hover:border-(--border-strong) transition-all">
@@ -327,7 +327,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
           </div>
 
           {/* Recent Activities */}
-          <div className="border border-(--border-default) rounded-2xl p-6 backdrop-blur-md" style={{ backgroundColor: "var(--hover-overlay)" }}>
+          <div className="ds-card rounded-2xl p-6 backdrop-blur-md">
             <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-5">Recent Activities</h3>
             <div className="relative border-l border-(--border-default) pl-5 ml-2.5 space-y-6">
               {[
@@ -359,7 +359,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
         <div className="lg:col-span-5 space-y-6">
           
           {/* Upcoming Registration Deadlines */}
-          <div className="border border-(--border-default) rounded-2xl p-6 backdrop-blur-md" style={{ backgroundColor: "var(--hover-overlay)" }}>
+          <div className="ds-card rounded-2xl p-6 backdrop-blur-md">
             <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-5 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-(--brand-gold)" /> Registration Schedule
             </h3>
@@ -387,7 +387,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
           </div>
 
           {/* System Health */}
-          <div className="border border-(--border-default) rounded-2xl p-6 backdrop-blur-md" style={{ backgroundColor: "var(--hover-overlay)" }}>
+          <div className="ds-card rounded-2xl p-6 backdrop-blur-md">
             <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-5 flex items-center gap-2">
               <Server className="w-5 h-5 text-(--brand-gold)" /> Core Infrastructure
             </h3>

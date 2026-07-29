@@ -8,7 +8,8 @@ import {
   GraduationCap,
   CreditCard,
   BarChart3,
-  HelpCircle
+  HelpCircle,
+  UserCheck
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
@@ -28,7 +29,7 @@ interface MobileNavProps<T extends string = NavTab> {
 
 const defaultStudentItems: GenericMobileNavItem<NavTab>[] = [
   { id: 'dashboard', label: 'Dash', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { id: 'registration', label: 'Register', icon: <UserCheck className="w-5 h-5" /> },
+  { id: 'my_courses', label: 'My Courses', icon: <BookOpen className="w-5 h-5" /> },
   { id: 'grades', label: 'Grades', icon: <GraduationCap className="w-5 h-5" /> },
   { id: 'financials', label: 'Tuition', icon: <CreditCard className="w-5 h-5" /> },
   { id: 'degree_audit', label: 'Degree', icon: <BarChart3 className="w-5 h-5" /> },
@@ -53,21 +54,19 @@ export const MobileNav = <T extends string = NavTab>({ activeTab, setActiveTab, 
               whileTap={{ scale: 0.88 }}
               aria-current={isActive ? 'page' : undefined}
               className={`relative flex flex-col items-center justify-center w-full py-1.5 touch-target font-sans text-xs font-medium transition-colors ${
-                isActive
-                  ? 'text-[#E9C349] font-bold'
-                  : 'text-white/60'
+                isActive ? 'ds-mobile-nav-item-active' : 'ds-mobile-nav-item'
               }`}
             >
               {isActive && (
                 <motion.div
                   layoutId="activeMobileTabPill"
-                  className="absolute inset-0 bg-[#E9C349]/15 rounded-xl border-b-2 border-[#E9C349]"
+                  className="absolute inset-0 ds-mobile-nav-pill rounded-xl border-b-2"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
               <span className="relative z-10">
                 {item.icon}
-                {item.dot && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#E9C349] rounded-full border border-[#0F0F10]" />}
+                {item.dot && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 ds-mobile-nav-dot rounded-full border" />}
               </span>
               <span className="relative z-10 text-[10px] mt-0.5 tracking-tight leading-none">{item.label}</span>
             </motion.button>

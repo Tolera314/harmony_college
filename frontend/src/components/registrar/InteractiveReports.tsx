@@ -100,7 +100,7 @@ export const InteractiveReports: React.FC = () => {
           { label: 'Section Utilization', val: '86.4%', sub: 'Allocated Seats', icon: Zap, color: 'text-blue-400' },
           { label: 'Faculty workload', val: '14.2h', sub: 'Weekly Avg Lectures', icon: Users, color: 'text-purple-400' }
         ].map((kpi, idx) => (
-          <div key={idx} className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl relative overflow-hidden">
+          <div key={idx} className="p-4 ds-card rounded-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3 opacity-5 pointer-events-none">
               <kpi.icon className="w-12 h-12 text-(--text-primary)" />
             </div>
@@ -115,7 +115,7 @@ export const InteractiveReports: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Enrollment Trend (7 cols) */}
-        <div className="lg:col-span-7 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+        <div className="lg:col-span-7 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
           <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
             <h3 className="font-serif text-base font-bold text-(--text-primary)">Enrollment Trend (5-Year AY)</h3>
             <span className="text-[10px] font-mono text-(--status-success) font-semibold bg-(--status-success-bg) px-2 py-0.5 rounded border border-(--status-success-border)">
@@ -128,7 +128,7 @@ export const InteractiveReports: React.FC = () => {
         </div>
 
         {/* Program Popularity (5 cols) */}
-        <div className="lg:col-span-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+        <div className="lg:col-span-5 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
           <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
             <h3 className="font-serif text-base font-bold text-(--text-primary)">Curriculum Distribution</h3>
           </div>
@@ -138,7 +138,7 @@ export const InteractiveReports: React.FC = () => {
         </div>
 
         {/* Department Performance (6 cols) */}
-        <div className="lg:col-span-6 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+        <div className="lg:col-span-6 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
           <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
             <h3 className="font-serif text-base font-bold text-(--text-primary)">Department Headcounts</h3>
           </div>
@@ -148,7 +148,7 @@ export const InteractiveReports: React.FC = () => {
         </div>
 
         {/* Capacity Utilization (6 cols) */}
-        <div className="lg:col-span-6 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+        <div className="lg:col-span-6 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
           <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
             <h3 className="font-serif text-base font-bold text-(--text-primary)">Seating Utilization Workloads</h3>
           </div>
