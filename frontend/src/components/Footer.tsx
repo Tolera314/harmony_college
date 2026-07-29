@@ -29,8 +29,8 @@ export default function Footer() {
         {/* Brand identity */}
         <div className="md:col-span-5 space-y-6">
           <div className="flex items-center gap-3">
-            <Image alt="Harmony College Logo" width={36} height={36} className="object-contain"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkk-GfOeeS5kDbA0-xztv8nzqkDrjaLS9xrLYqbgsKDnF3Mgv96Vc6Y3DD4IWBFmoV8u_skSaXfx90BGbNSsit1rc6tnddGQr95P7j0XYaVMT-mv9BIr-INftW65Au2LacF37YGXy4n5CkW1e3oDOI8CUTg4wHCFFuY5-a-_LwZdZbdsruqrfDTWakKwehMJk_9SkFYy9ssYdDjfMKD_e4REWNqaiaoYA9Ppx_gYawAHQQjXFAAHh_uYQcMyOXdTB31Xj6fpKXxQ" />
+            <Image alt="Harmony College Logo" width={36} height={36} className="object-cover rounded-full"
+              src="/logo1.jpg" />
             <div className="flex flex-col">
               <span className="font-serif text-base tracking-wider font-extrabold" style={{ color: 'var(--text-primary)' }}>HARMONY</span>
               <span className="text-[8px] font-mono tracking-[0.3em] text-[#E9C349] -mt-1 font-semibold">COLLEGE</span>

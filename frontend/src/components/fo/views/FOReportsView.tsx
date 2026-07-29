@@ -194,7 +194,7 @@ export const FOReportsView: React.FC = () => {
         actions={
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportExcel}>Export Excel</Button>
-            <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportPDF}>Export PDF</Button>
+            <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportPDF}>Save as PDF</Button>
             <Button variant="ghost" size="sm" icon={<Printer className="w-4 h-4" />} onClick={handlePrint}>Print</Button>
           </div>
         }

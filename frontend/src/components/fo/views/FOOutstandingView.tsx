@@ -197,16 +197,19 @@ export const FOOutstandingView: React.FC = () => {
                       <Mail className="w-3.5 h-3.5" />
                     </button>
                     <button title="Record Payment"
-                      className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-emerald-900/30 text-(--text-faint) hover:text-(--status-success) transition-colors touch-target">
+                      onClick={() => setReminder(s)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-emerald-900/30 text-white/40 hover:text-emerald-400 transition-colors touch-target">
                       <CreditCard className="w-3.5 h-3.5" />
                     </button>
                     <button title="Payment Plan"
-                      className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-amber-900/30 text-(--text-faint) hover:text-(--status-warning) transition-colors touch-target">
+                      onClick={() => alert(`Payment plan for ${s.name} (${s.studentId})\nOutstanding: ETB ${s.outstanding.toLocaleString()}\n\nContact Finance Office to set up an installment plan:\nAdmin Building, Room 105\nfinance@harmony.edu`)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-900/30 text-white/40 hover:text-amber-400 transition-colors touch-target">
                       <CalendarClock className="w-3.5 h-3.5" />
                     </button>
                     {s.riskLevel === 'Critical' && (
                       <button title="Flag Account"
-                        className="p-1.5 rounded-lg bg-(--status-danger-bg) text-(--status-danger) hover:bg-rose-900/40 transition-colors touch-target">
+                        onClick={() => alert(`Account flagged: ${s.name} (${s.studentId})\nRisk: ${s.riskLevel} · ${s.daysOverdue} days overdue\nETB ${s.outstanding.toLocaleString()} outstanding\n\nEscalated to Student Affairs.`)}
+                        className="p-1.5 rounded-lg bg-rose-950/40 text-rose-400 hover:bg-rose-900/40 transition-colors touch-target">
                         <Flag className="w-3.5 h-3.5" />
                       </button>
                     )}

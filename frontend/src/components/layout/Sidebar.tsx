@@ -77,8 +77,8 @@ export const Sidebar = <T extends string = NavTab>({
           onClick={() => setActiveTab(items[0]?.id)}
           className="flex items-center gap-3 text-left group focus:outline-none ds-focus-ring rounded-xl"
         >
-          <div className="w-10 h-10 rounded-xl text-[--text-inverse] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform bg-gradient-to-br from-[var(--brand-gold)] to-[var(--brand-gold-dark)]">
-            H
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0 group-hover:scale-105 transition-transform shadow-md">
+            <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
           </div>
           {!collapsed && (
             <div className="hidden xl:block">

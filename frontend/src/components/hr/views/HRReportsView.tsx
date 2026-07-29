@@ -71,7 +71,7 @@ export const HRReportsView: React.FC = () => {
         title="HR Reports"
         subtitle="Analytics overview · Academic Year 2024–2025"
         icon={<BarChart3 className="w-5 h-5" />}
-        actions={<Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />}>Export PDF</Button>}
+        actions={<Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />}>Save as PDF</Button>}
       />
 
       {/* Summary KPIs */}

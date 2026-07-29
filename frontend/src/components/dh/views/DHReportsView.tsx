@@ -53,7 +53,7 @@ export const DHReportsView: React.FC = () => {
         title="Department Reports"
         subtitle="Academic analytics for Fall 2024 · Theatrical Art & Digital Media"
         icon={<BarChart3 className="w-5 h-5" />}
-        actions={<Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />}>Export PDF</Button>}
+        actions={<Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />}>Save as PDF</Button>}
       />
 
       {/* Summary row */}
