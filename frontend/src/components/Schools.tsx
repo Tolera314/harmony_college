@@ -4,7 +4,7 @@ import { Camera, Film, Music, Headphones, Palette, Globe, X, ArrowUpRight, BookO
 import { School } from '../types';
 import { schoolsData } from '../data/schools';
 
-const iconMap: Record<string, React.ComponentType<any>> = { Camera, Film, Music, Headphones, Palette, Globe };
+const iconMap: Record<string, React.ComponentType<any>> = { Camera, Film, Music, Headphones, Palette, Globe, BookOpen };
 
 interface SchoolsProps {
   onSelectSchoolId?: string;
@@ -14,7 +14,6 @@ interface SchoolsProps {
 export default function Schools({ onSelectSchoolId, onClearSelectedSchoolId }: SchoolsProps) {
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [calculatorCredits, setCalculatorCredits] = useState(12);
-  const [isInternational, setIsInternational] = useState(false);
   const [activeDegreeTab, setActiveDegreeTab] = useState<'All'|'Undergraduate'|'Graduate'>('All');
 
   React.useEffect(() => {
@@ -25,14 +24,13 @@ export default function Schools({ onSelectSchoolId, onClearSelectedSchoolId }: S
   }, [onSelectSchoolId]);
 
   const handleCloseDetail = () => { setSelectedSchool(null); onClearSelectedSchoolId?.(); };
-  const handleCardClick = (school: School) => { setSelectedSchool(school); setCalculatorCredits(12); setIsInternational(false); setActiveDegreeTab('All'); };
+  const handleCardClick = (school: School) => { setSelectedSchool(school); setCalculatorCredits(12); setActiveDegreeTab('All'); };
 
   const calculateFees = (school: School) => {
-    const creditRate = isInternational ? school.tuitionPerCredit * 1.35 : school.tuitionPerCredit;
-    const baseTuition = Math.round(calculatorCredits * creditRate);
-    const fees = 150 + 120 + (isInternational ? 450 : 200);
+    const baseTuition = Math.round(calculatorCredits * school.tuitionPerCredit);
+    const fees = 500 + 300;
     const discount = calculatorCredits >= 15 ? Math.round(baseTuition * 0.08) : 0;
-    return { rate: Math.round(creditRate), tuition: baseTuition, fees, discount, total: baseTuition + fees - discount };
+    return { rate: school.tuitionPerCredit, tuition: baseTuition, fees, discount, total: baseTuition + fees - discount };
   };
 
   return (
@@ -41,9 +39,9 @@ export default function Schools({ onSelectSchoolId, onClearSelectedSchoolId }: S
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-4">
           <div>
-            <span className="text-[#E9C349] font-sans text-[10px] font-bold uppercase tracking-[0.25em] mb-4 block">Our Schools</span>
+            <span className="text-[#E9C349] font-sans text-[10px] font-bold uppercase tracking-[0.25em] mb-4 block">Our Programs</span>
             <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight" style={{ color: 'var(--text-primary)' }}>
-              Diverse Academic Ecosystems
+              What We Teach at Harmony
             </h2>
           </div>
           <button onClick={() => document.getElementById('admissions')?.scrollIntoView({ behavior: 'smooth' })}
@@ -219,25 +217,15 @@ export default function Schools({ onSelectSchoolId, onClearSelectedSchoolId }: S
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between p-3.5 rounded-xl"
-                      style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
-                      <div>
-                        <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>International Student Registry</p>
-                        <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>35% international levy applies</p>
-                      </div>
-                      <button onClick={() => setIsInternational(!isInternational)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isInternational ? 'bg-[#E9C349]' : ''}`}
-                        style={{ backgroundColor: isInternational ? '#E9C349' : 'var(--border-strong)' }}>
-                        <span className={`inline-block h-4 w-4 transform rounded-full transition-transform ${isInternational ? 'translate-x-6' : 'translate-x-1'}`}
-                          style={{ backgroundColor: isInternational ? '#141313' : '#fff' }} />
-                      </button>
-                    </div>
-
                     {(() => {
                       const bp = calculateFees(selectedSchool);
                       return (
                         <div className="space-y-3 pt-2">
-                          {[['Credit Rate', `$${bp.rate} USD / Credit`],['Base Instruction', `$${bp.tuition.toLocaleString()} USD`],['Standard Fees', `$${bp.fees} USD`]].map(([k, v]) => (
+                          {[
+                            ['Credit Rate', `ETB ${bp.rate.toLocaleString()} / Credit`],
+                            ['Base Tuition', `ETB ${bp.tuition.toLocaleString()}`],
+                            ['Registration & Facility Fees', `ETB ${bp.fees.toLocaleString()}`],
+                          ].map(([k, v]) => (
                             <div key={k} className="flex justify-between text-xs font-sans">
                               <span style={{ color: 'var(--text-secondary)' }}>{k}:</span>
                               <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{v}</span>
@@ -246,14 +234,17 @@ export default function Schools({ onSelectSchoolId, onClearSelectedSchoolId }: S
                           {bp.discount > 0 && (
                             <div className="flex justify-between text-xs font-sans text-green-600">
                               <span>Full-Time Discount (8%):</span>
-                              <span className="font-mono">-${bp.discount} USD</span>
+                              <span className="font-mono">-ETB {bp.discount.toLocaleString()}</span>
                             </div>
                           )}
                           <div className="h-px mt-2" style={{ backgroundColor: 'var(--border-default)' }} />
                           <div className="flex justify-between items-center pt-1">
                             <span className="text-sm font-serif font-bold" style={{ color: 'var(--text-primary)' }}>Estimated Total:</span>
-                            <span className="text-xl font-serif font-black text-[#E9C349] font-mono">${bp.total.toLocaleString()} USD</span>
+                            <span className="text-xl font-serif font-black text-[#E9C349] font-mono">ETB {bp.total.toLocaleString()}</span>
                           </div>
+                          <p className="text-[10px] font-mono text-center" style={{ color: 'var(--text-muted)' }}>
+                            Payment at Finance Office · Admin Building, Room 105
+                          </p>
                         </div>
                       );
                     })()}

@@ -3,6 +3,7 @@ import { Manrope, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { ThemeScript } from '@/src/components/ThemeScript';
 import { ThemeProvider } from '@/src/context/ThemeContext';
+import { AIAssistant } from '@/src/components/ai/AIAssistant';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -37,6 +38,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <ThemeProvider>
           {children}
+          <AIAssistant />
         </ThemeProvider>
       </body>
     </html>

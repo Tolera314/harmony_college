@@ -78,8 +78,8 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
             alt="Harmony College Logo"
             width={40}
             height={40}
-            className="object-contain transition-transform duration-500 group-hover:rotate-[360deg]"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkk-GfOeeS5kDbA0-xztv8nzqkDrjaLS9xrLYqbgsKDnF3Mgv96Vc6Y3DD4IWBFmoV8u_skSaXfx90BGbNSsit1rc6tnddGQr95P7j0XYaVMT-mv9BIr-INftW65Au2LacF37YGXy4n5CkW1e3oDOI8CUTg4wHCFFuY5-a-_LwZdZbdsruqrfDTWakKwehMJk_9SkFYy9ssYdDjfMKD_e4REWNqaiaoYA9Ppx_gYawAHQQjXFAAHh_uYQcMyOXdTB31Xj6fpKXxQ"
+            className="object-cover rounded-full transition-transform duration-500 group-hover:scale-105"
+            src="/logo1.jpg"
             priority
           />
           <div className="flex flex-col">

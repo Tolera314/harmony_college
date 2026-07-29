@@ -15,6 +15,90 @@ import type { Receipt as ReceiptType } from '../../../types/finance';
 
 import { printElement, shareContent, downloadPDF } from '../../../lib/exportUtils';
 
+// ── Receipt print helper ──────────────────────────────────────────────────────
+function printTranscriptReceipt(r: ReceiptType): void {
+  const { doPrint } = require('../../../lib/exportUtils') as { doPrint?: never };
+  // Build self-contained HTML receipt
+  const issueDate = new Date(r.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const itemRows = r.items.map(item =>
+    `<tr>
+      <td style="padding:7px 14px;border-bottom:1px solid #eee;font-family:Arial,sans-serif;font-size:11px">${item.label}</td>
+      <td style="padding:7px 14px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;font-weight:bold;font-size:11px">ETB ${item.amount.toLocaleString()}</td>
+    </tr>`
+  ).join('');
+
+  const PRINT_ID = '__hc_print__';
+  const STYLE_ID = '__hc_print_style__';
+  document.getElementById(PRINT_ID)?.remove();
+  document.getElementById(STYLE_ID)?.remove();
+
+  const wrapper = document.createElement('div');
+  wrapper.id = PRINT_ID;
+  wrapper.innerHTML = `
+    <div style="font-family:Georgia,serif;color:#000;background:#fff;max-width:480px;margin:0 auto;padding:32px 24px">
+      <!-- Header -->
+      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:16px;margin-bottom:16px">
+        <div style="width:44px;height:44px;background:#E9C349;border-radius:8px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:#0F0F10;line-height:44px;text-align:center">H</div>
+        <div style="font-family:Georgia,serif;font-size:18px;font-weight:bold;letter-spacing:1px">HARMONY COLLEGE</div>
+        <div style="font-family:monospace;font-size:9px;color:#888;text-transform:uppercase;letter-spacing:2px;margin-top:2px">Finance & Bursary Office</div>
+        <div style="font-family:monospace;font-size:11px;color:#E9C349;font-weight:bold;margin-top:6px;letter-spacing:1px">${r.receiptNumber}</div>
+      </div>
+      <!-- Student info -->
+      <table style="width:100%;font-size:11px;margin-bottom:16px" cellpadding="0" cellspacing="0">
+        ${[
+          ['Student', r.studentName],
+          ['Program', r.studentProgramName],
+          ['Cashier', r.cashierName],
+          ['Date', `${r.date}  ${r.time}`],
+          ['Method', r.paymentMethod],
+          ['Reference', r.referenceNumber],
+        ].map(([l,v]) => `<tr><td style="padding:4px 0;color:#777;font-family:monospace;font-size:9px;text-transform:uppercase;letter-spacing:1px;width:90px">${l}</td><td style="padding:4px 0;font-family:Arial,sans-serif">${v}</td></tr>`).join('')}
+      </table>
+      <!-- Items -->
+      <table style="width:100%;border-collapse:collapse;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc;margin-bottom:12px">
+        ${itemRows}
+      </table>
+      <!-- Total -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:#f5f5f5;border-radius:6px;margin-bottom:16px">
+        <span style="font-family:Georgia,serif;font-size:13px;font-weight:bold">TOTAL PAID</span>
+        <span style="font-family:monospace;font-size:20px;font-weight:bold;color:#0F0F10">ETB ${r.amount.toLocaleString()}</span>
+      </div>
+      <!-- QR placeholder -->
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:16px">
+        <div style="width:40px;height:40px;background:#f0f0f0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px">▦</div>
+        <div>
+          <div style="font-family:monospace;font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px">QR Verification</div>
+          <div style="font-family:monospace;font-size:10px;color:#E9C349;font-weight:bold">${r.qrCode}</div>
+        </div>
+      </div>
+      <!-- Footer -->
+      <p style="font-family:Arial,sans-serif;font-size:9px;color:#aaa;text-align:center;font-style:italic">
+        Official payment receipt issued by Harmony College Finance Office. Keep this receipt for your records.
+      </p>
+    </div>`;
+
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    @media print {
+      body > *:not(#${PRINT_ID}) { display: none !important; visibility: hidden !important; }
+      #${PRINT_ID} { display: block !important; visibility: visible !important; position: fixed !important; inset: 0 !important; z-index: 999999 !important; background: white !important; }
+      @page { margin: 10mm 10mm; size: A5 portrait; }
+    }
+    #${PRINT_ID} { display: none; }
+  `;
+
+  document.head.appendChild(style);
+  document.body.appendChild(wrapper);
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      document.getElementById(PRINT_ID)?.remove();
+      document.getElementById(STYLE_ID)?.remove();
+    }, 1500);
+  }, 150);
+}
+
 // ── Receipt Preview Modal ─────────────────────────────────────────────────────
 function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClose: () => void }) {
   const [shareMsg, setShareMsg] = React.useState('');
@@ -56,7 +140,9 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
         <div id={`receipt-print-${receipt.id}`}>
         {/* Receipt header */}
         <div className="text-center space-y-1 pb-4 border-b border-white/10">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#E9C349] to-[#b8951d] flex items-center justify-center font-serif font-bold text-2xl text-[#0F0F10] mx-auto mb-2">H</div>
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#E9C349]/50 mx-auto mb-2">
+            <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
+          </div>
           <p className="font-serif text-lg font-bold text-white">Harmony College</p>
           <p className="font-sans text-xs text-white/50">Finance & Bursary Office</p>
           <p className="font-sans text-xs text-white/40">Sheger, Burayu, Ethiopia</p>
@@ -125,7 +211,7 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
           <Button variant="secondary" size="sm" className="flex-1" icon={<Printer className="w-4 h-4" />}
             onClick={handlePrint}>Print</Button>
           <Button variant="secondary" size="sm" className="flex-1" icon={<Download className="w-4 h-4" />}
-            onClick={handleDownloadPDF}>PDF</Button>
+            onClick={handleDownloadPDF}>Save as PDF</Button>
           <Button variant="outline" size="sm" className="flex-1" icon={<Share2 className="w-4 h-4" />}
             onClick={handleShare}>Share</Button>
         </div>
@@ -250,10 +336,16 @@ export const FOReceiptsView: React.FC = () => {
                       className="p-1.5 rounded-lg bg-white/5 hover:bg-[#E9C349]/15 text-white/40 hover:text-[#E9C349] transition-colors touch-target">
                       <Eye className="w-3.5 h-3.5" />
                     </button>
-                    <button title="Print" className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors touch-target">
+                    <button
+                      title="Print"
+                      onClick={() => printTranscriptReceipt(r)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors touch-target">
                       <Printer className="w-3.5 h-3.5" />
                     </button>
-                    <button title="Download PDF" className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors touch-target">
+                    <button
+                      title="Save as PDF"
+                      onClick={() => printTranscriptReceipt(r)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors touch-target">
                       <Download className="w-3.5 h-3.5" />
                     </button>
                   </div>

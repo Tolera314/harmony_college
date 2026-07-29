@@ -62,8 +62,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {/* Logo */}
       <div className="mb-5 px-1.5 flex items-center gap-2.5 shrink-0">
         <button onClick={() => setActiveTab('overview')} className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] rounded-xl">
-          <div className="w-9 h-9 rounded-xl bg-linear-to-br from-[#E9C349] to-[#b8951d] text-[#0F0F10] flex items-center justify-center font-serif font-bold text-lg shadow-md shrink-0 group-hover:scale-105 transition-transform">
-            H
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0 group-hover:scale-105 transition-transform shadow-md">
+            <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
           </div>
           <div className="hidden xl:block">
             <span className="font-serif text-base font-bold text-white tracking-tight block leading-none">Harmony</span>

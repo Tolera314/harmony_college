@@ -304,14 +304,23 @@ export const FOStudentAccountsView: React.FC = () => {
                       title="View Ledger"
                       className="p-1.5 rounded-lg bg-white/5 hover:bg-[#E9C349]/15 text-white/50 hover:text-[#E9C349] transition-colors touch-target"
                     ><Eye className="w-3.5 h-3.5" /></button>
-                    <button title="Record Payment" className="p-1.5 rounded-lg bg-white/5 hover:bg-emerald-900/30 text-white/50 hover:text-emerald-400 transition-colors touch-target">
+                    <button
+                      title="Record Payment"
+                      onClick={() => setSelectedStudent(s)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-emerald-900/30 text-white/50 hover:text-emerald-400 transition-colors touch-target">
                       <CreditCard className="w-3.5 h-3.5" />
                     </button>
-                    <button title="Payment History" className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors touch-target">
+                    <button
+                      title="Payment History"
+                      onClick={() => setSelectedStudent(s)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors touch-target">
                       <History className="w-3.5 h-3.5" />
                     </button>
                     {s.installmentPlan && (
-                      <button title="Installment Plan" className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-900/30 text-white/50 hover:text-amber-400 transition-colors touch-target">
+                      <button
+                        title="Installment Plan"
+                        onClick={() => setSelectedStudent(s)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-900/30 text-white/50 hover:text-amber-400 transition-colors touch-target">
                         <CalendarClock className="w-3.5 h-3.5" />
                       </button>
                     )}
