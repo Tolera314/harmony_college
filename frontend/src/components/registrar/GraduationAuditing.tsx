@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   GraduationCap, CheckCircle2, XCircle, AlertTriangle, 
-  Search, ShieldCheck, FileCheck, Check, X, User
+  Search, ShieldCheck, FileCheck, Check, X, User, CheckCheck
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -70,6 +70,7 @@ export const GraduationAuditing: React.FC = () => {
   const [selectedCandidate, setSelectedCandidate] = useState<typeof initialCandidates[0] | null>(initialCandidates[0]);
   const [search, setSearch] = useState('');
   const [reasonMsg, setReasonMsg] = useState('');
+  const [statusToast, setStatusToast] = useState<string | null>(null);
 
   const filteredCandidates = candidates.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -101,7 +102,8 @@ export const GraduationAuditing: React.FC = () => {
     }));
 
     setReasonMsg('');
-    alert(`Graduation status updated to ${newStatus} for student ${selectedCandidate.name}. Notification queued.`);
+    setStatusToast(`Graduation status updated to ${newStatus} for ${selectedCandidate.name}. Notification queued.`);
+    setTimeout(() => setStatusToast(null), 4000);
   };
 
   return (
@@ -115,6 +117,14 @@ export const GraduationAuditing: React.FC = () => {
         <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Graduation Auditing</h2>
         <p className="text-xs text-(--text-muted)">Audit student degree requirements, verify clearance metrics, and authorize graduation lists.</p>
       </div>
+
+      {/* Status toast */}
+      {statusToast && (
+        <div className="flex items-center gap-3 p-3 bg-(--status-success-bg) border border-(--status-success-border) rounded-xl text-xs text-(--status-success) font-semibold">
+          <CheckCheck className="w-4 h-4 shrink-0" />
+          {statusToast}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         

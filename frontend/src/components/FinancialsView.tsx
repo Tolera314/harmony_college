@@ -12,6 +12,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
+import { SlidePanel } from './ui/SlidePanel';
 import { Input } from './ui/Input';
 import { Table, Column } from './ui/Table';
 
@@ -202,16 +203,18 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({ profile, transac
         </div>
       </div>
 
-      {/* Payment Modal */}
-      <Modal
+      {/* Payment — SlidePanel */}
+      <SlidePanel
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         title={
           <div className="flex items-center gap-2">
-            <Lock className="w-5 h-5" style={{ color: "var(--brand-gold)" }} />  <span>Secure Online Payment</span>
+            <Lock className="w-5 h-5" style={{ color: "var(--brand-gold)" }} />
+            <span>Secure Online Payment</span>
           </div>
         }
-        maxWidth="max-w-md"
+        subtitle="Financials & Tuition"
+        width="max-w-md"
       >
         {paymentSuccess ? (
           <div className="text-center py-8 space-y-3">
@@ -262,7 +265,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({ profile, transac
             </Button>
           </form>
         )}
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

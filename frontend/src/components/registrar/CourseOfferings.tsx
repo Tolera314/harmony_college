@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
-  KanbanSquare, Table as TableIcon, Users, MapPin,
-  Clock, Plus, CheckCircle2, ChevronRight,
-  HelpCircle, MoreVertical, ShieldAlert, Sparkles, X, Check
+  KanbanSquare, Table as TableIcon, MapPin,
+  Clock, ChevronRight, Check
 } from 'lucide-react';
-import { EmptyState } from '../ui/States';
+import { SlidePanel } from '../ui/SlidePanel';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 
@@ -289,123 +288,91 @@ export const CourseOfferings: React.FC = () => {
         </div>
       )}
 
-      {/* Configuration modal */}
-      <AnimatePresence>
+      {/* Configuration — SlidePanel */}
+      <SlidePanel
+        isOpen={!!editingOffering}
+        onClose={() => setEditingOffering(null)}
+        title={editingOffering ? `Configure Section — ${editingOffering.code}` : ''}
+        subtitle="Course Offerings"
+        width="max-w-md"
+      >
         {editingOffering && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setEditingOffering(null)}
-              className="absolute inset-0 bg-black"
-            />
+          <>
+            <p className="text-xs text-(--text-faint) mb-4">Update scheduler details for section {editingOffering.code}.</p>
+            <form onSubmit={handleSaveOffering} className="space-y-4 font-sans">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-(--text-secondary)">Assign Lecturer / Instructor</label>
+                <select
+                  value={editFields.instructor}
+                  onChange={(e) => setEditFields(prev => ({ ...prev, instructor: e.target.value }))}
+                  className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
+                >
+                  <option value="TBD">TBD (To Be Decided)</option>
+                  {mockInstructors.map(ins => <option key={ins} value={ins}>{ins}</option>)}
+                </select>
+              </div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-(--bg-base) border border-(--border-default) rounded-2xl p-6 shadow-2xl z-10 font-sans"
-            >
-              <button
-                onClick={() => setEditingOffering(null)}
-                className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <h3 className="text-lg font-serif font-bold text-(--text-primary) mb-2">Configure Course Section</h3>
-              <p className="text-xs text-(--text-faint) mb-4">Update scheduler details for section {editingOffering.code}.</p>
-
-              <form onSubmit={handleSaveOffering} className="space-y-4">
-
-                {/* Instructor assignment */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-(--text-secondary)">Assign Lecturer / Instructor</label>
+                  <label className="text-xs font-semibold text-(--text-secondary)">Building</label>
                   <select
-                    value={editFields.instructor}
-                    onChange={(e) => setEditFields(prev => ({ ...prev, instructor: e.target.value }))}
+                    value={editFields.building}
+                    onChange={(e) => setEditFields(prev => ({ ...prev, building: e.target.value }))}
                     className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
                   >
-                    <option value="TBD">TBD (To Be Decided)</option>
-                    {mockInstructors.map(ins => (
-                      <option key={ins} value={ins}>{ins}</option>
-                    ))}
+                    <option value="TBD">TBD</option>
+                    <option value="Block A">Block A</option>
+                    <option value="Block B">Block B</option>
+                    <option value="Block C">Block C</option>
                   </select>
                 </div>
-
-                {/* Building / Classroom */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-(--text-secondary)">Building</label>
-                    <select
-                      value={editFields.building}
-                      onChange={(e) => setEditFields(prev => ({ ...prev, building: e.target.value }))}
-                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
-                    >
-                      <option value="TBD">TBD</option>
-                      <option value="Block A">Block A</option>
-                      <option value="Block B">Block B</option>
-                      <option value="Block C">Block C</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-(--text-secondary)">Room Number</label>
-                    <select
-                      value={editFields.room}
-                      onChange={(e) => setEditFields(prev => ({ ...prev, room: e.target.value }))}
-                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
-                    >
-                      <option value="TBD">TBD</option>
-                      <option value="101">101 (60 cap)</option>
-                      <option value="104">104 (50 cap)</option>
-                      <option value="201">201 (35 cap)</option>
-                      <option value="204">204 (45 cap)</option>
-                      <option value="302">302 (30 cap)</option>
-                    </select>
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-(--text-secondary)">Room Number</label>
+                  <select
+                    value={editFields.room}
+                    onChange={(e) => setEditFields(prev => ({ ...prev, room: e.target.value }))}
+                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
+                  >
+                    <option value="TBD">TBD</option>
+                    <option value="101">101 (60 cap)</option>
+                    <option value="104">104 (50 cap)</option>
+                    <option value="201">201 (35 cap)</option>
+                    <option value="204">204 (45 cap)</option>
+                    <option value="302">302 (30 cap)</option>
+                  </select>
                 </div>
+              </div>
 
-                {/* Seating capacity */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-(--text-secondary)">Seating Capacity</label>
-                    <input
-                      type="number"
-                      min={10}
-                      max={120}
-                      value={editFields.capacity}
-                      onChange={(e) => setEditFields(prev => ({ ...prev, capacity: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-(--text-secondary)">Meeting Time Slot</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Mon/Wed 09:00 AM - 10:30 AM"
-                      value={editFields.time}
-                      onChange={(e) => setEditFields(prev => ({ ...prev, time: e.target.value }))}
-                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-(--text-secondary)">Seating Capacity</label>
+                  <input
+                    type="number" min={10} max={120}
+                    value={editFields.capacity}
+                    onChange={(e) => setEditFields(prev => ({ ...prev, capacity: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+                  />
                 </div>
-
-                {/* Submit buttons */}
-                <div className="flex gap-3 justify-end pt-2">
-                  <Button variant="secondary" size="sm" type="button" onClick={() => setEditingOffering(null)}>
-                    Cancel
-                  </Button>
-                  <Button variant="gold" size="sm" type="submit">
-                    Save Changes
-                  </Button>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-(--text-secondary)">Meeting Time Slot</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Mon/Wed 09:00 AM - 10:30 AM"
+                    value={editFields.time}
+                    onChange={(e) => setEditFields(prev => ({ ...prev, time: e.target.value }))}
+                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+                  />
                 </div>
+              </div>
 
-              </form>
-            </motion.div>
-          </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="secondary" size="sm" type="button" className="flex-1" onClick={() => setEditingOffering(null)}>Cancel</Button>
+                <Button variant="gold" size="sm" type="submit" className="flex-1">Save Changes</Button>
+              </div>
+            </form>
+          </>
         )}
-      </AnimatePresence>
+      </SlidePanel>
     </motion.div>
   );
 };

@@ -12,6 +12,7 @@ import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { attendanceSessions } from '../../../data/instructorData';
 import { courses, students } from '../../../data/departmentData';
 import { AttendanceStatus, AttendanceRecord } from '../../../types/instructor';
@@ -364,8 +365,8 @@ export const InAttendanceView: React.FC = () => {
         </div>
       )}
 
-      {/* Manual Quick-Add Modal */}
-      <Modal isOpen={manualModal} onClose={() => setManualModal(false)} title="Quick Mark — Manual Attendance" maxWidth="max-w-md">
+      {/* Manual Quick-Add — SlidePanel */}
+      <SlidePanel isOpen={manualModal} onClose={() => setManualModal(false)} title="Quick Mark — Manual Attendance" subtitle="Attendance" width="max-w-md">
         <div className="space-y-3 font-sans text-sm">
           <p className="text-(--text-secondary) text-xs">Select a student to quickly mark their attendance status.</p>
           {allStudents.map(student => (
@@ -390,7 +391,7 @@ export const InAttendanceView: React.FC = () => {
             <Button variant="primary" className="flex-1" onClick={() => { handleSave(); setManualModal(false); }}>Save</Button>
           </div>
         </div>
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

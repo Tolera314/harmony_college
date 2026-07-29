@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Calendar, ShieldAlert, CheckCircle, Save, Info, 
-  HelpCircle, Settings, Plus, Trash2, Power
+  HelpCircle, Settings, Plus, Trash2, Power, CheckCheck
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -61,8 +61,11 @@ export const RegistrationSettings: React.FC = () => {
     setRules(prev => prev.filter(r => r.id !== id));
   };
 
+  const [saved, setSaved] = useState(false);
+
   const handleSaveSettings = () => {
-    alert('Settings Saved Successfully!\nAcademic registration engine re-initialized with updated rules.');
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   };
 
   return (
@@ -77,14 +80,21 @@ export const RegistrationSettings: React.FC = () => {
           <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Registration Settings</h2>
           <p className="text-xs text-(--text-muted)">Manage semester enrollment windows, waitlist structures, and compliance rules.</p>
         </div>
-        <Button 
-          variant="gold" 
-          size="sm" 
-          onClick={handleSaveSettings}
-          className="flex items-center gap-1.5 py-2 font-semibold text-xs"
-        >
-          <Save className="w-4 h-4" /> Save Configuration
-        </Button>
+        <div className="flex items-center gap-3">
+          {saved && (
+            <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
+              <CheckCheck className="w-4 h-4" /> Configuration saved
+            </span>
+          )}
+          <Button 
+            variant="gold" 
+            size="sm" 
+            onClick={handleSaveSettings}
+            className="flex items-center gap-1.5 py-2 font-semibold text-xs"
+          >
+            <Save className="w-4 h-4" /> Save Configuration
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

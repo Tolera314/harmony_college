@@ -11,7 +11,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { EmptyState } from '../../ui/States';
 import { Modal } from '../../ui/Modal';
-
+import { SlidePanel } from '../../ui/SlidePanel';
 const statusConfig: Record<ApprovalRequest['status'], { variant: 'amber'|'emerald'|'rose'; label: string }> = {
   Pending:  { variant: 'amber',   label: 'Pending' },
   Approved: { variant: 'emerald', label: 'Approved' },
@@ -143,7 +143,7 @@ export const DHApprovalsView: React.FC = () => {
       </div>
 
       {/* Detail Modal */}
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title="Request Details" maxWidth="max-w-lg">
+      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title="Request Details" subtitle="Approval Request" width="max-w-lg">
         {selected && (() => {
           const course = courses.find((c) => c.id === selected.courseId);
           const status = getStatus(selected);
@@ -180,7 +180,7 @@ export const DHApprovalsView: React.FC = () => {
             </div>
           );
         })()}
-      </Modal>
+      </SlidePanel>
 
       {/* Confirm Modal */}
       <Modal isOpen={!!confirmModal} onClose={() => setConfirmModal(null)} title={`Confirm ${confirmModal?.action}`} maxWidth="max-w-md">

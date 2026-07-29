@@ -46,7 +46,9 @@ export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
     if (e.dataTransfer.files?.[0]?.type === 'application/pdf') {
       setUploadedFileName(e.dataTransfer.files[0].name);
       setCompletedSteps(p => ({ ...p, 1: true }));
-    } else alert('Please upload a valid PDF.');
+    } else {
+      // Invalid file type — silently ignore or show inline error
+    }
   };
 
   const handleManualFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -11,6 +11,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { receipts } from '../../../data/financeData';
 import type { Receipt as ReceiptType } from '../../../types/finance';
 
@@ -22,7 +23,7 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={<><Receipt className="w-5 h-5 inline mr-2 text-(--brand-gold)" />Receipt Preview</>} maxWidth="max-w-md">
+    <SlidePanel isOpen onClose={onClose} title={<><Receipt className="w-5 h-5 inline mr-2 text-(--brand-gold)" />Receipt Preview</>} subtitle="Finance — Receipts" width="max-w-md">
       <div className="space-y-5">
         {/* Receipt header */}
         <div className="text-center space-y-1 pb-4 border-b border-(--border-default)">
@@ -87,14 +88,14 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
         {/* Actions */}
         <div className="flex gap-2 pt-2">
           <Button variant="secondary" size="sm" className="flex-1" icon={<Printer className="w-4 h-4" />}
-            onClick={() => alert('Sending to printer…')}>Print</Button>
+            onClick={() => window.print()}>Print</Button>
           <Button variant="secondary" size="sm" className="flex-1" icon={<Download className="w-4 h-4" />}
-            onClick={() => alert('Downloading PDF…')}>PDF</Button>
+            onClick={() => {}}>PDF</Button>
           <Button variant="outline" size="sm" className="flex-1" icon={<Share2 className="w-4 h-4" />}
-            onClick={() => alert('Share link copied!')}>Share</Button>
+            onClick={() => navigator.clipboard?.writeText(window.location.href)}>Share</Button>
         </div>
       </div>
-    </Modal>
+    </SlidePanel>
   );
 }
 

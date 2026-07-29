@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
         "Addis"
-    ]
+    ],
+    "typescript.autoClosingTags": false
 }

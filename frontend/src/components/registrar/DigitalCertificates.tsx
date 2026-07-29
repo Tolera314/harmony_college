@@ -5,10 +5,12 @@ import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Award, QrCode, Search, Trash2, CheckCircle2, 
-  XCircle, Copy, Check, Download, AlertTriangle, ShieldCheck
+  XCircle, Copy, Check, Download, AlertTriangle, ShieldCheck, CheckCheck
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { SlidePanel } from '../ui/SlidePanel';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 // Initial issued certificates
 const initialCertificates = [
@@ -30,6 +32,15 @@ export const DigitalCertificates: React.FC = () => {
   });
 
   const [copied, setCopied] = useState(false);
+
+  // Revoke modal state
+  const [revokeTarget, setRevokeTarget] = useState<typeof initialCertificates[0] | null>(null);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [revokeReasonError, setRevokeReasonError] = useState('');
+  const [revokeConfirmOpen, setRevokeConfirmOpen] = useState(false);
+
+  // Success notification state
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const filteredCerts = certs.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -61,25 +72,34 @@ export const DigitalCertificates: React.FC = () => {
     setCerts(prev => [newRecord, ...prev]);
     setSelectedCert(newRecord);
     setNewCert({ studentId: '', name: '', program: 'Bachelor of Science in Computer Science' });
-    alert('Digital certificate generated successfully with unique cryptographic hash.');
+    setSuccessMsg(`Digital certificate generated successfully for ${newRecord.name}.`);
+    setTimeout(() => setSuccessMsg(null), 4000);
   };
 
-  const handleRevoke = (id: string) => {
-    const reason = prompt('Please enter the administrative reason for revoking this certificate:');
-    if (reason === null) return;
-    if (!reason.trim()) {
-      alert('Revocation requires a valid justification reason.');
+  const handleRevokeOpen = (cert: typeof initialCertificates[0]) => {
+    setRevokeTarget(cert);
+    setRevokeReason('');
+    setRevokeReasonError('');
+    setRevokeConfirmOpen(true);
+  };
+
+  const handleRevokeConfirm = () => {
+    if (!revokeReason.trim()) {
+      setRevokeReasonError('Revocation requires a valid justification reason.');
       return;
     }
-
+    if (!revokeTarget) return;
     setCerts(prev => prev.map(c => {
-      if (c.id === id) {
-        const updated = { ...c, status: 'Revoked', revokeReason: reason };
-        if (selectedCert?.id === id) setSelectedCert(updated);
+      if (c.id === revokeTarget.id) {
+        const updated = { ...c, status: 'Revoked', revokeReason };
+        if (selectedCert?.id === revokeTarget.id) setSelectedCert(updated);
         return updated;
       }
       return c;
     }));
+    setRevokeConfirmOpen(false);
+    setRevokeTarget(null);
+    setRevokeReason('');
   };
 
   return (
@@ -93,6 +113,14 @@ export const DigitalCertificates: React.FC = () => {
         <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Digital Certificates</h2>
         <p className="text-xs text-(--text-muted)">Issue secure cryptographic credentials, monitor verification links, and audit revocation records.</p>
       </div>
+
+      {/* Success toast */}
+      {successMsg && (
+        <div className="flex items-center gap-3 p-3 bg-(--status-success-bg) border border-(--status-success-border) rounded-xl text-xs text-(--status-success) font-semibold">
+          <CheckCheck className="w-4 h-4 shrink-0" />
+          {successMsg}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
@@ -215,7 +243,7 @@ export const DigitalCertificates: React.FC = () => {
                     variant="rose"
                     size="sm"
                     disabled={selectedCert.status === 'Revoked'}
-                    onClick={() => handleRevoke(selectedCert.id)}
+                    onClick={() => handleRevokeOpen(selectedCert)}
                     className="flex items-center gap-1 font-semibold text-xs py-1.5 bg-(--status-danger-bg) border border-(--status-danger-border) text-(--status-danger) hover:bg-rose-500/20"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Revoke
@@ -301,6 +329,55 @@ export const DigitalCertificates: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Revoke Certificate — SlidePanel with reason input */}
+      <SlidePanel
+        isOpen={revokeConfirmOpen}
+        onClose={() => { setRevokeConfirmOpen(false); setRevokeTarget(null); }}
+        title="Revoke Certificate"
+        subtitle="Administrative Action"
+        width="max-w-md"
+      >
+        {revokeTarget && (
+          <div className="space-y-5 font-sans text-sm">
+            <div className="p-4 bg-(--status-danger-bg) border border-(--status-danger-border) rounded-xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-(--status-danger) shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-(--text-primary) text-xs">This action is irreversible.</p>
+                <p className="text-(--text-secondary) text-xs mt-1">
+                  Certificate <span className="font-mono text-(--brand-gold)">{revokeTarget.code}</span> issued to{' '}
+                  <strong>{revokeTarget.name}</strong> will be permanently marked as Revoked.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-(--text-faint)">
+                Administrative Justification <span className="text-(--status-danger)">*required</span>
+              </label>
+              <textarea
+                rows={4}
+                value={revokeReason}
+                onChange={e => { setRevokeReason(e.target.value); setRevokeReasonError(''); }}
+                placeholder="Enter the reason for revoking this certificate..."
+                className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold) resize-none transition-colors"
+              />
+              {revokeReasonError && (
+                <p className="text-xs text-(--status-danger)">{revokeReasonError}</p>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" className="flex-1" onClick={() => { setRevokeConfirmOpen(false); setRevokeTarget(null); }}>
+                Cancel
+              </Button>
+              <Button variant="danger" className="flex-1" onClick={handleRevokeConfirm} icon={<Trash2 className="w-4 h-4" />}>
+                Confirm Revocation
+              </Button>
+            </div>
+          </div>
+        )}
+      </SlidePanel>
     </motion.div>
   );
 };

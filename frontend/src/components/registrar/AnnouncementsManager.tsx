@@ -3,14 +3,14 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import {
-  Send, Users, Eye, FileText, Plus,
+import { Send, Users, Eye, FileText, Plus,
   Paperclip, Bold, Italic, Link2, List,
-  Clock, Trash2, ShieldAlert
+  Clock, Trash2, ShieldAlert, CheckCheck
 } from 'lucide-react';
 import { EmptyState } from '../ui/States';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 const initialAnnouncements = [
   { id: 'an1', title: 'Fall Course Registration Guidelines', date: 'Jul 20, 2026', audience: 'All Students', author: 'Robel Bekele', status: 'Published', content: 'Please review the registration prerequisites before checking out courses. Late registration fees will apply after August 20.' },
@@ -29,6 +29,8 @@ export const AnnouncementsManager: React.FC = () => {
 
   const [attachments, setAttachments] = useState<string[]>([]);
   const [newAttachment, setNewAttachment] = useState('');
+  const [publishedMsg, setPublishedMsg] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const handleAddAttachment = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -58,16 +60,18 @@ export const AnnouncementsManager: React.FC = () => {
     setAnnouncements(prev => [newRecord, ...prev]);
     setForm({ title: '', audience: 'All Students', content: '', scheduleDate: '', scheduleTime: '08:00 AM' });
     setAttachments([]);
-    alert(`Announcement published! Dispatched via email alert notification channels.`);
+    setPublishedMsg(true);
+    setTimeout(() => setPublishedMsg(false), 4000);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to retract this announcement?')) {
-      setAnnouncements(prev => prev.filter(an => an.id !== id));
-    }
+  const handleDelete = (id: string) => setDeleteTarget(id);
+  const handleDeleteConfirm = () => {
+    if (deleteTarget) setAnnouncements(prev => prev.filter(an => an.id !== deleteTarget));
+    setDeleteTarget(null);
   };
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -78,6 +82,14 @@ export const AnnouncementsManager: React.FC = () => {
         <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Announcements Manager</h2>
         <p className="text-xs text-(--text-muted)">Draft news bulletins, target academic audiences, and schedule emails dispatches.</p>
       </div>
+
+      {/* Success toast */}
+      {publishedMsg && (
+        <div className="flex items-center gap-3 p-3 bg-(--status-success-bg) border border-(--status-success-border) rounded-xl text-xs text-(--status-success) font-semibold">
+          <CheckCheck className="w-4 h-4 shrink-0" />
+          Announcement published! Dispatched via email alert notification channels.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -268,5 +280,17 @@ export const AnnouncementsManager: React.FC = () => {
 
       </div>
     </motion.div>
+
+    <ConfirmModal
+      isOpen={!!deleteTarget}
+      onClose={() => setDeleteTarget(null)}
+      onConfirm={handleDeleteConfirm}
+      title="Retract Announcement"
+      message="Are you sure you want to retract this announcement? It will be removed from the bulletin board."
+      icon={<Trash2 className="w-6 h-6" />}
+      variant="danger"
+      confirmLabel="Retract"
+    />
+    </>
   );
 };

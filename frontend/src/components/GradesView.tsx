@@ -6,7 +6,6 @@ import {
   Download,
   Printer,
   FileCheck,
-  X
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
@@ -14,6 +13,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
+import { SlidePanel } from './ui/SlidePanel';
 import { Table, Column } from './ui/Table';
 
 interface GradesViewProps {
@@ -260,22 +260,20 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
         </Card>
       </div>
 
-      {/* Official Digital Transcript Modal */}
-      <Modal
+      {/* Official Digital Transcript — SlidePanel */}
+      <SlidePanel
         isOpen={showTranscriptModal}
         onClose={() => setShowTranscriptModal(false)}
+        title="Official Academic Transcript"
+        subtitle="Grades & Transcript"
+        width="max-w-2xl"
       >
         <div className="bg-white text-black p-6 rounded-2xl space-y-6">
-          <div className="flex justify-between items-start border-b-2 border-black pb-4">
-            <div>
-              <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
-              <p className="font-mono text-xs uppercase tracking-widest text-gray-600 mt-1">
-                OFFICIAL ACADEMIC TRANSCRIPT • OFFICE OF THE REGISTRAR
-              </p>
-            </div>
-            <button onClick={() => setShowTranscriptModal(false)} className="text-gray-500 hover:text-black">
-              <X className="w-6 h-6" />
-            </button>
+          <div className="border-b-2 border-black pb-4">
+            <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
+            <p className="font-mono text-xs uppercase tracking-widest text-gray-600 mt-1">
+              OFFICIAL ACADEMIC TRANSCRIPT • OFFICE OF THE REGISTRAR
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-xs font-mono bg-gray-50 p-4 rounded-xl border border-gray-200">
@@ -331,7 +329,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             </button>
           </div>
         </div>
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

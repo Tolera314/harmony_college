@@ -11,6 +11,7 @@ import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 
 const stageBadge = (s: PayrollStage) => {
   const m: Record<PayrollStage, 'glass'|'amber'|'gold'|'emerald'|'rose'> = {
@@ -196,7 +197,7 @@ export const HRPayrollView: React.FC = () => {
         </div>
       </div>
 
-      {/* Approve Modal */}
+      {/* Approve — stays as centered Modal (confirmation dialog) */}
       <Modal isOpen={approveModal} onClose={() => setApproveModal(false)} title="Approve Payroll — Final HR Approval" maxWidth="max-w-md">
         <div className="space-y-4 font-sans text-sm">
           <div className="p-4 bg-(--status-warning-bg) border border-(--status-warning-border) rounded-xl flex items-start gap-3">
