@@ -3,8 +3,6 @@ import { StudentProfile } from '../types';
 import {
   User,
   Bell,
-  Moon,
-  Sun,
   CheckCircle2,
   Save
 } from 'lucide-react';
@@ -13,19 +11,16 @@ import { DURATION, EASE } from '@/src/lib/motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { AppearanceSection } from './ui/AppearanceSection';
 
 interface SettingsViewProps {
   profile: StudentProfile;
   setProfile: React.Dispatch<React.SetStateAction<StudentProfile>>;
-  darkMode: boolean;
-  setDarkMode: (val: boolean | ((prev: boolean) => boolean)) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   profile,
   setProfile,
-  darkMode,
-  setDarkMode
 }) => {
   const [formData, setFormData] = useState({
     name: profile.name,
@@ -143,26 +138,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </Card>
 
       {/* Theme & Contrast Preferences */}
-      <Card hoverable={false} className="space-y-4">
-        <h3 className="font-serif text-xl font-bold flex items-center gap-2 border-b pb-4" style={{ color: "var(--text-primary)", borderColor: "var(--border-default)" }}>
-          {darkMode ? <Moon className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} /> : <Sun className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />}
-          Appearance & Contrast Mode
-        </h3>
-
-        <div className="flex items-center justify-between p-5 rounded-2xl text-xs sm:text-sm font-sans border" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--border-default)" }}>
-          <div>
-            <p className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>Dark / High Contrast Theme</p>
-            <p className="" style={{ color: "var(--text-secondary)" }}>  Harmony College default dark obsidian interface optimized for student study.
-            </p>
-          </div>
-          <Button
-            variant={darkMode ? 'primary' : 'secondary'}
-            onClick={() => setDarkMode((prev) => !prev)}
-          >
-            {darkMode ? 'Light Mode' : 'Dark Mode'}
-          </Button>
-        </div>
-      </Card>
+      <AppearanceSection title="Appearance & Contrast Mode" />
 
       {/* Notifications Switch Panel */}
       <Card hoverable={false} className="space-y-4">

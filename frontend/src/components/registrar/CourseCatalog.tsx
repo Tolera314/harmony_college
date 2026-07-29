@@ -160,7 +160,7 @@ export const CourseCatalog: React.FC = () => {
       </div>
 
       {/* Advanced Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl backdrop-blur-md">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ds-card p-4 rounded-2xl backdrop-blur-md">
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
           <input
@@ -200,9 +200,9 @@ export const CourseCatalog: React.FC = () => {
       </div>
 
       {/* Expandable Rows Course Table */}
-      <div className="overflow-hidden border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+      <div className="overflow-hidden border ds-card rounded-2xl backdrop-blur-xl">
         <table className="w-full text-left text-xs font-sans">
-          <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
+          <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-5 py-4 w-[60px]" />
               <th className="px-5 py-4">Course Code</th>
@@ -214,14 +214,14 @@ export const CourseCatalog: React.FC = () => {
               <th className="px-5 py-4 text-right">Delete</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
+          <tbody className="divide-y ds-table-row ds-table-cell">
             {filteredCourses.map((c) => {
               const isExpanded = !!expandedRows[c.id];
               return (
                 <React.Fragment key={c.id}>
                   <tr 
                     onClick={() => toggleRow(c.id)}
-                    className="hover:bg-(--hover-overlay) transition-colors cursor-pointer group"
+                    className="ds-table-row transition-colors cursor-pointer group"
                   >
                     <td className="px-5 py-4 text-center">
                       <div className="w-5 h-5 rounded-lg bg-(--hover-overlay) border border-(--border-default) flex items-center justify-center text-(--text-muted) group-hover:text-(--brand-gold) group-hover:border-(--brand-gold)/30 transition-all">

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { DHNavTab, DHProfile, DHNotification } from '../../types/department';
-import { Search, Bell, ChevronRight, Command, X } from 'lucide-react';
+import { Search, Bell, ChevronRight, Command, X, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
 import ThemeToggle from '../ThemeToggle';
@@ -16,6 +16,7 @@ interface DHHeaderProps {
   onMarkRead: (id: string) => void;
   onOpenSearch: () => void;
   semesterLabel: string;
+  onMobileMenuToggle?: () => void;
 }
 
 const tabLabels: Record<DHNavTab, string> = {
@@ -26,7 +27,7 @@ const tabLabels: Record<DHNavTab, string> = {
 };
 
 export const DHHeader: React.FC<DHHeaderProps> = ({
-  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, semesterLabel,
+  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, semesterLabel, onMobileMenuToggle,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -36,6 +37,16 @@ export const DHHeader: React.FC<DHHeaderProps> = ({
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {onMobileMenuToggle && (
+            <button
+              onClick={onMobileMenuToggle}
+              className="p-2 md:hidden bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-primary) hover:text-[#E9C349] transition-colors"
+              aria-label="Toggle Navigation Menu"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+          )}
+
           <button onClick={() => setActiveTab('overview')} className="font-serif text-lg sm:text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity" style={{ color: 'var(--text-primary)' }}>
             Harmony <span style={{ color: 'var(--brand-gold)' }}>College</span>
           </button>

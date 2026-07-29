@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { InstructorNavTab, InstructorProfile, InstructorNotification } from '../../types/instructor';
-import { Search, Bell, ChevronRight, Command, X } from 'lucide-react';
+import { Search, Bell, ChevronRight, Command, X, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
 import ThemeToggle from '../ThemeToggle';
@@ -15,6 +15,7 @@ interface InHeaderProps {
   unreadCount: number;
   onMarkRead: (id: string) => void;
   onOpenSearch: () => void;
+  onMobileMenuToggle?: () => void;
 }
 
 const TAB_LABELS: Record<InstructorNavTab, string> = {
@@ -31,7 +32,7 @@ const NOTIF_DOT: Record<string, string> = {
 };
 
 export const InHeader: React.FC<InHeaderProps> = ({
-  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch,
+  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, onMobileMenuToggle,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -42,6 +43,16 @@ export const InHeader: React.FC<InHeaderProps> = ({
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {onMobileMenuToggle && (
+            <button
+              onClick={onMobileMenuToggle}
+              className="p-2 md:hidden bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-primary) hover:text-[#E9C349] transition-colors"
+              aria-label="Toggle Navigation Menu"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+          )}
+
           <button onClick={() => setActiveTab('overview')} className="font-serif text-lg sm:text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity" style={{ color: 'var(--text-primary)' }}>
             Harmony <span style={{ color: 'var(--brand-gold)' }}>College</span>
           </button>

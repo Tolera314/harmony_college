@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { 
-  User, Shield, Key, Clock, 
-  Save, Monitor, 
+import {
+  User, Shield, Key, Clock,
+  Save, Monitor,
   Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, Settings
 } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { AppearanceSection } from '../ui/AppearanceSection';
 
 interface RegistrarSettingsProps {
   initialTab?: 'account' | 'registration';
@@ -125,10 +126,10 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      transition={{ duration: 0.3 }} 
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
       className="space-y-6"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -141,21 +142,19 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
         <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-xl">
           <button
             onClick={() => setActiveSubTab('account')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeSubTab === 'account'
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeSubTab === 'account'
                 ? 'bg-[#D4AF37] text-[#0F0F10] shadow-md'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
-            }`}
+              }`}
           >
             <User className="w-3.5 h-3.5" /> Account & Profile
           </button>
           <button
             onClick={() => setActiveSubTab('registration')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeSubTab === 'registration'
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeSubTab === 'registration'
                 ? 'bg-[#D4AF37] text-[#0F0F10] shadow-md'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
-            }`}
+              }`}
           >
             <Sliders className="w-3.5 h-3.5" /> Registration Engine
           </button>
@@ -167,10 +166,10 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
       {/* ───────────────────────────────────────────────────────────────────────────── */}
       {activeSubTab === 'account' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
+
           {/* Left Side: Profile & Password (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
-            
+
             {/* Profile Edit Form */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
               <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
@@ -292,7 +291,7 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
 
           {/* Right Side: Security & Sessions (5 cols) */}
           <div className="lg:col-span-5 space-y-6">
-            
+
             {/* Security Preferences Toggles */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
               <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
@@ -310,14 +309,12 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
                     </div>
                     <button
                       onClick={() => handleToggle(sw.key as any)}
-                      className={`w-9 h-5 rounded-full shrink-0 relative transition-colors duration-200 focus:outline-none ${
-                        toggles[sw.key as keyof typeof toggles] ? 'bg-[#D4AF37]' : 'bg-white/10'
-                      }`}
+                      className={`w-9 h-5 rounded-full shrink-0 relative transition-colors duration-200 focus:outline-none ${toggles[sw.key as keyof typeof toggles] ? 'bg-[#D4AF37]' : 'bg-white/10'
+                        }`}
                     >
                       <span
-                        className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform duration-200 ${
-                          toggles[sw.key as keyof typeof toggles] ? 'translate-x-4' : 'translate-x-0.5'
-                        }`}
+                        className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform duration-200 ${toggles[sw.key as keyof typeof toggles] ? 'translate-x-4' : 'translate-x-0.5'
+                          }`}
                       />
                     </button>
                   </div>
@@ -353,7 +350,7 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
                     </div>
 
                     {!s.current && (
-                      <button 
+                      <button
                         onClick={() => handleRevokeSession(s.id)}
                         className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/35 rounded-lg text-white/40 hover:text-red-400 transition-all shrink-0"
                         title="Revoke Session"
@@ -380,13 +377,13 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Side: Windows & Switches (7 cols) */}
             <div className="lg:col-span-7 space-y-6">
-              
+
               {/* Registration Period Card */}
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
                 <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-[#D4AF37]" /> Registration Windows
                 </h3>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[11px] font-mono text-white/40 uppercase">Open Date</label>
@@ -445,25 +442,23 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
                     { key: 'advisorApproval', label: 'Advisor Sign-off Required', desc: 'Blocks checks until academic advisors sign off.' },
                     { key: 'gpaCapCheck', label: 'GPA Overload Rule Engine', desc: 'Applies dynamic credit cap overrides based on GPA.' }
                   ].map((sw) => (
-                    <div 
-                      key={sw.key} 
+                    <div
+                      key={sw.key}
                       className="p-4 bg-black/20 border border-white/5 rounded-xl flex items-start justify-between gap-4"
                     >
                       <div className="space-y-1">
                         <p className="text-xs font-semibold text-white">{sw.label}</p>
                         <p className="text-[10px] text-white/40 leading-relaxed">{sw.desc}</p>
                       </div>
-                      
+
                       <button
                         onClick={() => handleRegToggle(sw.key as any)}
-                        className={`w-9 h-5 rounded-full shrink-0 relative transition-colors duration-200 focus:outline-none ${
-                          regToggles[sw.key as keyof typeof regToggles] ? 'bg-[#D4AF37]' : 'bg-white/10'
-                        }`}
-                      >
-                        <span 
-                          className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform duration-200 ${
-                            regToggles[sw.key as keyof typeof regToggles] ? 'translate-x-4.5' : 'translate-x-0.5'
+                        className={`w-9 h-5 rounded-full shrink-0 relative transition-colors duration-200 focus:outline-none ${regToggles[sw.key as keyof typeof regToggles] ? 'bg-[#D4AF37]' : 'bg-white/10'
                           }`}
+                      >
+                        <span
+                          className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform duration-200 ${regToggles[sw.key as keyof typeof regToggles] ? 'translate-x-4.5' : 'translate-x-0.5'
+                            }`}
                         />
                       </button>
                     </div>
@@ -475,28 +470,26 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
 
             {/* Right Side: Verification Rules (5 cols) */}
             <div className="lg:col-span-5 space-y-6">
-              
+
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
                 <h3 className="font-serif text-lg font-bold text-white">Curriculum Verification Rules</h3>
                 <p className="text-[11px] text-white/40">Enable or disable compliance checks inside the registration portal.</p>
 
                 <div className="space-y-3">
                   {rules.map((rule) => (
-                    <div 
+                    <div
                       key={rule.id}
-                      className={`p-3.5 border rounded-xl flex items-start gap-3 transition-colors ${
-                        rule.enabled 
-                          ? 'bg-[#D4AF37]/5 border-[#D4AF37]/20' 
+                      className={`p-3.5 border rounded-xl flex items-start gap-3 transition-colors ${rule.enabled
+                          ? 'bg-[#D4AF37]/5 border-[#D4AF37]/20'
                           : 'bg-white/[0.02] border-white/5 opacity-55'
-                      }`}
-                    >
-                      <button 
-                        onClick={() => handleRuleToggle(rule.id)}
-                        className={`p-1 rounded-lg border transition-colors ${
-                          rule.enabled 
-                            ? 'bg-[#D4AF37]/15 border-[#D4AF37]/30 text-[#D4AF37]' 
-                            : 'bg-white/5 border-white/10 text-white/40'
                         }`}
+                    >
+                      <button
+                        onClick={() => handleRuleToggle(rule.id)}
+                        className={`p-1 rounded-lg border transition-colors ${rule.enabled
+                            ? 'bg-[#D4AF37]/15 border-[#D4AF37]/30 text-[#D4AF37]'
+                            : 'bg-white/5 border-white/10 text-white/40'
+                          }`}
                       >
                         <Power className="w-3.5 h-3.5" />
                       </button>
@@ -504,7 +497,7 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-semibold text-white">{rule.name}</p>
-                          <button 
+                          <button
                             onClick={() => handleDeleteRule(rule.id)}
                             className="text-white/30 hover:text-red-400 transition-colors"
                             title="Remove Rule"
@@ -520,7 +513,7 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
 
                 <form onSubmit={handleAddRule} className="border-t border-white/5 pt-4 space-y-3">
                   <h4 className="text-[11px] font-mono uppercase tracking-wider text-white/40">Add Registration Rule</h4>
-                  
+
                   <div className="space-y-2">
                     <input
                       type="text"
@@ -539,9 +532,9 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
                     />
                   </div>
 
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     type="submit"
                     className="w-full py-2.5 font-semibold text-xs flex items-center justify-center gap-1.5"
                   >
@@ -560,9 +553,9 @@ export const RegistrarSettings: React.FC<RegistrarSettingsProps> = ({ initialTab
 
           </div>
           <div className="flex justify-end">
-            <Button 
-              variant="gold" 
-              size="sm" 
+            <Button
+              variant="gold"
+              size="sm"
               onClick={handleSaveRegSettings}
               className="flex items-center gap-1.5 py-2 font-semibold text-xs"
             >

@@ -46,7 +46,7 @@ export const AuditLogsTimeline: React.FC = () => {
       </div>
 
       {/* Advanced Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl backdrop-blur-md">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ds-card p-4 rounded-2xl backdrop-blur-md">
         <div className="relative col-span-1 md:col-span-2">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
           <input
@@ -72,9 +72,9 @@ export const AuditLogsTimeline: React.FC = () => {
       </div>
 
       {/* Table Audit Logs */}
-      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+      <div className="overflow-x-auto border ds-card rounded-2xl backdrop-blur-xl">
         <table className="w-full text-left text-xs font-sans">
-          <thead className="bg-(--hover-overlay) border-b border-(--border-default) text-(--text-muted) font-mono text-[10px] uppercase tracking-wider">
+          <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
             <tr>
               <th className="px-5 py-4">Timestamp</th>
               <th className="px-5 py-4">Authorized User</th>
@@ -84,9 +84,9 @@ export const AuditLogsTimeline: React.FC = () => {
               <th className="px-5 py-4 text-right">Result</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
+          <tbody className="divide-y ds-table-row ds-table-cell">
             {filteredLogs.map(l => (
-              <tr key={l.id} className="hover:bg-(--hover-overlay) transition-colors">
+              <tr key={l.id} className="ds-table-row transition-colors">
                 <td className="px-5 py-4 font-mono text-[10px] text-(--text-muted)">{l.time}</td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
@@ -116,17 +116,19 @@ export const AuditLogsTimeline: React.FC = () => {
             ))}
             {filteredLogs.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-0"><EmptyState variant="default" compact /></td>
+                <td colSpan={6} className="px-5 py-8 text-center text-(--text-muted)">
+                  No audit log entries found matching criteria.
+                </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl flex gap-3 text-xs leading-relaxed text-(--text-secondary)">
+      <div className="p-4 ds-card rounded-2xl flex gap-3 text-xs leading-relaxed text-(--text-secondary)">
         <ShieldAlert className="w-4 h-4 shrink-0 text-(--brand-gold)" />
         <div>
-          <strong>Compliance Compliance Warning:</strong> Audit Logs represent write-once ledger transactions. Deletion, alteration, or tampering with audit timeline entries is strictly blocked by cryptography signatures.
+          <strong>Compliance Warning:</strong> Audit Logs represent write-once ledger transactions. Deletion, alteration, or tampering with audit timeline entries is strictly blocked by cryptography signatures.
         </div>
       </div>
     </motion.div>

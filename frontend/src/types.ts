@@ -47,6 +47,7 @@ export interface NewsArticle {
 export type NavTab =
   | 'dashboard'
   | 'my_courses'
+  | 'registration'
   | 'grades'
   | 'financials'
   | 'degree_audit'

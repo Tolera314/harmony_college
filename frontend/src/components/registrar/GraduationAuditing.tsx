@@ -1,131 +1,103 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { 
-  GraduationCap, Search, FileText, CheckCircle2, 
-  XCircle, Award, Check, Info, ShieldAlert, AlertTriangle,
-  ArrowRight, HeartHandshake, ShieldCheck
+  GraduationCap, CheckCircle2, XCircle, AlertTriangle, 
+  Search, ShieldCheck, FileCheck, Check, X, User
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 
-// Mock graduation auditing applicants
+// Mock candidates data
 const initialCandidates = [
   {
-    id: 'c01',
-    studentId: 'HC-2023-0832',
-    name: 'Selam Alemayehu',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    program: 'Computer Science (B.Sc.)',
-    cgpa: 3.92,
-    creditsCompleted: 112,
-    creditsRequired: 120,
+    id: 'g01',
+    name: 'Yonas Kebede',
+    studentId: 'HC-2024-8832',
+    program: 'B.Sc. Computer Science',
+    cgpa: 3.85,
+    creditsCompleted: 148,
+    creditsRequired: 148,
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     status: 'Pending Audit',
     checklist: [
-      { id: 'ch1', name: 'Core Curriculums', met: true, details: 'Completed all 18 mandatory CS cores.' },
-      { id: 'ch2', name: 'Senior Capstone Project', met: true, details: 'Capstone CS490 signed off by Advisor (Grade: A).' },
-      { id: 'ch3', name: 'GPA Requirement (CGPA >= 2.0)', met: true, details: 'Current GPA is 3.92.' },
-      { id: 'ch4', name: 'Financial Clearance', met: true, details: 'Outstanding balance is 0 ETB.' },
-      { id: 'ch5', name: 'Library Return Clear', met: false, details: 'Pending return of 1 textbook (Introduction to Algorithms).' }
-    ],
-    history: [
-      { time: 'Jul 20, 2026 10:00 AM', user: 'System', action: 'Graduation file compiled automatically.' }
+      { id: 'chk1', name: 'Core Curriculum Credits (148 Cr)', met: true, details: '148/148 Credits fulfilled' },
+      { id: 'chk2', name: 'Minimum CGPA Cutoff (>= 2.00)', met: true, details: 'Current CGPA 3.85 meets requirement' },
+      { id: 'chk3', name: 'Senior Capstone Project', met: true, details: 'Submitted & Approved (Grade: A)' },
+      { id: 'chk4', name: 'Library & Financial Clearance', met: true, details: 'Zero outstanding dues' },
     ]
   },
   {
-    id: 'c02',
-    studentId: 'HC-2023-0182',
-    name: 'Kidus Tilahun',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
-    program: 'Computer Science (B.Sc.)',
-    cgpa: 2.12,
-    creditsCompleted: 120,
-    creditsRequired: 120,
-    status: 'Under Review',
+    id: 'g02',
+    name: 'Hanna Tadesse',
+    studentId: 'HC-2023-4411',
+    program: 'B.Sc. Business Administration',
+    cgpa: 3.42,
+    creditsCompleted: 142,
+    creditsRequired: 148,
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    status: 'Flagged Hold',
     checklist: [
-      { id: 'ch1', name: 'Core Curriculums', met: true, details: 'Completed all 18 CS cores.' },
-      { id: 'ch2', name: 'Senior Capstone Project', met: true, details: 'Capstone CS490 signed off (Grade: C).' },
-      { id: 'ch3', name: 'GPA Requirement (CGPA >= 2.0)', met: true, details: 'Current GPA is 2.12.' },
-      { id: 'ch4', name: 'Financial Clearance', met: false, details: 'Outstanding Tuition Balance: 4,500 ETB.' },
-      { id: 'ch5', name: 'Library Return Clear', met: true, details: 'Library records clear.' }
-    ],
-    history: [
-      { time: 'Jul 18, 2026 04:00 PM', user: 'Registrar Office', action: 'Advising checklist submitted for degree auditing.' }
+      { id: 'chk1', name: 'Core Curriculum Credits (148 Cr)', met: false, details: 'Short by 6 elective credits' },
+      { id: 'chk2', name: 'Minimum CGPA Cutoff (>= 2.00)', met: true, details: 'Current CGPA 3.42 meets requirement' },
+      { id: 'chk3', name: 'Senior Capstone Project', met: true, details: 'Submitted & Approved' },
+      { id: 'chk4', name: 'Library & Financial Clearance', met: false, details: 'Library book return unverified' },
     ]
   },
   {
-    id: 'c03',
-    studentId: 'HC-2022-0941',
-    name: 'Yohannes Abebe',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-    program: 'Mechanical Engineering (B.Sc.)',
-    cgpa: 3.65,
-    creditsCompleted: 140,
-    creditsRequired: 140,
+    id: 'g03',
+    name: 'Abebe Bikila',
+    studentId: 'HC-2022-1002',
+    program: 'B.Sc. Mechanical Engineering',
+    cgpa: 3.91,
+    creditsCompleted: 152,
+    creditsRequired: 152,
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
     status: 'Approved',
     checklist: [
-      { id: 'ch1', name: 'Core Curriculums', met: true, details: 'Engineering core requirements met.' },
-      { id: 'ch2', name: 'Senior Capstone Project', met: true, details: 'Capstone project completed successfully.' },
-      { id: 'ch3', name: 'GPA Requirement (CGPA >= 2.0)', met: true, details: 'Current GPA is 3.65.' },
-      { id: 'ch4', name: 'Financial Clearance', met: true, details: 'Finance clearance issued.' },
-      { id: 'ch5', name: 'Library Return Clear', met: true, details: 'Library clearance issued.' }
-    ],
-    history: [
-      { time: 'Jul 15, 2026 09:30 AM', user: 'System', action: 'Auditing complete. Checklist verified.' },
-      { time: 'Jul 16, 2026 02:00 PM', user: 'Registrar Office', action: 'Graduation file approved for certification.' }
+      { id: 'chk1', name: 'Core Curriculum Credits (152 Cr)', met: true, details: '152/152 Credits fulfilled' },
+      { id: 'chk2', name: 'Minimum CGPA Cutoff (>= 2.00)', met: true, details: 'Current CGPA 3.91 meets requirement' },
+      { id: 'chk3', name: 'Senior Capstone Project', met: true, details: 'Passed with Distinction' },
+      { id: 'chk4', name: 'Library & Financial Clearance', met: true, details: 'Full Clearance Verified' },
     ]
   }
 ];
 
 export const GraduationAuditing: React.FC = () => {
   const [candidates, setCandidates] = useState(initialCandidates);
-  const [selectedCandidate, setSelectedCandidate] = useState<typeof initialCandidates[0] | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<typeof initialCandidates[0] | null>(initialCandidates[0]);
   const [search, setSearch] = useState('');
-  
-  // Action details
   const [reasonMsg, setReasonMsg] = useState('');
 
-  const filteredCandidates = candidates.filter(cand => 
-    cand.name.toLowerCase().includes(search.toLowerCase()) || 
-    cand.studentId.toLowerCase().includes(search.toLowerCase())
+  const filteredCandidates = candidates.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.studentId.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleClearChecklistItem = (itemId: string) => {
+  const handleClearChecklistItem = (itemKey: string) => {
     if (!selectedCandidate) return;
-
-    setCandidates(prev => prev.map(cand => {
-      if (cand.id === selectedCandidate.id) {
-        const updatedChecklist = cand.checklist.map(item => {
-          if (item.id === itemId) {
-            return { ...item, met: true, details: item.details + ' (Manually Cleared by Registrar)' };
-          }
-          return item;
-        });
-        const updated = { ...cand, checklist: updatedChecklist };
+    setCandidates(prev => prev.map(c => {
+      if (c.id === selectedCandidate.id) {
+        const updatedList = c.checklist.map(item => item.id === itemKey ? { ...item, met: true } : item);
+        const updated = { ...c, checklist: updatedList };
         setSelectedCandidate(updated);
         return updated;
       }
-      return cand;
+      return c;
     }));
   };
 
-  const handleDecision = (newStatus: 'Approved' | 'Rejected', desc: string) => {
+  const handleUpdateGradStatus = (newStatus: 'Approved' | 'Rejected' | 'Flagged Hold') => {
     if (!selectedCandidate) return;
-
-    setCandidates(prev => prev.map(cand => {
-      if (cand.id === selectedCandidate.id) {
-        const timestamp = new Date().toLocaleString();
-        const updatedHistory = [
-          ...cand.history,
-          { time: timestamp, user: 'Registrar Office', action: `${newStatus} degree candidacy: "${desc}"` }
-        ];
-        const updated = { ...cand, status: newStatus, history: updatedHistory };
+    setCandidates(prev => prev.map(c => {
+      if (c.id === selectedCandidate.id) {
+        const updated = { ...c, status: newStatus };
         setSelectedCandidate(updated);
         return updated;
       }
-      return cand;
+      return c;
     }));
 
     setReasonMsg('');
@@ -147,7 +119,7 @@ export const GraduationAuditing: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Side: Candidates list (5 cols) */}
-        <div className="lg:col-span-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+        <div className="lg:col-span-5 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
           <h3 className="font-serif text-base font-bold text-(--text-primary)">Graduation Applicants</h3>
           
           <div className="relative">
@@ -194,7 +166,7 @@ export const GraduationAuditing: React.FC = () => {
             <div className="space-y-6">
               
               {/* Candidate Info Overview */}
-              <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+              <div className="ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
                 <div className="flex justify-between items-start border-b border-(--border-subtle) pb-4">
                   <div className="flex items-center gap-3">
                     <img src={selectedCandidate.avatar} alt={selectedCandidate.name} className="w-11 h-11 rounded-xl border border-(--border-default) object-cover" />
@@ -226,7 +198,7 @@ export const GraduationAuditing: React.FC = () => {
               </div>
 
               {/* Requirements Checklist */}
-              <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+              <div className="ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Clearance Checklist Verification</h4>
                 
                 <div className="space-y-3">
@@ -260,10 +232,9 @@ export const GraduationAuditing: React.FC = () => {
               </div>
 
               {/* Graduation Approval Decision Box */}
-              <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 backdrop-blur-md space-y-4">
+              <div className="ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Audit Assessment Decision</h4>
                 
-                {/* Check if checklist is fully cleared */}
                 {selectedCandidate.checklist.every(item => item.met) ? (
                   <div className="p-3 bg-emerald-500/5 border border-emerald-500/25 rounded-xl text-[11px] leading-relaxed text-(--status-success) flex gap-2">
                     <ShieldCheck className="w-4 h-4 text-(--status-success) shrink-0" />
@@ -272,63 +243,46 @@ export const GraduationAuditing: React.FC = () => {
                 ) : (
                   <div className="p-3 bg-red-500/5 border border-red-500/25 rounded-xl text-[11px] leading-relaxed text-(--status-danger) flex gap-2">
                     <AlertTriangle className="w-4 h-4 text-(--status-danger) shrink-0" />
-                    <span>Candidacy Blocked: Student has pending library returns or outstanding fees.</span>
+                    <span>Candidate has uncleared clearance items. Approving will generate a registrar override audit log.</span>
                   </div>
                 )}
 
-                <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-xs text-(--text-secondary) font-medium block">Audit Remarks / Justification</label>
                   <input
                     type="text"
-                    placeholder="Enter audit review comments or rejection reason..."
                     value={reasonMsg}
                     onChange={(e) => setReasonMsg(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold)"
+                    placeholder="Enter audit note or clearance override justification..."
+                    className="w-full px-3.5 py-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                   />
-                  <div className="flex gap-3">
-                    <Button
-                      variant="gold"
-                      size="sm"
-                      onClick={() => handleDecision('Approved', reasonMsg || 'Verified degree audits.')}
-                      className="flex-1 font-semibold text-xs flex items-center justify-center gap-1.5"
-                    >
-                      <Award className="w-4 h-4" /> Approve Degree Graduation
-                    </Button>
-                    <Button
-                      variant="rose"
-                      size="sm"
-                      onClick={() => handleDecision('Rejected', reasonMsg || 'Cleared check failures.')}
-                      className="flex-1 font-semibold text-xs flex items-center justify-center gap-1.5 bg-(--status-danger-bg) border border-(--status-danger-border) text-(--status-danger) hover:bg-rose-500/20"
-                    >
-                      <XCircle className="w-4 h-4" /> Reject Degree Candidacy
-                    </Button>
-                  </div>
                 </div>
 
-                {/* Audit history timeline */}
-                <div className="border-t border-(--border-subtle) pt-4 space-y-3">
-                  <p className="text-[10px] font-mono text-(--text-faint) uppercase">Audit Clearance Logs</p>
-                  <div className="space-y-3 pl-3 border-l border-(--border-default)">
-                    {selectedCandidate.history.map((h, idx) => (
-                      <div key={idx} className="relative text-xs">
-                        <span className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-(--brand-gold) border-2 border-(--bg-base)" />
-                        <div className="space-y-0.5">
-                          <p className="text-(--text-faint) font-mono text-[9px]">{h.time} · {h.user}</p>
-                          <p className="text-(--text-primary) font-medium">{h.action}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <Button
+                    variant="gold"
+                    size="sm"
+                    onClick={() => handleUpdateGradStatus('Approved')}
+                    className="flex-1 py-2 font-semibold text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> Approve Graduation
+                  </Button>
+
+                  <Button
+                    variant="rose"
+                    size="sm"
+                    onClick={() => handleUpdateGradStatus('Flagged Hold')}
+                    className="flex-1 py-2 font-semibold text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <XCircle className="w-4 h-4" /> Place on Hold
+                  </Button>
                 </div>
               </div>
 
             </div>
           ) : (
-            <div className="h-[480px] border border-dashed border-(--border-default) rounded-2xl flex flex-col items-center justify-center gap-3 text-center text-(--text-faint) p-6 bg-(--hover-overlay)">
-              <GraduationCap className="w-8 h-8 text-(--text-faint) animate-bounce" />
-              <div>
-                <h4 className="text-xs font-bold text-(--text-primary) font-sans">No Candidate Audited</h4>
-                <p className="text-[10px] text-(--text-faint) max-w-xs mt-1">Select a graduation applicant from the list to display their degree requirements audit checklist sheet.</p>
-              </div>
+            <div className="ds-card rounded-2xl p-12 text-center text-xs text-(--text-muted)">
+              Select a graduation candidate to audit degree requirements.
             </div>
           )}
         </div>

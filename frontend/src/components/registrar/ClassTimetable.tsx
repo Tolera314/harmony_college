@@ -55,7 +55,6 @@ export const ClassTimetable: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState('Monday');
 
   const handleResolveConflict = (conflictId: string, suggestionAction: any) => {
-    // Update schedule event
     setEvents(prev => prev.map(ev => {
       if (ev.id === suggestionAction.eventId) {
         const updated = { ...ev };
@@ -73,7 +72,6 @@ export const ClassTimetable: React.FC = () => {
       return ev;
     }));
 
-    // Remove solved conflict from conflict list
     setConflicts(prev => prev.filter(c => c.id !== conflictId));
     alert('Conflict resolved successfully! Calendar schedule updated.');
   };
@@ -116,7 +114,7 @@ export const ClassTimetable: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Weekly schedule Calendar Grid (8 cols) */}
-        <div className="lg:col-span-8 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
+        <div className="lg:col-span-8 ds-card rounded-2xl p-6 backdrop-blur-md space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-serif text-lg font-bold text-(--text-primary)">Academic Weekly Grid</h3>
             {viewTab === 'day' && (
@@ -144,7 +142,7 @@ export const ClassTimetable: React.FC = () => {
               ))}
 
               {/* Grid rows */}
-              {timeLabels.map((time, rowIdx) => (
+              {timeLabels.map((time) => (
                 <React.Fragment key={time}>
                   <div className="flex items-center justify-center font-mono text-[9px] text-(--text-faint) py-4 border-r border-(--border-subtle)">
                     {time}
@@ -152,7 +150,6 @@ export const ClassTimetable: React.FC = () => {
                   
                   {daysOfWeek.map(day => {
                     const dayEvents = getDayEvents(day);
-                    // Match event based on time hour
                     const hour = parseInt(time.split(':')[0], 10);
                     const isPm = time.includes('PM');
                     const matchHour = hour + (isPm && hour !== 12 ? 12 : 0);
@@ -221,7 +218,6 @@ export const ClassTimetable: React.FC = () => {
               ))}
               {Array.from({ length: 31 }).map((_, i) => {
                 const dayNum = i + 1;
-                // Add some dots for scheduling visual
                 const hasClass = dayNum % 3 === 0;
                 const hasConflict = dayNum === 15;
                 return (
@@ -240,7 +236,7 @@ export const ClassTimetable: React.FC = () => {
 
         {/* Conflict Warning Alerts sidepanel (4 cols) */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl">
+          <div className="p-4 ds-card rounded-2xl">
             <div className="flex items-center gap-2 border-b border-(--border-subtle) pb-3 mb-3">
               <AlertTriangle className="w-5 h-5 text-(--status-danger)" />
               <h3 className="font-serif text-base font-bold text-(--text-primary)">Conflicts Panel</h3>
@@ -272,39 +268,17 @@ export const ClassTimetable: React.FC = () => {
                         className="w-full text-left p-2.5 bg-(--hover-overlay) hover:bg-(--accent-gold-subtle) border border-(--border-subtle) hover:border-(--accent-gold-border) rounded-lg text-[10px] text-(--text-secondary) hover:text-(--text-primary) flex items-center justify-between transition-all group"
                       >
                         <span className="truncate pr-2 font-sans font-medium">{sug.label}</span>
-                        <RefreshCw className="w-3 h-3 text-(--brand-gold) group-hover:rotate-180 transition-transform duration-300" />
+                        <RefreshCw className="w-3.5 h-3.5 text-(--brand-gold) group-hover:rotate-180 transition-transform duration-300" />
                       </button>
                     ))}
                   </div>
                 </div>
               ))}
               {conflicts.length === 0 && (
-                <div className="p-6 border border-dashed border-(--border-default) rounded-xl flex flex-col items-center justify-center gap-2 text-center">
-                  <Check className="w-6 h-6 text-(--status-success) bg-(--status-success-bg) border border-(--status-success-border) p-1.5 rounded-full" />
-                  <div>
-                    <h4 className="text-xs font-bold text-(--text-primary) font-sans">No Conflicts Detected</h4>
-                    <p className="text-[10px] text-(--text-faint) mt-0.5">Schedules are running cleanly with zero overlaps.</p>
-                  </div>
+                <div className="py-12 text-center text-xs text-(--text-muted) font-mono">
+                  No active schedule conflicts detected.
                 </div>
               )}
-            </div>
-          </div>
-
-          <div className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl space-y-2.5">
-            <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Timetable Auditing Rules</h4>
-            <div className="space-y-2 text-[10px] text-(--text-secondary)">
-              <div className="flex items-center gap-2">
-                <Info className="w-3.5 h-3.5 text-(--brand-gold)" />
-                <span>Double Room reservation prevents schedule locking.</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Info className="w-3.5 h-3.5 text-(--brand-gold)" />
-                <span>Lecturers cannot exceed 18 lecture hours/week.</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Info className="w-3.5 h-3.5 text-(--brand-gold)" />
-                <span>Seat counts must fit classroom capacity.</span>
-              </div>
             </div>
           </div>
         </div>

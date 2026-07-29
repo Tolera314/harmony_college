@@ -42,6 +42,7 @@ export interface HeaderProps<T extends string = NavTab> {
 
 const defaultStudentTabLabels: Record<NavTab, string> = {
   dashboard: 'Dashboard',
+  my_courses: 'My Courses',
   registration: 'Course Registration',
   grades: 'Grades & Transcript',
   financials: 'Financials & Tuition',
@@ -108,19 +109,19 @@ export const Header = <T extends string = NavTab>({
     : query.trim() === ''
       ? []
       : Object.entries(labels)
-          .filter(([_, label]) => label.toLowerCase().includes(query.toLowerCase()))
-          .map(([id, label]) => ({ id: id as T, label }));
+        .filter(([_, label]) => label.toLowerCase().includes(query.toLowerCase()))
+        .map(([id, label]) => ({ id: id as T, label }));
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[var(--bg-sidebar)]/90 backdrop-blur-xl border-b border-white/10 h-16 flex items-center transition-all duration-300">
+    <header className="sticky top-0 z-40 w-full ds-header backdrop-blur-xl border-b border-(--border-default) h-16 flex items-center transition-all duration-300">
       <div className="flex justify-between items-center w-full px-4 sm:px-8 py-3">
 
         {/* Left: Brand & Breadcrumb */}
         <div className="flex items-center gap-2 sm:gap-3">
           {onMobileMenuToggle && (
-            <button 
-              onClick={onMobileMenuToggle} 
-              className="p-2 md:hidden bg-white/5 border border-white/10 rounded-xl text-white/70 hover:text-white"
+            <button
+              onClick={onMobileMenuToggle}
+              className="p-2 md:hidden bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-primary) hover:text-[#E9C349] transition-colors"
               aria-label="Toggle Navigation Menu"
             >
               <Menu className="w-4 h-4" />
@@ -129,22 +130,22 @@ export const Header = <T extends string = NavTab>({
 
           <button
             onClick={() => setActiveTab(Object.keys(labels)[0] as T)}
-            className="font-serif text-lg sm:text-2xl font-bold text-white tracking-tight hover:opacity-80 transition-opacity"
+            className="font-serif text-lg sm:text-2xl font-bold text-(--text-primary) tracking-tight hover:opacity-80 transition-opacity"
           >
             Harmony <span className="text-[#E9C349]">College</span>
           </button>
-          
-          <div className="hidden sm:block h-4 w-[1px] bg-white/15 mx-1" />
-          
-          <nav className="hidden sm:flex items-center gap-1.5 text-xs lg:text-sm text-white/60">
+
+          <div className="hidden sm:block h-4 w-[1px] bg-(--border-strong) mx-1" />
+
+          <nav className="hidden sm:flex items-center gap-1.5 text-xs lg:text-sm text-(--text-muted)">
             <button
               onClick={() => setActiveTab(Object.keys(labels)[0] as T)}
               className="hover:text-[#E9C349] transition-colors font-medium"
             >
               {portalLabel}
             </button>
-            <ChevronRight className="w-3.5 h-3.5 text-white/40" />
-            <span className="font-semibold text-white capitalize">
+            <ChevronRight className="w-3.5 h-3.5 text-(--text-faint)" />
+            <span className="font-semibold text-(--text-primary) capitalize">
               {currentTabName}
             </span>
           </nav>
@@ -152,12 +153,12 @@ export const Header = <T extends string = NavTab>({
 
         {/* Right Side: Search Dropdown & Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          
+
           {/* Responsive Header Search Dropdown Container */}
           <div className="relative">
             {/* Search Input Bar (Desktop) */}
-            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 focus-within:border-[#D4AF37] rounded-full text-xs text-white/70 w-52 lg:w-72 transition-all">
-              <Search className="w-4 h-4 text-white/50 shrink-0" />
+            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 ds-search border border-(--border-default) focus-within:border-[#D4AF37] rounded-full text-xs text-(--text-primary) w-52 lg:w-72 transition-all">
+              <Search className="w-4 h-4 text-(--text-faint) shrink-0" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -168,17 +169,17 @@ export const Header = <T extends string = NavTab>({
                   if (!searchDropdownOpen) setSearchDropdownOpen(true);
                 }}
                 placeholder="Search Portal..."
-                className="w-full bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none"
+                className="w-full bg-transparent text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none"
               />
               {query ? (
-                <button 
-                  onClick={() => { handleQueryChange(''); setSearchDropdownOpen(false); }} 
-                  className="p-0.5 rounded-full hover:bg-white/10 text-white/40 hover:text-white"
+                <button
+                  onClick={() => { handleQueryChange(''); setSearchDropdownOpen(false); }}
+                  className="p-0.5 rounded-full hover:bg-(--hover-overlay) text-(--text-faint) hover:text-(--text-primary)"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               ) : (
-                <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white/10 border border-white/10 rounded text-[9px] font-mono text-white/40 shrink-0">
+                <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-(--hover-overlay) border border-(--border-default) rounded text-[9px] font-mono text-(--text-faint) shrink-0">
                   <Command className="w-2.5 h-2.5" /> K
                 </kbd>
               )}
@@ -190,7 +191,7 @@ export const Header = <T extends string = NavTab>({
                 setSearchDropdownOpen(prev => !prev);
                 setTimeout(() => searchInputRef.current?.focus(), 100);
               }}
-              className="md:hidden p-2 text-white/70 hover:text-[#E9C349] rounded-full hover:bg-white/10 touch-target"
+              className="md:hidden p-2 text-(--text-muted) hover:text-[#E9C349] rounded-full hover:bg-(--hover-overlay) touch-target"
               aria-label="Open Search"
             >
               <Search className="w-5 h-5" />
@@ -201,9 +202,9 @@ export const Header = <T extends string = NavTab>({
               {searchDropdownOpen && (
                 <>
                   {/* Backdrop */}
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setSearchDropdownOpen(false)} 
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setSearchDropdownOpen(false)}
                   />
 
                   {/* ── Desktop dropdown: anchored below the search input ── */}
@@ -212,9 +213,9 @@ export const Header = <T extends string = NavTab>({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 8, scale: 0.97 }}
                     transition={{ duration: 0.18 }}
-                    className="hidden md:block absolute left-0 top-[calc(100%+8px)] w-80 lg:w-96 bg-[var(--bg-panel)] border border-white/10 rounded-2xl shadow-2xl z-50 p-3 font-sans space-y-2"
+                    className="hidden md:block absolute left-0 top-[calc(100%+8px)] w-80 lg:w-96 bg-(--bg-modal) border border-(--border-default) rounded-2xl shadow-2xl z-50 p-3 font-sans space-y-2"
                   >
-                    <div className="flex justify-between items-center px-2 pb-1 border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-white/40">
+                    <div className="flex justify-between items-center px-2 pb-1 border-b border-(--border-subtle) text-[10px] font-mono uppercase tracking-wider text-(--text-faint)">
                       <span>Matching Portal Views</span>
                       <span className="text-[9px]">Esc to close</span>
                     </div>
@@ -229,28 +230,28 @@ export const Header = <T extends string = NavTab>({
                               setSearchDropdownOpen(false);
                               handleQueryChange('');
                             }}
-                            className="w-full p-2.5 text-left rounded-xl bg-white/5 hover:bg-[#D4AF37]/15 hover:text-[#D4AF37] border border-transparent hover:border-[#D4AF37]/20 flex items-center justify-between text-xs transition-all group"
+                            className="w-full p-2.5 text-left rounded-xl bg-(--hover-overlay) hover:bg-[#D4AF37]/15 hover:text-[#D4AF37] border border-transparent hover:border-[#D4AF37]/20 flex items-center justify-between text-xs transition-all group"
                           >
                             <div>
-                              <span className="font-semibold text-white/90 group-hover:text-[#D4AF37] block">
+                              <span className="font-semibold text-(--text-primary) group-hover:text-[#D4AF37] block">
                                 {item.label}
                               </span>
                               {item.sub && (
-                                <span className="text-[10px] text-white/40 block mt-0.5">
+                                <span className="text-[10px] text-(--text-muted) block mt-0.5">
                                   {item.sub}
                                 </span>
                               )}
                             </div>
-                            <ChevronRight className="w-3.5 h-3.5 text-white/30 group-hover:text-[#D4AF37] transition-colors" />
+                            <ChevronRight className="w-3.5 h-3.5 text-(--text-faint) group-hover:text-[#D4AF37] transition-colors" />
                           </button>
                         ))}
                       </div>
                     ) : query.trim() !== '' ? (
-                      <div className="py-6 text-center text-xs text-white/40">
+                      <div className="py-6 text-center text-xs text-(--text-muted)">
                         No portal views found matching &quot;{query}&quot;
                       </div>
                     ) : (
-                      <div className="py-4 text-center text-xs text-white/35">
+                      <div className="py-4 text-center text-xs text-(--text-faint)">
                         Type any section name to jump directly
                       </div>
                     )}
@@ -262,11 +263,11 @@ export const Header = <T extends string = NavTab>({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.18 }}
-                    className="md:hidden fixed left-3 right-3 top-[68px] bg-[var(--bg-panel)] border border-white/10 rounded-2xl shadow-2xl z-50 p-3 font-sans space-y-2"
+                    className="md:hidden fixed left-3 right-3 top-[68px] bg-(--bg-modal) border border-(--border-default) rounded-2xl shadow-2xl z-50 p-3 font-sans space-y-2"
                   >
                     {/* Mobile search input inside dropdown */}
-                    <div className="flex items-center gap-2 px-3 py-2 bg-black/40 border border-white/10 rounded-xl">
-                      <Search className="w-4 h-4 text-white/40 shrink-0" />
+                    <div className="flex items-center gap-2 px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl">
+                      <Search className="w-4 h-4 text-(--text-faint) shrink-0" />
                       <input
                         ref={searchInputRef}
                         type="text"
@@ -274,20 +275,20 @@ export const Header = <T extends string = NavTab>({
                         onChange={(e) => handleQueryChange(e.target.value)}
                         placeholder="Search Portal..."
                         autoFocus
-                        className="w-full bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none"
+                        className="w-full bg-transparent text-sm text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none"
                       />
                       {query ? (
-                        <button onClick={() => handleQueryChange('')} className="p-0.5 text-white/40 hover:text-white">
+                        <button onClick={() => handleQueryChange('')} className="p-0.5 text-(--text-faint) hover:text-(--text-primary)">
                           <X className="w-4 h-4" />
                         </button>
                       ) : (
-                        <button onClick={() => setSearchDropdownOpen(false)} className="p-0.5 text-white/40 hover:text-white">
+                        <button onClick={() => setSearchDropdownOpen(false)} className="p-0.5 text-(--text-faint) hover:text-(--text-primary)">
                           <X className="w-4 h-4" />
                         </button>
                       )}
                     </div>
 
-                    <div className="flex justify-between items-center px-2 pb-1 border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-white/40">
+                    <div className="flex justify-between items-center px-2 pb-1 border-b border-(--border-subtle) text-[10px] font-mono uppercase tracking-wider text-(--text-faint)">
                       <span>Matching Portal Views</span>
                       <span className="text-[9px]">Tap outside to close</span>
                     </div>
@@ -302,21 +303,21 @@ export const Header = <T extends string = NavTab>({
                               setSearchDropdownOpen(false);
                               handleQueryChange('');
                             }}
-                            className="w-full p-3 text-left rounded-xl bg-white/5 active:bg-[#D4AF37]/15 border border-transparent flex items-center justify-between text-sm transition-all group"
+                            className="w-full p-3 text-left rounded-xl bg-(--hover-overlay) active:bg-[#D4AF37]/15 border border-transparent flex items-center justify-between text-sm transition-all group"
                           >
-                            <span className="font-semibold text-white/90 group-active:text-[#D4AF37]">
+                            <span className="font-semibold text-(--text-primary) group-active:text-[#D4AF37]">
                               {item.label}
                             </span>
-                            <ChevronRight className="w-4 h-4 text-white/30 shrink-0" />
+                            <ChevronRight className="w-4 h-4 text-(--text-faint) shrink-0" />
                           </button>
                         ))}
                       </div>
                     ) : query.trim() !== '' ? (
-                      <div className="py-6 text-center text-sm text-white/40">
+                      <div className="py-6 text-center text-sm text-(--text-muted)">
                         No portal views found matching &quot;{query}&quot;
                       </div>
                     ) : (
-                      <div className="py-4 text-center text-sm text-white/35">
+                      <div className="py-4 text-center text-sm text-(--text-faint)">
                         Type any section name to jump directly
                       </div>
                     )}
@@ -331,7 +332,7 @@ export const Header = <T extends string = NavTab>({
             <div className="relative">
               <button
                 onClick={() => setShowAlertsDrawer(!showAlertsDrawer)}
-                className="relative p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors touch-target"
+                className="relative p-2 rounded-full hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors touch-target"
                 aria-label="View notifications"
                 aria-expanded={showAlertsDrawer}
               >
@@ -352,10 +353,10 @@ export const Header = <T extends string = NavTab>({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.97 }}
                       transition={{ duration: 0.18 }}
-                      className="absolute right-0 top-12 w-80 sm:w-96 ds-notif-panel border rounded-2xl shadow-2xl z-50 overflow-hidden"
+                      className="absolute right-0 top-12 w-80 sm:w-96 ds-notif-panel border border-(--border-default) rounded-2xl shadow-2xl z-50 overflow-hidden"
                     >
-                      <div className="p-4 ds-notif-panel-header border-b flex items-center justify-between">
-                        <span className="font-serif text-base font-bold" style={{ color: 'var(--text-primary)' }}>Notifications</span>
+                      <div className="p-4 ds-notif-panel-header border-b border-(--border-subtle) flex items-center justify-between">
+                        <span className="font-serif text-base font-bold text-(--text-primary)">Notifications</span>
                         <div className="flex items-center gap-2">
                           {onMarkAllRead && (
                             <button onClick={onMarkAllRead} className="text-[10px] text-[#E9C349] hover:underline">
@@ -367,35 +368,35 @@ export const Header = <T extends string = NavTab>({
                               {totalUnread} new
                             </span>
                           )}
-                          <button onClick={() => setShowAlertsDrawer(false)} className="p-1 rounded-full hover:bg-white/10 text-white/60 transition-colors">
+                          <button onClick={() => setShowAlertsDrawer(false)} className="p-1 rounded-full hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors">
                             <X className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
-                      <div className="max-h-96 overflow-y-auto divide-y divide-white/5">
+                      <div className="max-h-96 overflow-y-auto divide-y divide-(--border-subtle)">
                         {alerts.length > 0 ? (
                           alerts.map((alert) => (
-                            <div key={alert.id} className="px-4 py-3.5 hover:bg-white/5 transition-colors flex gap-3">
-                              <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${alert.type === 'error' ? 'bg-rose-400' : alert.type === 'secondary' ? 'bg-[#E9C349]' : 'bg-white/40'}`} />
+                            <div key={alert.id} className="px-4 py-3.5 hover:bg-(--hover-overlay) transition-colors flex gap-3">
+                              <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${alert.type === 'error' ? 'bg-rose-400' : alert.type === 'secondary' ? 'bg-[#E9C349]' : 'bg-(--border-strong)'}`} />
                               <div className="min-w-0">
-                                <p className="font-sans text-xs font-semibold text-white">{alert.source}</p>
-                                <p className="font-sans text-xs text-white/50 leading-relaxed mt-0.5 line-clamp-2">{alert.message}</p>
-                                <p className="font-mono text-[10px] text-white/30 mt-1">{alert.date}</p>
+                                <p className="font-sans text-xs font-semibold text-(--text-primary)">{alert.source}</p>
+                                <p className="font-sans text-xs text-(--text-secondary) leading-relaxed mt-0.5 line-clamp-2">{alert.message}</p>
+                                <p className="font-mono text-[10px] text-(--text-faint) mt-1">{alert.date}</p>
                               </div>
                             </div>
                           ))
                         ) : notifications.length > 0 ? (
                           notifications.map((n) => (
-                            <div key={n.id} className={`px-4 py-3.5 hover:bg-white/5 transition-colors flex gap-3 ${!n.read ? 'bg-[#E9C349]/5' : ''}`}>
-                              <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${n.read ? 'bg-white/20' : 'bg-[#E9C349]'}`} />
+                            <div key={n.id} className={`px-4 py-3.5 hover:bg-(--hover-overlay) transition-colors flex gap-3 ${!n.read ? 'bg-[#E9C349]/5' : ''}`}>
+                              <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${n.read ? 'bg-(--border-strong)' : 'bg-[#E9C349]'}`} />
                               <div className="min-w-0">
-                                <p className="font-sans text-xs text-white leading-relaxed">{n.text}</p>
-                                <p className="font-mono text-[10px] text-white/30 mt-1">{n.time}</p>
+                                <p className="font-sans text-xs text-(--text-primary) leading-relaxed">{n.text}</p>
+                                <p className="font-mono text-[10px] text-(--text-faint) mt-1">{n.time}</p>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className="p-4 text-center text-xs text-white/40">No notifications</div>
+                          <div className="p-4 text-center text-xs text-(--text-muted)">No notifications</div>
                         )}
                       </div>
                     </motion.div>
@@ -405,29 +406,31 @@ export const Header = <T extends string = NavTab>({
             </div>
 
             {/* Theme Toggle */}
-            {setDarkMode && (
+            {setDarkMode ? (
               <button
                 onClick={() => setDarkMode((prev) => !prev)}
-                className="p-2 rounded-full hover:bg-white/10 transition-colors touch-target text-white/70 hover:text-white"
+                className="p-2 rounded-full hover:bg-(--hover-overlay) transition-colors touch-target text-(--text-muted) hover:text-(--text-primary)"
                 aria-label="Toggle Theme"
               >
                 {darkMode ? <Sun className="w-5 h-5 text-[#E9C349]" /> : <Moon className="w-5 h-5" />}
               </button>
+            ) : (
+              <ThemeToggle />
             )}
 
             {/* Profile Card */}
             {profile && profile.avatar && (
-              <div className="flex items-center gap-2.5 pl-2 border-l border-white/10">
-                <img 
-                  src={profile.avatar} 
-                  alt={profile.name ?? 'User Avatar'} 
-                  className="w-9 h-9 rounded-xl border border-white/10 object-cover"
+              <div className="flex items-center gap-2.5 pl-2 border-l border-(--border-default)">
+                <img
+                  src={profile.avatar}
+                  alt={profile.name ?? 'User Avatar'}
+                  className="w-9 h-9 rounded-xl border border-(--border-default) object-cover"
                 />
                 {profile.name && (
                   <div className="hidden lg:block text-left text-xs leading-none">
-                    <p className="font-semibold text-white">{profile.name}</p>
+                    <p className="font-semibold text-(--text-primary)">{profile.name}</p>
                     {profile.roleLabel && (
-                      <span className="text-[9px] font-mono text-white/40 uppercase block mt-1">{profile.roleLabel}</span>
+                      <span className="text-[9px] font-mono text-(--text-faint) uppercase block mt-1">{profile.roleLabel}</span>
                     )}
                   </div>
                 )}

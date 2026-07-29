@@ -80,7 +80,7 @@ export const AcademicCalendarView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Calendar Events Listing (7 cols) */}
-        <div className="lg:col-span-7 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-5">
+        <div className="lg:col-span-7 ds-card rounded-2xl p-6 backdrop-blur-md space-y-5">
           <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
             <h3 className="font-serif text-lg font-bold text-(--text-primary)">Scheduled Calendar Milestones</h3>
             <Badge variant="gold" className="font-mono text-[10px]">
@@ -132,7 +132,7 @@ export const AcademicCalendarView: React.FC = () => {
         </div>
 
         {/* Create Event Form (5 cols) */}
-        <div className="lg:col-span-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
+        <div className="lg:col-span-5 ds-card rounded-2xl p-6 backdrop-blur-md space-y-4">
           <h3 className="font-serif text-base font-bold text-(--text-primary)">Publish Schedule Milestone</h3>
           
           <form onSubmit={handleCreateEvent} className="space-y-4">

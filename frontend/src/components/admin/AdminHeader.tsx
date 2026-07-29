@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { AdminNavTab, AdminProfile, AdminNotification } from '../../types/admin';
-import { Search, Bell, ChevronRight, Command, X, Zap } from 'lucide-react';
+import { Search, Bell, ChevronRight, Command, X, Zap, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
 import ThemeToggle from '../ThemeToggle';
@@ -17,6 +17,7 @@ interface AdminHeaderProps {
   onOpenSearch: () => void;
   academicYear: string;
   maintenanceMode: boolean;
+  onMobileMenuToggle?: () => void;
 }
 
 const TAB_LABELS: Record<AdminNavTab, string> = {
@@ -34,7 +35,7 @@ const SEVERITY_DOT: Record<string, string> = {
 };
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
-  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, academicYear, maintenanceMode,
+  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, academicYear, maintenanceMode, onMobileMenuToggle,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -53,6 +54,16 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {onMobileMenuToggle && (
+              <button
+                onClick={onMobileMenuToggle}
+                className="p-1.5 md:hidden border rounded-lg transition-colors"
+                style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}
+                aria-label="Toggle Navigation Menu"
+              >
+                <Menu className="w-4 h-4" />
+              </button>
+            )}
             <button onClick={() => setActiveTab('overview')} className="font-serif text-base sm:text-xl font-bold tracking-tight hover:opacity-80 transition-opacity" style={{ color: 'var(--text-primary)' }}>
               Harmony <span style={{ color: 'var(--brand-gold)' }}>Admin</span>
             </button>

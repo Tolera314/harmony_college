@@ -93,7 +93,7 @@ export const RegistrationSettings: React.FC = () => {
         <div className="lg:col-span-7 space-y-6">
           
           {/* Registration Period Card */}
-          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
+          <div className="ds-card rounded-2xl p-6 backdrop-blur-md space-y-4">
             <h3 className="font-serif text-lg font-bold text-(--text-primary) flex items-center gap-2">
               <Calendar className="w-5 h-5 text-(--brand-gold)" /> Registration Windows
             </h3>
@@ -142,7 +142,7 @@ export const RegistrationSettings: React.FC = () => {
           </div>
 
           {/* Feature Switches */}
-          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
+          <div className="ds-card rounded-2xl p-6 backdrop-blur-md space-y-4">
             <h3 className="font-serif text-lg font-bold text-(--text-primary) flex items-center gap-2">
               <Settings className="w-5 h-5 text-(--brand-gold)" /> Enrollment Feature Switches
             </h3>
@@ -189,7 +189,7 @@ export const RegistrationSettings: React.FC = () => {
         <div className="lg:col-span-5 space-y-6">
           
           {/* Rules List */}
-          <div className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-6 backdrop-blur-md space-y-4">
+          <div className="ds-card rounded-2xl p-6 backdrop-blur-md space-y-4">
             <h3 className="font-serif text-lg font-bold text-(--text-primary)">Curriculum Verification Rules</h3>
             <p className="text-[11px] text-(--text-faint)">Enable or disable compliance checks inside the registration portal.</p>
 
