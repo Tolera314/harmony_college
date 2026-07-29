@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { Shield, AlertTriangle, Lock, Eye } from 'lucide-react';
 import { securityEvents } from '../../../data/adminData2';
 import { DHPageHeader } from '../../dh/DHPageHeader';
@@ -10,10 +11,10 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 
 const eventColor: Record<string, string> = {
-  Critical: 'text-rose-400', Warning: 'text-amber-400', Info: 'text-sky-400',
+  Critical: 'text-(--status-danger)', Warning: 'text-(--status-warning)', Info: 'text-(--status-info)',
 };
 const eventBg: Record<string, string> = {
-  Critical: 'bg-rose-950/20 border-rose-800/30', Warning: 'bg-amber-950/20 border-amber-800/30', Info: 'bg-white/5 border-white/8',
+  Critical: 'bg-(--status-danger-bg) border-(--status-danger-border)', Warning: 'bg-(--status-warning-bg) border-(--status-warning-border)', Info: 'bg-(--hover-overlay) border-(--border-subtle)',
 };
 
 export const AdminSecurityView: React.FC = () => {
@@ -22,7 +23,7 @@ export const AdminSecurityView: React.FC = () => {
   const warnings = securityEvents.filter(e => e.status === 'Warning');
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Security Center"
         subtitle={`${critical.length} critical · ${warnings.length} warnings`}
@@ -32,36 +33,36 @@ export const AdminSecurityView: React.FC = () => {
 
       {/* Alert summary */}
       {critical.length > 0 && (
-        <div className="flex items-start gap-3 p-4 bg-rose-950/30 border border-rose-800/40 rounded-2xl">
-          <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 p-4 bg-(--status-danger-bg) border border-(--status-danger-border) rounded-2xl">
+          <AlertTriangle className="w-5 h-5 text-(--status-danger) shrink-0 mt-0.5" />
           <div>
-            <p className="font-sans text-sm font-semibold text-rose-300">{critical.length} critical security event{critical.length > 1 ? 's' : ''} require attention</p>
-            <p className="font-sans text-xs text-rose-400/70 mt-0.5">{critical.map(e => e.details ?? e.type).join(' · ')}</p>
+            <p className="font-sans text-sm font-semibold text-(--status-danger)">{critical.length} critical security event{critical.length > 1 ? 's' : ''} require attention</p>
+            <p className="font-sans text-xs text-(--status-danger)/70 mt-0.5">{critical.map(e => e.details ?? e.type).join(' · ')}</p>
           </div>
         </div>
       )}
 
       {/* Event log */}
       <Card hoverable={false} className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-white">Security Event Log</h3>
+        <h3 className="font-serif text-lg font-bold text-(--text-primary)">Security Event Log</h3>
         <div className="space-y-2">
           {securityEvents.map(event => (
             <div key={event.id} className={`flex items-start justify-between gap-4 p-3.5 rounded-xl border ${eventBg[event.status]}`}>
               <div className="flex items-start gap-3 min-w-0">
-                <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${event.status === 'Critical' ? 'bg-rose-400' : event.status === 'Warning' ? 'bg-amber-400' : 'bg-sky-400'}`} />
+                <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${event.status === 'Critical' ? 'bg-(--status-danger)' : event.status === 'Warning' ? 'bg-(--status-warning)' : 'bg-(--status-info)'}`} />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-sans text-xs font-semibold text-white">{event.type}</p>
+                    <p className="font-sans text-xs font-semibold text-(--text-primary)">{event.type}</p>
                     <Badge variant={event.status === 'Critical' ? 'rose' : event.status === 'Warning' ? 'amber' : 'glass'} className="text-[10px]">{event.status}</Badge>
                   </div>
-                  <p className="font-sans text-xs text-white/55 mt-0.5">{event.userName} · {event.role}</p>
-                  {event.details && <p className="font-sans text-xs text-white/40 mt-0.5 italic">{event.details}</p>}
-                  <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono text-white/30">
+                  <p className="font-sans text-xs text-(--text-muted) mt-0.5">{event.userName} · {event.role}</p>
+                  {event.details && <p className="font-sans text-xs text-(--text-faint) mt-0.5 italic">{event.details}</p>}
+                  <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono text-(--text-faint)">
                     <span>{event.ip}</span><span>·</span><span>{event.device}</span><span>·</span><span>{event.location}</span>
                   </div>
                 </div>
               </div>
-              <p className="font-mono text-[10px] text-white/30 shrink-0">{event.timestamp.split(' ').slice(0, 2).join(' ')}</p>
+              <p className="font-mono text-[10px] text-(--text-faint) shrink-0">{event.timestamp.split(' ').slice(0, 2).join(' ')}</p>
             </div>
           ))}
         </div>
@@ -70,7 +71,7 @@ export const AdminSecurityView: React.FC = () => {
       {/* Password policies panel */}
       {policyView && (
         <Card hoverable={false} className="space-y-5">
-          <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2"><Lock className="w-5 h-5 text-[#E9C349]" /> Password & Session Policies</h3>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary) flex items-center gap-2"><Lock className="w-5 h-5 text-(--brand-gold)" /> Password & Session Policies</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-sans">
             {[
               { label: 'Minimum Length', value: '12 characters', note: 'Required for all roles' },
@@ -82,10 +83,10 @@ export const AdminSecurityView: React.FC = () => {
               { label: 'Failed Attempts', value: 'Lock after 3 attempts', note: 'Auto-unlock after 30 min' },
               { label: 'Concurrent Sessions', value: '3 max (Super Admin: 1)', note: '' },
             ].map(item => (
-              <div key={item.label} className="p-3 bg-white/5 rounded-xl border border-white/8">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-white/40">{item.label}</p>
-                <p className="text-white/80 text-xs mt-1 font-semibold">{item.value}</p>
-                {item.note && <p className="text-white/40 text-[11px] mt-0.5">{item.note}</p>}
+              <div key={item.label} className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{item.label}</p>
+                <p className="text-(--text-secondary) text-xs mt-1 font-semibold">{item.value}</p>
+                {item.note && <p className="text-(--text-faint) text-[11px] mt-0.5">{item.note}</p>}
               </div>
             ))}
           </div>

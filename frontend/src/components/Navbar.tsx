@@ -58,6 +58,8 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
 
   return (
     <nav
+      role="banner"
+      aria-label="Harmony College main navigation"
       className={`fixed top-0 left-0 w-full z-40 transition-all duration-300 border-b ${
         isScrolled
           ? 'bg-[--bg-base]/90 backdrop-blur-xl py-3 border-[--border-default] shadow-xl'
@@ -70,19 +72,21 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
     >
       <div className="w-full px-6 sm:px-12 max-w-7xl mx-auto flex justify-between items-center">
         {/* Brand Logo */}
-        <div 
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
-          className="flex items-center gap-3 cursor-pointer group"
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Harmony College — scroll to top"
+          className="flex items-center gap-3 cursor-pointer group ds-focus-ring rounded-xl"
         >
         <Image
-            alt="Harmony College Logo"
+            alt=""
+            aria-hidden="true"
             width={40}
             height={40}
             className="object-cover rounded-full transition-transform duration-500 group-hover:scale-105"
             src="/logo1.jpg"
             priority
           />
-          <div className="flex flex-col">
+          <div className="flex flex-col" aria-hidden="true">
             <span className="font-serif text-lg tracking-wider font-extrabold" style={{ color: 'var(--text-primary)' }}>
               HARMONY
             </span>
@@ -90,21 +94,26 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
               COLLEGE
             </span>
           </div>
-        </div>
+        </button>
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          <ul className="flex items-center gap-8 font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          <ul
+            role="list"
+            className="flex items-center gap-8 font-sans text-xs font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--text-muted)' }}
+          >
             {['About', 'Programs', 'Admissions', 'Campus', 'Research'].map((section) => (
               <li key={section}>
                 <button
                   onClick={() => scrollToSection(section)}
-                  className={`hover:text-[#E9C349] transition-all cursor-pointer relative py-1`}
+                  aria-current={activeSection === section ? 'true' : undefined}
+                  className={`hover:text-[#E9C349] transition-all cursor-pointer relative py-1 ds-focus-ring rounded`}
                   style={{ color: activeSection === section ? 'var(--text-primary)' : undefined }}
                 >
                   {section}
                   {activeSection === section && (
-                    <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-[#E9C349] rounded-full" />
+                    <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-[#E9C349] rounded-full" aria-hidden="true" />
                   )}
                 </button>
               </li>
@@ -149,24 +158,33 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
           <ThemeToggle />
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-1.5 rounded-lg transition-colors"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-menu"
+            aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            className="p-1.5 rounded-lg transition-colors ds-focus-ring"
             style={{ color: 'var(--text-muted)' }}
           >
-            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {isMobileMenuOpen ? <X className="w-5 h-5" aria-hidden="true" /> : <Menu className="w-5 h-5" aria-hidden="true" />}
           </button>
         </div>
       </div>
 
       {/* Mobile Menu Drawer */}
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-[70px] border-b p-6 flex flex-col gap-6 shadow-2xl z-30 transition-colors"
-          style={{ backgroundColor: 'var(--bg-base)', borderColor: 'var(--border-default)' }}>
-          <ul className="flex flex-col gap-4 font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+        <div
+          id="mobile-menu"
+          role="navigation"
+          aria-label="Mobile navigation"
+          className="md:hidden fixed inset-x-0 top-[4.375rem] border-b p-6 flex flex-col gap-6 shadow-2xl z-30 transition-colors"
+          style={{ backgroundColor: 'var(--bg-base)', borderColor: 'var(--border-default)' }}
+        >
+          <ul role="list" className="flex flex-col gap-4 font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             {['About', 'Programs', 'Admissions', 'Campus', 'Research'].map((section) => (
               <li key={section}>
                 <button
                   onClick={() => scrollToSection(section)}
-                  className={`w-full text-left py-2 hover:text-[#E9C349] transition-all`}
+                  aria-current={activeSection === section ? 'true' : undefined}
+                  className={`w-full text-left py-2 hover:text-[#E9C349] transition-all ds-focus-ring rounded`}
                   style={{ color: activeSection === section ? 'var(--text-primary)' : undefined, fontWeight: activeSection === section ? 700 : undefined }}
                 >
                   {section}

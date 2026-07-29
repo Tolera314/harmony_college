@@ -2,6 +2,7 @@
 // Pure SVG charts for Finance Officer Dashboard — no external charting library.
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 
 // ─────────────────────────────────────────────────────────────
 // Utility: format ETB currency compactly
@@ -60,8 +61,8 @@ export const RevenueLineChart: React.FC<RevenueLineChartProps> = ({
     <div>
       {(label || secondaryLabel) && (
         <div className="flex items-center gap-4 mb-3">
-          {label && <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 rounded" style={{ backgroundColor: color }} /><span className="font-mono text-[10px] text-white/50">{label}</span></div>}
-          {secondaryLabel && secondaryData && <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 rounded" style={{ backgroundColor: secondaryColor }} /><span className="font-mono text-[10px] text-white/50">{secondaryLabel}</span></div>}
+          {label && <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 rounded" style={{ backgroundColor: color }} /><span className="font-mono text-[10px] text-(--text-muted)">{label}</span></div>}
+          {secondaryLabel && secondaryData && <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 rounded" style={{ backgroundColor: secondaryColor }} /><span className="font-mono text-[10px] text-(--text-muted)">{secondaryLabel}</span></div>}
         </div>
       )}
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden="true">
@@ -141,8 +142,8 @@ export const GroupedBarChart: React.FC<GroupedBarChartProps> = ({
   return (
     <div>
       <div className="flex items-center gap-4 mb-3">
-        <div className="flex items-center gap-1.5"><div className="w-3 h-2.5 rounded-sm bg-[#E9C349]" /><span className="font-mono text-[10px] text-white/50">{primaryLabel}</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-3 h-2.5 rounded-sm bg-white/20" /><span className="font-mono text-[10px] text-white/50">{secondaryLabel}</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-2.5 rounded-sm bg-[#E9C349]" /><span className="font-mono text-[10px] text-(--text-muted)">{primaryLabel}</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-2.5 rounded-sm bg-(--active-overlay)" /><span className="font-mono text-[10px] text-(--text-muted)">{secondaryLabel}</span></div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden="true">
         {[0, 0.5, 1].map((t) => {
@@ -210,16 +211,16 @@ export const DonutChart: React.FC<DonutChartProps> = ({ segments, total, centerL
       <div className="flex-1 min-w-[140px]">
         {centerLabel && (
           <div className="mb-3">
-            <p className="font-mono text-2xl font-bold text-white">{centerLabel}</p>
-            {centerSub && <p className="font-sans text-xs text-white/40">{centerSub}</p>}
+            <p className="font-mono text-2xl font-bold text-(--text-primary)">{centerLabel}</p>
+            {centerSub && <p className="font-sans text-xs text-(--text-faint)">{centerSub}</p>}
           </div>
         )}
         <div className="space-y-2">
           {segments.map((s) => (
             <div key={s.label} className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-              <span className="font-sans text-xs text-white/70 flex-1 truncate">{s.label}</span>
-              <span className="font-mono text-xs text-white/50">{total > 0 ? Math.round((s.value / total) * 100) : 0}%</span>
+              <span className="font-sans text-xs text-(--text-secondary) flex-1 truncate">{s.label}</span>
+              <span className="font-mono text-xs text-(--text-muted)">{total > 0 ? Math.round((s.value / total) * 100) : 0}%</span>
             </div>
           ))}
         </div>
@@ -244,12 +245,12 @@ export const HorizontalBarChart: React.FC<{ data: HBarItem[]; formatValue?: (v: 
         <div key={i} className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <span className="font-sans text-xs text-white/80 font-medium truncate block">{d.label}</span>
-              {d.subLabel && <span className="font-mono text-[10px] text-white/40">{d.subLabel}</span>}
+              <span className="font-sans text-xs text-(--text-secondary) font-medium truncate block">{d.label}</span>
+              {d.subLabel && <span className="font-mono text-[10px] text-(--text-faint)">{d.subLabel}</span>}
             </div>
-            <span className="font-mono text-xs text-white/60 shrink-0">ETB {formatValue(d.value)}</span>
+            <span className="font-mono text-xs text-(--text-secondary) shrink-0">ETB {formatValue(d.value)}</span>
           </div>
-          <div className="h-2 bg-white/8 rounded-full overflow-hidden">
+          <div className="h-2 bg-(--hover-overlay) rounded-full overflow-hidden">
             <motion.div
               className="h-full rounded-full"
               style={{ backgroundColor: col }}

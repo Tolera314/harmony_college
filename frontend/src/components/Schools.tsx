@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { GESTURE, DURATION, EASE, SPRING } from '@/src/lib/motion';
 import { Camera, Film, Music, Headphones, Palette, Globe, X, ArrowUpRight, BookOpen, Award, Info, ChevronRight } from 'lucide-react';
 import { School } from '../types';
 import { schoolsData } from '../data/schools';
@@ -54,7 +55,7 @@ export default function Schools({ onSelectSchoolId, onClearSelectedSchoolId }: S
           {schoolsData.map(school => {
             const IconComponent = iconMap[school.icon] || Camera;
             return (
-              <motion.div key={school.id} whileHover={{ y: -5 }} onClick={() => handleCardClick(school)}
+              <motion.div key={school.id} whileHover={GESTURE.cardHover} onClick={() => handleCardClick(school)}
                 className="group relative rounded-xl p-8 cursor-pointer shadow-xl transition-all flex flex-col justify-between min-h-[300px] overflow-hidden"
                 style={{ border: '1px solid var(--border-card)', backgroundColor: 'var(--bg-card)', backdropFilter: 'blur(12px)' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-strong)'; (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-card-solid)'; }}
@@ -92,7 +93,7 @@ export default function Schools({ onSelectSchoolId, onClearSelectedSchoolId }: S
             <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
               <motion.div
                 initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 150 }}
+                transition={SPRING.drawer}
                 className="w-screen max-w-2xl flex flex-col shadow-2xl relative"
                 style={{ backgroundColor: 'var(--bg-modal)', borderLeft: '1px solid var(--border-default)' }}
               >

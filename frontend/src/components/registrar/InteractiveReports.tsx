@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   BarChart3, FileDown, TrendingUp, BookOpen, 
   Users, CheckCircle2, Award, Zap, HelpCircle
@@ -19,14 +20,14 @@ const enrollmentTrend = [
 ];
 
 const deptPerform = [
-  { label: 'Comp. Sci', value: 180, color: '#D4AF37' },
+  { label: 'Comp. Sci', value: 180, color: 'var(--brand-gold)' },
   { label: 'Mathemathics', value: 110, color: '#3B82F6' },
   { label: 'Mech. Eng', value: 140, color: '#22C55E' },
   { label: 'Business Admin', value: 95, color: '#F59E0B' }
 ];
 
 const programPopularity = [
-  { label: 'Computer Science', value: 180, color: '#D4AF37' },
+  { label: 'Computer Science', value: 180, color: 'var(--brand-gold)' },
   { label: 'Mechanical Eng.', value: 140, color: '#22C55E' },
   { label: 'Mathematics', value: 110, color: '#3B82F6' },
   { label: 'Business Admin', value: 95, color: '#F59E0B' }
@@ -59,8 +60,8 @@ export const InteractiveReports: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Interactive Analytics & Reports</h2>
-          <p className="text-xs text-white/50">Visualize university KPIs, monitor capacity levels, and export registrar report sheets.</p>
+          <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Interactive Analytics & Reports</h2>
+          <p className="text-xs text-(--text-muted)">Visualize university KPIs, monitor capacity levels, and export registrar report sheets.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -94,18 +95,18 @@ export const InteractiveReports: React.FC = () => {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Overall Grad. Rate', val: '94.2%', sub: 'Class of 2025', icon: Award, color: 'text-emerald-400' },
-          { label: 'Avg Enrollment Growth', val: '+9.2%', sub: 'Year-over-Year', icon: TrendingUp, color: 'text-[#D4AF37]' },
+          { label: 'Overall Grad. Rate', val: '94.2%', sub: 'Class of 2025', icon: Award, color: 'text-(--status-success)' },
+          { label: 'Avg Enrollment Growth', val: '+9.2%', sub: 'Year-over-Year', icon: TrendingUp, color: 'text-(--brand-gold)' },
           { label: 'Section Utilization', val: '86.4%', sub: 'Allocated Seats', icon: Zap, color: 'text-blue-400' },
           { label: 'Faculty workload', val: '14.2h', sub: 'Weekly Avg Lectures', icon: Users, color: 'text-purple-400' }
         ].map((kpi, idx) => (
-          <div key={idx} className="p-4 bg-white/5 border border-white/10 rounded-2xl relative overflow-hidden">
+          <div key={idx} className="p-4 ds-card rounded-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3 opacity-5 pointer-events-none">
-              <kpi.icon className="w-12 h-12 text-white" />
+              <kpi.icon className="w-12 h-12 text-(--text-primary)" />
             </div>
-            <p className="font-mono text-[9px] uppercase text-white/40">{kpi.label}</p>
+            <p className="font-mono text-[9px] uppercase text-(--text-faint)">{kpi.label}</p>
             <p className={`font-mono text-2xl font-bold mt-1 ${kpi.color}`}>{kpi.val}</p>
-            <p className="text-[10px] text-white/40 mt-1">{kpi.sub}</p>
+            <p className="text-[10px] text-(--text-faint) mt-1">{kpi.sub}</p>
           </div>
         ))}
       </div>
@@ -114,22 +115,22 @@ export const InteractiveReports: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Enrollment Trend (7 cols) */}
-        <div className="lg:col-span-7 bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-            <h3 className="font-serif text-base font-bold text-white">Enrollment Trend (5-Year AY)</h3>
-            <span className="text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+        <div className="lg:col-span-7 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
+          <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
+            <h3 className="font-serif text-base font-bold text-(--text-primary)">Enrollment Trend (5-Year AY)</h3>
+            <span className="text-[10px] font-mono text-(--status-success) font-semibold bg-(--status-success-bg) px-2 py-0.5 rounded border border-(--status-success-border)">
               Uptrend
             </span>
           </div>
           <div className="pt-2">
-            <LineChart data={enrollmentTrend} color="#D4AF37" height={160} />
+            <LineChart data={enrollmentTrend} color="var(--brand-gold)" height={160} />
           </div>
         </div>
 
         {/* Program Popularity (5 cols) */}
-        <div className="lg:col-span-5 bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-            <h3 className="font-serif text-base font-bold text-white">Curriculum Distribution</h3>
+        <div className="lg:col-span-5 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
+          <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
+            <h3 className="font-serif text-base font-bold text-(--text-primary)">Curriculum Distribution</h3>
           </div>
           <div className="flex items-center justify-center pt-2">
             <DonutChart segments={programPopularity} total={totalEnrollments} centerLabel={String(totalEnrollments)} />
@@ -137,9 +138,9 @@ export const InteractiveReports: React.FC = () => {
         </div>
 
         {/* Department Performance (6 cols) */}
-        <div className="lg:col-span-6 bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-            <h3 className="font-serif text-base font-bold text-white">Department Headcounts</h3>
+        <div className="lg:col-span-6 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
+          <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
+            <h3 className="font-serif text-base font-bold text-(--text-primary)">Department Headcounts</h3>
           </div>
           <div className="pt-2">
             <BarChart data={deptPerform} height={160} />
@@ -147,9 +148,9 @@ export const InteractiveReports: React.FC = () => {
         </div>
 
         {/* Capacity Utilization (6 cols) */}
-        <div className="lg:col-span-6 bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-md space-y-4">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-            <h3 className="font-serif text-base font-bold text-white">Seating Utilization Workloads</h3>
+        <div className="lg:col-span-6 ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
+          <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
+            <h3 className="font-serif text-base font-bold text-(--text-primary)">Seating Utilization Workloads</h3>
           </div>
           <div className="pt-2">
             <HorizontalBarChart data={capUtilization} />

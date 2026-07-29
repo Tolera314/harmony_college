@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Settings, User, Bell, Lock, Save, CheckCircle2, Monitor } from 'lucide-react';
+import { DURATION, EASE } from '@/src/lib/motion';
+import { Settings, User, Bell, Lock, Save, CheckCircle2 } from 'lucide-react';
 import { InstructorProfile } from '../../../types/instructor';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
-import { AppearanceSection } from '../../ui/AppearanceSection';
 
 interface InSettingsViewProps { profile: InstructorProfile }
 
@@ -22,20 +22,19 @@ export const InSettingsView: React.FC<InSettingsViewProps> = ({ profile }) => {
   const handleSave = (e: React.FormEvent) => { e.preventDefault(); setSaved(true); setTimeout(() => setSaved(false), 3000); };
 
   const sections = [
-    { id: 'profile',       label: 'Profile',    icon: <User className="w-4 h-4" /> },
+    { id: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
     { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
-    { id: 'appearance',    label: 'Appearance', icon: <Monitor className="w-4 h-4" /> },
-    { id: 'security',      label: 'Security',   icon: <Lock className="w-4 h-4" /> },
+    { id: 'security', label: 'Security', icon: <Lock className="w-4 h-4" /> },
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader title="Settings" subtitle="Manage your account and preferences" icon={<Settings className="w-5 h-5" />} />
 
       {saved && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-          className="p-4 bg-emerald-950/40 border border-emerald-800 text-emerald-300 rounded-2xl font-sans text-xs font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400" /> Changes saved successfully.
+          className="p-4 bg-(--status-success-bg) border border-emerald-800 text-(--status-success) rounded-2xl font-sans text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 text-(--status-success)" /> Changes saved successfully.
         </motion.div>
       )}
 
@@ -43,7 +42,7 @@ export const InSettingsView: React.FC<InSettingsViewProps> = ({ profile }) => {
         <nav className="lg:w-52 shrink-0 space-y-1">
           {sections.map(s => (
             <button key={s.id} onClick={() => setActiveSection(s.id)}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-sans text-sm font-medium transition-all text-left ${activeSection === s.id ? 'bg-[#E9C349]/12 text-[#E9C349] border border-[#E9C349]/20' : 'text-white/60 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-sans text-sm font-medium transition-all text-left ${activeSection === s.id ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border)' : 'text-(--text-secondary) hover:bg-(--hover-overlay) hover:text-(--text-primary) border border-transparent'}`}>
               {s.icon} {s.label}
             </button>
           ))}
@@ -52,14 +51,14 @@ export const InSettingsView: React.FC<InSettingsViewProps> = ({ profile }) => {
         <div className="flex-1 min-w-0">
           {activeSection === 'profile' && (
             <Card hoverable={false} className="space-y-6">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <User className="w-5 h-5 text-[#E9C349]" /> Instructor Profile
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <User className="w-5 h-5 text-(--brand-gold)" /> Instructor Profile
               </h3>
               <div className="flex items-center gap-4">
-                <img src={profile.avatar || undefined} alt={profile.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E9C349]/40" />
+                <img src={profile.avatar} alt={profile.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-(--accent-gold-border)" />
                 <div>
-                  <p className="font-serif text-base font-bold text-white">{profile.name}</p>
-                  <p className="font-sans text-xs text-white/50">{profile.title}</p>
+                  <p className="font-serif text-base font-bold text-(--text-primary)">{profile.name}</p>
+                  <p className="font-sans text-xs text-(--text-muted)">{profile.title}</p>
                   <Badge variant="gold" className="mt-1">{profile.employeeId}</Badge>
                 </div>
               </div>
@@ -79,8 +78,8 @@ export const InSettingsView: React.FC<InSettingsViewProps> = ({ profile }) => {
 
           {activeSection === 'notifications' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Bell className="w-5 h-5 text-[#E9C349]" /> Notification Preferences
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <Bell className="w-5 h-5 text-(--brand-gold)" /> Notification Preferences
               </h3>
               <div className="space-y-3">
                 {Object.entries(notifications).map(([key, val]) => {
@@ -92,10 +91,10 @@ export const InSettingsView: React.FC<InSettingsViewProps> = ({ profile }) => {
                   };
                   const item = labels[key];
                   return (
-                    <label key={key} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl cursor-pointer border border-white/10 hover:bg-white/[0.08] transition-colors">
+                    <label key={key} className="flex items-center justify-between p-4 bg-(--hover-overlay) rounded-2xl cursor-pointer border border-(--border-default) hover:bg-(--hover-overlay) transition-colors">
                       <div>
-                        <p className="font-sans text-sm font-semibold text-white">{item.title}</p>
-                        <p className="font-sans text-xs text-white/50 mt-0.5">{item.desc}</p>
+                        <p className="font-sans text-sm font-semibold text-(--text-primary)">{item.title}</p>
+                        <p className="font-sans text-xs text-(--text-muted) mt-0.5">{item.desc}</p>
                       </div>
                       <input type="checkbox" checked={val} onChange={e => setNotifications({...notifications, [key]: e.target.checked})}
                         className="w-5 h-5 accent-[#E9C349] cursor-pointer" />
@@ -109,16 +108,10 @@ export const InSettingsView: React.FC<InSettingsViewProps> = ({ profile }) => {
             </Card>
           )}
 
-          {activeSection === 'appearance' && (
-            <Card hoverable={false} className="space-y-0 p-0 overflow-hidden">
-              <AppearanceSection variant="inline" />
-            </Card>
-          )}
-
           {activeSection === 'security' && (
             <Card hoverable={false} className="space-y-5">
-              <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Lock className="w-5 h-5 text-[#E9C349]" /> Password & Security
+              <h3 className="font-serif text-xl font-bold text-(--text-primary) flex items-center gap-2 border-b border-(--border-default) pb-4">
+                <Lock className="w-5 h-5 text-(--brand-gold)" /> Password & Security
               </h3>
               <div className="space-y-4">
                 <Input label="Current Password" type="password" placeholder="Enter current password" />

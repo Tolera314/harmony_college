@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import {
   GraduationCap, Users, Building2, BookOpen, DollarSign, AlertTriangle,
   TrendingUp, CalendarCheck, UserCheck, ArrowRight, Shield, HardDrive,
@@ -22,7 +23,7 @@ interface AdminOverviewViewProps {
 }
 
 const healthColor: Record<string, string> = {
-  Healthy: 'bg-emerald-400', Degraded: 'bg-amber-400', Down: 'bg-rose-500',
+  Healthy: 'bg-(--status-success)', Degraded: 'bg-(--status-warning)', Down: 'bg-(--status-danger)',
 };
 
 export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveTab }) => {
@@ -39,36 +40,36 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
     { label: 'Apr', value: 4.2 }, { label: 'May', value: 4.5 },
     { label: 'Jun', value: 4.8 }, { label: 'Jul', value: 5.1 },
   ];
-  const deptBar = departments.map(d => ({ label: d.name.split(' ')[0].slice(0, 6), value: d.employeeCount, color: '#E9C349' }));
+  const deptBar = departments.map(d => ({ label: d.name.split(' ')[0].slice(0, 6), value: d.employeeCount, color: 'var(--brand-gold)' }));
   const admissionSegs = [
-    { label: 'Enrolled', value: admissions.filter(a => a.status === 'Enrolled').length, color: '#34d399' },
-    { label: 'Approved', value: admissions.filter(a => a.status === 'Approved').length, color: '#E9C349' },
-    { label: 'Under Review', value: admissions.filter(a => a.status === 'Under Review' || a.status === 'Applied').length, color: '#fb923c' },
-    { label: 'Rejected', value: admissions.filter(a => a.status === 'Rejected').length, color: '#f87171' },
+    { label: 'Enrolled', value: admissions.filter(a => a.status === 'Enrolled').length, color: 'var(--status-success)' },
+    { label: 'Approved', value: admissions.filter(a => a.status === 'Approved').length, color: 'var(--brand-gold)' },
+    { label: 'Under Review', value: admissions.filter(a => a.status === 'Under Review' || a.status === 'Applied').length, color: 'var(--status-warning)' },
+    { label: 'Rejected', value: admissions.filter(a => a.status === 'Rejected').length, color: 'var(--status-danger)' },
   ].filter(s => s.value > 0);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       {/* Hero */}
-      <section className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
+      <section className="relative rounded-3xl overflow-hidden border border-(--border-default) shadow-2xl">
         <div className="absolute inset-0 bg-linear-to-br from-[#E9C349]/10 via-transparent to-transparent pointer-events-none" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#E9C349]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
           <div className="space-y-2.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E9C349]/10 border border-[#E9C349]/30 text-[10px] font-mono font-semibold text-[#E9C349] uppercase tracking-wider">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[10px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" /> Academic Year 2024–2025 · Active
               </div>
               {criticals.length > 0 && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-[10px] font-mono font-semibold text-rose-400 uppercase">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 border border-(--status-danger-border) text-[10px] font-mono font-semibold text-(--status-danger) uppercase">
                   <AlertTriangle className="w-3 h-3" /> {criticals.length} Critical Alert{criticals.length > 1 ? 's' : ''}
                 </div>
               )}
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-white leading-tight">
+            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
               Institutional Overview
             </h2>
-            <p className="font-sans text-sm text-white/55 max-w-xl">
+            <p className="font-sans text-sm text-(--text-muted) max-w-xl">
               Harmony College Super Administration · Complete system authority
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -80,13 +81,13 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
 
           {/* System health mini */}
           <div className="hidden lg:flex flex-col gap-1.5 shrink-0 min-w-[180px]">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-white/40 mb-1">System Health</p>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-1">System Health</p>
             {systemHealth.slice(0, 5).map(s => (
               <div key={s.name} className="flex items-center justify-between gap-3">
-                <span className="font-sans text-xs text-white/60 truncate max-w-[120px]">{s.name.split(' ')[0]}</span>
+                <span className="font-sans text-xs text-(--text-secondary) truncate max-w-[120px]">{s.name.split(' ')[0]}</span>
                 <div className="flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${healthColor[s.status]}`} />
-                  <span className="font-mono text-[10px] text-white/40">{s.responseTime}</span>
+                  <span className="font-mono text-[10px] text-(--text-faint)">{s.responseTime}</span>
                 </div>
               </div>
             ))}
@@ -121,8 +122,8 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">Student Enrollment Trend</h3>
-              <p className="font-sans text-xs text-white/40 mt-0.5">Total enrolled students — 6 months</p>
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Student Enrollment Trend</h3>
+              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Total enrolled students — 6 months</p>
             </div>
             <Badge variant="emerald">+1.0% growth</Badge>
           </div>
@@ -130,7 +131,7 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
         </Card>
 
         <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-white">Admissions Funnel</h3>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Admissions Funnel</h3>
           <DonutChart segments={admissionSegs} total={admissions.length} centerLabel={String(admissions.length)} />
         </Card>
       </section>
@@ -138,16 +139,16 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card hoverable={false} className="space-y-4">
           <div>
-            <h3 className="font-serif text-lg font-bold text-white">Revenue Trend (ETB M)</h3>
-            <p className="font-sans text-xs text-white/40 mt-0.5">Monthly net payments collected</p>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue Trend (ETB M)</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Monthly net payments collected</p>
           </div>
-          <BarChart data={revenueTrend.map(r => ({ label: r.label, value: r.value, color: '#E9C349' }))} height={130} />
+          <BarChart data={revenueTrend.map(r => ({ label: r.label, value: r.value, color: 'var(--brand-gold)' }))} height={130} />
         </Card>
 
         <Card hoverable={false} className="space-y-4">
           <div>
-            <h3 className="font-serif text-lg font-bold text-white">Staff by Department</h3>
-            <p className="font-sans text-xs text-white/40 mt-0.5">Active employees per department</p>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Staff by Department</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Active employees per department</p>
           </div>
           <BarChart data={deptBar} height={130} />
         </Card>
@@ -157,19 +158,19 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">Recent Audit Activity</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Recent Audit Activity</h3>
             <Button variant="ghost" size="sm" icon={<ArrowRight className="w-4 h-4" />} onClick={() => setActiveTab('audit_logs')}>View all</Button>
           </div>
           <div className="space-y-2">
             {adminAuditLog.slice(0, 5).map(entry => (
-              <div key={entry.id} className={`flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors ${entry.isImpersonated ? 'bg-amber-950/15 border border-amber-800/20' : ''}`}>
-                <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${entry.status === 'Success' ? 'bg-emerald-400' : entry.status === 'Warning' ? 'bg-amber-400' : 'bg-rose-400'}`} />
+              <div key={entry.id} className={`flex items-start gap-3 p-3 rounded-xl hover:bg-(--hover-overlay) transition-colors ${entry.isImpersonated ? 'bg-(--status-warning-bg) border border-(--status-warning-border)' : ''}`}>
+                <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${entry.status === 'Success' ? 'bg-(--status-success)' : entry.status === 'Warning' ? 'bg-(--status-warning)' : 'bg-(--status-danger)'}`} />
                 <div className="min-w-0 flex-1">
-                  <p className="font-sans text-xs font-semibold text-white">{entry.action} — <span className="text-white/55">{entry.user}</span></p>
-                  <p className="font-sans text-[11px] text-white/40 truncate mt-0.5">{entry.description}</p>
-                  {entry.isImpersonated && <span className="font-mono text-[9px] text-amber-400 mt-0.5 block">via Role Override</span>}
+                  <p className="font-sans text-xs font-semibold text-(--text-primary)">{entry.action} — <span className="text-(--text-muted)">{entry.user}</span></p>
+                  <p className="font-sans text-[11px] text-(--text-faint) truncate mt-0.5">{entry.description}</p>
+                  {entry.isImpersonated && <span className="font-mono text-[9px] text-(--status-warning) mt-0.5 block">via Role Override</span>}
                 </div>
-                <p className="font-mono text-[10px] text-white/25 shrink-0">{entry.timestamp.split(' ')[0]}</p>
+                <p className="font-mono text-[10px] text-(--text-faint) shrink-0">{entry.timestamp.split(' ')[0]}</p>
               </div>
             ))}
           </div>
@@ -177,17 +178,17 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
 
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg font-bold text-white">Payment Gateways</h3>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Payment Gateways</h3>
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('system_config')}>Configure</Button>
           </div>
           <div className="space-y-2">
             {gateways.map(gw => (
-              <div key={gw.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/8">
+              <div key={gw.id} className="flex items-center justify-between p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${gw.connected && gw.enabled ? 'bg-emerald-400' : gw.enabled ? 'bg-amber-400' : 'bg-white/20'}`} />
-                  <p className="font-sans text-xs font-semibold text-white">{gw.name}</p>
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${gw.connected && gw.enabled ? 'bg-(--status-success)' : gw.enabled ? 'bg-(--status-warning)' : 'bg-(--active-overlay)'}`} />
+                  <p className="font-sans text-xs font-semibold text-(--text-primary)">{gw.name}</p>
                 </div>
-                <div className="flex items-center gap-3 text-[10px] font-mono text-white/40">
+                <div className="flex items-center gap-3 text-[10px] font-mono text-(--text-faint)">
                   <span>{gw.transactionCount} txn</span>
                   <span>ETB {(gw.totalVolume / 1000).toFixed(0)}K</span>
                   <Badge variant={gw.enabled && gw.connected ? 'emerald' : 'glass'} className="text-[9px] py-0">{gw.enabled ? 'Active' : 'Off'}</Badge>

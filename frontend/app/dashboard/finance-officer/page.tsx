@@ -3,13 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FONavTab, FONotification } from '@/src/types/finance';
 import { foProfile, foNotifications as initialNotifs, reconciliationEntries, financeStudents } from '@/src/data/financeData';
-
 import { FOSidebar }           from '@/src/components/fo/FOSidebar';
 import { FOHeader }            from '@/src/components/fo/FOHeader';
 import { FOMobileNav }         from '@/src/components/fo/FOMobileNav';
 import { FOSearchModal }       from '@/src/components/fo/FOSearchModal';
 import { FOLogoutModal }       from '@/src/components/fo/FOLogoutModal';
-
 import { FOOverviewView }        from '@/src/components/fo/views/FOOverviewView';
 import { FOStudentAccountsView } from '@/src/components/fo/views/FOStudentAccountsView';
 import { FOPaymentsView }        from '@/src/components/fo/views/FOPaymentsView';
@@ -20,16 +18,27 @@ import { FOReconciliationView }  from '@/src/components/fo/views/FOReconciliatio
 import { FONotificationsView }   from '@/src/components/fo/views/FONotificationsView';
 import { FOAuditLogView }        from '@/src/components/fo/views/FOAuditLogView';
 import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView';
+import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
+import { AnimatePresence, motion } from 'motion/react';
 
 export default function FinanceOfficerPage() {
-  const [activeTab,     setActiveTab]     = useState<FONavTab>('overview');
+  const [activeTab,     setRawTab]       = useState<FONavTab>('overview');
   const [notifications, setNotifications] = useState<FONotification[]>(initialNotifs);
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [logoutOpen,    setLogoutOpen]    = useState(false);
+  const [tabLoading,    setTabLoading]    = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { toast, show: showToast, hide: hideToast } = useToast();
 
   const unreadCount           = notifications.filter((n) => !n.read).length;
   const pendingReconciliation = reconciliationEntries.filter((e) => e.status === 'Unmatched' || e.status === 'Pending Review').length;
   const overdueCount          = financeStudents.filter((s) => s.riskLevel === 'Critical' || s.paymentStatus === 'Overdue').length;
+
+  const setActiveTab = (tab: FONavTab) => {
+    if (tab === (activeTab as string)) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab as FONavTab); setTabLoading(false); }, 120);
+  };
 
   // Ctrl+K global search shortcut
   useEffect(() => {
@@ -64,6 +73,7 @@ export default function FinanceOfficerPage() {
   };
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':         return <FOOverviewView setActiveTab={setActiveTab} />;
       case 'student_accounts': return <FOStudentAccountsView />;
@@ -88,15 +98,12 @@ export default function FinanceOfficerPage() {
 
   return (
     <>
-      {/* Background — deep obsidian with soft radial gold gradients */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#E9C349]/5 rounded-full blur-[140px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#E9C349]/4 rounded-full blur-[120px]" />
-        <div className="absolute top-3/4 left-1/4 w-[400px] h-[400px] bg-[#E9C349]/3 rounded-full blur-[100px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.5)_0%,transparent_70%)]" />
-      </div>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
 
-      <div className="relative z-10 min-h-screen text-white">
+      {/* Background — theme-aware: obsidian+gold in dark, warm layered in light */}
+      <div className="dashboard-bg" aria-hidden="true" />
+
+      <div className="dashboard-content">
         {/* Sidebar */}
         <FOSidebar
           activeTab={activeTab}
@@ -120,10 +127,15 @@ export default function FinanceOfficerPage() {
             onOpenSearch={() => setSearchOpen(true)}
             semesterLabel={foProfile.currentSemester}
             academicYear={foProfile.academicYear}
+            onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
 
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
-            {renderView()}
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
 
@@ -135,6 +147,89 @@ export default function FinanceOfficerPage() {
           unreadCount={unreadCount}
         />
       </div>
+
+      {/* Finance Officer Mobile Navigation Drawer Overlay */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs md:hidden"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+              className="fixed top-0 left-0 bottom-0 z-50 w-72 max-w-[85vw] bg-(--bg-modal) border-r border-(--border-default) flex flex-col md:hidden shadow-2xl"
+            >
+              <div className="p-4 border-b border-(--border-subtle) flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl text-(--text-inverse) flex items-center justify-center font-serif font-bold text-lg shadow bg-gradient-to-br from-[var(--brand-gold)] to-[var(--brand-gold-dark)]">
+                    H
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-sm text-(--text-primary)">Finance Officer</h3>
+                    <p className="text-[10px] text-(--text-faint) font-mono">Bursar & Payments</p>
+                  </div>
+                </div>
+                <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-xl bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary)">
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                {[
+                  { id: 'overview', label: 'Dashboard Overview' },
+                  { id: 'student_accounts', label: 'Student Accounts' },
+                  { id: 'payments', label: 'Payments' },
+                  { id: 'receipts', label: 'Receipts' },
+                  { id: 'outstanding', label: 'Outstanding Accounts' },
+                  { id: 'reports', label: 'Financial Reports' },
+                  { id: 'reconciliation', label: 'Payment Reconciliation' },
+                  { id: 'notifications', label: 'Notifications' },
+                  { id: 'audit_log', label: 'Audit Log' },
+                  { id: 'settings', label: 'Settings' },
+                ].map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id as FONavTab);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        isActive
+                          ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--brand-gold)/20'
+                          : 'text-(--text-secondary) hover:bg-(--hover-overlay) hover:text-(--text-primary)'
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      {isActive && <span className="text-(--brand-gold)">→</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="p-3 border-t border-(--border-subtle) space-y-1">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setLogoutOpen(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-(--status-danger) hover:bg-(--status-danger-bg) transition-all"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Global modals */}
       <FOSearchModal

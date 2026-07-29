@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Users, Search, Filter, ChevronDown, ChevronUp, Eye,
   CreditCard, Printer, History, CalendarClock, X, CheckCircle2,
@@ -24,10 +25,10 @@ const statusBadge: Record<PaymentStatus, { variant: 'emerald'|'amber'|'rose'|'gl
 };
 
 const riskColor: Record<string, string> = {
-  Low:      'text-emerald-400',
-  Medium:   'text-amber-400',
+  Low:      'text-(--status-success)',
+  Medium:   'text-(--status-warning)',
   High:     'text-orange-400',
-  Critical: 'text-rose-400',
+  Critical: 'text-(--status-danger)',
 };
 
 // ── Ledger Detail Modal ────────────────────────────────────────────────────────
@@ -44,50 +45,50 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
   ].filter((c) => c.amount > 0);
 
   return (
-    <Modal isOpen onClose={onClose} title={<span>Ledger — <span className="text-[#E9C349]">{student.name}</span></span>} maxWidth="max-w-3xl">
+    <Modal isOpen onClose={onClose} title={<span>Ledger — <span className="text-(--brand-gold)">{student.name}</span></span>} maxWidth="max-w-3xl">
       <div className="space-y-6">
         {/* Student info */}
-        <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-          <img src={student.avatar} alt={student.name} className="w-14 h-14 rounded-full object-cover border-2 border-[#E9C349]/40 shrink-0" />
+        <div className="flex items-center gap-4 p-4 bg-(--hover-overlay) rounded-2xl border border-(--border-default)">
+          <img src={student.avatar} alt={student.name} className="w-14 h-14 rounded-full object-cover border-2 border-(--accent-gold-border) shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="font-sans font-bold text-white">{student.name}</p>
-            <p className="font-mono text-xs text-[#E9C349]">{student.studentId}</p>
-            <p className="font-sans text-xs text-white/50 mt-0.5">{student.programName} · Year {student.year} · {student.semester}</p>
+            <p className="font-sans font-bold text-(--text-primary)">{student.name}</p>
+            <p className="font-mono text-xs text-(--brand-gold)">{student.studentId}</p>
+            <p className="font-sans text-xs text-(--text-muted) mt-0.5">{student.programName} · Year {student.year} · {student.semester}</p>
           </div>
           <div className="text-right shrink-0">
-            <p className="font-mono text-2xl font-bold text-white">ETB {student.outstanding.toLocaleString()}</p>
-            <p className="font-sans text-xs text-white/50 mt-0.5">Outstanding balance</p>
+            <p className="font-mono text-2xl font-bold text-(--text-primary)">ETB {student.outstanding.toLocaleString()}</p>
+            <p className="font-sans text-xs text-(--text-muted) mt-0.5">Outstanding balance</p>
             <Badge variant={statusBadge[student.paymentStatus].variant} className="mt-1">{statusBadge[student.paymentStatus].label}</Badge>
           </div>
         </div>
 
         {/* Charges breakdown */}
         <div>
-          <h4 className="font-serif text-base font-bold text-white mb-3">Charges</h4>
+          <h4 className="font-serif text-base font-bold text-(--text-primary) mb-3">Charges</h4>
           <div className="space-y-2">
             {charges.map((c) => (
-              <div key={c.label} className="flex justify-between items-center py-2 border-b border-white/5">
-                <span className="font-sans text-sm text-white/70">{c.label}</span>
-                <span className="font-mono text-sm text-white">ETB {c.amount.toLocaleString()}</span>
+              <div key={c.label} className="flex justify-between items-center py-2 border-b border-(--border-subtle)">
+                <span className="font-sans text-sm text-(--text-secondary)">{c.label}</span>
+                <span className="font-mono text-sm text-(--text-primary)">ETB {c.amount.toLocaleString()}</span>
               </div>
             ))}
             {student.scholarshipDiscount > 0 && (
-              <div className="flex justify-between items-center py-2 border-b border-white/5">
-                <span className="font-sans text-sm text-emerald-400">Scholarship / Discount</span>
-                <span className="font-mono text-sm text-emerald-400">− ETB {student.scholarshipDiscount.toLocaleString()}</span>
+              <div className="flex justify-between items-center py-2 border-b border-(--border-subtle)">
+                <span className="font-sans text-sm text-(--status-success)">Scholarship / Discount</span>
+                <span className="font-mono text-sm text-(--status-success)">− ETB {student.scholarshipDiscount.toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between items-center pt-3">
-              <span className="font-sans text-sm font-bold text-white">Total Charged</span>
-              <span className="font-mono text-sm font-bold text-[#E9C349]">ETB {student.totalCharged.toLocaleString()}</span>
+              <span className="font-sans text-sm font-bold text-(--text-primary)">Total Charged</span>
+              <span className="font-mono text-sm font-bold text-(--brand-gold)">ETB {student.totalCharged.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="font-sans text-sm text-white/70">Total Paid</span>
-              <span className="font-mono text-sm text-emerald-400">ETB {student.totalPaid.toLocaleString()}</span>
+              <span className="font-sans text-sm text-(--text-secondary)">Total Paid</span>
+              <span className="font-mono text-sm text-(--status-success)">ETB {student.totalPaid.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between items-center pt-2 border-t border-white/10">
-              <span className="font-sans text-sm font-bold text-white">Remaining Balance</span>
-              <span className={`font-mono text-sm font-bold ${student.outstanding > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+            <div className="flex justify-between items-center pt-2 border-t border-(--border-default)">
+              <span className="font-sans text-sm font-bold text-(--text-primary)">Remaining Balance</span>
+              <span className={`font-mono text-sm font-bold ${student.outstanding > 0 ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>
                 ETB {student.outstanding.toLocaleString()}
               </span>
             </div>
@@ -97,16 +98,16 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
         {/* Installment plan */}
         {plan && (
           <div>
-            <h4 className="font-serif text-base font-bold text-white mb-3">Installment Plan</h4>
+            <h4 className="font-serif text-base font-bold text-(--text-primary) mb-3">Installment Plan</h4>
             <div className="space-y-2">
               {plan.installments.map((inst) => (
-                <div key={inst.id} className={`flex items-center gap-3 p-3 rounded-xl border ${inst.paid ? 'border-emerald-800/30 bg-emerald-950/20' : 'border-white/10 bg-white/5'}`}>
-                  <CheckCircle2 className={`w-4 h-4 shrink-0 ${inst.paid ? 'text-emerald-400' : 'text-white/20'}`} />
+                <div key={inst.id} className={`flex items-center gap-3 p-3 rounded-xl border ${inst.paid ? 'border-(--status-success-border) bg-(--status-success-bg)' : 'border-(--border-default) bg-(--hover-overlay)'}`}>
+                  <CheckCircle2 className={`w-4 h-4 shrink-0 ${inst.paid ? 'text-(--status-success)' : 'text-(--text-faint)'}`} />
                   <div className="flex-1">
-                    <p className="font-sans text-xs text-white/80">Due: <span className="font-mono">{inst.dueDate}</span></p>
-                    {inst.paidDate && <p className="font-mono text-[10px] text-emerald-400">Paid on {inst.paidDate}</p>}
+                    <p className="font-sans text-xs text-(--text-secondary)">Due: <span className="font-mono">{inst.dueDate}</span></p>
+                    {inst.paidDate && <p className="font-mono text-[10px] text-(--status-success)">Paid on {inst.paidDate}</p>}
                   </div>
-                  <span className="font-mono text-sm font-bold text-white">ETB {inst.amount.toLocaleString()}</span>
+                  <span className="font-mono text-sm font-bold text-(--text-primary)">ETB {inst.amount.toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -116,15 +117,15 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
         {/* Transaction history */}
         {studentTxns.length > 0 && (
           <div>
-            <h4 className="font-serif text-base font-bold text-white mb-3">Transaction History</h4>
+            <h4 className="font-serif text-base font-bold text-(--text-primary) mb-3">Transaction History</h4>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {studentTxns.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/8">
+                <div key={t.id} className="flex items-center gap-3 p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                   <div className="flex-1 min-w-0">
-                    <p className="font-sans text-xs text-white font-medium">{t.description}</p>
-                    <p className="font-mono text-[10px] text-white/40">{t.referenceNumber} · {t.date} {t.time}</p>
+                    <p className="font-sans text-xs text-(--text-primary) font-medium">{t.description}</p>
+                    <p className="font-mono text-[10px] text-(--text-faint)">{t.referenceNumber} · {t.date} {t.time}</p>
                   </div>
-                  <span className={`font-mono text-xs font-bold ${t.type === 'Scholarship' ? 'text-emerald-400' : 'text-[#E9C349]'}`}>
+                  <span className={`font-mono text-xs font-bold ${t.type === 'Scholarship' ? 'text-(--status-success)' : 'text-(--brand-gold)'}`}>
                     {t.type === 'Scholarship' ? '−' : '+'}ETB {Math.abs(t.amount).toLocaleString()}
                   </span>
                 </div>
@@ -134,8 +135,8 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
         )}
 
         {student.notes && (
-          <div className="p-3 bg-amber-950/20 border border-amber-800/30 rounded-xl">
-            <p className="font-sans text-xs text-amber-300"><span className="font-bold">Note:</span> {student.notes}</p>
+          <div className="p-3 bg-(--status-warning-bg) border border-(--status-warning-border) rounded-xl">
+            <p className="font-sans text-xs text-(--status-warning)"><span className="font-bold">Note:</span> {student.notes}</p>
           </div>
         )}
       </div>
@@ -203,13 +204,13 @@ export const FOStudentAccountsView: React.FC = () => {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Students', value: summary.total, color: 'text-white' },
-          { label: 'Fully Paid',     value: summary.paid,    color: 'text-emerald-400' },
-          { label: 'Partial / Plan', value: summary.partial, color: 'text-amber-400' },
-          { label: 'Overdue / Unpaid', value: summary.overdue + summary.unpaid, color: 'text-rose-400' },
+          { label: 'Total Students', value: summary.total, color: 'text-(--text-primary)' },
+          { label: 'Fully Paid',     value: summary.paid,    color: 'text-(--status-success)' },
+          { label: 'Partial / Plan', value: summary.partial, color: 'text-(--status-warning)' },
+          { label: 'Overdue / Unpaid', value: summary.overdue + summary.unpaid, color: 'text-(--status-danger)' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/5 border border-white/10 rounded-2xl p-4">
-            <p className="font-mono text-[10px] text-white/40 uppercase tracking-wider">{s.label}</p>
+          <div key={s.label} className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-4">
+            <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{s.label}</p>
             <p className={`font-mono text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -219,24 +220,24 @@ export const FOStudentAccountsView: React.FC = () => {
       <Card hoverable={false} className="p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
             <input
               type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search student name, ID, program..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 font-sans text-sm text-white placeholder:text-white/30 outline-none focus:border-[#E9C349]/50 transition-colors"
+              className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl pl-9 pr-4 py-2.5 font-sans text-sm text-(--text-primary) placeholder:text-(--text-faint) outline-none focus:border-(--brand-gold)/50 transition-colors"
             />
-            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"><X className="w-4 h-4" /></button>}
+            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-(--text-faint) hover:text-(--text-secondary)"><X className="w-4 h-4" /></button>}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-4 h-4 text-white/40 shrink-0" />
+            <Filter className="w-4 h-4 text-(--text-faint) shrink-0" />
             {(['All', 'Paid', 'Partial', 'Overdue', 'Unpaid'] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => { setStatusFilter(s); setPage(1); }}
                 className={`px-3 py-1.5 rounded-full font-mono text-xs transition-all border ${
                   statusFilter === s
-                    ? 'bg-[#E9C349]/20 text-[#E9C349] border-[#E9C349]/40'
-                    : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
+                    ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border-(--accent-gold-border)'
+                    : 'bg-(--hover-overlay) text-(--text-muted) border-(--border-default) hover:bg-(--hover-overlay)'
                 }`}
               >{s}</button>
             ))}
@@ -245,54 +246,54 @@ export const FOStudentAccountsView: React.FC = () => {
       </Card>
 
       {/* Table */}
-      <div className="overflow-x-auto border border-white/10 rounded-2xl bg-white/5 backdrop-blur-xl">
+      <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-left text-xs sm:text-sm font-sans min-w-[800px]">
-          <thead className="bg-white/5 border-b border-white/10">
+          <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
             <tr>
-              <th className="p-4 font-mono text-[10px] text-white/40 uppercase tracking-wider">Student</th>
-              <th className="p-4 font-mono text-[10px] text-white/40 uppercase tracking-wider">Program</th>
-              <th className="p-4 font-mono text-[10px] text-white/40 uppercase tracking-wider">Semester</th>
-              <th className="p-4 font-mono text-[10px] text-white/40 uppercase tracking-wider cursor-pointer hover:text-white/70 select-none" onClick={() => toggleSort('outstanding')}>
+              <th className="p-4 font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Student</th>
+              <th className="p-4 font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Program</th>
+              <th className="p-4 font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Semester</th>
+              <th className="p-4 font-mono text-[10px] text-(--text-faint) uppercase tracking-wider cursor-pointer hover:text-(--text-secondary) select-none" onClick={() => toggleSort('outstanding')}>
                 <div className="flex items-center gap-1">Outstanding <SortIcon field="outstanding" /></div>
               </th>
-              <th className="p-4 font-mono text-[10px] text-white/40 uppercase tracking-wider">Status</th>
-              <th className="p-4 font-mono text-[10px] text-white/40 uppercase tracking-wider cursor-pointer hover:text-white/70 select-none" onClick={() => toggleSort('daysOverdue')}>
+              <th className="p-4 font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Status</th>
+              <th className="p-4 font-mono text-[10px] text-(--text-faint) uppercase tracking-wider cursor-pointer hover:text-(--text-secondary) select-none" onClick={() => toggleSort('daysOverdue')}>
                 <div className="flex items-center gap-1">Days Overdue <SortIcon field="daysOverdue" /></div>
               </th>
-              <th className="p-4 font-mono text-[10px] text-white/40 uppercase tracking-wider">Risk</th>
-              <th className="p-4 font-mono text-[10px] text-white/40 uppercase tracking-wider text-center">Actions</th>
+              <th className="p-4 font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Risk</th>
+              <th className="p-4 font-mono text-[10px] text-(--text-faint) uppercase tracking-wider text-center">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-white/90">
+          <tbody className="divide-y divide-(--border-subtle) text-(--text-primary)">
             {paginated.map((s) => (
               <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-white/[0.04] transition-colors">
                 <td className="p-4">
                   <div className="flex items-center gap-3">
-                    <img src={s.avatar} alt={s.name} className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+                    <img src={s.avatar} alt={s.name} className="w-8 h-8 rounded-full object-cover border border-(--border-default) shrink-0" />
                     <div>
-                      <p className="font-sans text-sm font-semibold text-white">{s.name}</p>
-                      <p className="font-mono text-[10px] text-white/40">{s.studentId}</p>
+                      <p className="font-sans text-sm font-semibold text-(--text-primary)">{s.name}</p>
+                      <p className="font-mono text-[10px] text-(--text-faint)">{s.studentId}</p>
                     </div>
                   </div>
                 </td>
                 <td className="p-4">
-                  <p className="font-sans text-xs text-white/70 max-w-[160px] truncate">{s.programName}</p>
-                  <p className="font-mono text-[10px] text-white/40">Yr {s.year}</p>
+                  <p className="font-sans text-xs text-(--text-secondary) max-w-[160px] truncate">{s.programName}</p>
+                  <p className="font-mono text-[10px] text-(--text-faint)">Yr {s.year}</p>
                 </td>
-                <td className="p-4 font-mono text-xs text-white/60">{s.semester}</td>
+                <td className="p-4 font-mono text-xs text-(--text-secondary)">{s.semester}</td>
                 <td className="p-4">
-                  <p className={`font-mono text-sm font-bold ${s.outstanding > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  <p className={`font-mono text-sm font-bold ${s.outstanding > 0 ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>
                     ETB {s.outstanding.toLocaleString()}
                   </p>
-                  <p className="font-mono text-[10px] text-white/30">of {s.totalCharged.toLocaleString()}</p>
+                  <p className="font-mono text-[10px] text-(--text-faint)">of {s.totalCharged.toLocaleString()}</p>
                 </td>
                 <td className="p-4">
                   <Badge variant={statusBadge[s.paymentStatus].variant}>{statusBadge[s.paymentStatus].label}</Badge>
                 </td>
                 <td className="p-4 font-mono text-xs">
                   {s.daysOverdue > 0
-                    ? <span className="text-rose-400">{s.daysOverdue}d</span>
-                    : <span className="text-white/30">—</span>}
+                    ? <span className="text-(--status-danger)">{s.daysOverdue}d</span>
+                    : <span className="text-(--text-faint)">—</span>}
                 </td>
                 <td className="p-4">
                   <span className={`font-mono text-[10px] font-bold ${riskColor[s.riskLevel]}`}>{s.riskLevel}</span>
@@ -302,7 +303,7 @@ export const FOStudentAccountsView: React.FC = () => {
                     <button
                       onClick={() => setSelectedStudent(s)}
                       title="View Ledger"
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-[#E9C349]/15 text-white/50 hover:text-[#E9C349] transition-colors touch-target"
+                      className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-(--accent-gold-subtle) text-(--text-muted) hover:text-(--brand-gold) transition-colors touch-target"
                     ><Eye className="w-3.5 h-3.5" /></button>
                     <button
                       title="Record Payment"
@@ -331,7 +332,7 @@ export const FOStudentAccountsView: React.FC = () => {
             {paginated.length === 0 && (
               <tr><td colSpan={8} className="p-12 text-center">
                 <Users className="w-10 h-10 text-white/10 mx-auto mb-3" />
-                <p className="font-sans text-sm text-white/30">No students match your search.</p>
+                <p className="font-sans text-sm text-(--text-faint)">No students match your search.</p>
               </td></tr>
             )}
           </tbody>
@@ -341,12 +342,12 @@ export const FOStudentAccountsView: React.FC = () => {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="font-mono text-xs text-white/40">Showing {(page-1)*pageSize+1}–{Math.min(page*pageSize, filtered.length)} of {filtered.length}</p>
+          <p className="font-mono text-xs text-(--text-faint)">Showing {(page-1)*pageSize+1}–{Math.min(page*pageSize, filtered.length)} of {filtered.length}</p>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Prev</Button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <button key={p} onClick={() => setPage(p)}
-                className={`w-8 h-8 rounded-lg font-mono text-xs transition-colors ${p === page ? 'bg-[#E9C349]/20 text-[#E9C349] border border-[#E9C349]/40' : 'text-white/40 hover:bg-white/5'}`}>
+                className={`w-8 h-8 rounded-lg font-mono text-xs transition-colors ${p === page ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border)' : 'text-(--text-faint) hover:bg-(--hover-overlay)'}`}>
                 {p}
               </button>
             ))}

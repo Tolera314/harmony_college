@@ -3,13 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { HRNavTab, HRNotification } from '@/src/types/hr';
 import { hrProfile, hrKPIs, hrNotifications as initialNotifs } from '@/src/data/hrData';
-
 import { HRSidebar }           from '@/src/components/hr/HRSidebar';
 import { HRHeader }            from '@/src/components/hr/HRHeader';
 import { HRMobileNav }         from '@/src/components/hr/HRMobileNav';
 import { HRSearchModal }       from '@/src/components/hr/HRSearchModal';
 import { HRLogoutModal }       from '@/src/components/hr/HRLogoutModal';
-
 import { HROverviewView }      from '@/src/components/hr/views/HROverviewView';
 import { HREmployeesView }     from '@/src/components/hr/views/HREmployeesView';
 import { HROnboardingView }    from '@/src/components/hr/views/HROnboardingView';
@@ -21,23 +19,30 @@ import { HRReportsView }       from '@/src/components/hr/views/HRReportsView';
 import { HRNotificationsView } from '@/src/components/hr/views/HRNotificationsView';
 import { HRAuditLogView }      from '@/src/components/hr/views/HRAuditLogView';
 import { HRSettingsView }      from '@/src/components/hr/views/HRSettingsView';
+import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
+import { AnimatePresence, motion } from 'motion/react';
 
 export default function HRDashboardPage() {
-  const [activeTab,     setActiveTab]     = useState<HRNavTab>('overview');
+  const [activeTab,     setRawTab]       = useState<HRNavTab>('overview');
   const [notifications, setNotifications] = useState<HRNotification[]>(initialNotifs);
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [logoutOpen,    setLogoutOpen]    = useState(false);
+  const [tabLoading,    setTabLoading]    = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { toast, show: showToast, hide: hideToast } = useToast();
 
   const unreadCount  = notifications.filter(n => !n.read).length;
   const pendingLeave = hrKPIs.pendingLeaveRequests;
 
-  // Ctrl+K global search shortcut
+  const setActiveTab = (tab: HRNavTab) => {
+    if (tab === activeTab) return;
+    setTabLoading(true);
+    setTimeout(() => { setRawTab(tab); setTabLoading(false); }, 120);
+  };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(true);
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -60,6 +65,7 @@ export default function HRDashboardPage() {
   };
 
   const renderView = () => {
+    if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':       return <HROverviewView setActiveTab={setActiveTab} />;
       case 'employees':      return <HREmployeesView />;
@@ -85,61 +91,120 @@ export default function HRDashboardPage() {
 
   return (
     <>
-      {/* Background — deep obsidian with radial gold glow */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] transition-colors duration-300 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-[#E9C349]/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] bg-[#E9C349]/4 rounded-full blur-[100px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,rgba(0,0,0,0.6)_0%,transparent_70%)]" />
-      </div>
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
+      <SessionExpiredOverlay isVisible={false} onSignIn={() => { window.location.href = '/signin'; }} />
 
-      <div className="relative z-10 min-h-screen text-white">
-        {/* Sidebar */}
+      <div className="dashboard-bg" aria-hidden="true" />
+
+      <div className="dashboard-content">
         <HRSidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          profile={hrProfile}
-          unreadCount={unreadCount}
-          pendingLeave={pendingLeave}
-          onLogout={() => setLogoutOpen(true)}
+          activeTab={activeTab} setActiveTab={setActiveTab} profile={hrProfile}
+          unreadCount={unreadCount} pendingLeave={pendingLeave} onLogout={() => setLogoutOpen(true)}
         />
-
-        {/* Main */}
         <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen transition-all duration-300">
           <HRHeader
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            profile={hrProfile}
-            notifications={notifications}
-            unreadCount={unreadCount}
-            onMarkRead={handleMarkRead}
-            onOpenSearch={() => setSearchOpen(true)}
+            activeTab={activeTab} setActiveTab={setActiveTab} profile={hrProfile}
+            notifications={notifications} unreadCount={unreadCount}
+            onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)}
+            onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
-
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
-            {renderView()}
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
-
-        {/* Mobile bottom nav */}
-        <HRMobileNav
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          unreadCount={unreadCount}
-          pendingLeave={pendingLeave}
-        />
+        <HRMobileNav activeTab={activeTab} setActiveTab={setActiveTab} unreadCount={unreadCount} pendingLeave={pendingLeave} />
       </div>
 
-      {/* Global modals */}
-      <HRSearchModal
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onNavigate={tab => { setActiveTab(tab); setSearchOpen(false); }}
-      />
-      <HRLogoutModal
-        isOpen={logoutOpen}
-        onClose={() => setLogoutOpen(false)}
-        onConfirm={handleLogout}
-      />
+      {/* HR Mobile Navigation Drawer Overlay */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs md:hidden"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+              className="fixed top-0 left-0 bottom-0 z-50 w-72 max-w-[85vw] bg-(--bg-modal) border-r border-(--border-default) flex flex-col md:hidden shadow-2xl"
+            >
+              <div className="p-4 border-b border-(--border-subtle) flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl text-(--text-inverse) flex items-center justify-center font-serif font-bold text-lg shadow bg-gradient-to-br from-[var(--brand-gold)] to-[var(--brand-gold-dark)]">
+                    H
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-sm text-(--text-primary)">HR Officer</h3>
+                    <p className="text-[10px] text-(--text-faint) font-mono">Human Resources Portal</p>
+                  </div>
+                </div>
+                <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-xl bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary)">
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                {[
+                  { id: 'overview', label: 'Dashboard' },
+                  { id: 'employees', label: 'Employees' },
+                  { id: 'onboarding', label: 'Onboarding' },
+                  { id: 'leave', label: 'Leave Management' },
+                  { id: 'payroll', label: 'Payroll' },
+                  { id: 'performance', label: 'Performance' },
+                  { id: 'documents', label: 'Documents' },
+                  { id: 'reports', label: 'Reports' },
+                  { id: 'notifications', label: 'Notifications' },
+                  { id: 'audit_log', label: 'Audit Logs' },
+                  { id: 'settings', label: 'Settings' },
+                ].map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id as HRNavTab);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        isActive
+                          ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--brand-gold)/20'
+                          : 'text-(--text-secondary) hover:bg-(--hover-overlay) hover:text-(--text-primary)'
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      {isActive && <span className="text-(--brand-gold)">→</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="p-3 border-t border-(--border-subtle) space-y-1">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setLogoutOpen(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-(--status-danger) hover:bg-(--status-danger-bg) transition-all"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <HRSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onNavigate={tab => { setActiveTab(tab); setSearchOpen(false); }} />
+      <HRLogoutModal isOpen={logoutOpen} onClose={() => setLogoutOpen(false)} onConfirm={handleLogout} />
     </>
   );
 }

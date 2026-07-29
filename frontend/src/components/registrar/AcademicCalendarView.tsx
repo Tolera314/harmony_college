@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Calendar as CalendarIcon, Clock, Plus, Tag, 
   MapPin, AlertTriangle, Bookmark, Trash2, ArrowRight
@@ -72,16 +73,16 @@ export const AcademicCalendarView: React.FC = () => {
       className="space-y-6"
     >
       <div>
-        <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Academic Calendar & Events</h2>
-        <p className="text-xs text-white/50">Configure university terms, national holidays, exam schedules, and graduation dates.</p>
+        <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Academic Calendar & Events</h2>
+        <p className="text-xs text-(--text-muted)">Configure university terms, national holidays, exam schedules, and graduation dates.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Calendar Events Listing (7 cols) */}
-        <div className="lg:col-span-7 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-5">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-            <h3 className="font-serif text-lg font-bold text-white">Scheduled Calendar Milestones</h3>
+        <div className="lg:col-span-7 ds-card rounded-2xl p-6 backdrop-blur-md space-y-5">
+          <div className="flex justify-between items-center border-b border-(--border-subtle) pb-3">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Scheduled Calendar Milestones</h3>
             <Badge variant="gold" className="font-mono text-[10px]">
               Fall Semester 2026
             </Badge>
@@ -91,36 +92,36 @@ export const AcademicCalendarView: React.FC = () => {
             {events.map(ev => (
               <div 
                 key={ev.id} 
-                className="p-4 bg-black/20 border border-white/5 rounded-xl hover:border-white/12 transition-all flex items-start gap-4 justify-between"
+                className="p-4 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl hover:border-(--border-strong) transition-all flex items-start gap-4 justify-between"
               >
                 <div className="flex items-start gap-4">
                   {/* Date square */}
-                  <div className="w-14 h-14 bg-white/5 border border-white/10 rounded-xl flex flex-col items-center justify-center text-center shrink-0">
-                    <span className="text-[10px] font-mono text-white/40 uppercase">
+                  <div className="w-14 h-14 bg-(--hover-overlay) border border-(--border-default) rounded-xl flex flex-col items-center justify-center text-center shrink-0">
+                    <span className="text-[10px] font-mono text-(--text-faint) uppercase">
                       {new Date(ev.date).toLocaleString('en-US', { month: 'short' })}
                     </span>
-                    <span className="text-lg font-mono font-bold text-[#D4AF37] leading-none mt-0.5">
+                    <span className="text-lg font-mono font-bold text-(--brand-gold) leading-none mt-0.5">
                       {new Date(ev.date).getDate()}
                     </span>
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-xs font-semibold text-white font-sans">{ev.title}</h4>
+                      <h4 className="text-xs font-semibold text-(--text-primary) font-sans">{ev.title}</h4>
                       <Badge variant={getBadgeVariant(ev.category) as any} className="text-[9px]">
                         {ev.category}
                       </Badge>
                     </div>
-                    <p className="text-[10px] text-white/50 leading-relaxed font-sans">{ev.desc}</p>
-                    <div className="flex items-center gap-1 text-[10px] font-mono text-[#D4AF37]/80 pt-1">
-                      <Clock className="w-3.5 h-3.5 text-[#D4AF37]/50" /> {ev.time}
+                    <p className="text-[10px] text-(--text-muted) leading-relaxed font-sans">{ev.desc}</p>
+                    <div className="flex items-center gap-1 text-[10px] font-mono text-(--brand-gold)/80 pt-1">
+                      <Clock className="w-3.5 h-3.5 text-(--brand-gold)/50" /> {ev.time}
                     </div>
                   </div>
                 </div>
 
                 <button
                   onClick={() => handleDeleteEvent(ev.id)}
-                  className="p-1.5 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 text-white/30 hover:text-red-400 rounded-lg transition-colors"
+                  className="p-1.5 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 text-(--text-faint) hover:text-(--status-danger) rounded-lg transition-colors"
                   title="Delete Event"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -131,52 +132,52 @@ export const AcademicCalendarView: React.FC = () => {
         </div>
 
         {/* Create Event Form (5 cols) */}
-        <div className="lg:col-span-5 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
-          <h3 className="font-serif text-base font-bold text-white">Publish Schedule Milestone</h3>
+        <div className="lg:col-span-5 ds-card rounded-2xl p-6 backdrop-blur-md space-y-4">
+          <h3 className="font-serif text-base font-bold text-(--text-primary)">Publish Schedule Milestone</h3>
           
           <form onSubmit={handleCreateEvent} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-white/80">Event Title</label>
+              <label className="text-xs font-semibold text-(--text-secondary)">Event Title</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Late Registration Window Closes"
                 value={newEvent.title}
                 onChange={(e) => setNewEvent(prev => ({ ...prev, title: e.target.value }))}
-                className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/80">Date</label>
+                <label className="text-xs font-semibold text-(--text-secondary)">Date</label>
                 <input
                   type="date"
                   required
                   value={newEvent.date}
                   onChange={(e) => setNewEvent(prev => ({ ...prev, date: e.target.value }))}
-                  className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37] font-mono"
+                  className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) font-mono"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/80">Time</label>
+                <label className="text-xs font-semibold text-(--text-secondary)">Time</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. 11:59 PM"
                   value={newEvent.time}
                   onChange={(e) => setNewEvent(prev => ({ ...prev, time: e.target.value }))}
-                  className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                  className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-white/80">Event Category</label>
+              <label className="text-xs font-semibold text-(--text-secondary)">Event Category</label>
               <select
                 value={newEvent.category}
                 onChange={(e) => setNewEvent(prev => ({ ...prev, category: e.target.value }))}
-                className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white/80 focus:outline-none"
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-secondary) focus:outline-none"
               >
                 <option value="Registration">Registration Window</option>
                 <option value="Deadline">Deadline Limit</option>
@@ -187,13 +188,13 @@ export const AcademicCalendarView: React.FC = () => {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-white/80">Event Details Description</label>
+              <label className="text-xs font-semibold text-(--text-secondary)">Event Details Description</label>
               <textarea
                 rows={3}
                 placeholder="Enter details visible to students and faculty..."
                 value={newEvent.desc}
                 onChange={(e) => setNewEvent(prev => ({ ...prev, desc: e.target.value }))}
-                className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37] resize-none"
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) resize-none"
               />
             </div>
 

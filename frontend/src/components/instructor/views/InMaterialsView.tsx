@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { GESTURE, DURATION, EASE } from '@/src/lib/motion';
 import { FolderOpen, FileText, Presentation, Video, BookOpen, Upload, Eye, Trash2, Edit, Link } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
@@ -21,8 +22,8 @@ const typeIcon: Record<MaterialType, React.ReactNode> = {
 };
 
 const typeColor: Record<MaterialType, string> = {
-  PDF: 'text-rose-400', Slides: 'text-sky-400', Assignment: 'text-[#E9C349]',
-  Video: 'text-purple-400', Reference: 'text-emerald-400', Syllabus: 'text-amber-400',
+  PDF: 'text-(--status-danger)', Slides: 'text-(--status-info)', Assignment: 'text-(--brand-gold)',
+  Video: 'text-purple-400', Reference: 'text-(--status-success)', Syllabus: 'text-(--status-warning)',
 };
 
 const visibilityBadge = (v: MaterialVisibility) =>
@@ -35,7 +36,7 @@ export const InMaterialsView: React.FC = () => {
   const filtered = courseMaterials.filter(m => courseFilter === 'all' || m.courseId === courseFilter);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Course Materials"
         subtitle={`${courseMaterials.length} files across 2 courses`}
@@ -46,7 +47,7 @@ export const InMaterialsView: React.FC = () => {
       <div className="flex gap-2">
         {(['all', 'c01', 'c02'] as const).map(f => (
           <button key={f} onClick={() => setCourseFilter(f)}
-            className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${courseFilter === f ? 'bg-[#E9C349]/15 border-[#E9C349]/40 text-[#E9C349]' : 'bg-white/5 border-white/10 text-white/60 hover:text-white'}`}>
+            className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${courseFilter === f ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
             {f === 'all' ? 'All Courses' : f === 'c01' ? 'FILM402' : 'FILM301'}
           </button>
         ))}
@@ -54,28 +55,28 @@ export const InMaterialsView: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map(m => (
-          <motion.div key={m.id} whileHover={{ y: -3 }}
-            className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3 hover:bg-white/[0.08] transition-all">
+          <motion.div key={m.id} whileHover={GESTURE.cardHover}
+            className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 space-y-3 hover:bg-(--hover-overlay) transition-all">
             <div className="flex items-start justify-between gap-3">
-              <div className={`w-10 h-10 rounded-xl bg-white/8 flex items-center justify-center ${typeColor[m.type]}`}>
+              <div className={`w-10 h-10 rounded-xl bg-(--hover-overlay) flex items-center justify-center ${typeColor[m.type]}`}>
                 {typeIcon[m.type]}
               </div>
               <Badge variant={visibilityBadge(m.visibility) as 'emerald'|'glass'|'amber'}>{m.visibility}</Badge>
             </div>
             <div>
-              <p className="font-sans text-sm font-semibold text-white leading-snug">{m.title}</p>
-              <p className="font-sans text-xs text-white/50 mt-1 line-clamp-2">{m.description}</p>
+              <p className="font-sans text-sm font-semibold text-(--text-primary) leading-snug">{m.title}</p>
+              <p className="font-sans text-xs text-(--text-muted) mt-1 line-clamp-2">{m.description}</p>
             </div>
-            <div className="flex items-center justify-between text-[10px] font-mono text-white/40">
+            <div className="flex items-center justify-between text-[10px] font-mono text-(--text-faint)">
               <span>{m.type} · {m.fileSize}</span>
               <span>{m.downloads} downloads</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] text-white/30">{m.uploadedAt}</span>
+              <span className="font-mono text-[10px] text-(--text-faint)">{m.uploadedAt}</span>
               <div className="flex gap-1">
-                <button className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors" aria-label="Preview"><Eye className="w-4 h-4" /></button>
-                <button className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors" aria-label="Edit"><Edit className="w-4 h-4" /></button>
-                <button className="p-1.5 rounded-lg hover:bg-rose-950/30 text-white/50 hover:text-rose-400 transition-colors" aria-label="Delete"><Trash2 className="w-4 h-4" /></button>
+                <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Preview"><Eye className="w-4 h-4" /></button>
+                <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit"><Edit className="w-4 h-4" /></button>
+                <button className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors" aria-label="Delete"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           </motion.div>
@@ -86,24 +87,24 @@ export const InMaterialsView: React.FC = () => {
         <div className="space-y-4 font-sans text-sm">
           <Input label="Title" placeholder="e.g. Week 9 — Advanced Lighting Techniques" />
           <div className="space-y-1.5">
-            <label className="font-sans text-xs font-semibold text-white/70">Course</label>
-            <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-[#E9C349]">
-              <option className="bg-[#1a1a1b]" value="c01">FILM402 — Advanced Digital Cinematography</option>
-              <option className="bg-[#1a1a1b]" value="c02">FILM301 — Narrative Screenwriting</option>
+            <label className="font-sans text-xs font-semibold text-(--text-secondary)">Course</label>
+            <select className="w-full px-4 py-3 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-sm text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              <option className="bg-(--bg-card-solid)" value="c01">FILM402 — Advanced Digital Cinematography</option>
+              <option className="bg-(--bg-card-solid)" value="c02">FILM301 — Narrative Screenwriting</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="font-sans text-xs font-semibold text-white/70">Type</label>
-            <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-[#E9C349]">
+            <label className="font-sans text-xs font-semibold text-(--text-secondary)">Type</label>
+            <select className="w-full px-4 py-3 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-sm text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
               {['PDF', 'Slides', 'Assignment', 'Video', 'Reference', 'Syllabus'].map(t => (
-                <option key={t} className="bg-[#1a1a1b]" value={t}>{t}</option>
+                <option key={t} className="bg-(--bg-card-solid)" value={t}>{t}</option>
               ))}
             </select>
           </div>
-          <div className="border-2 border-dashed border-white/15 rounded-xl p-8 text-center hover:border-[#E9C349]/40 transition-colors cursor-pointer">
-            <Upload className="w-8 h-8 text-white/30 mx-auto mb-2" />
-            <p className="text-white/50 text-xs">Click to upload or drag & drop</p>
-            <p className="text-white/30 text-[10px] mt-1 font-mono">PDF, PPTX, MP4, DOCX up to 50MB</p>
+          <div className="border-2 border-dashed border-(--border-strong) rounded-xl p-8 text-center hover:border-(--accent-gold-border) transition-colors cursor-pointer">
+            <Upload className="w-8 h-8 text-(--text-faint) mx-auto mb-2" />
+            <p className="text-(--text-muted) text-xs">Click to upload or drag & drop</p>
+            <p className="text-(--text-faint) text-[10px] mt-1 font-mono">PDF, PPTX, MP4, DOCX up to 50MB</p>
           </div>
           <div className="flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={() => setUploadOpen(false)}>Cancel</Button>
