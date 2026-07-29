@@ -60,9 +60,9 @@ export const InSidebar: React.FC<InSidebarProps> = ({
     >
       {/* Logo + role badge */}
       <div className="mb-7 px-2">
-        <button onClick={() => setActiveTab('overview')} className="flex items-center gap-3 text-left group focus:outline-none ds-focus-ring rounded-xl">
-          <div className="w-10 h-10 rounded-xl text-[--text-inverse] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundImage: 'linear-gradient(to bottom right, var(--brand-gold), var(--brand-gold-dark))' }}>
-            H
+        <button onClick={() => setActiveTab('overview')} className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] rounded-xl">
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0 group-hover:scale-105 transition-transform shadow-md">
+            <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
           </div>
           <div className="hidden xl:block">
             <span className="font-serif text-xl font-bold tracking-tight block leading-none" style={{ color: 'var(--text-primary)' }}>Harmony</span>

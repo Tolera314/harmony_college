@@ -25,28 +25,31 @@ export const foProfile: FOProfile = {
 
 // ── Departments ───────────────────────────────────────────────────────────────
 export const departments: Department[] = [
-  { id: 'd01', name: 'Theatrical Art & Digital Media', code: 'TADM', college: 'College of Arts & Creative Industries', headName: 'Dr. Natnael Bekele', studentCount: 312, totalRevenue: 4_680_000, outstandingBalance: 386_500 },
-  { id: 'd02', name: 'Business Administration', code: 'BADM', college: 'College of Business & Economics', headName: 'Prof. Yetnayet Girma', studentCount: 480, totalRevenue: 7_200_000, outstandingBalance: 520_000 },
-  { id: 'd03', name: 'Information Technology', code: 'INFT', college: 'College of Technology', headName: 'Dr. Solomon Tesfaye', studentCount: 395, totalRevenue: 6_320_000, outstandingBalance: 441_000 },
-  { id: 'd04', name: 'Health Sciences', code: 'HLTH', college: 'College of Health & Medical Sciences', headName: 'Dr. Tigist Asnake', studentCount: 270, totalRevenue: 5_940_000, outstandingBalance: 312_000 },
-  { id: 'd05', name: 'Law & Governance', code: 'LAWG', college: 'College of Law & Public Policy', headName: 'Prof. Belay Desta', studentCount: 220, totalRevenue: 3_960_000, outstandingBalance: 228_000 },
-  { id: 'd06', name: 'Architecture & Built Environment', code: 'ARCH', college: 'College of Engineering & Architecture', headName: 'Dr. Mekdes Haile', studentCount: 185, totalRevenue: 3_700_000, outstandingBalance: 195_000 },
+  { id: 'd01', name: 'Photography & Visual Media', code: 'PHOTO', college: 'College of Arts & Creative Industries', headName: 'Ato Biruk Tadesse', studentCount: 280, totalRevenue: 4_200_000, outstandingBalance: 320_000 },
+  { id: 'd02', name: 'Theatrical Art & Filmmaking', code: 'FILM', college: 'College of Arts & Creative Industries', headName: 'Dr. Natnael Bekele', studentCount: 312, totalRevenue: 4_680_000, outstandingBalance: 386_500 },
+  { id: 'd03', name: 'Music & Cubase Production', code: 'MUSIC', college: 'College of Music & Performing Arts', headName: 'Prof. Sarah Jenkins', studentCount: 245, totalRevenue: 3_675_000, outstandingBalance: 290_000 },
+  { id: 'd04', name: 'Graphic Design & Digital Marketing', code: 'DESIGN', college: 'College of Arts & Creative Industries', headName: 'Dr. Tigist Haile', studentCount: 330, totalRevenue: 4_950_000, outstandingBalance: 410_000 },
+  { id: 'd05', name: 'Journalism & Media', code: 'JOUR', college: 'College of Media & Communication', headName: 'Prof. James Adeyemi', studentCount: 198, totalRevenue: 2_970_000, outstandingBalance: 210_000 },
+  { id: 'd06', name: 'Information Technology', code: 'IT', college: 'College of Technology', headName: 'Dr. Solomon Tesfaye', studentCount: 395, totalRevenue: 6_320_000, outstandingBalance: 441_000 },
+  { id: 'd07', name: 'Languages', code: 'LANG', college: 'College of Liberal Arts', headName: 'W/ro Hana Tesfaye', studentCount: 155, totalRevenue: 1_860_000, outstandingBalance: 140_000 },
+  { id: 'd08', name: 'Pharmacy', code: 'PHARM', college: 'College of Health Sciences', headName: 'Dr. Tigist Asnake', studentCount: 180, totalRevenue: 5_400_000, outstandingBalance: 380_000 },
 ];
 
 // ── Programs ──────────────────────────────────────────────────────────────────
 export const programs: Program[] = [
-  { id: 'p01', name: 'BA Theatrical Art & Digital Media', code: 'BA-TADM', departmentId: 'd01', level: 'Undergraduate', durationYears: 4, annualTuition: 15_000 },
-  { id: 'p02', name: 'BA Broadcast Journalism', code: 'BA-BRDJ', departmentId: 'd01', level: 'Undergraduate', durationYears: 4, annualTuition: 14_500 },
-  { id: 'p03', name: 'BA Business Administration', code: 'BA-BADM', departmentId: 'd02', level: 'Undergraduate', durationYears: 4, annualTuition: 15_000 },
-  { id: 'p04', name: 'MBA', code: 'MBA', departmentId: 'd02', level: 'Postgraduate', durationYears: 2, annualTuition: 22_000 },
-  { id: 'p05', name: 'BSc Information Technology', code: 'BSC-IT', departmentId: 'd03', level: 'Undergraduate', durationYears: 4, annualTuition: 16_000 },
-  { id: 'p06', name: 'BSc Computer Science', code: 'BSC-CS', departmentId: 'd03', level: 'Undergraduate', durationYears: 4, annualTuition: 16_000 },
-  { id: 'p07', name: 'BSc Public Health', code: 'BSC-PH', departmentId: 'd04', level: 'Undergraduate', durationYears: 4, annualTuition: 22_000 },
-  { id: 'p08', name: 'BSc Nursing', code: 'BSC-NRS', departmentId: 'd04', level: 'Undergraduate', durationYears: 4, annualTuition: 22_000 },
-  { id: 'p09', name: 'LLB Law', code: 'LLB', departmentId: 'd05', level: 'Undergraduate', durationYears: 5, annualTuition: 18_000 },
-  { id: 'p10', name: 'MA Public Policy', code: 'MA-PP', departmentId: 'd05', level: 'Postgraduate', durationYears: 2, annualTuition: 20_000 },
-  { id: 'p11', name: 'BSc Architecture', code: 'BSC-ARCH', departmentId: 'd06', level: 'Undergraduate', durationYears: 5, annualTuition: 20_000 },
-  { id: 'p12', name: 'Diploma Interior Design', code: 'DIP-ID', departmentId: 'd06', level: 'Diploma', durationYears: 2, annualTuition: 12_000 },
+  { id: 'p01', name: 'Photography',              code: 'PHOTO',   departmentId: 'd01', level: 'Diploma',           durationYears: 2, annualTuition: 14_000 },
+  { id: 'p02', name: 'Videography',              code: 'VIDEO',   departmentId: 'd01', level: 'Diploma',           durationYears: 2, annualTuition: 14_000 },
+  { id: 'p03', name: 'Theatrical Art',           code: 'THEA',    departmentId: 'd02', level: 'Undergraduate',     durationYears: 4, annualTuition: 15_000 },
+  { id: 'p04', name: 'Filmmaking',               code: 'FILM',    departmentId: 'd02', level: 'Undergraduate',     durationYears: 4, annualTuition: 15_000 },
+  { id: 'p05', name: 'Music Instruments',        code: 'MUSIC',   departmentId: 'd03', level: 'Diploma',           durationYears: 2, annualTuition: 12_000 },
+  { id: 'p06', name: 'Vocal Arts',               code: 'VOCAL',   departmentId: 'd03', level: 'Diploma',           durationYears: 2, annualTuition: 12_000 },
+  { id: 'p07', name: 'Cubase Music Production',  code: 'CUBASE',  departmentId: 'd03', level: 'Diploma',           durationYears: 2, annualTuition: 13_000 },
+  { id: 'p08', name: 'Graphic Design',           code: 'GDES',    departmentId: 'd04', level: 'Diploma',           durationYears: 2, annualTuition: 14_000 },
+  { id: 'p09', name: 'Digital Marketing',        code: 'DMARK',   departmentId: 'd04', level: 'Diploma',           durationYears: 2, annualTuition: 13_000 },
+  { id: 'p10', name: 'Journalism',               code: 'JOUR',    departmentId: 'd05', level: 'Undergraduate',     durationYears: 4, annualTuition: 14_500 },
+  { id: 'p11', name: 'Information Technology',   code: 'IT',      departmentId: 'd06', level: 'Undergraduate',     durationYears: 4, annualTuition: 16_000 },
+  { id: 'p12', name: 'Languages',                code: 'LANG',    departmentId: 'd07', level: 'Diploma',           durationYears: 1, annualTuition: 8_000  },
+  { id: 'p13', name: 'Pharmacy',                 code: 'PHARM',   departmentId: 'd08', level: 'Undergraduate',     durationYears: 4, annualTuition: 22_000 },
 ];
 
 // ── Finance Students (20) ─────────────────────────────────────────────────────

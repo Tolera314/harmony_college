@@ -15,6 +15,7 @@ import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
 import { SlidePanel } from './ui/SlidePanel';
 import { Table, Column } from './ui/Table';
+import { printTranscript } from '../lib/exportUtils';
 
 interface GradesViewProps {
   profile: StudentProfile;
@@ -275,58 +276,123 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
               OFFICIAL ACADEMIC TRANSCRIPT • OFFICE OF THE REGISTRAR
             </p>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4 text-xs font-mono bg-gray-50 p-4 rounded-xl border border-gray-200">
+        {/* Printable transcript */}
+        <div id="official-transcript" className="bg-white text-black rounded-2xl overflow-hidden border border-gray-200">
+
+          {/* Header */}
+          <div className="bg-[#0F0F10] p-6 flex items-start justify-between">
             <div>
-              <p><span className="font-bold">Student Name:</span> {profile.name}</p>
-              <p><span className="font-bold">Student ID:</span> {profile.id}</p>
-              <p><span className="font-bold">Major:</span> {profile.major}</p>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0">
+                <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
+              </div>
+                <div>
+                  <h2 className="font-serif text-xl font-bold text-white tracking-wide">HARMONY COLLEGE</h2>
+                  <p className="font-mono text-[10px] text-[#E9C349] uppercase tracking-widest">Sheger, Burayu, Ethiopia</p>
+                </div>
+              </div>
+              <p className="font-mono text-[11px] text-white/60 uppercase tracking-widest mt-1">
+                OFFICIAL ACADEMIC TRANSCRIPT · OFFICE OF THE REGISTRAR
+              </p>
             </div>
-            <div>
-              <p><span className="font-bold">Cumulative GPA:</span> {profile.cumulativeGpa.toFixed(2)}</p>
-              <p><span className="font-bold">Earned Credits:</span> {profile.completedCredits}</p>
-              <p><span className="font-bold">Date Issued:</span> July 22, 2024</p>
+            <div className="text-right">
+              <p className="font-mono text-[10px] text-white/40">Date Issued</p>
+              <p className="font-mono text-xs text-white font-bold">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="font-mono text-[10px] text-[#E9C349] mt-1">HC-2024-X8921</p>
             </div>
           </div>
 
-          <div className="space-y-2 text-xs">
-            <h4 className="font-bold font-serif text-base">Course History & Marks</h4>
-            <table className="w-full border-collapse">
+          {/* Student info */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs font-sans">
+              <div className="space-y-2">
+                <div className="flex justify-between border-b border-gray-100 pb-1">
+                  <span className="text-gray-500 font-semibold">Student Name</span>
+                  <span className="font-bold text-black">{profile.name}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-100 pb-1">
+                  <span className="text-gray-500 font-semibold">Student ID</span>
+                  <span className="font-mono font-bold text-black">{profile.id}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-100 pb-1">
+                  <span className="text-gray-500 font-semibold">Program</span>
+                  <span className="font-bold text-black text-right max-w-[180px]">{profile.degree}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between border-b border-gray-100 pb-1">
+                  <span className="text-gray-500 font-semibold">Cumulative GPA</span>
+                  <span className="font-mono font-bold text-black">{profile.cumulativeGpa.toFixed(2)} / 4.00</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-100 pb-1">
+                  <span className="text-gray-500 font-semibold">Credits Earned</span>
+                  <span className="font-mono font-bold text-black">{profile.completedCredits}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-100 pb-1">
+                  <span className="text-gray-500 font-semibold">Expected Graduation</span>
+                  <span className="font-mono font-bold text-black">{profile.expectedGraduation}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Course table */}
+          <div className="p-6 border-b border-gray-200">
+            <h4 className="font-serif text-sm font-bold text-black mb-3 uppercase tracking-wide">Course History & Academic Record</h4>
+            <table className="w-full border-collapse text-xs">
               <thead>
-                <tr className="border-b border-gray-400 font-mono text-left">
-                  <th className="py-2">Code</th>
-                  <th className="py-2">Title</th>
-                  <th className="py-2">Term</th>
-                  <th className="py-2 text-center">Credits</th>
-                  <th className="py-2 text-center">Grade</th>
+                <tr className="bg-gray-100">
+                  <th className="py-2 px-3 text-left font-mono font-bold text-gray-700 border border-gray-200">Code</th>
+                  <th className="py-2 px-3 text-left font-mono font-bold text-gray-700 border border-gray-200">Course Title</th>
+                  <th className="py-2 px-3 text-left font-mono font-bold text-gray-700 border border-gray-200">Term</th>
+                  <th className="py-2 px-3 text-center font-mono font-bold text-gray-700 border border-gray-200">Cr.Hr.</th>
+                  <th className="py-2 px-3 text-center font-mono font-bold text-gray-700 border border-gray-200">Grade</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 font-sans">
-                {grades.map((g) => (
-                  <tr key={g.id}>
-                    <td className="py-2 font-mono font-bold">{g.courseCode}</td>
-                    <td className="py-2">{g.courseTitle}</td>
-                    <td className="py-2 font-mono">{g.term}</td>
-                    <td className="py-2 text-center font-mono">{g.credits}</td>
-                    <td className="py-2 text-center font-mono font-bold">{g.grade}</td>
+              <tbody>
+                {grades.map((g, i) => (
+                  <tr key={g.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="py-2 px-3 font-mono font-bold text-black border border-gray-100">{g.courseCode}</td>
+                    <td className="py-2 px-3 text-gray-800 border border-gray-100">{g.courseTitle}</td>
+                    <td className="py-2 px-3 font-mono text-gray-600 border border-gray-100">{g.term}</td>
+                    <td className="py-2 px-3 text-center font-mono text-gray-800 border border-gray-100">{g.credits}</td>
+                    <td className="py-2 px-3 text-center font-mono font-bold text-black border border-gray-100">{g.grade}</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-gray-100 font-bold">
+                  <td colSpan={3} className="py-2 px-3 font-mono text-gray-700 border border-gray-200">TOTALS</td>
+                  <td className="py-2 px-3 text-center font-mono text-black border border-gray-200">
+                    {grades.reduce((s, g) => s + g.credits, 0)}
+                  </td>
+                  <td className="py-2 px-3 text-center font-mono text-black border border-gray-200">
+                    {(grades.reduce((s, g) => s + g.numericGpa * g.credits, 0) / grades.reduce((s, g) => s + g.credits, 0)).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
 
-          <div className="pt-4 border-t border-gray-300 flex flex-col sm:flex-row justify-between items-center text-xs font-mono text-gray-500 gap-3">
-            <div className="flex items-center gap-2">
-              <FileCheck className="w-4 h-4 shrink-0" style={{ color: "var(--status-success)" }} />
-              <span>Digitally Signed Token: HC-2024-X8921</span>
+          {/* Footer — seal + signature */}
+          <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full border-2 border-black flex items-center justify-center shrink-0 bg-gray-50">
+                <FileCheck className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="font-mono text-[10px] font-bold text-black uppercase tracking-wider">Cryptographic Seal</p>
+                <p className="font-mono text-[9px] text-gray-500">sha256: 8f44d90...b9a2c3d</p>
+                <p className="font-mono text-[9px] text-gray-500">Token: HC-2024-X8921</p>
+              </div>
             </div>
-            <button
-              onClick={() => window.print()}
-              className="px-5 py-2 bg-black text-white rounded-xl font-sans font-semibold flex items-center gap-2 hover:bg-gray-800 touch-target"
-            >
-              <Printer className="w-4 h-4" />
-              Print Official Document
-            </button>
+            <div className="text-right">
+              <div className="border-b border-black w-40 mb-1 ml-auto" />
+              <p className="font-sans text-[10px] font-bold text-black">Registrar, Harmony College</p>
+              <p className="font-mono text-[9px] text-gray-400">Office of Academic Records</p>
+            </div>
           </div>
         </div>
       </SlidePanel>

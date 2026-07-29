@@ -7,12 +7,15 @@ import { schoolsData } from '../data/schools';
 import { newsData } from '../data/news';
 
 const APPLY_PROGRAMS = [
-  { group: 'Visual Arts & Photography',  options: ['Photography', 'Videography'] },
-  { group: 'Performing Arts & Film',     options: ['Theatrical Art', 'Filmmaking'] },
-  { group: 'Music',                      options: ['Music Instruments', 'Vocal Arts'] },
-  { group: 'Music Production',           options: ['Cubase & Music Production'] },
-  { group: 'Design & Marketing',         options: ['Graphic Design', 'Digital Marketing'] },
-  { group: 'Media, IT & Languages',      options: ['Journalism', 'Information Technology (IT)', 'Languages'] },
+  { group: 'Photography & Visual Media', options: ['Photography', 'Videography'] },
+  { group: 'Theatrical Art & Filmmaking', options: ['Theatrical Art', 'Filmmaking'] },
+  { group: 'Music',                       options: ['Music Instruments', 'Vocal Arts'] },
+  { group: 'Music Production',            options: ['Cubase Music Production'] },
+  { group: 'Design & Marketing',          options: ['Graphic Design', 'Digital Marketing'] },
+  { group: 'Media & Communication',       options: ['Journalism'] },
+  { group: 'Technology',                  options: ['Information Technology (IT)'] },
+  { group: 'Languages',                   options: ['English', 'Arabic', 'French', 'Other Languages'] },
+  { group: 'Health Sciences',             options: ['Pharmacy'] },
 ];
 
 // ── shared input style helper ─────────────────────────────────────────────
