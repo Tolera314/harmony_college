@@ -11,6 +11,7 @@ import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 
 const statusConfig: Record<LeaveRequest['status'], { variant: 'amber'|'emerald'|'rose'|'glass' }> = {
   Pending: { variant: 'amber' }, Approved: { variant: 'emerald' },
@@ -201,8 +202,8 @@ export const HRLeaveView: React.FC = () => {
         </div>
       )}
 
-      {/* Detail Modal */}
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title="Leave Request Details" maxWidth="max-w-lg">
+      {/* Detail — SlidePanel */}
+      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title="Leave Request Details" subtitle="HR Leave Management" width="max-w-lg">
         {selected && (() => {
           const emp = employees.find(e => e.id === selected.employeeId);
           const status = getStatus(selected);
@@ -241,9 +242,9 @@ export const HRLeaveView: React.FC = () => {
             </div>
           );
         })()}
-      </Modal>
+      </SlidePanel>
 
-      {/* Confirm Modal */}
+      {/* Confirm Modal — stays centered */}
       <Modal isOpen={!!confirmModal} onClose={() => setConfirmModal(null)} title={`Confirm ${confirmModal?.action}`} maxWidth="max-w-md">
         {confirmModal && (
           <div className="space-y-4 font-sans text-sm">

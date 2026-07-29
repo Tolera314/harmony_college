@@ -6,7 +6,6 @@ import {
   Download,
   Printer,
   FileCheck,
-  X
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
@@ -14,6 +13,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
+import { SlidePanel } from './ui/SlidePanel';
 import { Table, Column } from './ui/Table';
 import { printTranscript } from '../lib/exportUtils';
 
@@ -261,36 +261,20 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
         </Card>
       </div>
 
-      {/* Official Digital Transcript Modal */}
-      <Modal
+      {/* Official Digital Transcript — SlidePanel */}
+      <SlidePanel
         isOpen={showTranscriptModal}
         onClose={() => setShowTranscriptModal(false)}
-        maxWidth="max-w-2xl"
-        title={
-          <div className="flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-[#E9C349]" />
-            <span>Official Academic Transcript</span>
-          </div>
-        }
+        title="Official Academic Transcript"
+        subtitle="Grades & Transcript"
+        width="max-w-2xl"
       >
-        {/* Action buttons — outside printable area */}
-        <div className="flex items-center justify-between mb-4 no-print">
-          <p className="font-sans text-xs text-white/50">
-            Digitally certified · Harmony College Registrar Office
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => printTranscript({ studentName: profile.name, studentId: profile.id, major: profile.major, degree: profile.degree, cumulativeGpa: profile.cumulativeGpa, completedCredits: profile.completedCredits, expectedGraduation: profile.expectedGraduation, email: profile.email, grades })}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/15 border border-white/15 rounded-xl font-sans text-xs font-semibold text-white transition-colors"
-            >
-              <Printer className="w-3.5 h-3.5" /> Print
-            </button>
-            <button
-              onClick={() => printTranscript({ studentName: profile.name, studentId: profile.id, major: profile.major, degree: profile.degree, cumulativeGpa: profile.cumulativeGpa, completedCredits: profile.completedCredits, expectedGraduation: profile.expectedGraduation, email: profile.email, grades })}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#E9C349] hover:bg-[#d8b238] rounded-xl font-sans text-xs font-bold text-[#0F0F10] transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" /> Save as PDF
-            </button>
+        <div className="bg-white text-black p-6 rounded-2xl space-y-6">
+          <div className="border-b-2 border-black pb-4">
+            <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
+            <p className="font-mono text-xs uppercase tracking-widest text-gray-600 mt-1">
+              OFFICIAL ACADEMIC TRANSCRIPT • OFFICE OF THE REGISTRAR
+            </p>
           </div>
         </div>
 
@@ -411,7 +395,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             </div>
           </div>
         </div>
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

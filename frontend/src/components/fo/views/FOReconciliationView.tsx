@@ -30,7 +30,7 @@ const gatewayColor: Record<GatewaySource, string> = {
 // ── Detail Modal ──────────────────────────────────────────────────────────────
 function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onClose: () => void }) {
   return (
-    <Modal isOpen onClose={onClose} title="Reconciliation Details" maxWidth="max-w-md">
+    <SlidePanel isOpen onClose={onClose} title="Reconciliation Details" subtitle="Finance — Reconciliation" width="max-w-md">
       <div className="space-y-4">
         <div className="flex items-center gap-3 p-3 bg-(--hover-overlay) rounded-xl border border-(--border-default)">
           {statusConfig[entry.status].icon}
@@ -66,19 +66,18 @@ function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onCl
 
         <div className="flex gap-3 pt-2">
           {entry.status === 'Unmatched' && (
-            <Button variant="primary" className="flex-1" onClick={() => { alert('Match dialog opened.'); onClose(); }}>
+            <Button variant="primary" className="flex-1" onClick={() => { onClose(); }}>
               Match Transaction
             </Button>
           )}
           {entry.status === 'Pending Review' && (
-            <Button variant="outline" className="flex-1" onClick={() => { alert('Marked as resolved.'); onClose(); }}>
+            <Button variant="outline" className="flex-1" onClick={() => { onClose(); }}>
               Resolve
             </Button>
           )}
-          <Button variant="secondary" className="flex-1" onClick={onClose}>Close</Button>
         </div>
       </div>
-    </Modal>
+    </SlidePanel>
   );
 }
 
@@ -123,7 +122,7 @@ export const FOReconciliationView: React.FC = () => {
         icon={<RefreshCw className="w-5 h-5" />}
         actions={
           <Button variant="primary" size="sm" icon={<RefreshCw className="w-4 h-4" />}
-            onClick={() => alert('Auto-reconciliation running…')}>
+            onClick={() => {}}>
             Run Auto-Match
           </Button>
         }

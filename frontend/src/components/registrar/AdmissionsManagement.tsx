@@ -188,8 +188,7 @@ export const AdmissionsManagement: React.FC = () => {
       return app;
     }));
 
-    // Trigger simulated applicant notification alert
-    alert(`Notification logged for ${selectedApp?.name || 'Applicant'}: "Your application ${selectedApp?.applicationId} has been updated to ${newStatus}."`);
+    // Status updated — visible immediately in the drawer badge
   };
 
   const handleAddComment = (e: React.FormEvent) => {

@@ -21,6 +21,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
+import { SlidePanel } from './ui/SlidePanel';
 
 interface DashboardViewProps {
   profile: StudentProfile;
@@ -259,8 +260,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Course Detail Modal */}
-      <Modal isOpen={!!selectedCourse} onClose={() => setSelectedCourse(null)} title={selectedCourse ? `${selectedCourse.code}: ${selectedCourse.title}` : undefined}>
+      {/* 4. Course Detail — SlidePanel */}
+      <SlidePanel
+        isOpen={!!selectedCourse}
+        onClose={() => setSelectedCourse(null)}
+        title={selectedCourse ? `${selectedCourse.code}: ${selectedCourse.title}` : ''}
+        subtitle="My Courses"
+        width="max-w-xl"
+      >
         {selectedCourse && (
           <div className="space-y-6">
             <div className="flex items-center gap-4 p-4 rounded-2xl border" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}>
@@ -296,13 +303,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 ))}
               </div>
             </div>
-
-            <div className="flex justify-end pt-2">
-              <Button variant="secondary" onClick={() => setSelectedCourse(null)}>Close Modal</Button>
-            </div>
           </div>
         )}
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

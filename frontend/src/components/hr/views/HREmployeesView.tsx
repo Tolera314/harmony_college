@@ -11,6 +11,8 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
+import { ConfirmModal } from '../../ui/ConfirmModal';
 
 const statusBadge = (s: Employee['status']) => {
   const m: Record<Employee['status'], 'emerald'|'amber'|'rose'|'glass'> = {
@@ -158,8 +160,14 @@ export const HREmployeesView: React.FC = () => {
         </div>
       )}
 
-      {/* Employee Profile Modal */}
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name} maxWidth="max-w-2xl">
+      {/* Employee Profile — SlidePanel */}
+      <SlidePanel
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected?.name}
+        subtitle="Employee Profile"
+        width="max-w-2xl"
+      >
         {selected && (() => {
           const dept = getDeptById(selected.departmentId);
           return (
@@ -172,7 +180,6 @@ export const HREmployeesView: React.FC = () => {
                   <div className="flex gap-2 mt-1.5">{statusBadge(selected.status)}{contractBadge(selected.contractStatus)}</div>
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 {[['Employee ID', selected.employeeId], ['Hire Date', selected.hireDate], ['Type', selected.employmentType], ['Education', selected.education], ['Experience', `${selected.experience} years`]].map(([k, v]) => (
                   <div key={String(k)} className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
@@ -185,7 +192,6 @@ export const HREmployeesView: React.FC = () => {
                   <MaskedField value={`ETB ${(selected.basicSalary + selected.allowances).toLocaleString()}`} label="Salary" />
                 </div>
               </div>
-
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                   <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">National ID</p>
@@ -200,7 +206,6 @@ export const HREmployeesView: React.FC = () => {
                   <MaskedField value={selected.taxNumber} label="Tax Number" />
                 </div>
               </div>
-
               <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle) space-y-2">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Emergency Contact</p>
                 <div className="flex items-center gap-4 text-xs text-(--text-secondary)">
@@ -209,7 +214,6 @@ export const HREmployeesView: React.FC = () => {
                   <span>·</span><span className="font-mono">{selected.emergencyPhone}</span>
                 </div>
               </div>
-
               <div className="flex items-center gap-3 text-xs text-(--text-secondary)">
                 <Mail className="w-3.5 h-3.5 text-(--text-faint)" /><span>{selected.email}</span>
                 <Phone className="w-3.5 h-3.5 text-(--text-faint) ml-2" /><span className="font-mono">{selected.phone}</span>
@@ -217,22 +221,19 @@ export const HREmployeesView: React.FC = () => {
             </div>
           );
         })()}
-      </Modal>
+      </SlidePanel>
 
       {/* Deactivate Confirmation Modal */}
-      <Modal isOpen={!!deactivateModal} onClose={() => setDeactivateModal(null)} title="Deactivate Employee" maxWidth="max-w-md">
-        {deactivateModal && (
-          <div className="space-y-4 font-sans text-sm">
-            <div className="p-4 bg-(--status-danger-bg) border border-(--status-danger-border) rounded-xl text-xs text-(--status-danger) leading-relaxed">
-              This will disable system access for <span className="font-semibold text-(--text-primary)">{deactivateModal.name}</span> and move them to Inactive status. Historical records will be preserved.
-            </div>
-            <div className="flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setDeactivateModal(null)}>Cancel</Button>
-              <Button variant="danger" className="flex-1" icon={<UserX className="w-4 h-4" />} onClick={() => setDeactivateModal(null)}>Confirm Deactivate</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      <ConfirmModal
+        isOpen={!!deactivateModal}
+        onClose={() => setDeactivateModal(null)}
+        onConfirm={() => setDeactivateModal(null)}
+        title="Deactivate Employee"
+        message={`This will disable system access for ${deactivateModal?.name} and move them to Inactive status. Historical records will be preserved.`}
+        icon={<UserX className="w-6 h-6" />}
+        variant="danger"
+        confirmLabel="Confirm Deactivate"
+      />
     </motion.div>
   );
 };
