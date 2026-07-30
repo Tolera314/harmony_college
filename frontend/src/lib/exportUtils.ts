@@ -422,13 +422,24 @@ export function printTranscript(data: TranscriptData): void {
 
     <table style="width:100%;margin-top:20px;border-top:1px solid #ccc;padding-top:12px" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="vertical-align:top">
+        <td style="vertical-align:top;padding-right:16px">
+          <!-- College stamp -->
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px dashed #ccc;border-radius:8px;background:#fafafa;margin-bottom:12px">
+            <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid #E9C349;flex-shrink:0">
+              <img src="/logo2.jpg" alt="Harmony College" style="width:100%;height:100%;object-fit:cover" />
+            </div>
+            <div>
+              <div style="font-family:Georgia,serif;font-size:11px;font-weight:bold;color:#000">HARMONY COLLEGE</div>
+              <div style="font-family:monospace;font-size:8px;color:#888;text-transform:uppercase;letter-spacing:1px">Sheger, Burayu, Ethiopia</div>
+              <div style="font-family:monospace;font-size:8px;color:#b8951d;font-weight:bold;margin-top:2px">OFFICIAL — NOT VALID WITHOUT SEAL</div>
+            </div>
+          </div>
           <div style="font-family:monospace;font-size:9px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#000">Cryptographic Seal</div>
           <div style="font-family:monospace;font-size:8px;color:#555;margin-top:2px">sha256: 8f44d90...b9a2c3d</div>
           <div style="font-family:monospace;font-size:8px;color:#555">Token: HC-2024-X8921</div>
         </td>
         <td style="text-align:right;vertical-align:bottom">
-          <div style="border-top:1px solid #000;width:180px;display:inline-block;margin-bottom:3px"></div><br>
+          <div style="border-top:2px solid #000;width:180px;display:inline-block;margin-bottom:4px"></div><br>
           <div style="font-size:10px;font-weight:bold;font-family:Georgia,serif">Registrar, Harmony College</div>
           <div style="font-family:monospace;font-size:8px;color:#888">Office of Academic Records</div>
         </td>
