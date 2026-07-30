@@ -24,16 +24,16 @@ export function useTheme() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // On mount: read localStorage, then fall back to OS preference
+    // On mount: read localStorage, then fall back to dark (always)
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
     if (stored === 'light' || stored === 'dark') {
       setThemeState(stored);
       applyTheme(stored);
     } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const initial: Theme = prefersDark ? 'dark' : 'light';
-      setThemeState(initial);
-      applyTheme(initial);
+      // Default is always dark — never follow OS preference
+      localStorage.setItem(STORAGE_KEY, 'dark');
+      setThemeState('dark');
+      applyTheme('dark');
     }
     setMounted(true);
   }, []);
