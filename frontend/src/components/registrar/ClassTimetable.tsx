@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Calendar as CalendarIcon, Clock, AlertTriangle, 
-  MapPin, User, Sparkles, RefreshCw, Check, Info, X
+  MapPin, User, Sparkles, RefreshCw, Check, Info, X, CheckCheck
 } from 'lucide-react';
 import { EmptyState } from '../ui/States';
 import { Badge } from '../ui/Badge';
@@ -53,6 +53,7 @@ export const ClassTimetable: React.FC = () => {
   const [conflicts, setConflicts] = useState(initialConflicts);
   const [viewTab, setViewTab] = useState<'week' | 'day' | 'month'>('week');
   const [selectedDay, setSelectedDay] = useState('Monday');
+  const [resolvedToast, setResolvedToast] = useState(false);
 
   const handleResolveConflict = (conflictId: string, suggestionAction: any) => {
     setEvents(prev => prev.map(ev => {
@@ -73,7 +74,8 @@ export const ClassTimetable: React.FC = () => {
     }));
 
     setConflicts(prev => prev.filter(c => c.id !== conflictId));
-    alert('Conflict resolved successfully! Calendar schedule updated.');
+    setResolvedToast(true);
+    setTimeout(() => setResolvedToast(false), 3000);
   };
 
   const getDayEvents = (day: string) => {
@@ -87,13 +89,16 @@ export const ClassTimetable: React.FC = () => {
       transition={{ duration: 0.3 }} 
       className="space-y-6"
     >
+      {resolvedToast && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-(--status-success-bg) border border-(--status-success-border) rounded-xl text-xs text-(--status-success) font-semibold">
+          <CheckCheck className="w-4 h-4 shrink-0" /> Conflict resolved! Schedule updated.
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Class Timetable</h2>
           <p className="text-xs text-(--text-muted)">Manage university weekly schedules, verify reservations, and resolve booking overlaps.</p>
         </div>
-
-        {/* View Calendar Tabs */}
         <div className="flex bg-(--hover-overlay) border border-(--border-default) p-1.5 rounded-xl self-start md:self-center">
           {(['week', 'day', 'month'] as const).map(tab => (
             <button

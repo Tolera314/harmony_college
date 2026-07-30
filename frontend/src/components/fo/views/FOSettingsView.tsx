@@ -386,11 +386,11 @@ export const FOSettingsView: React.FC = () => {
                     </div>
                     {s.current
                       ? <Badge variant="emerald">Active</Badge>
-                      : <Button variant="danger" size="sm" onClick={() => alert('Session revoked.')}>Revoke</Button>}
+                      : <Button variant="danger" size="sm" onClick={() => {}}>Revoke</Button>}
                   </div>
                 ))}
               </div>
-              <Button variant="danger" size="sm" onClick={() => alert('All other sessions revoked.')}>
+              <Button variant="danger" size="sm" onClick={() => {}}>
                 Revoke All Other Sessions
               </Button>
             </Card>

@@ -54,7 +54,7 @@ export const FOAuditLogView: React.FC = () => {
         icon={<ClipboardList className="w-5 h-5" />}
         actions={
           <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />}
-            onClick={() => alert('Exporting audit log…')}>
+            onClick={() => {}}>
             Export CSV
           </Button>
         }

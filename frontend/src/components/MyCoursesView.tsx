@@ -258,11 +258,10 @@ export const MyCoursesView: React.FC<MyCoursesViewProps> = ({ enrolledCourses, s
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
               transition={{ ...DURATION.standard, ...EASE.inOut }}
-              className="absolute inset-0 backdrop-blur-md"
-              style={{ backgroundColor: 'var(--overlay-dark-bg)' }}
+              className="absolute inset-0 bg-black"
               onClick={closeDrawer}
             />
 
@@ -434,15 +433,7 @@ export const MyCoursesView: React.FC<MyCoursesViewProps> = ({ enrolledCourses, s
                   )}
                 </div>
 
-                {/* Drawer footer */}
-                <div
-                  className="p-5 shrink-0"
-                  style={{ borderTop: '1px solid var(--border-default)', backgroundColor: 'var(--bg-modal-hdr)' }}
-                >
-                  <Button variant="secondary" className="w-full" onClick={closeDrawer}>
-                    Close
-                  </Button>
-                </div>
+                {/* Drawer footer removed — use header X button to close */}
               </motion.div>
             </div>
           </div>

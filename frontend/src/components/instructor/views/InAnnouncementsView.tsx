@@ -8,6 +8,7 @@ import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { Input } from '../../ui/Input';
 import { announcements as initialAnn } from '../../../data/instructorData';
 import { Announcement } from '../../../types/instructor';
@@ -68,7 +69,7 @@ export const InAnnouncementsView: React.FC = () => {
         ))}
       </div>
 
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="New Announcement" maxWidth="max-w-lg">
+      <SlidePanel isOpen={createOpen} onClose={() => setCreateOpen(false)} title="New Announcement" subtitle="Announcements" width="max-w-lg">
         <div className="space-y-4 font-sans text-sm">
           <Input label="Title" placeholder="Announcement title..." value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
           <div className="space-y-1.5">
@@ -88,7 +89,7 @@ export const InAnnouncementsView: React.FC = () => {
             <Button variant="primary" className="flex-1" onClick={handleCreate}>Publish</Button>
           </div>
         </div>
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

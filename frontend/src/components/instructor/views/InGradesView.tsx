@@ -9,6 +9,7 @@ import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { BarChart } from '../../dh/DHCharts';
 import { assessments, gradeEntries, film402StudentIds, film301StudentIds } from '../../../data/instructorData';
 import { courses, students } from '../../../data/departmentData';

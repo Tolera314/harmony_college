@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  User, Shield, Key, Clock, Save, Monitor,
-  Smartphone, LogOut, CheckCircle2, Palette,
-  Sliders, Calendar, Power, Trash2, Plus, Info, Settings,
+  User, Shield, Key, Clock,
+  Save, Monitor,
+  Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, Settings, CheckCheck
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { AppearanceSection } from '../ui/AppearanceSection';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 type SettingsTab = 'profile' | 'account' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration';
 
@@ -61,12 +62,33 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   ]);
   const [newRule, setNewRule] = useState({ name: '', desc: '' });
 
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
-  const handleProfileSave = (e: React.FormEvent) => { e.preventDefault(); handleSave(); };
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [regSaved, setRegSaved] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
+
+  const handleProfileSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 3000);
+  };
+
   const handlePasswordSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.newPass !== password.confirm) { alert('Password fields do not match.'); return; }
-    handleSave(); setPassword({ current: '', newPass: '', confirm: '' });
+    if (password.newPass !== password.confirm) {
+      setPasswordError('New password fields do not match.');
+      return;
+    }
+    setPasswordError('');
+    setPasswordSaved(true);
+    setPassword({ current: '', newPass: '', confirm: '' });
+    setTimeout(() => setPasswordSaved(false), 3000);
+  };
+
+  const handleToggle = (key: keyof typeof toggles) => {
+    setToggles(prev => ({ ...prev, [key]: !prev[key] }));
   };
   const handleToggle = (key: keyof typeof toggles) => setToggles((p) => ({ ...p, [key]: !p[key] }));
   const handleRegToggle = (key: keyof typeof regToggles) => setRegToggles((p) => ({ ...p, [key]: !p[key] }));
@@ -78,15 +100,35 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
     setRules((p) => [...p, { id: 'r' + (p.length + 1), name: newRule.name, desc: newRule.desc || 'No description.', enabled: true }]);
     setNewRule({ name: '', desc: '' });
   };
-  const handleRevokeSession = (id: string) => {
-    if (confirm('Terminate this session?')) setSessions((p) => p.filter((s) => s.id !== id));
+
+  const handleDeleteRule = (id: string) => {
+    setRules(prev => prev.filter(r => r.id !== id));
   };
 
-  const inputCls = "w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-[#D4AF37] transition-colors";
-  const labelCls = "text-xs font-semibold text-white/80";
+  const handleRevokeSession = (id: string) => setRevokeTarget(id);
+  const handleRevokeConfirm = () => {
+    if (revokeTarget) setSessions(prev => prev.filter(s => s.id !== revokeTarget));
+    setRevokeTarget(null);
+  };
+
+  const handleSaveRegSettings = () => {
+    setRegSaved(true);
+    setTimeout(() => setRegSaved(false), 3000);
+  };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-8">
+    <>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Settings Board</h2>
+          <p className="text-xs text-white/50">Manage personal profile details, account security, and academic registration rules.</p>
+        </div>
 
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -154,8 +196,16 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                   <div className="space-y-1.5"><label className={labelCls}>Phone Number</label>
                     <input type="text" required value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} className={inputCls} /></div>
                 </div>
-                <div className="flex justify-end pt-1">
-                  <Button variant="gold" size="sm" type="submit" icon={<Save className="w-3.5 h-3.5" />}>Save Profile</Button>
+
+                <div className="flex justify-end items-center gap-3 pt-2">
+                  {profileSaved && (
+                    <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
+                      <CheckCheck className="w-4 h-4" /> Saved
+                    </span>
+                  )}
+                  <Button variant="gold" size="sm" type="submit" className="font-semibold text-xs py-2 flex items-center gap-1">
+                    <Save className="w-3.5 h-3.5" /> Save Profile Info
+                  </Button>
                 </div>
               </form>
             </div>
@@ -179,8 +229,19 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                     <input type="password" required placeholder="••••••••••••" value={password.confirm}
                       onChange={(e) => setPassword((p) => ({ ...p, confirm: e.target.value }))} className={inputCls} /></div>
                 </div>
-                <div className="flex justify-end pt-1">
-                  <Button variant="gold" size="sm" type="submit" icon={<Save className="w-3.5 h-3.5" />}>Update Password</Button>
+
+                <div className="flex justify-end items-center gap-3 pt-2">
+                  {passwordError && (
+                    <span className="text-xs text-red-400 font-semibold">{passwordError}</span>
+                  )}
+                  {passwordSaved && (
+                    <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
+                      <CheckCheck className="w-4 h-4" /> Credentials updated
+                    </span>
+                  )}
+                  <Button variant="gold" size="sm" type="submit" className="font-semibold text-xs py-2 flex items-center gap-1">
+                    <Save className="w-3.5 h-3.5" /> Save Credentials
+                  </Button>
                 </div>
               </form>
             </div>
@@ -354,8 +415,36 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
             </div>
           )}
 
+          </div>
+          <div className="flex justify-end items-center gap-3">
+            {regSaved && (
+              <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
+                <CheckCheck className="w-4 h-4" /> Configuration saved
+              </span>
+            )}
+            <Button
+              variant="gold"
+              size="sm"
+              onClick={handleSaveRegSettings}
+              className="flex items-center gap-1.5 py-2 font-semibold text-xs"
+            >
+              <Save className="w-4 h-4" /> Save Configuration
+            </Button>
+          </div>
         </div>
       </div>
     </motion.div>
+
+    <ConfirmModal
+      isOpen={!!revokeTarget}
+      onClose={() => setRevokeTarget(null)}
+      onConfirm={handleRevokeConfirm}
+      title="Revoke Session"
+      message="Are you sure you want to terminate this authenticated device session?"
+      icon={<LogOut className="w-6 h-6" />}
+      variant="danger"
+      confirmLabel="Revoke Session"
+    />
+    </>
   );
 };

@@ -12,6 +12,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { financeStudents } from '../../../data/financeData';
 import { FinanceStudent, FinanceRiskLevel } from '../../../types/finance';
 
@@ -30,7 +31,7 @@ function ReminderModal({ student, onClose }: { student: FinanceStudent; onClose:
     `Dear ${student.name},\n\nThis is a reminder that your account at Harmony College has an outstanding balance of ETB ${student.outstanding.toLocaleString()}.\n\nPlease settle your balance by visiting the Finance Office or paying via bank transfer / Telebirr.\n\nRegards,\nHarmony College Finance Office`
   );
   return (
-    <Modal isOpen onClose={onClose} title="Send Payment Reminder" maxWidth="max-w-lg">
+    <SlidePanel isOpen onClose={onClose} title="Send Payment Reminder" subtitle="Finance — Outstanding Accounts" width="max-w-lg">
       <div className="space-y-4">
         <div className="flex items-center gap-3 p-3 bg-(--hover-overlay) rounded-xl border border-(--border-default)">
           <img src={student.avatar} alt={student.name} className="w-10 h-10 rounded-full object-cover border border-(--border-default)" />
@@ -55,12 +56,12 @@ function ReminderModal({ student, onClose }: { student: FinanceStudent; onClose:
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" className="flex-1" onClick={() => { alert('Reminder sent!'); onClose(); }} icon={<Mail className="w-4 h-4" />}>
+          <Button variant="primary" className="flex-1" onClick={() => { onClose(); }} icon={<Mail className="w-4 h-4" />}>
             Send Reminder
           </Button>
         </div>
       </div>
-    </Modal>
+    </SlidePanel>
   );
 }
 
@@ -109,7 +110,7 @@ export const FOOutstandingView: React.FC = () => {
         icon={<AlertTriangle className="w-5 h-5" />}
         actions={
           <Button variant="danger" size="sm" icon={<Mail className="w-4 h-4" />}
-            onClick={() => alert('Bulk reminder sent to all overdue accounts.')}>
+            onClick={() => {}}>
             Send All Reminders
           </Button>
         }

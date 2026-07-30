@@ -12,6 +12,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { transactions, financeStudents } from '../../../data/financeData';
 import { Transaction, PaymentMethod } from '../../../types/finance';
 
@@ -34,14 +35,13 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = () => {
     if (!validate()) return;
-    alert(`Payment of ETB ${Number(form.amount).toLocaleString()} recorded successfully!\nReceipt will be generated.`);
     onClose();
   };
 
   const selected = financeStudents.find((s) => s.id === form.studentId);
 
   return (
-    <Modal isOpen onClose={onClose} title={<><Plus className="w-5 h-5 inline mr-2 text-(--brand-gold)" />Record Payment</>} maxWidth="max-w-xl">
+    <SlidePanel isOpen onClose={onClose} title={<><Plus className="w-5 h-5 inline mr-2 text-(--brand-gold)" />Record Payment</>} subtitle="Finance — Payments" width="max-w-xl">
       <div className="space-y-5">
         {/* Student selector */}
         <div>
@@ -139,14 +139,12 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
       </div>
-    </Modal>
+    </SlidePanel>
   );
 }
-
-// ── Transaction Detail Modal ───────────────────────────────────────────────────
 function TxnDetailModal({ txn, onClose }: { txn: Transaction; onClose: () => void }) {
   return (
-    <Modal isOpen onClose={onClose} title="Transaction Details" maxWidth="max-w-md">
+    <SlidePanel isOpen onClose={onClose} title="Transaction Details" subtitle="Finance — Payments" width="max-w-md">
       <div className="space-y-4">
         {[
           ['Transaction ID', txn.id],
@@ -173,7 +171,7 @@ function TxnDetailModal({ txn, onClose }: { txn: Transaction; onClose: () => voi
           </div>
         )}
       </div>
-    </Modal>
+    </SlidePanel>
   );
 }
 
