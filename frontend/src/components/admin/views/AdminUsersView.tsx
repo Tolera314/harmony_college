@@ -23,15 +23,24 @@ const statusBadge = (s: SystemUser['status']) => {
 const ROLES: UserRole[] = ['Super Admin', 'Admin', 'Department Head', 'Instructor', 'HR Officer', 'Finance Officer', 'Registrar', 'Student'];
 
 export const AdminUsersView: React.FC = () => {
+  const [users, setUsers] = useState<SystemUser[]>(systemUsers);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'All'|UserRole>('All');
   const [statusFilter, setStatusFilter] = useState<'All'|SystemUser['status']>('All');
   const [selected, setSelected] = useState<SystemUser | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ user: SystemUser; action: string } | null>(null);
+  
+  // Modals state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
+  
+  // Form states
+  const [formData, setFormData] = useState({ name: '', email: '', role: 'Student' as UserRole, status: 'Active' as SystemUser['status'] });
+
   const [page, setPage] = useState(1);
   const PER_PAGE = 8;
 
-  const filtered = systemUsers.filter(u => {
+  const filtered = users.filter(u => {
     const q = search.toLowerCase();
     const matchQ = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.userId.toLowerCase().includes(q);
     const matchR = roleFilter === 'All' || u.role === roleFilter;
@@ -41,13 +50,57 @@ export const AdminUsersView: React.FC = () => {
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
 
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newUser: SystemUser = {
+      id: `u${Date.now()}`,
+      userId: `HC-${Math.floor(Math.random() * 10000)}`,
+      name: formData.name,
+      email: formData.email,
+      role: formData.role,
+      status: formData.status,
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      twoFactorEnabled: false,
+      sessions: 0,
+      createdAt: new Date().toLocaleDateString(),
+      loginCount: 0,
+      failedLoginAttempts: 0
+    };
+    setUsers(prev => [newUser, ...prev]);
+    setIsAddModalOpen(false);
+    setFormData({ name: '', email: '', role: 'Student', status: 'Active' });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setUsers(prev => prev.map(u => 
+      u.id === editingUser.id ? { ...u, ...formData } : u
+    ));
+    setEditingUser(null);
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    const { user, action } = confirmAction;
+    setUsers(prev => prev.map(u => {
+      if (u.id === user.id) {
+        if (action === 'Suspend') return { ...u, status: 'Suspended' };
+        if (action === 'Unlock') return { ...u, status: 'Active' };
+        if (action === 'Reset Password') return { ...u, failedLoginAttempts: 0 };
+      }
+      return u;
+    }));
+    setConfirmAction(null);
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Users & Roles"
-        subtitle={`${systemUsers.filter(u => u.status === 'Active').length} active · ${systemUsers.filter(u => u.status === 'Suspended' || u.status === 'Locked').length} suspended/locked`}
+        subtitle={`${users.filter(u => u.status === 'Active').length} active · ${users.filter(u => u.status === 'Suspended' || u.status === 'Locked').length} suspended/locked`}
         icon={<Users className="w-5 h-5" />}
-        actions={<Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}>Add User</Button>}
+        actions={<Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setIsAddModalOpen(true)}>Add User</Button>}
       />
 
       {/* Filters */}
@@ -97,8 +150,8 @@ export const AdminUsersView: React.FC = () => {
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-1">
                     <button onClick={() => setSelected(u)} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="View"><Eye className="w-3.5 h-3.5" /></button>
-                    <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit"><Edit className="w-3.5 h-3.5" /></button>
-                    <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Reset password"><RotateCcw className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => { setEditingUser(u); setFormData({ name: u.name, email: u.email, role: u.role, status: u.status }); }} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit"><Edit className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setConfirmAction({ user: u, action: 'Reset Password' })} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Reset password"><RotateCcw className="w-3.5 h-3.5" /></button>
                     {u.status === 'Active' && u.role !== 'Super Admin' && (
                       <button onClick={() => setConfirmAction({ user: u, action: 'Suspend' })} className="p-1.5 rounded-lg hover:bg-(--status-warning-bg) text-(--text-muted) hover:text-(--status-warning) transition-colors" aria-label="Suspend"><UserX className="w-3.5 h-3.5" /></button>
                     )}
@@ -153,10 +206,59 @@ export const AdminUsersView: React.FC = () => {
             <p className="text-(--text-secondary)">Are you sure you want to <span className="font-semibold text-(--text-primary)">{confirmAction.action.toLowerCase()}</span> <span className="text-(--brand-gold)">{confirmAction.user.name}</span>?</p>
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setConfirmAction(null)}>Cancel</Button>
-              <Button variant={confirmAction.action === 'Unlock' ? 'primary' : 'danger'} className="flex-1" onClick={() => setConfirmAction(null)}>Confirm</Button>
+              <Button variant={confirmAction.action === 'Unlock' ? 'primary' : 'danger'} className="flex-1" onClick={handleConfirmAction}>Confirm</Button>
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Add User Modal */}
+      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Add New User" maxWidth="max-w-md">
+        <form onSubmit={handleAddSubmit} className="space-y-4">
+          <Input label="Full Name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+          <Input label="Email Address" type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Role</label>
+            <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })} className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Initial Status</label>
+            <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as SystemUser['status'] })} className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {['Active', 'Inactive', 'Pending'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" type="button" className="flex-1" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
+            <Button variant="gold" type="submit" className="flex-1 font-semibold">Create User</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal isOpen={!!editingUser} onClose={() => setEditingUser(null)} title={`Edit User: ${editingUser?.name}`} maxWidth="max-w-md">
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <Input label="Full Name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+          <Input label="Email Address" type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">System Role <span className="text-(--status-danger)">*</span></label>
+            <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })} className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <p className="text-[10px] text-(--text-muted)">Changing role affects system-wide privileges.</p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Status</label>
+            <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as SystemUser['status'] })} className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {['Active', 'Inactive', 'Suspended', 'Locked', 'Pending'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" type="button" className="flex-1" onClick={() => setEditingUser(null)}>Cancel</Button>
+            <Button variant="primary" type="submit" className="flex-1 font-semibold">Save Changes</Button>
+          </div>
+        </form>
       </Modal>
     </motion.div>
   );
