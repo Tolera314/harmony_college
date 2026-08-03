@@ -1,17 +1,10 @@
-@import "tailwindcss";
+/*
+ * src/index.css — Harmony College Shared Utility Styles
+ * Does NOT re-import Tailwind (already done in app/globals.css).
+ * Only adds utility classes and component helpers used by src/ components.
+ */
 
 @layer utilities {
-  /* Harmony College Typography Families */
-  .font-serif {
-    font-family: 'Libre Caslon Text', Georgia, serif;
-  }
-  .font-sans {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  }
-  .font-mono {
-    font-family: 'Geist', monospace;
-  }
-
   /* ── Glassmorphism — auto-adapts to theme ─────────────────────────────── */
   .glass-surface {
     background-color: var(--bg-glass);
@@ -39,14 +32,14 @@
     box-shadow: 0 16px 36px -8px rgba(15, 15, 16, 0.12);
   }
 
-  /* ── Gold Accents — always the same ──────────────────────────────────── */
+  /* ── Gold Accents ─────────────────────────────────────────────────────── */
   .gold-gradient {
     background: linear-gradient(135deg, #f5d468 0%, #E9C349 50%, #c49f27 100%);
   }
-  .text-gold { color: #E9C349; }
-  .gold-glow { box-shadow: 0 0 24px rgba(233, 195, 73, 0.35); }
+  .text-gold  { color: #E9C349; }
+  .gold-glow  { box-shadow: 0 0 24px rgba(233, 195, 73, 0.35); }
 
-  /* ── Hero overlay — adapts to theme ──────────────────────────────────── */
+  /* ── Hero overlay ─────────────────────────────────────────────────────── */
   .hero-overlay-dark {
     background: linear-gradient(
       90deg,
@@ -61,29 +54,24 @@
     min-height: 44px;
     min-width: 44px;
   }
-}
 
-/* Custom Scrollbar System */
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+  /* ── Theme-aware surface shortcuts ───────────────────────────────────── */
+  .bg-surface   { background-color: var(--bg-surface); }
+  .bg-card      { background-color: var(--bg-card); }
+  .text-body    { color: var(--text-primary); }
+  .text-sub     { color: var(--text-secondary); }
+  .text-hint    { color: var(--text-muted); }
+  .border-theme { border-color: var(--border-default); }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  /* ── No-scrollbar utility (from teammate) ────────────────────────────── */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover { background: rgba(233, 195, 73, 0.4); }
 
 /* ── Focus Ring ────────────────────────────────────────────────────────── */
 *:focus-visible {
@@ -93,41 +81,16 @@
   ring-offset: 2px;
 }
 
-/* ── Base ──────────────────────────────────────────────────────────────── */
-html {
-  scroll-behavior: smooth;
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  background-color: var(--bg-base);
-  color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
-  transition: var(--theme-transition);
-}
-
 /* ── Light mode global overrides ───────────────────────────────────────── */
 html.light body {
   color: var(--text-primary);
 }
 
-/* Prose content inside news reader adapts in light mode */
-html.light .prose-invert {
-  color: var(--text-secondary);
-}
+html.light .prose-invert { color: var(--text-secondary); }
 html.light .prose-invert h2,
 html.light .prose-invert h3,
-html.light .prose-invert strong {
-  color: var(--text-primary);
-}
+html.light .prose-invert strong { color: var(--text-primary); }
 html.light .prose-invert blockquote {
   border-left-color: var(--border-default);
   color: var(--text-muted);
 }
-
-/* ── Theme transition — prevent flash on load ──────────────────────────── */
-html.theme-transitioning * {
-  transition: var(--theme-transition) !important;
-}
-

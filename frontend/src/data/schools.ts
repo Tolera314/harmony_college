@@ -139,4 +139,26 @@ export const schoolsData: School[] = [
       'Basic English literacy (for language track applicants)',
     ],
   },
+  {
+    id: 'pharmacy',
+    name: 'Pharmacy',
+    icon: 'BookOpen',
+    description: 'Train as a pharmacy professional — from pharmaceutical sciences and drug dispensing to clinical practice.',
+    longDescription: 'Harmony College\'s Pharmacy program provides students with a strong foundation in pharmaceutical sciences, preparing them for careers as pharmacy technicians and assistants in hospitals, clinics, and community pharmacies across Ethiopia. Students study drug classification, dispensing procedures, patient counseling, and healthcare regulations under the guidance of licensed pharmacists.',
+    dean: 'Dr. Tigist Asnake, PharmD in Clinical Pharmacy',
+    tuitionPerCredit: 1_100,
+    degrees: [
+      { name: 'Diploma in Pharmacy Technology', level: 'Undergraduate', duration: '2 Years' },
+      { name: 'Certificate in Drug Dispensing & Patient Care', level: 'Undergraduate', duration: '1 Year' },
+    ],
+    labs: [
+      { name: 'Harmony Pharmacy Practice Lab', focus: 'Simulated dispensary with pharmaceutical equipment, drug samples, and prescription workflows.' },
+      { name: 'Clinical Skills Training Room', focus: 'Patient interaction practice, vital signs monitoring, and healthcare documentation.' },
+    ],
+    requirements: [
+      'High school completion certificate (Natural Science stream preferred)',
+      'Strong foundation in Biology and Chemistry',
+      'Commitment to healthcare and patient service',
+    ],
+  },
 ];

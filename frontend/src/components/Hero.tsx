@@ -89,49 +89,48 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* Stats Glass Box Card (Right side) */}
+        {/* Logo Showcase Card (Right side) */}
         <div className="lg:col-span-5 flex justify-end">
           <motion.div
             initial={{ opacity: 0, scale: 0.95, x: 20 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="relative w-full max-w-sm rounded-2xl border backdrop-blur-xl p-8 space-y-6 overflow-hidden shadow-2xl group opacity-60 hover:opacity-90 transition-opacity duration-300"
+            className="relative w-full max-w-sm rounded-3xl border backdrop-blur-xl overflow-hidden shadow-2xl group"
             style={{ backgroundColor: 'var(--bg-glass)', borderColor: 'var(--border-default)' }}
           >
-            <div className="absolute -right-16 -top-16 w-36 h-36 bg-[#E9C349]/10 rounded-full blur-3xl group-hover:bg-[#E9C349]/20 transition-all duration-700" />
-            
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl text-[#E9C349]" style={{ backgroundColor: 'var(--bg-glass)' }}>
-                <GraduationCap className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#E9C349]">500+</h4>
-                <p className={`font-sans text-[10px] font-bold uppercase tracking-widest mt-1 ${isLight ? 'text-[#111111]' : 'text-white/50'}`}>Enrolled Students</p>
-              </div>
+            {/* Glow */}
+            <div className="absolute -right-16 -top-16 w-48 h-48 bg-[#E9C349]/15 rounded-full blur-3xl group-hover:bg-[#E9C349]/25 transition-all duration-700 pointer-events-none" />
+            <div className="absolute -left-8 -bottom-8 w-36 h-36 bg-[#E9C349]/8 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Full logo image */}
+            <div className="relative w-full aspect-square overflow-hidden">
+              <img
+                src="/logo1.jpg"
+                alt="Harmony College — Number 1 Choice for Knowledge"
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
+              />
+              {/* Subtle bottom fade into card */}
+              <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/60 to-transparent" />
             </div>
 
-            <div className="h-px" style={{ backgroundColor: 'var(--border-default)' }} />
+            {/* Tagline strip */}
+            <div className="relative px-6 py-5 space-y-2">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9C349]/15 border border-[#E9C349]/30">
+                <Trophy className="w-3.5 h-3.5 text-[#E9C349]" />
+                <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#E9C349]">
+                  Harmony College
+                </span>
+              </div>
 
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl text-[#E9C349]" style={{ backgroundColor: 'var(--bg-glass)' }}>
-                <BookOpen className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#E9C349]">10+</h4>
-                <p className={`font-sans text-[10px] font-bold uppercase tracking-widest mt-1 ${isLight ? 'text-[#111111]' : 'text-white/50'}`}>Programs Offered</p>
-              </div>
-            </div>
+              <h3 className="font-serif text-xl sm:text-2xl font-extrabold text-white leading-tight">
+                Number 1 Choice<br />
+                <span className="text-[#E9C349] italic">for Knowledge</span>
+              </h3>
 
-            <div className="h-px" style={{ backgroundColor: 'var(--border-default)' }} />
-
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl text-[#E9C349]" style={{ backgroundColor: 'var(--bg-glass)' }}>
-                <Trophy className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-2xl sm:text-3xl font-serif font-extrabold text-[#E9C349]">90%</h4>
-                <p className={`font-sans text-[10px] font-bold uppercase tracking-widest mt-1 ${isLight ? 'text-[#111111]' : 'text-white/50'}`}>Graduate Employment Rate</p>
-              </div>
+              <p className="font-sans text-xs text-white/55 leading-relaxed">
+                Sheger, Burayu, Ethiopia — Est. 2015
+              </p>
             </div>
           </motion.div>
         </div>

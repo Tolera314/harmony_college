@@ -15,6 +15,7 @@ import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
 import { SlidePanel } from './ui/SlidePanel';
 import { Table, Column } from './ui/Table';
+import { printTranscript } from '../lib/exportUtils';
 
 interface GradesViewProps {
   profile: StudentProfile;
@@ -268,6 +269,22 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
         subtitle="Grades & Transcript"
         width="max-w-2xl"
       >
+        {/* Action buttons */}
+        <div className="flex items-center justify-between mb-4">
+          <p className="font-sans text-xs text-white/50">Digitally certified · Harmony College</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => printTranscript({ studentName: profile.name, studentId: profile.id, major: profile.major, degree: profile.degree, cumulativeGpa: profile.cumulativeGpa, completedCredits: profile.completedCredits, expectedGraduation: profile.expectedGraduation, email: profile.email, grades })}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/15 border border-white/15 rounded-xl font-sans text-xs font-semibold text-white transition-colors"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print
+            </button>
+            <button
+              onClick={() => printTranscript({ studentName: profile.name, studentId: profile.id, major: profile.major, degree: profile.degree, cumulativeGpa: profile.cumulativeGpa, completedCredits: profile.completedCredits, expectedGraduation: profile.expectedGraduation, email: profile.email, grades })}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#E9C349] hover:bg-[#d8b238] rounded-xl font-sans text-xs font-bold text-[#0F0F10] transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Save as PDF
+            </button>
         <div className="bg-white text-black p-6 rounded-2xl space-y-6">
           <div className="border-b-2 border-black pb-4">
             <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
@@ -275,59 +292,128 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
               OFFICIAL ACADEMIC TRANSCRIPT • OFFICE OF THE REGISTRAR
             </p>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4 text-xs font-mono bg-gray-50 p-4 rounded-xl border border-gray-200">
+        {/* Transcript content — no inner scroll, Modal itself scrolls */}
+        <div id="official-transcript" className="bg-white text-black rounded-2xl border border-gray-200">
+
+          {/* Header */}
+          <div className="bg-[#0F0F10] p-5 flex items-start justify-between rounded-t-2xl">
             <div>
-              <p><span className="font-bold">Student Name:</span> {profile.name}</p>
-              <p><span className="font-bold">Student ID:</span> {profile.id}</p>
-              <p><span className="font-bold">Major:</span> {profile.major}</p>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0">
+                  <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <h2 className="font-serif text-lg font-bold text-white tracking-wide">HARMONY COLLEGE</h2>
+                  <p className="font-mono text-[10px] text-[#E9C349] uppercase tracking-widest">Sheger, Burayu, Ethiopia</p>
+                </div>
+              </div>
+              <p className="font-mono text-[10px] text-white/50 uppercase tracking-widest">
+                OFFICIAL ACADEMIC TRANSCRIPT · OFFICE OF THE REGISTRAR
+              </p>
             </div>
-            <div>
-              <p><span className="font-bold">Cumulative GPA:</span> {profile.cumulativeGpa.toFixed(2)}</p>
-              <p><span className="font-bold">Earned Credits:</span> {profile.completedCredits}</p>
-              <p><span className="font-bold">Date Issued:</span> July 22, 2024</p>
+            <div className="text-right shrink-0 ml-4">
+              <p className="font-mono text-[10px] text-white/40">Date Issued</p>
+              <p className="font-mono text-xs text-white font-bold">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+              <p className="font-mono text-[10px] text-[#E9C349] mt-1">HC-2024-X8921</p>
             </div>
           </div>
 
-          <div className="space-y-2 text-xs">
-            <h4 className="font-bold font-serif text-base">Course History & Marks</h4>
-            <table className="w-full border-collapse">
+          {/* Student info */}
+          <div className="p-5 border-b border-gray-200">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs font-sans">
+              {[
+                ['Student Name', profile.name],
+                ['Cumulative GPA', `${profile.cumulativeGpa.toFixed(2)} / 4.00`],
+                ['Student ID', profile.id],
+                ['Credits Earned', String(profile.completedCredits)],
+                ['Program', profile.degree],
+                ['Expected Graduation', profile.expectedGraduation],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between border-b border-gray-100 pb-1">
+                  <span className="text-gray-500 font-semibold">{label}</span>
+                  <span className="font-bold text-black text-right ml-2 max-w-[160px] truncate">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Course table */}
+          <div className="p-5 border-b border-gray-200">
+            <h4 className="font-serif text-xs font-bold text-black mb-3 uppercase tracking-wide">Course History & Academic Record</h4>
+            <table className="w-full border-collapse text-xs">
               <thead>
-                <tr className="border-b border-gray-400 font-mono text-left">
-                  <th className="py-2">Code</th>
-                  <th className="py-2">Title</th>
-                  <th className="py-2">Term</th>
-                  <th className="py-2 text-center">Credits</th>
-                  <th className="py-2 text-center">Grade</th>
+                <tr className="bg-gray-100">
+                  <th className="py-2 px-2 text-left font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Code</th>
+                  <th className="py-2 px-2 text-left font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Course Title</th>
+                  <th className="py-2 px-2 text-left font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Term</th>
+                  <th className="py-2 px-2 text-center font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Cr.</th>
+                  <th className="py-2 px-2 text-center font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Grade</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 font-sans">
-                {grades.map((g) => (
-                  <tr key={g.id}>
-                    <td className="py-2 font-mono font-bold">{g.courseCode}</td>
-                    <td className="py-2">{g.courseTitle}</td>
-                    <td className="py-2 font-mono">{g.term}</td>
-                    <td className="py-2 text-center font-mono">{g.credits}</td>
-                    <td className="py-2 text-center font-mono font-bold">{g.grade}</td>
+              <tbody>
+                {grades.map((g, i) => (
+                  <tr key={g.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="py-1.5 px-2 font-mono font-bold text-black border border-gray-100 text-[10px]">{g.courseCode}</td>
+                    <td className="py-1.5 px-2 text-gray-800 border border-gray-100 text-[10px]">{g.courseTitle}</td>
+                    <td className="py-1.5 px-2 font-mono text-gray-600 border border-gray-100 text-[10px]">{g.term}</td>
+                    <td className="py-1.5 px-2 text-center font-mono text-gray-800 border border-gray-100 text-[10px]">{g.credits}</td>
+                    <td className="py-1.5 px-2 text-center font-mono font-bold text-black border border-gray-100 text-[10px]">{g.grade}</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-gray-100 font-bold">
+                  <td colSpan={3} className="py-1.5 px-2 font-mono text-gray-700 border border-gray-200 text-[10px]">TOTALS</td>
+                  <td className="py-1.5 px-2 text-center font-mono text-black border border-gray-200 text-[10px]">
+                    {grades.reduce((s, g) => s + g.credits, 0)}
+                  </td>
+                  <td className="py-1.5 px-2 text-center font-mono text-black border border-gray-200 text-[10px]">
+                    {(grades.reduce((s, g) => s + g.numericGpa * g.credits, 0) / grades.reduce((s, g) => s + g.credits, 0)).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
 
-          <div className="pt-4 border-t border-gray-300 flex flex-col sm:flex-row justify-between items-center text-xs font-mono text-gray-500 gap-3">
-            <div className="flex items-center gap-2">
-              <FileCheck className="w-4 h-4 shrink-0" style={{ color: "var(--status-success)" }} />
-              <span>Digitally Signed Token: HC-2024-X8921</span>
+          {/* College stamp + seal + signature */}
+          <div className="p-5 space-y-4">
+            {/* Stamp */}
+            <div className="flex items-center gap-3 p-3 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#E9C349]/60 shrink-0">
+                <img src="/logo2.jpg" alt="Harmony College Seal" className="w-full h-full object-cover" />
+              </div>
+              <div>
+                <p className="font-serif text-sm font-bold text-black">HARMONY COLLEGE</p>
+                <p className="font-mono text-[9px] text-gray-500 uppercase tracking-widest">Sheger, Burayu, Ethiopia</p>
+                <p className="font-mono text-[9px] text-gray-500">Tel: +251 911 000 000</p>
+                <p className="font-mono text-[9px] text-yellow-600 font-bold mt-0.5">OFFICIAL RECORD — NOT VALID WITHOUT SEAL</p>
+              </div>
             </div>
-            <button
-              onClick={() => window.print()}
-              className="px-5 py-2 bg-black text-white rounded-xl font-sans font-semibold flex items-center gap-2 hover:bg-gray-800 touch-target"
-            >
-              <Printer className="w-4 h-4" />
-              Print Official Document
-            </button>
+
+            {/* Seal + signature */}
+            <div className="flex items-end justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full border-2 border-black flex items-center justify-center bg-gray-50 shrink-0">
+                  <FileCheck className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="font-mono text-[9px] font-bold text-black uppercase tracking-wider">Cryptographic Seal</p>
+                  <p className="font-mono text-[8px] text-gray-500">sha256: 8f44d90...b9a2c3d · Token: HC-2024-X8921</p>
+                  <p className="font-mono text-[8px] text-gray-400">Issued: {new Date().toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="border-b-2 border-black w-36 mb-1 ml-auto" />
+                <p className="font-sans text-[10px] font-bold text-black">Registrar, Harmony College</p>
+                <p className="font-mono text-[8px] text-gray-400">Office of Academic Records</p>
+              </div>
+            </div>
           </div>
+
+        </div>{/* end official-transcript */}
+      </Modal>
         </div>
       </SlidePanel>
     </motion.div>
