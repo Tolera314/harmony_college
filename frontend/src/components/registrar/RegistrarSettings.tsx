@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   User, Shield, Key, Clock,
   Save, Monitor,
-  Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, Settings, CheckCheck, CheckCircle2, Palette
+  Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, CheckCheck, Palette
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { AppearanceSection } from '../ui/AppearanceSection';
@@ -25,7 +25,7 @@ const labelCls = "text-[11px] font-mono text-white/40 uppercase tracking-wider";
 const inputCls = "w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-[#D4AF37]";
 
 export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ initialTab }) => {
-  const [activeTab,   setActiveTab]   = useState<SettingsTab>(initialTab ?? 'profile');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'profile');
   const resolvedTab = activeTab === 'account' ? 'profile' : activeTab;
 
   const [profile, setProfile] = useState({
@@ -103,10 +103,6 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   };
 
   const handleRevokeSession = (id: string) => setRevokeTarget(id);
-  const handleRevokeConfirm = () => {
-    if (revokeTarget) setSessions(prev => prev.filter(s => s.id !== revokeTarget));
-    setRevokeTarget(null);
-  };
 
   const handleSaveRegSettings = () => {
     setRegSaved(true);
@@ -120,8 +116,6 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-
-
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0">
@@ -134,7 +128,6 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-
         {/* Sidebar */}
         <aside className="lg:w-56 shrink-0">
           <nav className="space-y-1">
@@ -142,7 +135,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
               <button key={t.id} onClick={() => setActiveTab(t.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-sans text-sm transition-all ${
                   resolvedTab === (t.id === 'account' ? 'profile' : t.id)
-                    ? 'bg-[#D4AF37]/12 text-[#D4AF37] border border-[#D4AF37]/20'
+                    ? 'bg-[#D4AF37]/12 text-[#D4AF37] border border-[#D4AF37]/20 font-semibold'
                     : 'text-white/60 hover:bg-white/5 hover:text-white'
                 }`}>
                 {t.icon}{t.label}
@@ -163,23 +156,31 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
               <form onSubmit={handleProfileSave} className="space-y-5 font-sans">
                 <div className="flex items-center gap-4 pb-4 border-b border-white/5">
                   {profile.avatar
-                    ? <img src={profile.avatar || undefined} alt={profile.name} className="w-14 h-14 rounded-xl border border-white/10 object-cover" />
+                    ? <img src={profile.avatar} alt={profile.name} className="w-14 h-14 rounded-xl border border-white/10 object-cover" />
                     : <div className="w-14 h-14 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center font-serif text-2xl text-[#D4AF37]">{profile.name.charAt(0)}</div>
                   }
                   <div className="space-y-1">
                     <p className="text-xs text-white/40">Profile Photo</p>
-                    <Button variant="secondary" size="xs" type="button" className="text-[10px] py-1.5">Change Photo</Button>
+                    <Button variant="secondary" size="xs" type="button" className="text-[10px] py-1.5 font-semibold">Change Photo</Button>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><label className={labelCls}>Full Name</label>
-                    <input type="text" required value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} className={inputCls} /></div>
-                  <div className="space-y-1.5"><label className={labelCls}>Designation</label>
-                    <input type="text" disabled value={profile.title} className="w-full px-3.5 py-2.5 bg-white/5 border border-white/5 rounded-xl text-xs text-white/40 cursor-not-allowed" /></div>
-                  <div className="space-y-1.5"><label className={labelCls}>Email Address</label>
-                    <input type="email" required value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} className={inputCls} /></div>
-                  <div className="space-y-1.5"><label className={labelCls}>Phone Number</label>
-                    <input type="text" required value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} className={inputCls} /></div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Full Name</label>
+                    <input type="text" required value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} className={inputCls} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Designation</label>
+                    <input type="text" disabled value={profile.title} className="w-full px-3.5 py-2.5 bg-white/5 border border-white/5 rounded-xl text-xs text-white/40 cursor-not-allowed" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Email Address</label>
+                    <input type="email" required value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} className={inputCls} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Phone Number</label>
+                    <input type="text" required value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} className={inputCls} />
+                  </div>
                 </div>
                 <div className="flex justify-end items-center gap-3 pt-1">
                   {profileSaved && <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold"><CheckCheck className="w-4 h-4" /> Saved</span>}
@@ -196,16 +197,22 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                 <Key className="w-5 h-5 text-[#D4AF37]" /> Change Account Password
               </h3>
               <form onSubmit={handlePasswordSave} className="space-y-4 font-sans">
-                <div className="space-y-1.5"><label className={labelCls}>Current Password</label>
+                <div className="space-y-1.5">
+                  <label className={labelCls}>Current Password</label>
                   <input type="password" required placeholder="••••••••••••" value={password.current}
-                    onChange={(e) => setPassword((p) => ({ ...p, current: e.target.value }))} className={inputCls} /></div>
+                    onChange={(e) => setPassword((p) => ({ ...p, current: e.target.value }))} className={inputCls} />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><label className={labelCls}>New Password</label>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>New Password</label>
                     <input type="password" required placeholder="••••••••••••" value={password.newPass}
-                      onChange={(e) => setPassword((p) => ({ ...p, newPass: e.target.value }))} className={inputCls} /></div>
-                  <div className="space-y-1.5"><label className={labelCls}>Confirm Password</label>
+                      onChange={(e) => setPassword((p) => ({ ...p, newPass: e.target.value }))} className={inputCls} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={labelCls}>Confirm Password</label>
                     <input type="password" required placeholder="••••••••••••" value={password.confirm}
-                      onChange={(e) => setPassword((p) => ({ ...p, confirm: e.target.value }))} className={inputCls} /></div>
+                      onChange={(e) => setPassword((p) => ({ ...p, confirm: e.target.value }))} className={inputCls} />
+                  </div>
                 </div>
                 <div className="flex justify-end items-center gap-3 pt-1">
                   {passwordError && <span className="text-xs text-red-400 font-semibold">{passwordError}</span>}
@@ -299,7 +306,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                       { key: 'dropDeadline',label: 'Drop Deadline' },
                     ].map((f) => (
                       <div key={f.key} className="space-y-1.5">
-                        <label className="text-[11px] font-mono text-white/40 uppercase">{f.label}</label>
+                        <label className={labelCls}>{f.label}</label>
                         <input type="date" value={regDates[f.key as keyof typeof regDates]}
                           onChange={(e) => setRegDates((p) => ({ ...p, [f.key]: e.target.value }))}
                           className={inputCls} />
@@ -351,19 +358,20 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                           <p className="text-xs font-semibold text-white">{rule.name}</p>
                           <button onClick={() => handleDeleteRule(rule.id)} className="text-white/30 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
-                        <p className="text-[10px] text-white/50 leading-relaxed">{rule.desc}</p>
+                        <p className="text-[10px] text-white/60 leading-relaxed">{rule.desc}</p>
                       </div>
                     </div>
                   ))}
                 </div>
+
                 <form onSubmit={handleAddRule} className="border-t border-white/5 pt-4 space-y-3">
                   <p className="text-[11px] font-mono uppercase tracking-wider text-white/40">Add Rule</p>
                   <input type="text" required placeholder="Rule name…" value={newRule.name}
                     onChange={(e) => setNewRule((p) => ({ ...p, name: e.target.value }))}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]" />
+                    className={inputCls} />
                   <input type="text" placeholder="Description…" value={newRule.desc}
                     onChange={(e) => setNewRule((p) => ({ ...p, desc: e.target.value }))}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]" />
+                    className={inputCls} />
                   <Button variant="secondary" size="sm" type="submit" icon={<Plus className="w-3.5 h-3.5" />} className="w-full">Add Rule</Button>
                 </form>
               </div>
