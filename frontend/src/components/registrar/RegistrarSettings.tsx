@@ -43,6 +43,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   const [regSaved,      setRegSaved]      = useState(false);
 
   const [toggles, setToggles] = useState({ twoFa: false, emailAlerts: true });
+  const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
 
   const [sessions, setSessions] = useState([
     { id: 's1', device: 'HP Laptop · Firefox',    ip: '196.188.100.44', location: 'Addis Ababa, ET', status: 'Active Now',    current: true  },
@@ -113,7 +114,6 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   };
 
   return (
-    <>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
