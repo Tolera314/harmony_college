@@ -12,7 +12,8 @@ export type FONavTab =
   | 'reconciliation'
   | 'notifications'
   | 'audit_log'
-  | 'settings';
+  | 'settings'
+  | 'messages';
 
 // ── Finance Officer Profile ───────────────────────────────────────────────────
 export interface FOProfile {

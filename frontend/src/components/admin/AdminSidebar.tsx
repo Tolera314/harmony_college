@@ -10,6 +10,7 @@ import {
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
+import { ChatSidebarButton } from '../chat/ChatSidebarButton';
 
 interface AdminSidebarProps {
   activeTab: AdminNavTab;
@@ -125,6 +126,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <span className="hidden xl:inline">Notifications</span>
           {unreadCount > 0 && <Badge variant="rose" className="hidden xl:inline-block text-[9px] py-0">{unreadCount}</Badge>}
         </motion.button>
+        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
         <motion.button onClick={() => setActiveTab('settings')} whileHover={GESTURE.navHover} whileTap={{ scale: 0.97 }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-sans text-xs font-medium transition-all touch-target ${activeTab === 'settings' ? 'ds-nav-item-active-pill ds-nav-item-active' : 'ds-nav-item'}`}>
           <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />

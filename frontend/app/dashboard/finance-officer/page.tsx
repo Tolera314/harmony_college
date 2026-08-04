@@ -18,6 +18,7 @@ import { FOReconciliationView }  from '@/src/components/fo/views/FOReconciliatio
 import { FONotificationsView }   from '@/src/components/fo/views/FONotificationsView';
 import { FOAuditLogView }        from '@/src/components/fo/views/FOAuditLogView';
 import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView';
+import { ChatView }               from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -92,6 +93,7 @@ export default function FinanceOfficerPage() {
       );
       case 'audit_log':        return <FOAuditLogView />;
       case 'settings':         return <FOSettingsView />;
+      case 'messages':         return <ChatView />;
       default:                 return null;
     }
   };

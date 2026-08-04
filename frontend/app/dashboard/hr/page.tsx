@@ -21,6 +21,7 @@ import { HRAuditLogView }      from '@/src/components/hr/views/HRAuditLogView';
 import { HRSettingsView }      from '@/src/components/hr/views/HRSettingsView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
+import { ChatView } from '@/src/components/chat/ChatView';
 
 export default function HRDashboardPage() {
   const [activeTab,     setRawTab]       = useState<HRNavTab>('overview');

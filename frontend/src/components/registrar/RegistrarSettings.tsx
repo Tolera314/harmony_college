@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { AppearanceSection } from '../ui/AppearanceSection';
-import { ConfirmModal } from '../ui/ConfirmModal';
 
 type SettingsTab = 'profile' | 'account' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration';
 
@@ -26,36 +25,40 @@ const labelCls = "text-[11px] font-mono text-white/40 uppercase tracking-wider";
 const inputCls = "w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-[#D4AF37]";
 
 export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ initialTab }) => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'profile');
-  // 'account' is an alias for 'profile'
+  const [activeTab,   setActiveTab]   = useState<SettingsTab>(initialTab ?? 'profile');
   const resolvedTab = activeTab === 'account' ? 'profile' : activeTab;
-  const [saved, setSaved] = useState(false);
 
   const [profile, setProfile] = useState({
-    name: 'Robel Bekele',
-    title: 'University Registrar Officer',
-    email: 'registrar@harmony.edu',
-    phone: '+251911500330',
+    name:   'Robel Bekele',
+    title:  'University Registrar Officer',
+    email:  'registrar@harmony.edu',
+    phone:  '+251911500330',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
   });
 
-  const [password, setPassword] = useState({ current: '', newPass: '', confirm: '' });
+  const [password,      setPassword]      = useState({ current: '', newPass: '', confirm: '' });
+  const [passwordError, setPasswordError] = useState('');
+  const [profileSaved,  setProfileSaved]  = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [regSaved,      setRegSaved]      = useState(false);
+
   const [toggles, setToggles] = useState({ twoFa: false, emailAlerts: true });
+
   const [sessions, setSessions] = useState([
     { id: 's1', device: 'HP Laptop · Firefox',    ip: '196.188.100.44', location: 'Addis Ababa, ET', status: 'Active Now',    current: true  },
     { id: 's2', device: 'iPhone 15 Pro · Safari', ip: '196.188.100.45', location: 'Addis Ababa, ET', status: 'Active 2h ago', current: false },
   ]);
 
-  // Registration Engine state
   const [regDates, setRegDates] = useState({
     openDate: '2026-08-01', closeDate: '2026-08-20',
     addDeadline: '2026-08-05', dropDeadline: '2026-08-12',
   });
+
   const [regToggles, setRegToggles] = useState({
     lateRegistration: true, waitlistEnable: true,
-    autoPromotion: true, seatAvailability: true,
-    advisorApproval: false, gpaCapCheck: true,
+    autoPromotion: true, advisorApproval: false, gpaCapCheck: true,
   });
+
   const [rules, setRules] = useState([
     { id: 'r1', name: 'Credit Hour Cap',          desc: 'Maximum allowed credits for regular semester is 18.',                     enabled: true  },
     { id: 'r2', name: 'GPA Honor Overload',        desc: 'Students with CGPA >= 3.50 can register for up to 21 credits.',           enabled: true  },
@@ -65,13 +68,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   ]);
   const [newRule, setNewRule] = useState({ name: '', desc: '' });
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
-  const [profileSaved, setProfileSaved] = useState(false);
-  const [passwordSaved, setPasswordSaved] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-  const [regSaved, setRegSaved] = useState(false);
-  const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
-
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
     setProfileSaved(true);
@@ -96,10 +93,11 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   const handleRegToggle = (key: keyof typeof regToggles) => setRegToggles((p) => ({ ...p, [key]: !p[key] }));
   const handleRuleToggle = (id: string) => setRules((p) => p.map((r) => r.id === id ? { ...r, enabled: !r.enabled } : r));
   const handleDeleteRule = (id: string) => setRules((p) => p.filter((r) => r.id !== id));
+
   const handleAddRule = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRule.name) return;
-    setRules((p) => [...p, { id: 'r' + (p.length + 1), name: newRule.name, desc: newRule.desc || 'No description.', enabled: true }]);
+    if (!newRule.name.trim()) return;
+    setRules((p) => [...p, { id: `r${p.length + 1}`, name: newRule.name, desc: newRule.desc || 'No description.', enabled: true }]);
     setNewRule({ name: '', desc: '' });
   };
 
@@ -135,22 +133,15 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
         </div>
       </div>
 
-      {/* Save toast */}
-      {saved && (
-        <div className="p-4 bg-emerald-950/40 border border-emerald-800 text-emerald-300 rounded-2xl font-sans text-xs font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Changes saved successfully!
-        </div>
-      )}
-
       <div className="flex flex-col lg:flex-row gap-6">
 
-        {/* Sidebar tabs */}
+        {/* Sidebar */}
         <aside className="lg:w-56 shrink-0">
           <nav className="space-y-1">
             {tabs.map((t) => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-sans text-sm transition-all ${
-                  activeTab === t.id
+                  resolvedTab === (t.id === 'account' ? 'profile' : t.id)
                     ? 'bg-[#D4AF37]/12 text-[#D4AF37] border border-[#D4AF37]/20'
                     : 'text-white/60 hover:bg-white/5 hover:text-white'
                 }`}>
@@ -160,7 +151,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
           </nav>
         </aside>
 
-        {/* Content panel */}
+        {/* Content */}
         <div className="flex-1 min-w-0">
 
           {/* ── Profile ──────────────────────────────────────────────────── */}
@@ -183,23 +174,16 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5"><label className={labelCls}>Full Name</label>
                     <input type="text" required value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} className={inputCls} /></div>
-                  <div className="space-y-1.5"><label className={labelCls}>Designation / Role Title</label>
+                  <div className="space-y-1.5"><label className={labelCls}>Designation</label>
                     <input type="text" disabled value={profile.title} className="w-full px-3.5 py-2.5 bg-white/5 border border-white/5 rounded-xl text-xs text-white/40 cursor-not-allowed" /></div>
                   <div className="space-y-1.5"><label className={labelCls}>Email Address</label>
                     <input type="email" required value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} className={inputCls} /></div>
                   <div className="space-y-1.5"><label className={labelCls}>Phone Number</label>
                     <input type="text" required value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} className={inputCls} /></div>
                 </div>
-
-                <div className="flex justify-end items-center gap-3 pt-2">
-                  {profileSaved && (
-                    <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
-                      <CheckCheck className="w-4 h-4" /> Saved
-                    </span>
-                  )}
-                  <Button variant="gold" size="sm" type="submit" className="font-semibold text-xs py-2 flex items-center gap-1">
-                    <Save className="w-3.5 h-3.5" /> Save Profile Info
-                  </Button>
+                <div className="flex justify-end items-center gap-3 pt-1">
+                  {profileSaved && <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold"><CheckCheck className="w-4 h-4" /> Saved</span>}
+                  <Button variant="gold" size="sm" type="submit" icon={<Save className="w-3.5 h-3.5" />}>Save Profile</Button>
                 </div>
               </form>
             </div>
@@ -223,19 +207,10 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                     <input type="password" required placeholder="••••••••••••" value={password.confirm}
                       onChange={(e) => setPassword((p) => ({ ...p, confirm: e.target.value }))} className={inputCls} /></div>
                 </div>
-
-                <div className="flex justify-end items-center gap-3 pt-2">
-                  {passwordError && (
-                    <span className="text-xs text-red-400 font-semibold">{passwordError}</span>
-                  )}
-                  {passwordSaved && (
-                    <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
-                      <CheckCheck className="w-4 h-4" /> Credentials updated
-                    </span>
-                  )}
-                  <Button variant="gold" size="sm" type="submit" className="font-semibold text-xs py-2 flex items-center gap-1">
-                    <Save className="w-3.5 h-3.5" /> Save Credentials
-                  </Button>
+                <div className="flex justify-end items-center gap-3 pt-1">
+                  {passwordError && <span className="text-xs text-red-400 font-semibold">{passwordError}</span>}
+                  {passwordSaved && <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold"><CheckCheck className="w-4 h-4" /> Updated</span>}
+                  <Button variant="gold" size="sm" type="submit" icon={<Save className="w-3.5 h-3.5" />}>Update Password</Button>
                 </div>
               </form>
             </div>
@@ -318,10 +293,10 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
                     {[
-                      { key: 'openDate',     label: 'Open Date' },
-                      { key: 'closeDate',    label: 'Close Date' },
-                      { key: 'addDeadline',  label: 'Add Deadline' },
-                      { key: 'dropDeadline', label: 'Drop Deadline' },
+                      { key: 'openDate',    label: 'Open Date' },
+                      { key: 'closeDate',   label: 'Close Date' },
+                      { key: 'addDeadline', label: 'Add Deadline' },
+                      { key: 'dropDeadline',label: 'Drop Deadline' },
                     ].map((f) => (
                       <div key={f.key} className="space-y-1.5">
                         <label className="text-[11px] font-mono text-white/40 uppercase">{f.label}</label>
@@ -374,9 +349,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-semibold text-white">{rule.name}</p>
-                          <button onClick={() => handleDeleteRule(rule.id)} className="text-white/30 hover:text-red-400 transition-colors" title="Remove">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <button onClick={() => handleDeleteRule(rule.id)} className="text-white/30 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                         <p className="text-[10px] text-white/50 leading-relaxed">{rule.desc}</p>
                       </div>
@@ -420,17 +393,5 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
         </div>
       </div>
     </motion.div>
-
-    <ConfirmModal
-      isOpen={!!revokeTarget}
-      onClose={() => setRevokeTarget(null)}
-      onConfirm={handleRevokeConfirm}
-      title="Revoke Session"
-      message="Are you sure you want to terminate this authenticated device session?"
-      icon={<LogOut className="w-6 h-6" />}
-      variant="danger"
-      confirmLabel="Revoke Session"
-    />
-    </>
   );
 };

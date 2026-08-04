@@ -23,7 +23,7 @@ const tabLabels: Record<DHNavTab, string> = {
   overview: 'Dashboard Overview', courses: 'Course Offerings', faculty: 'Faculty Management',
   students: 'Student Performance', reports: 'Department Reports', attendance: 'Attendance Tracking',
   approvals: 'Approval Center', leave_requests: 'Faculty Leave Requests',
-  notifications: 'Notification Center', audit_log: 'Audit Log', settings: 'Settings',
+  notifications: 'Notification Center', audit_log: 'Audit Log', settings: 'Settings', messages: 'Messages',
 };
 
 export const DHHeader: React.FC<DHHeaderProps> = ({

@@ -16,7 +16,8 @@ export type InstructorNavTab =
   | 'reports'
   | 'notifications'
   | 'audit_log'
-  | 'settings';
+  | 'settings'
+  | 'messages';
 
 // ── Instructor Profile ────────────────────────────────────────────────────────
 export interface InstructorProfile {

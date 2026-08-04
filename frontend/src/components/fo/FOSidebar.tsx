@@ -7,6 +7,7 @@ import {
   BarChart3, RefreshCw, Bell, ClipboardList, Settings, LogOut, Landmark,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { ChatSidebarButton } from '../chat/ChatSidebarButton';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
 
@@ -119,6 +120,7 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
 
       {/* Bottom section */}
       <div className="mt-auto ds-sidebar-divider border-t pt-4 space-y-1">
+        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
         <motion.button
           onClick={() => setActiveTab('settings')}
           whileHover={GESTURE.navHover}

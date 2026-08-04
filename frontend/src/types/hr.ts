@@ -13,7 +13,8 @@ export type HRNavTab =
   | 'reports'
   | 'notifications'
   | 'audit_log'
-  | 'settings';
+  | 'settings'
+  | 'messages';
 
 // ── HR Officer Profile ────────────────────────────────────────────────────────
 export interface HROfficerProfile {
