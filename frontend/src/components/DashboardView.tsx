@@ -10,6 +10,7 @@ import {
   ChevronRight,
   MapPin,
   BookOpen,
+  ClipboardList,
   X,
   FileText,
   GraduationCap,
@@ -70,8 +71,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </p>
               <div className="pt-2 flex flex-wrap gap-3">
                 <Button variant="primary" onClick={() => setActiveTab('my_courses')} icon={<BookOpen className="w-4 h-4" />}>My Courses</Button>
+                <Button variant="secondary" onClick={() => setActiveTab('assignments')} icon={<ClipboardList className="w-4 h-4" />}>Assignments</Button>
                 <Button variant="secondary" onClick={() => setActiveTab('grades')} icon={<GraduationCap className="w-4 h-4" />}>View Transcript</Button>
-                <Button variant="secondary" onClick={() => setActiveTab('financials')} icon={<CreditCard className="w-4 h-4" />}>Pay Tuition</Button>
               </div>
             </div>
             <div

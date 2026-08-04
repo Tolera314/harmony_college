@@ -5,6 +5,7 @@ import { NavTab, StudentProfile } from '../../types';
 import {
   LayoutDashboard,
   BookOpen,
+  ClipboardList,
   GraduationCap,
   CreditCard,
   BarChart3,
@@ -47,6 +48,8 @@ interface SidebarProps<T extends string = NavTab> {
 const defaultStudentNavItems: GenericNavItem<NavTab>[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { id: 'my_courses', label: 'My Courses', icon: <BookOpen className="w-5 h-5" />, badge: 'Fall 24' },
+  { id: 'assignments', label: 'Assignments', icon: <ClipboardList className="w-5 h-5" />, badge: '3 Due', badgeVariant: 'amber' },
+  { id: 'quizzes', label: 'Quizzes & Exams', icon: <HelpCircle className="w-5 h-5" /> },
   { id: 'grades', label: 'Grades & Transcript', icon: <GraduationCap className="w-5 h-5" /> },
   { id: 'financials', label: 'Financials & Tuition', icon: <CreditCard className="w-5 h-5" /> },
   { id: 'degree_audit', label: 'Degree Audit', icon: <BarChart3 className="w-5 h-5" />, badge: '85%' },

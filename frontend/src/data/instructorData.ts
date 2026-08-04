@@ -8,6 +8,7 @@ import type {
   InstructorProfile, ScheduleClass, AttendanceRecord, AttendanceSession, AttendanceStatus,
   Assessment, GradeEntry, CourseMaterial, Announcement,
   InstructorNotification, InstructorAuditEntry, ClockEntry,
+  InstructorQuiz
 } from '../types/instructor';
 
 // ── Instructor Profile ─────────────────────────────────────────────────────
@@ -55,6 +56,96 @@ export const assessments: Assessment[] = [
   { id: 'a08', courseId: 'c02', title: 'Dialogue Writing Quiz', type: 'Quiz', maxScore: 50, weight: 15, dueDate: 'Jul 12, 2024', status: 'Published' },
   { id: 'a09', courseId: 'c02', title: 'Midterm — Script Draft', type: 'Midterm', maxScore: 100, weight: 30, dueDate: 'Jul 08, 2024', status: 'Published' },
   { id: 'a10', courseId: 'c02', title: 'Final Screenplay', type: 'Final', maxScore: 100, weight: 30, dueDate: 'Sep 05, 2024', status: 'Draft' },
+];
+
+// ── Quizzes ───────────────────────────────────────────────────────────────
+export const instructorQuizzes: InstructorQuiz[] = [
+  {
+    id: 'q1',
+    courseId: 'c01',
+    title: 'Cinematography Fundamentals Quiz',
+    description: 'A comprehensive quiz on lens selection, f-stops, and basic framing.',
+    instructions: 'You have 30 minutes to complete this quiz. It consists of multiple choice and short answer questions.',
+    durationMinutes: 30,
+    availableDate: 'Jul 20, 2024',
+    closingDate: 'Jul 30, 2024',
+    passingScore: 60,
+    maxAttempts: 1,
+    shuffleQuestions: true,
+    shuffleAnswers: true,
+    showResultsImmediately: true,
+    status: 'Published',
+    questions: [
+      {
+        id: 'q1_1',
+        type: 'MCQ',
+        questionText: 'Which lens focal length is generally considered "normal" on a 35mm full-frame camera?',
+        options: ['35mm', '50mm', '85mm', '16mm'],
+        correctAnswer: '50mm',
+        points: 20
+      },
+      {
+        id: 'q1_2',
+        type: 'TrueFalse',
+        questionText: 'A lower f-stop number (e.g. f/1.4) results in a deeper depth of field.',
+        options: ['True', 'False'],
+        correctAnswer: 'False',
+        points: 20
+      },
+      {
+        id: 'q1_3',
+        type: 'ShortAnswer',
+        questionText: 'Briefly explain the rule of thirds.',
+        points: 60
+      }
+    ],
+    attempts: [
+      {
+        id: 'att_01',
+        studentId: 's01',
+        status: 'in_progress',
+        startedAt: 'Jul 21, 2024 10:15',
+        answers: { 'q1_1': '50mm' }
+      },
+      {
+        id: 'att_02',
+        studentId: 's08',
+        status: 'submitted',
+        startedAt: 'Jul 21, 2024 09:00',
+        submittedAt: 'Jul 21, 2024 09:25',
+        answers: { 'q1_1': '50mm', 'q1_2': 'True', 'q1_3': 'The rule of thirds divides the frame into 9 sections...' },
+        needsManualGrading: true
+      },
+      {
+        id: 'att_03',
+        studentId: 's15',
+        status: 'graded',
+        startedAt: 'Jul 20, 2024 14:00',
+        submittedAt: 'Jul 20, 2024 14:28',
+        score: 95,
+        answers: { 'q1_1': '50mm', 'q1_2': 'False', 'q1_3': 'It aligns subjects on intersection points of a 3x3 grid.' },
+        feedback: 'Excellent explanation.'
+      }
+    ]
+  },
+  {
+    id: 'q2',
+    courseId: 'c01',
+    title: 'Advanced Lighting Techniques',
+    description: 'Focuses on 3-point lighting, color temperature, and modifying light.',
+    instructions: '15 minutes. Multiple choice only.',
+    durationMinutes: 15,
+    availableDate: 'Aug 05, 2024',
+    closingDate: 'Aug 10, 2024',
+    passingScore: 70,
+    maxAttempts: 1,
+    shuffleQuestions: false,
+    shuffleAnswers: false,
+    showResultsImmediately: false,
+    status: 'Draft',
+    questions: [],
+    attempts: []
+  }
 ];
 
 // ── Grade Entries ──────────────────────────────────────────────────────────
@@ -213,3 +304,164 @@ export const instructorKPIs = {
 // ── Attendance sparkline data ──────────────────────────────────────────────
 export const attendanceSparkline = [96, 94, 91, 88, 90, 91, 89, 91];
 export const gradeSparkline = [72, 76, 78, 80, 82, 81, 84, 85];
+
+// \u2500\u2500 LMS Assignments \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+import type { LMSAssignment, AssignmentSubmission } from '../types/instructor';
+
+export const lmsAssignments: LMSAssignment[] = [
+  // FILM402 assignments
+  {
+    id: 'la01', courseId: 'c01',
+    title: 'Short Film Reel Submission',
+    description: 'Submit a 3\u20135 minute short film demonstrating mastery of RED camera systems, lighting design, and color grading principles covered in Weeks 1\u20136.',
+    instructions: '1. Export your film as H.264 MP4 at 1080p 24fps.\n2. Include a brief director\u2019s note (PDF, max 1 page) explaining your creative choices.\n3. Upload both files as a ZIP archive.\n4. File naming: FILM402_YourID_ShortFilm.zip',
+    dueDate: 'Aug 20, 2024 23:59',
+    maxMarks: 100,
+    allowedFileTypes: ['MP4', 'ZIP', 'PDF'],
+    maxFileSizeMB: 500,
+    submissionType: 'File Upload',
+    allowLateSubmission: true,
+    allowResubmission: false,
+    attachments: [{ name: 'Short Film Reel Brief.pdf', size: '0.6 MB', type: 'PDF' }, { name: 'Grading Rubric.pdf', size: '0.3 MB', type: 'PDF' }],
+    status: 'Published',
+    createdAt: 'Sep 10, 2024',
+    publishedAt: 'Sep 10, 2024',
+    totalSubmissions: 3,
+    gradedCount: 0,
+  },
+  {
+    id: 'la02', courseId: 'c01',
+    title: 'Camera Technique Analysis Essay',
+    description: 'Analyze the cinematographic techniques used in a film of your choice. Focus on camera movement, lens selection, and lighting design.',
+    instructions: '1. Write a 1,500\u20132,000 word essay.\n2. Include at least 5 scholarly references.\n3. Submit as a DOCX or PDF.\n4. File naming: FILM402_YourID_Essay.pdf',
+    dueDate: 'Sep 05, 2024 23:59',
+    maxMarks: 50,
+    allowedFileTypes: ['PDF', 'DOCX'],
+    maxFileSizeMB: 10,
+    submissionType: 'Both',
+    allowLateSubmission: false,
+    allowResubmission: true,
+    attachments: [{ name: 'Essay Guidelines.pdf', size: '0.2 MB', type: 'PDF' }],
+    status: 'Published',
+    createdAt: 'Aug 20, 2024',
+    publishedAt: 'Aug 20, 2024',
+    totalSubmissions: 4,
+    gradedCount: 4,
+  },
+  {
+    id: 'la03', courseId: 'c01',
+    title: 'Color Grading Project',
+    description: 'Apply professional color grading techniques to the provided raw footage using DaVinci Resolve. Demonstrate your understanding of primary/secondary corrections and LUT workflow.',
+    instructions: '1. Download the provided RAW footage package.\n2. Apply primary and secondary color corrections.\n3. Export graded footage as ProRes or H.264.\n4. Include a brief workflow PDF.\n5. Submit as ZIP.',
+    dueDate: 'Oct 15, 2024 23:59',
+    maxMarks: 100,
+    allowedFileTypes: ['ZIP', 'MP4', 'PDF'],
+    maxFileSizeMB: 2000,
+    submissionType: 'File Upload',
+    allowLateSubmission: true,
+    allowResubmission: true,
+    attachments: [{ name: 'Raw Footage Package Link.pdf', size: '0.1 MB', type: 'PDF' }, { name: 'Color Grading Rubric.pdf', size: '0.4 MB', type: 'PDF' }],
+    status: 'Draft',
+    createdAt: 'Oct 01, 2024',
+    totalSubmissions: 0,
+    gradedCount: 0,
+  },
+  {
+    id: 'la04', courseId: 'c01',
+    title: 'Midterm Scene Direction',
+    description: 'Direct a 2-minute scene with at least two actors demonstrating your understanding of blocking, camera placement, and on-set communication.',
+    instructions: '1. Prepare a shot list and storyboard (PDF).\n2. Record your scene (min 1080p).\n3. Submit recording + storyboard as ZIP.',
+    dueDate: 'Jul 10, 2024 23:59',
+    maxMarks: 100,
+    allowedFileTypes: ['ZIP', 'MP4'],
+    maxFileSizeMB: 1000,
+    submissionType: 'File Upload',
+    allowLateSubmission: false,
+    allowResubmission: false,
+    attachments: [],
+    status: 'Closed',
+    createdAt: 'Jun 20, 2024',
+    publishedAt: 'Jun 20, 2024',
+    totalSubmissions: 4,
+    gradedCount: 4,
+  },
+  // FILM301 assignments
+  {
+    id: 'la05', courseId: 'c02',
+    title: 'Three-Act Structure Essay',
+    description: 'Write a critical analysis of the three-act structure in a contemporary screenplay. Identify the key structural beats and argue for or against their effectiveness.',
+    instructions: '1. Choose a produced screenplay from the approved list.\n2. Write 1,200\u20131,800 words.\n3. Submit as PDF.\n4. Use APA citation format.',
+    dueDate: 'Aug 10, 2024 23:59',
+    maxMarks: 100,
+    allowedFileTypes: ['PDF', 'DOCX'],
+    maxFileSizeMB: 15,
+    submissionType: 'Both',
+    allowLateSubmission: true,
+    allowResubmission: false,
+    attachments: [{ name: 'Approved Screenplay List.pdf', size: '0.1 MB', type: 'PDF' }],
+    status: 'Published',
+    createdAt: 'Jul 25, 2024',
+    publishedAt: 'Jul 25, 2024',
+    totalSubmissions: 3,
+    gradedCount: 1,
+  },
+  {
+    id: 'la06', courseId: 'c02',
+    title: 'Dialogue Workshop: Scene Rewrite',
+    description: 'Rewrite a provided scene with weak dialogue. Demonstrate subtext, character voice, and dramatic tension through improved dialogue.',
+    instructions: '1. Download the provided scene draft.\n2. Rewrite the scene (2\u20134 pages, Fountain/Final Draft format).\n3. Include a 200-word rationale explaining your choices.\n4. Submit as PDF.',
+    dueDate: 'Sep 01, 2024 23:59',
+    maxMarks: 75,
+    allowedFileTypes: ['PDF'],
+    maxFileSizeMB: 10,
+    submissionType: 'Both',
+    allowLateSubmission: true,
+    allowResubmission: true,
+    attachments: [{ name: 'Scene Draft — Rewrite Task.pdf', size: '0.2 MB', type: 'PDF' }, { name: 'Dialogue Rubric.pdf', size: '0.2 MB', type: 'PDF' }],
+    status: 'Published',
+    createdAt: 'Aug 15, 2024',
+    publishedAt: 'Aug 15, 2024',
+    totalSubmissions: 4,
+    gradedCount: 4,
+  },
+  {
+    id: 'la07', courseId: 'c02',
+    title: 'Final Screenplay — First Draft',
+    description: 'Submit the first draft of your original feature-length screenplay. Minimum 90 pages, industry-standard format.',
+    instructions: '1. Format using Final Draft or Fountain.\n2. Export as PDF.\n3. Include a logline and synopsis page.\n4. Min 90 pages, max 120 pages.',
+    dueDate: 'Nov 01, 2024 23:59',
+    maxMarks: 100,
+    allowedFileTypes: ['PDF'],
+    maxFileSizeMB: 50,
+    submissionType: 'File Upload',
+    allowLateSubmission: false,
+    allowResubmission: true,
+    attachments: [{ name: 'Final Screenplay Rubric.pdf', size: '0.5 MB', type: 'PDF' }],
+    status: 'Draft',
+    createdAt: 'Oct 10, 2024',
+    totalSubmissions: 0,
+    gradedCount: 0,
+  },
+];
+
+// \u2500\u2500 Assignment Submissions \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+export const assignmentSubmissions: AssignmentSubmission[] = [
+  // la01 \u2014 Short Film Reel (3 submitted, 0 graded)
+  { id: 'sub01', assignmentId: 'la01', studentId: 's01', submittedAt: 'Aug 19, 2024 22:14', status: 'Submitted', fileAttachments: [{ name: 'FILM402_s01_ShortFilm.zip', size: '312 MB', type: 'ZIP' }], isLate: false },
+  { id: 'sub02', assignmentId: 'la01', studentId: 's08', submittedAt: 'Aug 20, 2024 18:03', status: 'Submitted', fileAttachments: [{ name: 'FILM402_s08_ShortFilm.zip', size: '278 MB', type: 'ZIP' }], isLate: false },
+  { id: 'sub03', assignmentId: 'la01', studentId: 's15', submittedAt: 'Aug 21, 2024 01:22', status: 'Late', fileAttachments: [{ name: 'FILM402_s15_ShortFilm.zip', size: '420 MB', type: 'ZIP' }], isLate: true },
+  // la02 \u2014 Camera Technique Essay (4 submitted, 4 graded)
+  { id: 'sub04', assignmentId: 'la02', studentId: 's01', submittedAt: 'Sep 04, 2024 20:00', status: 'Graded', fileAttachments: [{ name: 'FILM402_s01_Essay.pdf', size: '1.2 MB', type: 'PDF' }], textAnswer: 'In "2001: A Space Odyssey", Kubrick masterfully employs symmetric framing...', score: 46, feedback: 'Excellent analysis of lens choices. Your discussion of depth-of-field is particularly insightful. Consider expanding the section on lighting design.', gradedAt: 'Sep 08, 2024', isLate: false },
+  { id: 'sub05', assignmentId: 'la02', studentId: 's08', submittedAt: 'Sep 05, 2024 10:30', status: 'Graded', fileAttachments: [{ name: 'FILM402_s08_Essay.pdf', size: '0.9 MB', type: 'PDF' }], score: 41, feedback: 'Good understanding of camera movement techniques. The essay would benefit from stronger scholarly references and a more structured argument.', gradedAt: 'Sep 08, 2024', isLate: false },
+  { id: 'sub06', assignmentId: 'la02', studentId: 's15', submittedAt: 'Sep 04, 2024 08:15', status: 'Graded', fileAttachments: [{ name: 'FILM402_s15_Essay.pdf', size: '1.5 MB', type: 'PDF' }], score: 49, feedback: 'Exceptional work. Your analysis of the Dardenne brothers\u2019 handheld aesthetic is the most sophisticated submission in the class. Near-perfect.', gradedAt: 'Sep 09, 2024', isLate: false },
+  { id: 'sub07', assignmentId: 'la02', studentId: 's17', submittedAt: 'Sep 05, 2024 23:55', status: 'Graded', fileAttachments: [{ name: 'FILM402_s17_Essay.pdf', size: '0.8 MB', type: 'PDF' }], score: 35, feedback: 'The essay covers the topic but lacks depth. Several claims are made without supporting evidence. Please revisit the grading rubric.', gradedAt: 'Sep 09, 2024', isLate: false },
+  // la05 \u2014 Three-Act Essay (3 submitted, 1 graded)
+  { id: 'sub08', assignmentId: 'la05', studentId: 's04', submittedAt: 'Aug 09, 2024 15:00', status: 'Graded', fileAttachments: [{ name: 'FILM301_s04_ThreeAct.pdf', size: '0.7 MB', type: 'PDF' }], score: 72, feedback: 'Solid structural analysis. Your argument about the second act midpoint is well-supported. Improve your thesis statement for greater clarity.', gradedAt: 'Aug 12, 2024', isLate: false },
+  { id: 'sub09', assignmentId: 'la05', studentId: 's08', submittedAt: 'Aug 10, 2024 22:45', status: 'Submitted', fileAttachments: [{ name: 'FILM301_s08_ThreeAct.pdf', size: '0.9 MB', type: 'PDF' }], isLate: false },
+  { id: 'sub10', assignmentId: 'la05', studentId: 's19', submittedAt: 'Aug 11, 2024 09:10', status: 'Late', fileAttachments: [{ name: 'FILM301_s19_ThreeAct.pdf', size: '0.6 MB', type: 'PDF' }], isLate: true },
+  // la06 \u2014 Dialogue Rewrite (4 submitted, 4 graded)
+  { id: 'sub11', assignmentId: 'la06', studentId: 's04', submittedAt: 'Aug 31, 2024 20:00', status: 'Graded', fileAttachments: [{ name: 'FILM301_s04_Dialogue.pdf', size: '0.4 MB', type: 'PDF' }], textAnswer: 'My revision focuses on subtext through pauses and deflection rather than direct statement...', score: 65, feedback: 'Good instincts for subtext. The revised dialogue is more natural, but some lines still feel on-the-nose. Continue to trust the actors to carry the meaning.', gradedAt: 'Sep 03, 2024', isLate: false },
+  { id: 'sub12', assignmentId: 'la06', studentId: 's08', submittedAt: 'Sep 01, 2024 14:20', status: 'Graded', fileAttachments: [{ name: 'FILM301_s08_Dialogue.pdf', size: '0.5 MB', type: 'PDF' }], score: 70, feedback: 'Excellent command of character voice. Each character sounds distinct. The rationale demonstrates strong analytical thinking.', gradedAt: 'Sep 03, 2024', isLate: false },
+  { id: 'sub13', assignmentId: 'la06', studentId: 's11', submittedAt: 'Sep 01, 2024 23:50', status: 'Graded', fileAttachments: [{ name: 'FILM301_s11_Dialogue.pdf', size: '0.3 MB', type: 'PDF' }], score: 58, feedback: 'The rewrite shows improvement over the original. The rationale could be more specific about the dramatic intent of each change.', gradedAt: 'Sep 04, 2024', isLate: false },
+  { id: 'sub14', assignmentId: 'la06', studentId: 's19', submittedAt: 'Aug 30, 2024 18:00', status: 'Graded', fileAttachments: [{ name: 'FILM301_s19_Dialogue.pdf', size: '0.4 MB', type: 'PDF' }], score: 68, feedback: 'Very strong work. The scene has genuine tension now. Minor formatting inconsistencies in the screenplay format.', gradedAt: 'Sep 04, 2024', isLate: false },
+];

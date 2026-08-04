@@ -50,16 +50,122 @@ export const initialActiveCourses: Course[] = [
     attendanceRate: 97,
     currentGrade: 'A',
     assignments: [
-      { id: 'a1', title: 'Short Narrative Dramatic Scene Edit', dueDate: 'Tomorrow, 11:59 PM', points: 100, status: 'pending' },
-      { id: 'a2', title: 'Lighting Breakdown & Camera Test', dueDate: 'Jul 26, 2024', points: 50, status: 'pending' },
-      { id: 'a3', title: 'Color Grading & Sound Master Reel', dueDate: 'Jul 12, 2024', points: 100, status: 'graded', grade: 'A (98%)' }
+      {
+        id: 'a1',
+        title: 'Short Narrative Dramatic Scene Edit',
+        dueDate: 'Tomorrow, 11:59 PM',
+        points: 100,
+        status: 'pending',
+        description: 'Edit the provided raw footage of a 2-person dramatic scene. Focus on maintaining continuity, pacing for dramatic tension, and creative split-edits to emphasize subtext.',
+        instructions: '1. Download the raw footage package (1080p ProRes).\n2. Create a rough cut focusing on the emotional beats.\n3. Apply final audio crossfades and a basic color pass.\n4. Export as FILM402_DramaticScene_YourName.mp4 at H.264 24fps.\n5. Max file size: 250 MB.',
+        attachments: [
+          { name: 'Dramatic Scene Screenplay Page.pdf', size: '150 KB', type: 'PDF' },
+          { name: 'Footage Download Link.txt', size: '1 KB', type: 'TXT' }
+        ]
+      },
+      {
+        id: 'a2',
+        title: 'Lighting Breakdown & Camera Test',
+        dueDate: 'Jul 26, 2024',
+        points: 50,
+        status: 'pending',
+        description: 'Submit a detailed schematic and storyboard illustrating a 3-point lighting setup for a high-contrast noir scene, along with a test shot video/image.',
+        instructions: '1. Draw a top-down lighting diagram (Key, Fill, Backlight, Background lights).\n2. Note the intensity ratio, color temperature, and diffusion materials used.\n3. Take a reference shot showing the final look.\n4. Submit the diagram and shot as a single PDF or ZIP folder.',
+        attachments: [
+          { name: 'Lighting Schematic Template.pdf', size: '420 KB', type: 'PDF' }
+        ]
+      },
+      {
+        id: 'a3',
+        title: 'Color Grading & Sound Master Reel',
+        dueDate: 'Jul 12, 2024',
+        points: 100,
+        status: 'graded',
+        grade: 'A (98%)',
+        score: 98,
+        description: 'Apply advanced color grading and spatial sound mastering techniques to your midterm film project.',
+        instructions: '1. Use DaVinci Resolve for primary color wheel balances and secondary qualifier adjustments.\n2. In Cubase, master the stereo soundscape: adjust dynamic ranges and EQ parameters.\n3. Submit the final rendered clip and a brief workflow statement.',
+        attachments: [],
+        submittedAt: 'Jul 11, 2024 10:42 PM',
+        submittedFile: { name: 'FILM402_MasterReel_SelamA.zip', size: '185 MB' },
+        submittedText: 'Completed primary color wheel balancing, isolated skin tones using qualifiers for custom saturation levels, and mastered the audio track in Cubase Pro using standard limiting and EQ sweeps.',
+        feedback: 'Superb execution, Selam! The skin tones look perfectly natural and contrast holds up beautifully in the shadow details. The sound master is crisp, dialogue is extremely clear, and VST score level transitions are perfectly smooth. Outstanding reel.'
+      }
+    ],
+    quizzes: [
+      {
+        id: 'q1',
+        title: 'Cinematography Fundamentals Quiz',
+        description: 'A comprehensive quiz on lens selection, f-stops, and basic framing.',
+        instructions: 'You have 30 minutes to complete this quiz. It consists of multiple choice and short answer questions.',
+        durationMinutes: 30,
+        availableDate: 'Jul 20, 2024',
+        closingDate: 'Jul 30, 2024',
+        passingScore: 60,
+        maxAttempts: 1,
+        totalPoints: 100,
+        showResultsImmediately: true,
+        questions: [
+          {
+            id: 'q1_1',
+            type: 'MCQ',
+            questionText: 'Which lens focal length is generally considered "normal" on a 35mm full-frame camera?',
+            options: ['35mm', '50mm', '85mm', '16mm'],
+            points: 20
+          },
+          {
+            id: 'q1_2',
+            type: 'TrueFalse',
+            questionText: 'A lower f-stop number (e.g. f/1.4) results in a deeper depth of field.',
+            options: ['True', 'False'],
+            points: 20
+          },
+          {
+            id: 'q1_3',
+            type: 'ShortAnswer',
+            questionText: 'Briefly explain the rule of thirds.',
+            points: 60
+          }
+        ],
+        attempt: undefined // Not attempted yet
+      },
+      {
+        id: 'q2',
+        title: 'Color Grading Terminology',
+        description: 'Test your knowledge on color wheels, scopes, and luts.',
+        instructions: '15 minutes. Multiple choice only.',
+        durationMinutes: 15,
+        availableDate: 'Jul 01, 2024',
+        closingDate: 'Jul 10, 2024',
+        passingScore: 70,
+        maxAttempts: 2,
+        totalPoints: 50,
+        showResultsImmediately: true,
+        questions: [
+          {
+            id: 'q2_1',
+            type: 'MCQ',
+            questionText: 'Which scope is best used to check for skin tone accuracy?',
+            options: ['Waveform', 'Vectorscope', 'Histogram', 'RGB Parade'],
+            points: 50
+          }
+        ],
+        attempt: {
+          status: 'graded',
+          startedAt: 'Jul 05, 2024 14:00',
+          submittedAt: 'Jul 05, 2024 14:10',
+          score: 50,
+          answers: { 'q2_1': 'Vectorscope' },
+          feedback: 'Perfect!'
+        }
+      }
     ]
   },
   {
     id: 'audio301',
     code: 'AUDIO301',
     title: 'Cubase Audio Engineering & Music Production',
-    department: 'Cubase & Music Production',
+    department: 'Audio Engineering',
     credits: 4,
     instructor: 'Prof. Sarah Jenkins',
     instructorTitle: 'Head of Audio Engineering',
@@ -75,8 +181,36 @@ export const initialActiveCourses: Course[] = [
     attendanceRate: 91,
     currentGrade: 'A-',
     assignments: [
-      { id: 'b1', title: 'Full Track Stereo Mixing & Mastering', dueDate: 'Jul 15, 2024', points: 100, status: 'graded', grade: 'A (95%)' },
-      { id: 'b2', title: 'Vocal Tuning & Compression Benchmark', dueDate: 'Jul 08, 2024', points: 50, status: 'graded', grade: 'A+ (100%)' }
+      {
+        id: 'b1',
+        title: 'Full Track Stereo Mixing & Mastering',
+        dueDate: 'Jul 15, 2024',
+        points: 100,
+        status: 'graded',
+        grade: 'A (95%)',
+        score: 95,
+        description: 'Mix and master the provided 24-track multi-track session inside Cubase Pro. Demonstrate advanced routing and compression techniques.',
+        instructions: '1. Download the stems.\n2. Balance levels, pan positions, and insert primary compressors.\n3. Route sub-mixes to group channels.\n4. Apply final stereo bus compression and limiting.\n5. Export as 24-bit 48kHz WAV.',
+        attachments: [],
+        submittedAt: 'Jul 15, 2024 04:12 PM',
+        submittedFile: { name: 'AUDIO301_StereoMaster_Selam.wav', size: '48 MB' },
+        feedback: 'Clean mix with beautiful frequency separation. The drums feel punchy and the vocals sit perfectly in the center. The stereo width is excellent, although the low-end could be tamed slightly around 60Hz. Great job!'
+      },
+      {
+        id: 'b2',
+        title: 'Vocal Tuning & Compression Benchmark',
+        dueDate: 'Jul 08, 2024',
+        points: 50,
+        status: 'graded',
+        grade: 'A+ (100%)',
+        score: 50,
+        description: 'Tune a lead vocal track using Cubase VariAudio and apply multi-band compression for dynamic consistency.',
+        instructions: '1. Use VariAudio to fix pitch discrepancies on the vocal stem.\n2. Smooth out vibrato and transitions.\n3. Apply dynamic multi-band compression.\n4. Submit the tuned audio file.',
+        attachments: [],
+        submittedAt: 'Jul 07, 2024 09:15 PM',
+        submittedFile: { name: 'VariAudio_VocalTuned_Final.wav', size: '12 MB' },
+        feedback: 'Faultless vocal pitch correction. Extremely transparent pitch-shifts that do not sound robotic. Compression settings hold the performance in a tight dynamic window. Perfect score.'
+      }
     ]
   },
   {
@@ -99,9 +233,43 @@ export const initialActiveCourses: Course[] = [
     attendanceRate: 100,
     currentGrade: 'A+',
     assignments: [
-      { id: 'c1', title: 'Brand Identity & Digital Campaign Deck', dueDate: 'Tomorrow, 02:00 PM', points: 150, status: 'pending' },
-      { id: 'c2', title: 'Vector Typography & Poster Portfolio', dueDate: 'Jul 28, 2024', points: 100, status: 'pending' },
-      { id: 'c3', title: 'Social Media Analytics & UI Mockup', dueDate: 'Jul 05, 2024', points: 80, status: 'graded', grade: 'A (96%)' }
+      {
+        id: 'c1',
+        title: 'Brand Identity & Digital Campaign Deck',
+        dueDate: 'Tomorrow, 02:00 PM',
+        points: 150,
+        status: 'pending',
+        description: 'Create a full visual identity and campaign deck for a sustainable consumer brand. Include logo options, color palettes, typography guidelines, and mock social ads.',
+        instructions: '1. Build a vector brand kit in Illustrator.\n2. Compose a 10-slide strategy presentation (PDF).\n3. Showcase color codes (HEX/CMYK), logo applications, and target demographic details.',
+        attachments: [
+          { name: 'Brand Strategy Presentation Guide.pdf', size: '1.2 MB', type: 'PDF' }
+        ]
+      },
+      {
+        id: 'c2',
+        title: 'Vector Typography & Poster Portfolio',
+        dueDate: 'Jul 28, 2024',
+        points: 100,
+        status: 'pending',
+        description: 'Design a series of three visual posters featuring custom typography. Focus on hierarchy, readability, and modern graphic motifs.',
+        instructions: '1. Develop your designs at A2 poster size.\n2. Use vector paths exclusively for type elements.\n3. Export as high-resolution print PDF.',
+        attachments: []
+      },
+      {
+        id: 'c3',
+        title: 'Social Media Analytics & UI Mockup',
+        dueDate: 'Jul 05, 2024',
+        points: 80,
+        status: 'graded',
+        grade: 'A (96%)',
+        score: 77,
+        description: 'Construct a Figma UI mockup for a brand landing page and prepare a marketing forecast spreadsheet.',
+        instructions: '1. Create a responsive landing page mockup in Figma.\n2. Document your layout grids and design system components.\n3. Submit your Figma workspace link and forecast PDF.',
+        attachments: [],
+        submittedAt: 'Jul 04, 2024 11:15 PM',
+        submittedText: 'Designed page layouts for mobile and desktop viewports, set up global styles, and compiled campaign analytics forecast in the attached document.',
+        feedback: 'Beautifully polished layouts. The typography scales correctly on mobile, and the components are extremely clean. Well done!'
+      }
     ]
   }
 ];
