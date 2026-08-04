@@ -428,6 +428,17 @@ export const MyCoursesView: React.FC<MyCoursesViewProps> = ({ enrolledCourses, s
                             </div>
                           ))}
                         </div>
+                        <Button
+                          variant="ghost"
+                          className="w-full text-xs font-semibold"
+                          icon={<ClipboardList className="w-4 h-4" />}
+                          onClick={() => {
+                            setSelectedCourse(null);
+                            setActiveTab('assignments');
+                          }}
+                        >
+                          View All in Assignments Hub
+                        </Button>
                       </div>
                     </>
                   )}

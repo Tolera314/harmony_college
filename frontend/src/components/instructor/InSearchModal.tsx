@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, X, BookOpen, GraduationCap, ClipboardList, FolderOpen, Megaphone } from 'lucide-react';
+import { Search, X, BookOpen, GraduationCap, ClipboardList, ClipboardCheck, FolderOpen, Megaphone } from 'lucide-react';
 import { InstructorNavTab } from '../../types/instructor';
 import { students } from '../../data/departmentData';
-import { assessments, courseMaterials, announcements, film402StudentIds, film301StudentIds } from '../../data/instructorData';
+import { assessments, courseMaterials, announcements, film402StudentIds, film301StudentIds, lmsAssignments } from '../../data/instructorData';
 
 interface InSearchModalProps {
   isOpen: boolean;
@@ -39,6 +39,7 @@ export const InSearchModal: React.FC<InSearchModalProps> = ({ isOpen, onClose, o
   const allResults: Result[] = [
     ...myStudents.map(s => ({ id: s.id, label: s.name, sub: `${s.studentId} · ${s.program}`, tab: 'students' as InstructorNavTab, icon: <GraduationCap className="w-4 h-4" /> })),
     ...assessments.map(a => ({ id: a.id, label: a.title, sub: `${a.type} · ${a.courseId === 'c01' ? 'FILM402' : 'FILM301'}`, tab: 'grades' as InstructorNavTab, icon: <ClipboardList className="w-4 h-4" /> })),
+    ...lmsAssignments.map(a => ({ id: a.id, label: a.title, sub: `Assignment · ${a.courseId === 'c01' ? 'FILM402' : 'FILM301'}`, tab: 'assignments' as InstructorNavTab, icon: <ClipboardCheck className="w-4 h-4" /> })),
     ...courseMaterials.map(m => ({ id: m.id, label: m.title, sub: `${m.type} · ${m.courseId === 'c01' ? 'FILM402' : 'FILM301'}`, tab: 'materials' as InstructorNavTab, icon: <FolderOpen className="w-4 h-4" /> })),
     ...announcements.map(a => ({ id: a.id, label: a.title, sub: `${a.audience} · ${a.status}`, tab: 'announcements' as InstructorNavTab, icon: <Megaphone className="w-4 h-4" /> })),
   ];
@@ -52,6 +53,7 @@ export const InSearchModal: React.FC<InSearchModalProps> = ({ isOpen, onClose, o
     { tab: 'my_classes',    label: 'My Classes',       icon: <BookOpen className="w-4 h-4" /> },
     { tab: 'attendance',    label: 'Attendance',       icon: <Search className="w-4 h-4" /> },
     { tab: 'grades',        label: 'Grades',           icon: <ClipboardList className="w-4 h-4" /> },
+    { tab: 'assignments',   label: 'Assignments',      icon: <ClipboardCheck className="w-4 h-4" /> },
     { tab: 'students',      label: 'Students',         icon: <GraduationCap className="w-4 h-4" /> },
     { tab: 'materials',     label: 'Materials',        icon: <FolderOpen className="w-4 h-4" /> },
     { tab: 'announcements', label: 'Announcements',    icon: <Megaphone className="w-4 h-4" /> },

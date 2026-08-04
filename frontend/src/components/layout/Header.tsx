@@ -44,6 +44,8 @@ const defaultStudentTabLabels: Record<NavTab, string> = {
   dashboard: 'Dashboard',
   my_courses: 'My Courses',
   registration: 'Course Registration',
+  assignments: 'Assignments',
+  quizzes: 'Quizzes & Exams',
   grades: 'Grades & Transcript',
   financials: 'Financials & Tuition',
   degree_audit: 'Degree Audit',

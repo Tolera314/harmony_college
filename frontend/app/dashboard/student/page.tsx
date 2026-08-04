@@ -12,12 +12,15 @@ import { FinancialsView } from '@/src/components/FinancialsView';
 import { DegreeAuditView } from '@/src/components/DegreeAuditView';
 import { SupportView } from '@/src/components/SupportView';
 import { SettingsView } from '@/src/components/SettingsView';
+import { StudentAssignmentsView } from '@/src/components/StudentAssignmentsView';
+import { StudentQuizzesView } from '@/src/components/StudentQuizzesView';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard,
   BookOpen,
+  ClipboardList,
   GraduationCap,
   CreditCard,
   BarChart3,
@@ -64,12 +67,14 @@ export default function StudentDashboardPage() {
   };
 
   const studentNavItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'my_courses', label: 'My Courses', icon: <BookOpen className="w-4 h-4" /> },
-    { id: 'grades', label: 'Grades & Transcript', icon: <GraduationCap className="w-4 h-4" /> },
-    { id: 'financials', label: 'Financials & Tuition', icon: <CreditCard className="w-4 h-4" /> },
-    { id: 'degree_audit', label: 'Degree Audit', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'support', label: 'Support & Advising', icon: <HelpCircle className="w-4 h-4" /> },
+    { id: 'dashboard',    label: 'Dashboard',          icon: <LayoutDashboard className="w-4 h-4" /> },
+    { id: 'my_courses',  label: 'My Courses',          icon: <BookOpen className="w-4 h-4" /> },
+    { id: 'assignments', label: 'Assignments',         icon: <ClipboardList className="w-4 h-4" /> },
+    { id: 'quizzes',     label: 'Quizzes & Exams',     icon: <HelpCircle className="w-4 h-4" /> },
+    { id: 'grades',      label: 'Grades & Transcript', icon: <GraduationCap className="w-4 h-4" /> },
+    { id: 'financials',  label: 'Financials & Tuition',icon: <CreditCard className="w-4 h-4" /> },
+    { id: 'degree_audit',label: 'Degree Audit',        icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'support',     label: 'Support & Advising',  icon: <HelpCircle className="w-4 h-4" /> },
   ];
 
   const renderView = () => {
@@ -93,6 +98,10 @@ export default function StudentDashboardPage() {
             setActiveTab={handleTabChange}
           />
         );
+      case 'assignments':
+        return <StudentAssignmentsView enrolledCourses={enrolledCourses} setActiveTab={handleTabChange} />;
+      case 'quizzes':
+        return <StudentQuizzesView />;
       case 'grades':
         return <GradesView profile={profile} grades={gradeHistory} />;
       case 'financials':

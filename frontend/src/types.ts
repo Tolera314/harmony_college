@@ -48,6 +48,8 @@ export type NavTab =
   | 'dashboard'
   | 'my_courses'
   | 'registration'
+  | 'assignments'
+  | 'quizzes'
   | 'grades'
   | 'financials'
   | 'degree_audit'
@@ -83,6 +85,49 @@ export interface Assignment {
   points: number;
   status: 'pending' | 'submitted' | 'graded';
   grade?: string;
+  description?: string;
+  instructions?: string;
+  attachments?: { name: string; size: string; type: string }[];
+  submittedAt?: string;
+  submittedFile?: { name: string; size: string };
+  submittedText?: string;
+  feedback?: string;
+  score?: number;
+}
+
+export type QuizQuestionType = 'MCQ' | 'TrueFalse' | 'FillBlank' | 'Matching' | 'ShortAnswer' | 'Essay';
+
+export interface QuizQuestion {
+  id: string;
+  type: QuizQuestionType;
+  questionText: string;
+  options?: string[]; // for MCQ, Matching
+  points: number;
+}
+
+export interface StudentQuizAttempt {
+  status: 'in_progress' | 'submitted' | 'graded';
+  startedAt?: string;
+  submittedAt?: string;
+  score?: number;
+  answers: Record<string, string>; // questionId -> answer
+  feedback?: string;
+}
+
+export interface StudentQuiz {
+  id: string;
+  title: string;
+  description?: string;
+  instructions?: string;
+  durationMinutes: number;
+  availableDate: string;
+  closingDate: string;
+  passingScore: number;
+  maxAttempts: number;
+  totalPoints: number;
+  showResultsImmediately: boolean;
+  questions: QuizQuestion[];
+  attempt?: StudentQuizAttempt;
 }
 
 export interface Course {
@@ -111,6 +156,7 @@ export interface Course {
   /** Letter grade if graded */
   currentGrade?: string;
   assignments: Assignment[];
+  quizzes?: StudentQuiz[];
 }
 
 export interface TimetableEvent {

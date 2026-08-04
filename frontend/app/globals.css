@@ -363,7 +363,7 @@ html.light main#main-content::before {
   pointer-events: none;
   z-index: 0;
 }
-Used by sidebar, header, card, and interactive elements across all
+/* Used by sidebar, header, card, and interactive elements across all
    dashboards. These classes automatically adapt to the active theme,
    eliminating the need for hardcoded dark-only colors.
    ─────────────────────────────────────────────────────────────────────── */
