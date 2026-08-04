@@ -107,106 +107,38 @@ interface RoadmapProps {
   appliedData?: unknown;
 }
 
+
+// ── Component ─────────────────────────────────────────────────────────────────
+interface RoadmapProps {
+  hasApplied?: boolean;
+  appliedData?: unknown;
+}
+
 export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
-  const [activeStep, setActiveStep] = useState(1);
-  const [completedSteps, setCompletedSteps] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false });
-  const [dragActive, setDragActive] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState('');
-  const [calcGPA, setCalcGPA] = useState('3.8');
-  const [calcSAT, setCalcSAT] = useState('1450');
-  const [acceptanceChance, setAcceptanceChance] = useState<number | null>(null);
-  const [interviewDate, setInterviewDate] = useState('');
-  const [interviewer, setInterviewer] = useState('Ato Biruk Tadesse');
-  const [interviewBooked, setInterviewBooked] = useState(false);
-  const [signedConduct, setSignedConduct] = useState(false);
-
-  useEffect(() => {
-    if (hasApplied) {
-      setCompletedSteps(p => ({ ...p, 1: true }));
-      setUploadedFileName('Harmony_Application_Form_Submitted.pdf');
-    }
-  }, [hasApplied]);
-
-  const handleCalculateChance = (e: React.FormEvent) => {
-    e.preventDefault();
-    const gpa = parseFloat(calcGPA); const sat = parseInt(calcSAT);
-    if (isNaN(gpa) || gpa < 0 || gpa > 4.0 || isNaN(sat) || sat < 400 || sat > 1600) return;
-    const finalChance = Math.min(99, Math.max(10, Math.round(gpa * 15 + ((sat - 400) / 1200) * 40)));
-    setAcceptanceChance(finalChance);
-    setCompletedSteps(p => ({ ...p, 2: true }));
-  };
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation(); setDragActive(false);
-    if (e.dataTransfer.files?.[0]?.type === 'application/pdf') {
-      setUploadedFileName(e.dataTransfer.files[0].name);
-      setCompletedSteps(p => ({ ...p, 1: true }));
-    } else {
-      // Invalid file type — silently ignore or show inline error
-    }
-  };
-
-  const handleManualFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) { setUploadedFileName(e.target.files[0].name); setCompletedSteps(p => ({ ...p, 1: true })); }
-  };
-
-  const handleBookInterview = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!interviewDate) return;
-    setInterviewBooked(true);
-    setCompletedSteps(p => ({ ...p, 3: true }));
-  };
-
-  const numCompleted = Object.values(completedSteps).filter(Boolean).length;
-  const progressPercent = (numCompleted / 4) * 100;
-
-  const stepsData = [
-    { id: 1, title: 'Submit Application', sub: 'Deliver transcript & portfolios.', icon: FileText, desc: 'The first step in your journey at Harmony College is submitting your details and choosing your preferred program.' },
-    { id: 2, title: 'Portfolio Review', sub: 'Ecosystem matching assessment.', icon: Award, desc: 'Our instructors review your application and creative background to match you with the right program track.' },
-    { id: 3, title: 'Academic Interview', sub: 'Collaborative vision alignment.', icon: Calendar, desc: 'A short 15-minute session with your department instructor to discuss your creative goals and program expectations.' },
-    { id: 4, title: 'Final Enrollment', sub: 'Matriculate & secure residency.', icon: CheckCircle2, desc: 'Complete enrollment by paying the registration fee, signing the student code of conduct, and receiving your student ID.' },
-  ];
-
-  // shared input style helper
-  const inputStyle = {
-    backgroundColor: 'var(--bg-input)',
-    border: '1px solid var(--border-default)',
-    color: 'var(--text-primary)',
-  };
-  const inputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => (e.target.style.borderColor = '#E9C349');
-  const inputBlur  = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => (e.target.style.borderColor = 'var(--border-default)');
+  const [activeProgram, setActiveProgram] = useState(programs[0].id);
+  const current = programs.find((p) => p.id === activeProgram) ?? programs[0];
 
   return (
     <section id="admissions" className="py-24 relative overflow-hidden transition-colors duration-300"
       style={{ backgroundColor: 'var(--bg-surface)' }}>
-      {/* Background glow */}
       <div className="absolute top-1/3 -right-64 w-[500px] h-[500px] bg-[#E9C349]/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#E9C349]/3 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full px-6 sm:px-12 max-w-7xl mx-auto space-y-20">
 
-        {/* ── Section header ───────────────────────────────────────────────── */}
+        {/* Section header */}
         <div className="text-center max-w-2xl mx-auto">
-          <span className="text-[#E9C349] font-sans text-[10px] font-bold uppercase tracking-[0.25em] mb-4 block">
-            Our Programs
-          </span>
-          <h2 className="font-serif text-3xl sm:text-4xl font-extrabold leading-tight"
-            style={{ color: 'var(--text-primary)' }}>
+          <span className="text-[#E9C349] font-sans text-[10px] font-bold uppercase tracking-[0.25em] mb-4 block">Our Programs</span>
+          <h2 className="font-serif text-3xl sm:text-4xl font-extrabold leading-tight" style={{ color: 'var(--text-primary)' }}>
             Creative Education for Ethiopia&apos;s Next Generation
           </h2>
-          <p className="font-sans text-sm mt-4 leading-relaxed"
-            style={{ color: 'var(--text-secondary)' }}>
+          <p className="font-sans text-sm mt-4 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             Harmony College offers industry-focused creative arts and professional programs
             in the heart of Sheger City — bridging Ethiopian cultural heritage with modern creative careers.
           </p>
         </div>
 
-        {/* ── Program explorer ─────────────────────────────────────────────── */}
+        {/* Program explorer */}
         <div className="grid lg:grid-cols-12 gap-8 items-start">
 
           {/* Left — tab list */}
@@ -225,14 +157,10 @@ export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
                     border: `1px solid ${isActive ? `${p.color}40` : 'var(--border-subtle)'}`,
                   }}
                 >
-                  <span style={{ color: isActive ? p.color : 'var(--text-muted)' }}>
-                    {p.icon}
-                  </span>
+                  <span style={{ color: isActive ? p.color : 'var(--text-muted)' }}>{p.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-serif text-sm font-bold truncate"
-                      style={{ color: isActive ? p.color : 'var(--text-primary)' }}>
-                      {p.title}
-                    </p>
+                      style={{ color: isActive ? p.color : 'var(--text-primary)' }}>{p.title}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 shrink-0 transition-transform"
                     style={{ color: isActive ? p.color : 'var(--text-muted)', transform: isActive ? 'rotate(90deg)' : 'none' }} />
@@ -257,33 +185,24 @@ export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
                   backdropFilter: 'blur(12px)',
                 }}
               >
-                {/* Header */}
                 <div className="flex items-start gap-5">
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
                     style={{ backgroundColor: `${current.color}18`, border: `1px solid ${current.color}30`, color: current.color }}>
                     <span style={{ color: current.color }}>{current.icon}</span>
                   </div>
                   <div>
-                    <h3 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                      {current.title}
-                    </h3>
-                    <p className="font-sans text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                      {current.desc}
-                    </p>
+                    <h3 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{current.title}</h3>
+                    <p className="font-sans text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{current.desc}</p>
                   </div>
                 </div>
 
                 <div className="h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
 
-                {/* Highlights */}
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
-                    Courses Offered
-                  </p>
+                  <p className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Courses Offered</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {current.highlights.map((h) => (
-                      <div key={h}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                      <div key={h} className="flex items-center gap-3 px-4 py-3 rounded-xl"
                         style={{ backgroundColor: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
                         <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: current.color }} />
                         <span className="font-sans text-sm" style={{ color: 'var(--text-primary)' }}>{h}</span>
@@ -292,7 +211,6 @@ export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
                   </div>
                 </div>
 
-                {/* CTA */}
                 <div className="flex items-center gap-3 flex-wrap pt-2">
                   <button
                     onClick={() => document.getElementById('apply-section')?.scrollIntoView({ behavior: 'smooth' })}
@@ -314,28 +232,19 @@ export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
           </div>
         </div>
 
-        {/* ── College facts strip ───────────────────────────────────────────── */}
+        {/* College facts strip */}
         <div>
-          <p className="text-center font-mono text-[10px] uppercase tracking-widest mb-8"
-            style={{ color: 'var(--text-muted)' }}>
+          <p className="text-center font-mono text-[10px] uppercase tracking-widest mb-8" style={{ color: 'var(--text-muted)' }}>
             Harmony College at a Glance
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {facts.map((f) => (
-              <motion.div
-                key={f.label}
-                whileHover={{ y: -4 }}
+              <motion.div key={f.label} whileHover={{ y: -4 }}
                 className="flex flex-col items-center text-center gap-2 px-4 py-5 rounded-2xl"
-                style={{ backgroundColor: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}
-              >
+                style={{ backgroundColor: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
                 <span className="text-[#E9C349]">{f.icon}</span>
-                <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                  {f.label}
-                </span>
-                <span className="font-serif text-xs font-bold text-center leading-tight"
-                  style={{ color: 'var(--text-primary)' }}>
-                  {f.value}
-                </span>
+                <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{f.label}</span>
+                <span className="font-serif text-xs font-bold text-center leading-tight" style={{ color: 'var(--text-primary)' }}>{f.value}</span>
               </motion.div>
             ))}
           </div>

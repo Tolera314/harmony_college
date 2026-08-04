@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { GradeRecord, StudentProfile } from '../types';
 import {
@@ -12,11 +14,78 @@ import { DURATION, EASE } from '@/src/lib/motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
-import { Modal } from './ui/Modal';
 import { SlidePanel } from './ui/SlidePanel';
 import { Table, Column } from './ui/Table';
 import { printTranscript } from '../lib/exportUtils';
 
+// ── GPA Summary helpers ───────────────────────────────────────────────────────
+function calcGPA(records: GradeRecord[]): { gpa: number; credits: number } {
+  const graded = records.filter((g) => g.numericGpa > 0);
+  if (graded.length === 0) return { gpa: 0, credits: 0 };
+  const totalCredits = graded.reduce((s, g) => s + g.credits, 0);
+  const totalPoints  = graded.reduce((s, g) => s + g.numericGpa * g.credits, 0);
+  return { gpa: totalPoints / totalCredits, credits: totalCredits };
+}
+
+function gpaLabel(gpa: number): string {
+  if (gpa >= 3.9)  return 'Summa Cum Laude';
+  if (gpa >= 3.7)  return 'Magna Cum Laude';
+  if (gpa >= 3.5)  return 'Cum Laude';
+  if (gpa >= 3.0)  return 'Good Standing';
+  if (gpa >= 2.0)  return 'Satisfactory';
+  return 'Academic Warning';
+}
+
+function gpaColor(gpa: number): string {
+  if (gpa >= 3.7) return 'var(--status-success)';
+  if (gpa >= 3.0) return 'var(--brand-gold)';
+  if (gpa >= 2.0) return 'var(--status-warning)';
+  return 'var(--status-error)';
+}
+
+interface GPASummaryProps {
+  grades: GradeRecord[];
+  filteredGrades: GradeRecord[];
+  selectedTerm: string;
+}
+
+function GPASummary({ grades, filteredGrades, selectedTerm }: GPASummaryProps) {
+  const allTerms    = [...new Set(grades.map((g) => g.term))];
+  const currentTerm = allTerms[0] ?? 'Current Semester';
+  const semGPA      = calcGPA(grades.filter((g) => g.term === currentTerm));
+  const cumGPA      = calcGPA(grades);
+  const viewGPA     = calcGPA(selectedTerm === 'All' ? grades.filter((g) => g.term === currentTerm) : filteredGrades);
+  const viewLabel   = selectedTerm === 'All' ? currentTerm : selectedTerm;
+
+  const stats = [
+    { label: 'Current Semester', sublabel: currentTerm, gpa: semGPA.gpa, credits: semGPA.credits, courses: grades.filter((g) => g.term === currentTerm).length },
+    ...(selectedTerm !== 'All' && selectedTerm !== currentTerm
+      ? [{ label: 'Selected Term', sublabel: selectedTerm, gpa: viewGPA.gpa, credits: viewGPA.credits, courses: filteredGrades.length }]
+      : []),
+    { label: 'Cumulative', sublabel: `${grades.length} courses · ${cumGPA.credits} credits`, gpa: cumGPA.gpa, credits: cumGPA.credits, courses: grades.length },
+  ];
+
+  return (
+    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {stats.map((s) => (
+        <div key={s.label} className="flex items-center justify-between px-5 py-4 rounded-2xl border"
+          style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}>
+          <div className="space-y-0.5">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>{s.label}</p>
+            <p className="font-sans text-xs" style={{ color: 'var(--text-muted)' }}>{s.sublabel}</p>
+            <p className="font-sans text-[10px] mt-1" style={{ color: 'var(--text-faint)' }}>{s.courses} course{s.courses !== 1 ? 's' : ''} · {s.credits} credits</p>
+          </div>
+          <div className="text-right shrink-0 ml-4">
+            <p className="font-mono text-3xl font-bold leading-none" style={{ color: gpaColor(s.gpa) }}>{s.gpa.toFixed(2)}</p>
+            <p className="font-sans text-[10px] mt-1" style={{ color: 'var(--text-faint)' }}>{gpaLabel(s.gpa)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 interface GradesViewProps {
   profile: StudentProfile;
   grades: GradeRecord[];
@@ -26,7 +95,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
   const [selectedTerm, setSelectedTerm] = useState<string>('All');
   const [showTranscriptModal, setShowTranscriptModal] = useState<boolean>(false);
 
-  // Grade Simulator State
+  // Grade Simulator
   const [simCs402, setSimCs402] = useState<number>(4.0);
   const [simDs301, setSimDs301] = useState<number>(3.7);
   const [simAi440, setSimAi440] = useState<number>(4.0);
@@ -39,229 +108,138 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
 
   const calculateSimulatedGpa = () => {
     const totalPreviousPoints = profile.cumulativeGpa * profile.completedCredits;
-    const newCourseCredits = 12;
-    const newPoints = (simCs402 * 4) + (simDs301 * 4) + (simAi440 * 4);
-    const totalSimulatedGpa = (totalPreviousPoints + newPoints) / (profile.completedCredits + newCourseCredits);
-    return totalSimulatedGpa.toFixed(3);
+    const newCourseCredits    = 12;
+    const newPoints           = (simCs402 * 4) + (simDs301 * 4) + (simAi440 * 4);
+    return ((totalPreviousPoints + newPoints) / (profile.completedCredits + newCourseCredits)).toFixed(3);
   };
 
   const columns: Column<GradeRecord>[] = [
-    {
-      header: 'Course',
-      cell: (g) => <Badge variant="gold">{g.courseCode}</Badge>
-    },
-    {
-      header: 'Title',
-      cell: (g) => <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{g.courseTitle}</span>
-    },
-    {
-      header: 'Term',
-      cell: (g) => <span className="font-mono" style={{ color: "var(--text-secondary)" }}>{g.term}</span>
-    },
-    {
-      header: 'Credits',
-      cell: (g) => <span className="font-mono">{g.credits}</span>,
-      align: 'center'
-    },
-    {
-      header: 'Grade',
-      cell: (g) => (
-        <Badge variant="gold">
-          {g.grade} ({g.numericGpa.toFixed(1)})
-        </Badge>
-      ),
-      align: 'center'
-    }
+    { header: 'Course Title', cell: (g) => <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{g.courseTitle}</span> },
+    { header: 'Course Code',  cell: (g) => <Badge variant="gold">{g.courseCode}</Badge> },
+    { header: 'Term',         cell: (g) => <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{g.term}</span> },
+    { header: 'Cr.Hr.',       cell: (g) => <span className="font-mono">{g.credits}</span>, align: 'center' },
+    { header: 'Grade',        cell: (g) => <Badge variant="gold">{g.grade}</Badge>, align: 'center' },
   ];
+
+  const transcriptData = {
+    studentName: profile.name, studentId: profile.id, major: profile.major,
+    degree: profile.degree, cumulativeGpa: profile.cumulativeGpa,
+    completedCredits: profile.completedCredits, expectedGraduation: profile.expectedGraduation,
+    email: profile.email, grades,
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }}
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ ...DURATION.medium, ...EASE.out }}
       className="space-y-8 pb-8"
     >
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card hoverable={false} className="space-y-2">
-          <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: "var(--text-faint)" }}>
-            Cumulative GPA
-          </p>
+          <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: 'var(--text-faint)' }}>Cumulative GPA</p>
           <div className="flex items-baseline justify-between">
-            <h3 className="font-serif text-4xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {profile.cumulativeGpa.toFixed(2)}
-            </h3>
+            <h3 className="font-serif text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>{profile.cumulativeGpa.toFixed(2)}</h3>
             <Badge variant="gold">Summa Cum Laude</Badge>
           </div>
-          <p className="font-sans text-xs" style={{ color: "var(--text-secondary)" }}>  Based on {profile.completedCredits} graded semester credits
-          </p>
+          <p className="font-sans text-xs" style={{ color: 'var(--text-secondary)' }}>Based on {profile.completedCredits} graded semester credits</p>
         </Card>
 
         <Card hoverable={false} className="space-y-2">
-          <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: "var(--text-faint)" }}>
-            Academic Status
-          </p>
-          <h3 className="font-serif text-2xl sm:text-3xl font-bold" style={{ color: "var(--status-success)" }}>
-            Good Standing
-          </h3>
-          <p className="font-sans text-xs" style={{ color: "var(--text-secondary)" }}>  Dean's List honors achieved 4 consecutive terms
-          </p>
+          <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: 'var(--text-faint)' }}>Academic Status</p>
+          <h3 className="font-serif text-2xl sm:text-3xl font-bold" style={{ color: 'var(--status-success)' }}>Good Standing</h3>
+          <p className="font-sans text-xs" style={{ color: 'var(--text-secondary)' }}>Dean's List honors achieved 4 consecutive terms</p>
         </Card>
 
         <Card hoverable={false} className="flex flex-col justify-between">
           <div>
-            <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: "var(--text-faint)" }}>
-              Official Transcript
-            </p>
-            <p className="font-sans text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-              Digitally verified watermarked academic record available.
-            </p>
+            <p className="font-mono text-xs uppercase font-bold tracking-wider" style={{ color: 'var(--text-faint)' }}>Official Transcript</p>
+            <p className="font-sans text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Digitally verified watermarked academic record available.</p>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => setShowTranscriptModal(true)}
-            icon={<Download className="w-4 h-4" />}
-            className="mt-4"
-          >
+          <Button variant="primary" onClick={() => setShowTranscriptModal(true)} icon={<Download className="w-4 h-4" />} className="mt-4">
             Download Official Transcript
           </Button>
         </Card>
       </div>
 
-      {/* Main Grid: Grades Table vs GPA Simulator */}
+      {/* Grades Table + GPA Simulator */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left 8 Cols: Grade Records */}
         <div className="lg:col-span-8 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-            <h3 className="font-serif text-2xl font-bold" style={{ color: "var(--text-primary)" }}>  Grade History Records
-            </h3>
-
-            {/* Term Filter Chips */}
+            <h3 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Grade History Records</h3>
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {terms.map((term) => (
-                <button
-                  key={term}
-                  onClick={() => setSelectedTerm(term)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all touch-target ${
-                    selectedTerm === term ? "font-semibold" : "border"} style={selectedTerm === term ? { backgroundColor: "var(--brand-gold)", color: "var(--text-inverse)" } : { backgroundColor: "var(--hover-overlay)", color: "var(--text-muted)", borderColor: "var(--border-default)"
-                  }`}
-                >
+                <button key={term} onClick={() => setSelectedTerm(term)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all touch-target ${selectedTerm === term ? 'font-semibold' : 'border'}`}
+                  style={selectedTerm === term
+                    ? { backgroundColor: 'var(--brand-gold)', color: 'var(--text-inverse)' }
+                    : { backgroundColor: 'var(--hover-overlay)', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }}>
                   {term}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Desktop Table View */}
+          {/* Desktop table */}
           <div className="hidden sm:block">
-            <Table
-              data={filteredGrades}
-              columns={columns}
-              keyExtractor={(g) => g.id}
-            />
+            <Table data={filteredGrades} columns={columns} keyExtractor={(g) => g.id} />
+            <GPASummary grades={grades} filteredGrades={filteredGrades} selectedTerm={selectedTerm} />
           </div>
 
-          {/* Mobile Card List Alternative */}
+          {/* Mobile cards */}
           <div className="sm:hidden space-y-3">
             {filteredGrades.map((g) => (
               <Card key={g.id} hoverable={false} className="p-4 space-y-2">
                 <div className="flex justify-between items-center">
                   <Badge variant="gold">{g.courseCode}</Badge>
-                  <Badge variant="gold">
-                    {g.grade} ({g.numericGpa.toFixed(1)})
-                  </Badge>
+                  <Badge variant="gold">{g.grade}</Badge>
                 </div>
-                <h4 className="font-sans text-sm font-semibold" style={{ color: "var(--text-primary)" }}>  {g.courseTitle}
-                </h4>
-                <div className="flex justify-between text-xs font-mono pt-1" style={{ color: "var(--text-faint)" }}>
-                  <span>Term: {g.term}</span>
-                  <span>{g.credits} Credits</span>
+                <h4 className="font-sans text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{g.courseTitle}</h4>
+                <div className="flex justify-between text-xs font-mono pt-1" style={{ color: 'var(--text-faint)' }}>
+                  <span>Term: {g.term}</span><span>{g.credits} Credits</span>
                 </div>
               </Card>
             ))}
+            <GPASummary grades={grades} filteredGrades={filteredGrades} selectedTerm={selectedTerm} />
           </div>
         </div>
 
-        {/* Right 4 Cols: Interactive GPA Calculator Simulator */}
+        {/* GPA Simulator */}
         <Card hoverable={false} className="lg:col-span-4 space-y-6">
-          <div className="flex items-center gap-2.5 border-b pb-4" style={{ borderColor: "var(--border-default)" }}>
+          <div className="flex items-center gap-2.5 border-b pb-4" style={{ borderColor: 'var(--border-default)' }}>
             <Calculator className="w-5 h-5 text-[#E9C349]" />
-            <h3 className="font-sans font-bold text-base" style={{ color: "var(--text-primary)" }}>
-              Fall 2024 GPA Simulator
-            </h3>
+            <h3 className="font-sans font-bold text-base" style={{ color: 'var(--text-primary)' }}>Fall 2024 GPA Simulator</h3>
           </div>
-
-          <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            Test prospective term grades to project your final graduation GPA.
-          </p>
-
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Test prospective term grades to project your final graduation GPA.</p>
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                <span>CS402: Software Eng II (4 cr)</span>
-                <span className="font-mono" style={{ color: "var(--brand-gold)" }}>
-                  {simCs402 === 4 ? 'A (4.0)' : simCs402 === 3.7 ? 'A- (3.7)' : 'B+ (3.3)'}
-                </span>
+            {[
+              ['CS402: Software Eng II (4 cr)',       simCs402, setSimCs402],
+              ['DS301: Database Systems (4 cr)',       simDs301, setSimDs301],
+              ['AI440: Artificial Intelligence (4 cr)', simAi440, setSimAi440],
+            ].map(([label, val, setter]) => (
+              <div key={String(label)} className="space-y-1.5">
+                <div className="flex justify-between text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  <span>{String(label)}</span>
+                  <span className="font-mono" style={{ color: 'var(--brand-gold)' }}>
+                    {(val as number) === 4 ? 'A (4.0)' : (val as number) === 3.7 ? 'A- (3.7)' : 'B+ (3.3)'}
+                  </span>
+                </div>
+                <input type="range" min="3.0" max="4.0" step="0.3" value={val as number}
+                  onChange={(e) => (setter as (v: number) => void)(parseFloat(e.target.value))}
+                  className="w-full accent-[#E9C349] cursor-pointer" />
               </div>
-              <input
-                type="range"
-                min="3.0"
-                max="4.0"
-                step="0.3"
-                value={simCs402}
-                onChange={(e) => setSimCs402(parseFloat(e.target.value))}
-                className="w-full accent-[#E9C349] cursor-pointer"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                <span>DS301: Database Systems (4 cr)</span>
-                <span className="font-mono" style={{ color: "var(--brand-gold)" }}>
-                  {simDs301 === 4 ? 'A (4.0)' : simDs301 === 3.7 ? 'A- (3.7)' : 'B+ (3.3)'}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="3.0"
-                max="4.0"
-                step="0.3"
-                value={simDs301}
-                onChange={(e) => setSimDs301(parseFloat(e.target.value))}
-                className="w-full accent-[#E9C349] cursor-pointer"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                <span>AI440: Artificial Intelligence (4 cr)</span>
-                <span className="font-mono" style={{ color: "var(--brand-gold)" }}>
-                  {simAi440 === 4 ? 'A (4.0)' : simAi440 === 3.7 ? 'A- (3.7)' : 'B+ (3.3)'}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="3.0"
-                max="4.0"
-                step="0.3"
-                value={simAi440}
-                onChange={(e) => setSimAi440(parseFloat(e.target.value))}
-                className="w-full accent-[#E9C349] cursor-pointer"
-              />
-            </div>
+            ))}
           </div>
-
-          <div className="p-4 rounded-2xl space-y-1 text-center border" style={{ backgroundColor: "var(--hover-overlay)", borderColor: "var(--accent-gold-border)" }}>
-            <p className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>Projected Cumulative GPA</p>
-            <p className="font-serif text-3xl font-bold" style={{ color: "var(--brand-gold)" }}>
-              {calculateSimulatedGpa()}
-            </p>
-            <p className="text-[10px] font-bold" style={{ color: "var(--status-success)" }}>
-              On track for Graduation with Highest Honors
-            </p>
+          <div className="p-4 rounded-2xl space-y-1 text-center border"
+            style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--accent-gold-border)' }}>
+            <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>Projected Cumulative GPA</p>
+            <p className="font-serif text-3xl font-bold" style={{ color: 'var(--brand-gold)' }}>{calculateSimulatedGpa()}</p>
+            <p className="text-[10px] font-bold" style={{ color: 'var(--status-success)' }}>On track for Graduation with Highest Honors</p>
           </div>
         </Card>
       </div>
 
-      {/* Official Digital Transcript — SlidePanel */}
+      {/* Official Transcript — SlidePanel (teammate's modernized UX) */}
       <SlidePanel
         isOpen={showTranscriptModal}
         onClose={() => setShowTranscriptModal(false)}
@@ -269,36 +247,27 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
         subtitle="Grades & Transcript"
         width="max-w-2xl"
       >
-        {/* Action buttons */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="font-sans text-xs text-white/50">Digitally certified · Harmony College</p>
+        {/* Print / Save buttons */}
+        <div className="flex items-center justify-between mb-5 pb-4 border-b" style={{ borderColor: 'var(--border-default)' }}>
+          <p className="font-sans text-xs" style={{ color: 'var(--text-muted)' }}>Digitally certified · Harmony College</p>
           <div className="flex gap-2">
-            <button
-              onClick={() => printTranscript({ studentName: profile.name, studentId: profile.id, major: profile.major, degree: profile.degree, cumulativeGpa: profile.cumulativeGpa, completedCredits: profile.completedCredits, expectedGraduation: profile.expectedGraduation, email: profile.email, grades })}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/15 border border-white/15 rounded-xl font-sans text-xs font-semibold text-white transition-colors"
-            >
+            <button onClick={() => printTranscript(transcriptData)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-sans text-xs font-semibold transition-colors border"
+              style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
               <Printer className="w-3.5 h-3.5" /> Print
             </button>
-            <button
-              onClick={() => printTranscript({ studentName: profile.name, studentId: profile.id, major: profile.major, degree: profile.degree, cumulativeGpa: profile.cumulativeGpa, completedCredits: profile.completedCredits, expectedGraduation: profile.expectedGraduation, email: profile.email, grades })}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#E9C349] hover:bg-[#d8b238] rounded-xl font-sans text-xs font-bold text-[#0F0F10] transition-colors"
-            >
+            <button onClick={() => printTranscript(transcriptData)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#E9C349] hover:bg-[#d8b238] rounded-xl font-sans text-xs font-bold text-[#0F0F10] transition-colors">
               <Download className="w-3.5 h-3.5" /> Save as PDF
             </button>
-        <div className="bg-white text-black p-6 rounded-2xl space-y-6">
-          <div className="border-b-2 border-black pb-4">
-            <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
-            <p className="font-mono text-xs uppercase tracking-widest text-gray-600 mt-1">
-              OFFICIAL ACADEMIC TRANSCRIPT • OFFICE OF THE REGISTRAR
-            </p>
           </div>
         </div>
 
-        {/* Transcript content — no inner scroll, Modal itself scrolls */}
-        <div id="official-transcript" className="bg-white text-black rounded-2xl border border-gray-200">
+        {/* Transcript document */}
+        <div id="official-transcript" className="bg-white text-black rounded-2xl border border-gray-200 overflow-hidden">
 
           {/* Header */}
-          <div className="bg-[#0F0F10] p-5 flex items-start justify-between rounded-t-2xl">
+          <div className="bg-[#0F0F10] p-5 flex items-start justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0">
@@ -309,9 +278,7 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
                   <p className="font-mono text-[10px] text-[#E9C349] uppercase tracking-widest">Sheger, Burayu, Ethiopia</p>
                 </div>
               </div>
-              <p className="font-mono text-[10px] text-white/50 uppercase tracking-widest">
-                OFFICIAL ACADEMIC TRANSCRIPT · OFFICE OF THE REGISTRAR
-              </p>
+              <p className="font-mono text-[10px] text-white/50 uppercase tracking-widest">OFFICIAL ACADEMIC TRANSCRIPT · OFFICE OF THE REGISTRAR</p>
             </div>
             <div className="text-right shrink-0 ml-4">
               <p className="font-mono text-[10px] text-white/40">Date Issued</p>
@@ -320,15 +287,15 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             </div>
           </div>
 
-          {/* Student info */}
+          {/* Student info grid */}
           <div className="p-5 border-b border-gray-200">
             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs font-sans">
               {[
-                ['Student Name', profile.name],
-                ['Cumulative GPA', `${profile.cumulativeGpa.toFixed(2)} / 4.00`],
-                ['Student ID', profile.id],
-                ['Credits Earned', String(profile.completedCredits)],
-                ['Program', profile.degree],
+                ['Student Name',        profile.name],
+                ['Cumulative GPA',      `${profile.cumulativeGpa.toFixed(2)} / 4.00`],
+                ['Student ID',          profile.id],
+                ['Credits Earned',      String(profile.completedCredits)],
+                ['Program',             profile.degree],
                 ['Expected Graduation', profile.expectedGraduation],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between border-b border-gray-100 pb-1">
@@ -345,11 +312,9 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="py-2 px-2 text-left font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Code</th>
-                  <th className="py-2 px-2 text-left font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Course Title</th>
-                  <th className="py-2 px-2 text-left font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Term</th>
-                  <th className="py-2 px-2 text-center font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Cr.</th>
-                  <th className="py-2 px-2 text-center font-mono font-bold text-gray-700 border border-gray-200 text-[10px]">Grade</th>
+                  {['Code','Course Title','Term','Cr.','Grade'].map((h, i) => (
+                    <th key={h} className={`py-2 px-2 font-mono font-bold text-gray-700 border border-gray-200 text-[10px] ${i >= 3 ? 'text-center' : 'text-left'}`}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -366,11 +331,9 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
               <tfoot>
                 <tr className="bg-gray-100 font-bold">
                   <td colSpan={3} className="py-1.5 px-2 font-mono text-gray-700 border border-gray-200 text-[10px]">TOTALS</td>
+                  <td className="py-1.5 px-2 text-center font-mono text-black border border-gray-200 text-[10px]">{grades.reduce((s,g)=>s+g.credits,0)}</td>
                   <td className="py-1.5 px-2 text-center font-mono text-black border border-gray-200 text-[10px]">
-                    {grades.reduce((s, g) => s + g.credits, 0)}
-                  </td>
-                  <td className="py-1.5 px-2 text-center font-mono text-black border border-gray-200 text-[10px]">
-                    {(grades.reduce((s, g) => s + g.numericGpa * g.credits, 0) / grades.reduce((s, g) => s + g.credits, 0)).toFixed(2)}
+                    {(grades.reduce((s,g)=>s+g.numericGpa*g.credits,0)/grades.reduce((s,g)=>s+g.credits,0)).toFixed(2)}
                   </td>
                 </tr>
               </tfoot>
@@ -379,7 +342,6 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
 
           {/* College stamp + seal + signature */}
           <div className="p-5 space-y-4">
-            {/* Stamp */}
             <div className="flex items-center gap-3 p-3 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
               <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#E9C349]/60 shrink-0">
                 <img src="/logo2.jpg" alt="Harmony College Seal" className="w-full h-full object-cover" />
@@ -391,8 +353,6 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
                 <p className="font-mono text-[9px] text-yellow-600 font-bold mt-0.5">OFFICIAL RECORD — NOT VALID WITHOUT SEAL</p>
               </div>
             </div>
-
-            {/* Seal + signature */}
             <div className="flex items-end justify-between gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-full border-2 border-black flex items-center justify-center bg-gray-50 shrink-0">
@@ -413,8 +373,6 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
           </div>
 
         </div>{/* end official-transcript */}
-      </Modal>
-        </div>
       </SlidePanel>
     </motion.div>
   );

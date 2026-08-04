@@ -1,4 +1,5 @@
 'use client';
+import { SlidePanel } from '../../ui/SlidePanel';
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
