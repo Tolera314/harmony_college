@@ -12,6 +12,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { financeStudents, installmentPlans, transactions, foProfile } from '../../../data/financeData';
 import { FinanceStudent, PaymentStatus } from '../../../types/finance';
 
@@ -45,7 +46,7 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
   ].filter((c) => c.amount > 0);
 
   return (
-    <Modal isOpen onClose={onClose} title={<span>Ledger — <span className="text-(--brand-gold)">{student.name}</span></span>} maxWidth="max-w-3xl">
+    <SlidePanel isOpen onClose={onClose} title={<span>Ledger — <span className="text-(--brand-gold)">{student.name}</span></span>} subtitle="Finance — Student Accounts" width="max-w-3xl">
       <div className="space-y-6">
         {/* Student info */}
         <div className="flex items-center gap-4 p-4 bg-(--hover-overlay) rounded-2xl border border-(--border-default)">
@@ -140,7 +141,7 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
           </div>
         )}
       </div>
-    </Modal>
+    </SlidePanel>
   );
 }
 

@@ -8,6 +8,7 @@ import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { Input } from '../../ui/Input';
 import { courseMaterials } from '../../../data/instructorData';
 import { MaterialType, MaterialVisibility } from '../../../types/instructor';
@@ -83,7 +84,7 @@ export const InMaterialsView: React.FC = () => {
         ))}
       </div>
 
-      <Modal isOpen={uploadOpen} onClose={() => setUploadOpen(false)} title="Upload Course Material" maxWidth="max-w-lg">
+      <SlidePanel isOpen={uploadOpen} onClose={() => setUploadOpen(false)} title="Upload Course Material" subtitle="Course Materials" width="max-w-lg">
         <div className="space-y-4 font-sans text-sm">
           <Input label="Title" placeholder="e.g. Week 9 — Advanced Lighting Techniques" />
           <div className="space-y-1.5">
@@ -111,7 +112,7 @@ export const InMaterialsView: React.FC = () => {
             <Button variant="primary" className="flex-1" icon={<Upload className="w-4 h-4" />} onClick={() => setUploadOpen(false)}>Upload</Button>
           </div>
         </div>
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

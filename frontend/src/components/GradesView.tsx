@@ -6,7 +6,6 @@ import {
   Download,
   Printer,
   FileCheck,
-  X
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
@@ -14,6 +13,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
+import { SlidePanel } from './ui/SlidePanel';
 import { Table, Column } from './ui/Table';
 import { printTranscript } from '../lib/exportUtils';
 
@@ -261,18 +261,15 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
         </Card>
       </div>
 
-      {/* Official Digital Transcript Modal */}
-      <Modal
+      {/* Official Digital Transcript — SlidePanel */}
+      <SlidePanel
         isOpen={showTranscriptModal}
         onClose={() => setShowTranscriptModal(false)}
-        maxWidth="max-w-2xl"
-        title={
-          <div className="flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-[#E9C349]" />
-            <span>Official Academic Transcript</span>
-          </div>
-        }
+        title="Official Academic Transcript"
+        subtitle="Grades & Transcript"
+        width="max-w-2xl"
       >
+<<<<<<< HEAD
         {/* Action buttons */}
         <div className="flex items-center justify-between mb-4">
           <p className="font-sans text-xs text-white/50">Digitally certified · Harmony College</p>
@@ -289,6 +286,14 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             >
               <Download className="w-3.5 h-3.5" /> Save as PDF
             </button>
+=======
+        <div className="bg-white text-black p-6 rounded-2xl space-y-6">
+          <div className="border-b-2 border-black pb-4">
+            <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
+            <p className="font-mono text-xs uppercase tracking-widest text-gray-600 mt-1">
+              OFFICIAL ACADEMIC TRANSCRIPT • OFFICE OF THE REGISTRAR
+            </p>
+>>>>>>> 780801a08df7bf4ed9005a12d18c599c032e9d3d
           </div>
         </div>
 
@@ -409,9 +414,14 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
               </div>
             </div>
           </div>
+<<<<<<< HEAD
 
         </div>{/* end official-transcript */}
       </Modal>
+=======
+        </div>
+      </SlidePanel>
+>>>>>>> 780801a08df7bf4ed9005a12d18c599c032e9d3d
     </motion.div>
   );
 };

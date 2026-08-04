@@ -25,7 +25,7 @@ export async function middleware(req: NextRequest) {
 
   // Redirect authenticated users away from sign-in / apply
   if (isAuthenticated && AUTH_ONLY_ROUTES.some((r) => pathname.startsWith(r))) {
-    return NextResponse.redirect(new URL('/', req.url));
+    //return NextResponse.redirect(new URL('/', req.url));
   }
 
   // Redirect unauthenticated users away from protected routes

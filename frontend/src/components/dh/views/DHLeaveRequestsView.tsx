@@ -11,7 +11,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { EmptyState } from '../../ui/States';
 import { Modal } from '../../ui/Modal';
-
+import { SlidePanel } from '../../ui/SlidePanel';
 const statusConfig: Record<LeaveRequest['status'], { variant: 'amber'|'emerald'|'rose'|'glass' }> = {
   Pending:          { variant: 'amber' },
   Approved:         { variant: 'emerald' },
@@ -122,8 +122,8 @@ export const DHLeaveRequestsView: React.FC = () => {
         })}
       </div>
 
-      {/* Detail / Comment Modal */}
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title="Leave Request — Comment" maxWidth="max-w-lg">
+      {/* Detail / Comment — SlidePanel */}
+      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title="Leave Request — Comment" subtitle="DH Leave Requests" width="max-w-lg">
         {selected && (() => {
           const f = faculty.find((x) => x.id === selected.facultyId);
           return (
@@ -151,9 +151,7 @@ export const DHLeaveRequestsView: React.FC = () => {
             </div>
           );
         })()}
-      </Modal>
-
-      {/* Confirm Modal */}
+      </SlidePanel>
       <Modal isOpen={!!confirmModal} onClose={() => setConfirmModal(null)} title={`Confirm ${confirmModal?.action}`} maxWidth="max-w-md">
         {confirmModal && (
           <div className="space-y-4">

@@ -11,6 +11,7 @@ import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 
 const statusColor: Record<Admission['status'], 'emerald'|'gold'|'amber'|'rose'|'glass'> = {
   Enrolled: 'emerald', Approved: 'gold', 'Under Review': 'amber', Applied: 'glass', Waitlisted: 'amber', Rejected: 'rose',
@@ -73,7 +74,7 @@ export const AdminAdmissionsView: React.FC = () => {
           </tbody>
         </table>
       </div>
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name} maxWidth="max-w-md">
+      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name} subtitle="Admissions" width="max-w-md">
         {selected && (
           <div className="space-y-3 font-sans text-sm">
             <div className="flex items-center gap-3">
@@ -91,7 +92,7 @@ export const AdminAdmissionsView: React.FC = () => {
             {selected.notes && <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)"><p className="font-sans text-xs text-(--text-secondary) italic">&quot;{selected.notes}&quot;</p></div>}
           </div>
         )}
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

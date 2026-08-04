@@ -11,6 +11,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 
 const statusBadge = (s: SystemUser['status']) => {
   const m: Record<SystemUser['status'], 'emerald'|'amber'|'rose'|'glass'|'gold'> = {
@@ -122,8 +123,8 @@ export const AdminUsersView: React.FC = () => {
         </div>
       )}
 
-      {/* User detail modal */}
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name} maxWidth="max-w-xl">
+      {/* User detail — SlidePanel */}
+      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name} subtitle="User Profile" width="max-w-xl">
         {selected && (
           <div className="space-y-4 font-sans text-sm">
             <div className="flex items-center gap-4">
@@ -143,9 +144,9 @@ export const AdminUsersView: React.FC = () => {
             </div>
           </div>
         )}
-      </Modal>
+      </SlidePanel>
 
-      {/* Confirm action modal */}
+      {/* Confirm action — stays centered Modal */}
       <Modal isOpen={!!confirmAction} onClose={() => setConfirmAction(null)} title={`Confirm: ${confirmAction?.action} User`} maxWidth="max-w-sm">
         {confirmAction && (
           <div className="space-y-4 font-sans text-sm">

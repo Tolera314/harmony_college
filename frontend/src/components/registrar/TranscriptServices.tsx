@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { 
   Search, FileText, Download, Printer, Check, 
-  ChevronRight, Award, ShieldCheck, AlertCircle
+  ChevronRight, Award, ShieldCheck, AlertCircle, CheckCheck
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -61,6 +61,7 @@ export const TranscriptServices: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<typeof mockStudents[0] | null>(mockStudents[0]);
   const [requests, setRequests] = useState(mockRequests);
+  const [issuedToast, setIssuedToast] = useState(false);
 
   const matchingStudents = searchQuery.trim() === '' ? [] : mockStudents.filter(s =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -74,15 +75,18 @@ export const TranscriptServices: React.FC = () => {
 
   const handleIssueTranscript = (reqId: string) => {
     setRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: 'Issued' } : r));
-    alert('Official Transcript signed & issued electronically to destination.');
+    setIssuedToast(true);
+    setTimeout(() => setIssuedToast(false), 3500);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   const handleDownloadPDF = () => {
-    alert(`Downloading official certified transcript PDF for ${selectedStudent?.name || 'Student'}...`);
+    // Simulate PDF download by creating a simple data URI
+    const link = document.createElement('a');
+    link.href = 'data:text/plain;charset=utf-8,Transcript+PDF+placeholder';
+    link.download = `transcript_${selectedStudent?.studentId ?? 'student'}.pdf`;
+    link.click();
   };
 
   return (
@@ -96,6 +100,14 @@ export const TranscriptServices: React.FC = () => {
         <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Transcript Services</h2>
         <p className="text-xs text-(--text-muted)">Verify student records, print credentials, and issue certified electronic transcripts.</p>
       </div>
+
+      {/* Issued toast */}
+      {issuedToast && (
+        <div className="flex items-center gap-3 p-3 bg-(--status-success-bg) border border-(--status-success-border) rounded-xl text-xs text-(--status-success) font-semibold">
+          <CheckCheck className="w-4 h-4 shrink-0" />
+          Official Transcript signed &amp; issued electronically to destination.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         

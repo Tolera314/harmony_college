@@ -11,6 +11,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 
 const catColor: Record<DocumentCategory, string> = {
   CV: 'text-(--status-info)', Contract: 'text-(--brand-gold)', 'National ID': 'text-(--status-danger)',
@@ -84,8 +85,8 @@ export const HRDocumentsView: React.FC = () => {
         })}
       </div>
 
-      {/* Upload Modal */}
-      <Modal isOpen={uploadModal} onClose={() => setUploadModal(false)} title="Upload Document" maxWidth="max-w-md">
+      {/* Upload — SlidePanel */}
+      <SlidePanel isOpen={uploadModal} onClose={() => setUploadModal(false)} title="Upload Document" subtitle="HR Documents" width="max-w-md">
         <div className="space-y-4 font-sans text-sm">
           <div className="space-y-1.5">
             <label className="font-sans text-xs font-semibold text-(--text-secondary)">Employee</label>
@@ -110,7 +111,7 @@ export const HRDocumentsView: React.FC = () => {
             <Button variant="primary" className="flex-1" icon={<Upload className="w-4 h-4" />} onClick={() => setUploadModal(false)}>Upload</Button>
           </div>
         </div>
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };
