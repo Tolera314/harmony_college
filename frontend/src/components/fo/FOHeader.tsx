@@ -32,6 +32,7 @@ const tabLabels: Record<FONavTab, string> = {
   notifications:    'Notification Center',
   audit_log:        'Audit Log',
   settings:         'Settings',
+  messages:         'Messages',
 };
 
 const notifTypeIcon: Record<FONotification['type'], string> = {
