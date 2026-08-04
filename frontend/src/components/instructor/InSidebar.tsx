@@ -7,6 +7,7 @@ import {
   FolderOpen, Megaphone, BarChart3, Bell, FileText, Settings, LogOut,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { ChatSidebarButton } from '../chat/ChatSidebarButton';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
 
@@ -116,6 +117,7 @@ export const InSidebar: React.FC<InSidebarProps> = ({
 
       {/* Bottom */}
       <div className="mt-auto ds-sidebar-divider border-t pt-4 space-y-1 shrink-0">
+        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
         <motion.button
           onClick={() => setActiveTab('settings')}
           whileHover={{ x: 4 }} whileTap={{ scale: 0.97 }}

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ChatView } from '@/src/components/chat/ChatView';
 import { 
   ClipboardList, BookOpen, GraduationCap, FileText, 
   Users, ShieldAlert,
@@ -37,7 +38,7 @@ const RegistrarSettings = dynamic(() => import('@/src/components/registrar/Regis
 type RegistrarTab =
   | 'dashboard' | 'students' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
-  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings';
+  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
 
 interface SidebarItem {
   id: RegistrarTab;
@@ -171,6 +172,7 @@ export default function RegistrarDashboardPage() {
         return <AuditLogsTimeline />;
       case 'settings':
         return <RegistrarSettings initialTab="account" />;
+      case 'messages':         return <ChatView />;
       default:
         return null;
     }

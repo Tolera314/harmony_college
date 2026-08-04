@@ -27,7 +27,7 @@ const TAB_LABELS: Record<AdminNavTab, string> = {
   finance: 'Finance', hr: 'HR Management', payments: 'Payments',
   documents: 'Documents', reports: 'Reports', audit_logs: 'Audit Logs',
   security: 'Security Center', backup: 'Backup & Recovery',
-  system_config: 'System Configuration', notifications: 'Notifications', settings: 'Settings',
+  system_config: 'System Configuration', notifications: 'Notifications', settings: 'Settings', messages: 'Messages',
 };
 
 const SEVERITY_DOT: Record<string, string> = {

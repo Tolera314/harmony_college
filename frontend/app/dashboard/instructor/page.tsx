@@ -22,6 +22,7 @@ import { InAuditLogView }      from '@/src/components/instructor/views/InAuditLo
 import { InSettingsView }      from '@/src/components/instructor/views/InSettingsView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
+import { ChatView } from '@/src/components/chat/ChatView';
 
 export default function InstructorDashboardPage() {
   const [activeTab,     setRawTab]       = useState<InstructorNavTab>('overview');

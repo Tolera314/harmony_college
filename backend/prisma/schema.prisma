@@ -25,6 +25,10 @@ model User {
   application  Application?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+
+  // Chat relations
+  conversations ConversationParticipant[]
+  messages      Message[]
 }
 
 model Application {
@@ -66,4 +70,35 @@ model Document {
   type          String       // "MATRIC", "GRADE_8", "TRANSCRIPT_9_10", "TRANSCRIPT_11_12"
   fileUrl       String
   uploadedAt    DateTime     @default(now())
+}
+
+// ── Chat Models ───────────────────────────────────────────────────────────────
+
+model Conversation {
+  id           String                    @id @default(uuid())
+  isGroup      Boolean                   @default(false)
+  name         String?                   // only for group conversations
+  createdAt    DateTime                  @default(now())
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 }

@@ -12,6 +12,7 @@ import { FinancialsView } from '@/src/components/FinancialsView';
 import { DegreeAuditView } from '@/src/components/DegreeAuditView';
 import { SupportView } from '@/src/components/SupportView';
 import { SettingsView } from '@/src/components/SettingsView';
+import { ChatView } from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -113,6 +114,8 @@ export default function StudentDashboardPage() {
             setProfile={setProfile}
           />
         );
+      case 'messages':
+        return <ChatView />;
       default:
         return null;
     }

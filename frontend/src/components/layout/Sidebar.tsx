@@ -17,6 +17,7 @@ import {
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
+import { ChatSidebarButton } from '../chat/ChatSidebarButton';
 
 export interface GenericNavItem<T extends string = string> {
   id: T;
@@ -145,6 +146,7 @@ export const Sidebar = <T extends string = NavTab>({
       </nav>
 
       <div className="mt-auto border-t border-(--border-subtle) pt-4 space-y-1 shrink-0">
+        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
         <motion.button
           onClick={() => setActiveTab('settings' as T)}
           whileHover={{ x: 4 }}
