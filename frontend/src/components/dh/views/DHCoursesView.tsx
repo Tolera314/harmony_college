@@ -10,7 +10,7 @@ import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
-import { Input } from '../../ui/Input';
+import { SlidePanel } from '../../ui/SlidePanel';import { Input } from '../../ui/Input';
 
 const statusBadge = (s: Course['status']) => {
   const map: Record<Course['status'], { variant: 'emerald'|'gold'|'rose'|'glass'|'amber'; label: string }> = {
@@ -164,7 +164,7 @@ export const DHCoursesView: React.FC = () => {
       )}
 
       {/* Detail Modal */}
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.code} — ${selected.title}` : ''} maxWidth="max-w-2xl">
+      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.code} — ${selected.title}` : ''} subtitle="Course Details" width="max-w-2xl">
         {selected && (() => {
           const f = faculty.find((x) => x.id === selected.facultyId);
           const room = classrooms.find((r) => r.id === selected.roomId);
@@ -203,7 +203,7 @@ export const DHCoursesView: React.FC = () => {
             </div>
           );
         })()}
-      </Modal>
+      </SlidePanel>
 
       {/* Confirm Modal */}
       <Modal isOpen={!!confirmModal} onClose={() => setConfirmModal(null)} title={`Confirm ${confirmModal?.action}`} maxWidth="max-w-md">

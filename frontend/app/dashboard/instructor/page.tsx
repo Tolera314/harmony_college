@@ -14,6 +14,8 @@ import { InMyClassesView }     from '@/src/components/instructor/views/InMyClass
 import { InAttendanceView }    from '@/src/components/instructor/views/InAttendanceView';
 import { InStudentsView }      from '@/src/components/instructor/views/InStudentsView';
 import { InGradesView }        from '@/src/components/instructor/views/InGradesView';
+import { InAssignmentsView }   from '@/src/components/instructor/views/InAssignmentsView';
+import { InQuizzesView }       from '@/src/components/instructor/views/InQuizzesView';
 import { InMaterialsView }     from '@/src/components/instructor/views/InMaterialsView';
 import { InAnnouncementsView } from '@/src/components/instructor/views/InAnnouncementsView';
 import { InReportsView }       from '@/src/components/instructor/views/InReportsView';
@@ -22,6 +24,7 @@ import { InAuditLogView }      from '@/src/components/instructor/views/InAuditLo
 import { InSettingsView }      from '@/src/components/instructor/views/InSettingsView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
+import { ChatView } from '@/src/components/chat/ChatView';
 
 export default function InstructorDashboardPage() {
   const [activeTab,     setRawTab]       = useState<InstructorNavTab>('overview');
@@ -69,6 +72,8 @@ export default function InstructorDashboardPage() {
     { id: 'attendance', label: 'Attendance' },
     { id: 'students', label: 'Students' },
     { id: 'grades', label: 'Grades' },
+    { id: 'assignments', label: 'Assignments' },
+    { id: 'quizzes', label: 'Quizzes & Exams' },
     { id: 'materials', label: 'Course Materials' },
     { id: 'announcements', label: 'Announcements' },
     { id: 'reports', label: 'Reports' },
@@ -85,6 +90,8 @@ export default function InstructorDashboardPage() {
       case 'attendance':     return <InAttendanceView />;
       case 'students':       return <InStudentsView />;
       case 'grades':         return <InGradesView />;
+      case 'assignments':    return <InAssignmentsView />;
+      case 'quizzes':        return <InQuizzesView />;
       case 'materials':      return <InMaterialsView />;
       case 'announcements':  return <InAnnouncementsView />;
       case 'reports':        return <InReportsView />;

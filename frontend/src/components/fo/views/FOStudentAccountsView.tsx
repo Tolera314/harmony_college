@@ -12,6 +12,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { financeStudents, installmentPlans, transactions, foProfile } from '../../../data/financeData';
 import { FinanceStudent, PaymentStatus } from '../../../types/finance';
 
@@ -45,7 +46,7 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
   ].filter((c) => c.amount > 0);
 
   return (
-    <Modal isOpen onClose={onClose} title={<span>Ledger — <span className="text-(--brand-gold)">{student.name}</span></span>} maxWidth="max-w-3xl">
+    <SlidePanel isOpen onClose={onClose} title={<span>Ledger — <span className="text-(--brand-gold)">{student.name}</span></span>} subtitle="Finance — Student Accounts" width="max-w-3xl">
       <div className="space-y-6">
         {/* Student info */}
         <div className="flex items-center gap-4 p-4 bg-(--hover-overlay) rounded-2xl border border-(--border-default)">
@@ -140,7 +141,7 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
           </div>
         )}
       </div>
-    </Modal>
+    </SlidePanel>
   );
 }
 
@@ -305,14 +306,23 @@ export const FOStudentAccountsView: React.FC = () => {
                       title="View Ledger"
                       className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-(--accent-gold-subtle) text-(--text-muted) hover:text-(--brand-gold) transition-colors touch-target"
                     ><Eye className="w-3.5 h-3.5" /></button>
-                    <button title="Record Payment" className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-emerald-900/30 text-(--text-muted) hover:text-(--status-success) transition-colors touch-target">
+                    <button
+                      title="Record Payment"
+                      onClick={() => setSelectedStudent(s)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-emerald-900/30 text-white/50 hover:text-emerald-400 transition-colors touch-target">
                       <CreditCard className="w-3.5 h-3.5" />
                     </button>
-                    <button title="Payment History" className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors touch-target">
+                    <button
+                      title="Payment History"
+                      onClick={() => setSelectedStudent(s)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors touch-target">
                       <History className="w-3.5 h-3.5" />
                     </button>
                     {s.installmentPlan && (
-                      <button title="Installment Plan" className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-amber-900/30 text-(--text-muted) hover:text-(--status-warning) transition-colors touch-target">
+                      <button
+                        title="Installment Plan"
+                        onClick={() => setSelectedStudent(s)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-900/30 text-white/50 hover:text-amber-400 transition-colors touch-target">
                         <CalendarClock className="w-3.5 h-3.5" />
                       </button>
                     )}

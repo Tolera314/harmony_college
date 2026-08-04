@@ -123,7 +123,8 @@ export const EnrollmentManagement: React.FC = () => {
 
       // Check if already registered
       if (selectedStudent.courses.some(c => c.code === courseToAdd.code)) {
-        alert('Student is already registered for this course.');
+        setOverrideReason('');
+        setOverrideAction(null);
         return;
       }
 

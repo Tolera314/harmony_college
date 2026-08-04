@@ -11,6 +11,8 @@ import {
 import { EmptyState } from '../ui/States';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { SlidePanel } from '../ui/SlidePanel';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 // Mock catalog data
 const initialCourses = [
@@ -35,8 +37,10 @@ export const CourseCatalog: React.FC = () => {
   const [deptFilter, setDeptFilter] = useState('All');
   const [semFilter, setSemFilter] = useState('All');
 
-  // Add course modal
+  // Add course panel
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [newCourse, setNewCourse] = useState({
     code: '',
     name: '',
@@ -95,18 +99,32 @@ export const CourseCatalog: React.FC = () => {
 
   // Bulk simulated actions
   const handleExportCSV = () => {
-    alert('Simulating Course Catalog CSV Export...\nCourses data compiled successfully.\nDownload file: course_catalog_export.csv');
+    // Simulate CSV export — in production would trigger a real download
+    const csvContent = ['Code,Name,Credits,Department,Semester,Prerequisites']
+      .concat(courses.map(c => `${c.code},"${c.name}",${c.credits},${c.department},${c.semester},"${c.prerequisites.join(';')}"`))
+      .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'course_catalog_export.csv'; a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleImportCSV = () => {
-    alert('Simulating CSV Import...\nPlease select a CSV file formatted with: Code, Name, Credits, Dept, Semester, Prereqs.\nSuccess: Import dry-run parsed 4 courses.');
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = '.csv';
+    input.onchange = () => { /* parse CSV in production */ };
+    input.click();
   };
 
   const handleDeleteCourse = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to retire this course from the catalog? This action will disable future enrollment.')) {
-      setCourses(prev => prev.filter(c => c.id !== id));
-    }
+    setDeleteTarget(id);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteTarget) setCourses(prev => prev.filter(c => c.id !== deleteTarget));
+    setDeleteTarget(null);
   };
 
   // Filter computation
@@ -307,149 +325,135 @@ export const CourseCatalog: React.FC = () => {
         </table>
       </div>
 
-      {/* Add Course Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-black"
-            />
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-(--bg-base) border border-(--border-default) rounded-2xl p-6 shadow-2xl z-10 font-sans"
-            >
-              {/* Modal Close */}
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <h3 className="text-lg font-serif font-bold text-(--text-primary) mb-4">Add Course to Catalog</h3>
-              
-              <form onSubmit={handleAddCourseSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-(--text-secondary)">Course Code</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. CS202"
-                      value={newCourse.code}
-                      onChange={(e) => setNewCourse(prev => ({ ...prev, code: e.target.value }))}
-                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-(--text-secondary)">Credits</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={5}
-                      required
-                      value={newCourse.credits}
-                      onChange={(e) => setNewCourse(prev => ({ ...prev, credits: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-(--text-secondary)">Course Title</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Advanced Operating Systems"
-                    value={newCourse.name}
-                    onChange={(e) => setNewCourse(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-(--text-secondary)">Department</label>
-                    <select
-                      value={newCourse.department}
-                      onChange={(e) => setNewCourse(prev => ({ ...prev, department: e.target.value }))}
-                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
-                    >
-                      {initialDepartments.map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-(--text-secondary)">Default Semester</label>
-                    <select
-                      value={newCourse.semester}
-                      onChange={(e) => setNewCourse(prev => ({ ...prev, semester: e.target.value }))}
-                      className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
-                    >
-                      <option value="Fall">Fall</option>
-                      <option value="Spring">Spring</option>
-                      <option value="Summer">Summer</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Prerequisites Multi-Selector */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-(--text-secondary) block">Select Prerequisites</label>
-                  <div className="flex flex-wrap gap-2 max-h-[85px] overflow-y-auto p-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl">
-                    {courses.map(c => {
-                      const isSelected = newCourse.prerequisites.includes(c.code);
-                      return (
-                        <button
-                          type="button"
-                          key={c.id}
-                          onClick={() => handlePrereqSelect(c.code)}
-                          className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-semibold flex items-center gap-1 transition-all ${
-                            isSelected 
-                              ? 'bg-(--accent-gold-subtle) border-(--brand-gold) text-(--brand-gold)' 
-                              : 'bg-(--hover-overlay) border-(--border-subtle) text-(--text-faint) hover:text-(--text-primary)'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-3 h-3" />}
-                          {c.code}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-(--text-secondary)">Syllabus Summary Description</label>
-                  <textarea
-                    rows={3}
-                    placeholder="Enter short syllabus contents..."
-                    value={newCourse.desc}
-                    onChange={(e) => setNewCourse(prev => ({ ...prev, desc: e.target.value }))}
-                    className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) resize-none"
-                  />
-                </div>
-
-                <div className="flex gap-3 justify-end pt-2">
-                  <Button variant="secondary" size="sm" type="button" onClick={() => setIsModalOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button variant="gold" size="sm" type="submit">
-                    Add Course
-                  </Button>
-                </div>
-              </form>
-            </motion.div>
+      {/* Add Course — SlidePanel */}
+      <SlidePanel
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Add Course to Catalog"
+        subtitle="Course Catalog"
+        width="max-w-lg"
+      >
+        <form onSubmit={handleAddCourseSubmit} className="space-y-4 font-sans">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-(--text-secondary)">Course Code</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. CS202"
+                value={newCourse.code}
+                onChange={(e) => setNewCourse(prev => ({ ...prev, code: e.target.value }))}
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-(--text-secondary)">Credits</label>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                required
+                value={newCourse.credits}
+                onChange={(e) => setNewCourse(prev => ({ ...prev, credits: Number(e.target.value) }))}
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) font-mono"
+              />
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Course Title</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Advanced Operating Systems"
+              value={newCourse.name}
+              onChange={(e) => setNewCourse(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-(--text-secondary)">Department</label>
+              <select
+                value={newCourse.department}
+                onChange={(e) => setNewCourse(prev => ({ ...prev, department: e.target.value }))}
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
+              >
+                {initialDepartments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-(--text-secondary)">Default Semester</label>
+              <select
+                value={newCourse.semester}
+                onChange={(e) => setNewCourse(prev => ({ ...prev, semester: e.target.value }))}
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
+              >
+                <option value="Fall">Fall</option>
+                <option value="Spring">Spring</option>
+                <option value="Summer">Summer</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-(--text-secondary) block">Select Prerequisites</label>
+            <div className="flex flex-wrap gap-2 max-h-[85px] overflow-y-auto p-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl">
+              {courses.map(c => {
+                const isSelected = newCourse.prerequisites.includes(c.code);
+                return (
+                  <button
+                    type="button"
+                    key={c.id}
+                    onClick={() => handlePrereqSelect(c.code)}
+                    className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-semibold flex items-center gap-1 transition-all ${
+                      isSelected
+                        ? 'bg-(--accent-gold-subtle) border-(--brand-gold) text-(--brand-gold)'
+                        : 'bg-(--hover-overlay) border-(--border-subtle) text-(--text-faint) hover:text-(--text-primary)'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3" />}
+                    {c.code}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Syllabus Summary Description</label>
+            <textarea
+              rows={3}
+              placeholder="Enter short syllabus contents..."
+              value={newCourse.desc}
+              onChange={(e) => setNewCourse(prev => ({ ...prev, desc: e.target.value }))}
+              className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" size="sm" type="button" className="flex-1" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="gold" size="sm" type="submit" className="flex-1">
+              Add Course
+            </Button>
+          </div>
+        </form>
+      </SlidePanel>
+
+      {/* Delete Confirmation */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Retire Course"
+        message="Are you sure you want to retire this course from the catalog? This will disable future enrollment."
+        icon={<Trash2 className="w-6 h-6" />}
+        variant="danger"
+        confirmLabel="Retire Course"
+      />
     </motion.div>
   );
 };

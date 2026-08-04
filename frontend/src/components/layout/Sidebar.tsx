@@ -5,6 +5,7 @@ import { NavTab, StudentProfile } from '../../types';
 import {
   LayoutDashboard,
   BookOpen,
+  ClipboardList,
   GraduationCap,
   CreditCard,
   BarChart3,
@@ -17,6 +18,7 @@ import {
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
+import { ChatSidebarButton } from '../chat/ChatSidebarButton';
 
 export interface GenericNavItem<T extends string = string> {
   id: T;
@@ -47,6 +49,8 @@ interface SidebarProps<T extends string = NavTab> {
 const defaultStudentNavItems: GenericNavItem<NavTab>[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { id: 'my_courses', label: 'My Courses', icon: <BookOpen className="w-5 h-5" />, badge: 'Fall 24' },
+  { id: 'assignments', label: 'Assignments', icon: <ClipboardList className="w-5 h-5" />, badge: '3 Due', badgeVariant: 'amber' },
+  { id: 'quizzes', label: 'Quizzes & Exams', icon: <HelpCircle className="w-5 h-5" /> },
   { id: 'grades', label: 'Grades & Transcript', icon: <GraduationCap className="w-5 h-5" /> },
   { id: 'financials', label: 'Financials & Tuition', icon: <CreditCard className="w-5 h-5" /> },
   { id: 'degree_audit', label: 'Degree Audit', icon: <BarChart3 className="w-5 h-5" />, badge: '85%' },
@@ -77,8 +81,8 @@ export const Sidebar = <T extends string = NavTab>({
           onClick={() => setActiveTab(items[0]?.id)}
           className="flex items-center gap-3 text-left group focus:outline-none ds-focus-ring rounded-xl"
         >
-          <div className="w-10 h-10 rounded-xl text-[--text-inverse] flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform bg-gradient-to-br from-[var(--brand-gold)] to-[var(--brand-gold-dark)]">
-            H
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0 group-hover:scale-105 transition-transform shadow-md">
+            <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
           </div>
           {!collapsed && (
             <div className="hidden xl:block">
@@ -145,6 +149,7 @@ export const Sidebar = <T extends string = NavTab>({
       </nav>
 
       <div className="mt-auto border-t border-(--border-subtle) pt-4 space-y-1 shrink-0">
+        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
         <motion.button
           onClick={() => setActiveTab('settings' as T)}
           whileHover={{ x: 4 }}

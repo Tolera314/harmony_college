@@ -10,6 +10,7 @@ import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { Input } from '../../ui/Input';
 
 const rankColors: Record<string, 'gold' | 'emerald' | 'amber' | 'glass'> = {
@@ -123,8 +124,14 @@ export const DHFacultyView: React.FC = () => {
         })}
       </div>
 
-      {/* Detail Modal */}
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.name} maxWidth="max-w-xl">
+      {/* Detail — SlidePanel */}
+      <SlidePanel
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected?.name}
+        subtitle="Faculty Profile"
+        width="max-w-xl"
+      >
         {selected && (() => {
           const assignedCourses = courses.filter((c) => selected.courseIds.includes(c.id));
           const pct = workloadPct(selected.weeklyHours, selected.maxHours);
@@ -138,7 +145,6 @@ export const DHFacultyView: React.FC = () => {
                   <p className="text-(--text-muted) text-xs mt-1">{selected.specialization}</p>
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 {[['Email', selected.email], ['Phone', selected.phone], ['Office', selected.officeRoom], ['Employee ID', selected.id], ['Joined', selected.joinedYear], ['Department', selected.department]].map(([k, v]) => (
                   <div key={String(k)} className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
@@ -147,7 +153,6 @@ export const DHFacultyView: React.FC = () => {
                   </div>
                 ))}
               </div>
-
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs text-(--text-muted)">
                   <span>Weekly Workload</span>
@@ -157,7 +162,6 @@ export const DHFacultyView: React.FC = () => {
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: workloadColor(pct) }} />
                 </div>
               </div>
-
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-3">Assigned Courses</p>
                 {assignedCourses.length === 0 ? (
@@ -179,7 +183,7 @@ export const DHFacultyView: React.FC = () => {
             </div>
           );
         })()}
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

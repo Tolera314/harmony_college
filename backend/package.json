@@ -24,6 +24,7 @@
     "express": "^4.21.2",
     "jose": "^6.2.3",
     "multer": "^2.0.1",
+    "socket.io": "^4.8.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {

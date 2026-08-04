@@ -23,7 +23,8 @@ export type AdminNavTab =
   | 'backup'
   | 'system_config'
   | 'notifications'
-  | 'settings';
+  | 'settings'
+  | 'messages';
 
 // ── Super Admin Profile ────────────────────────────────────────────────────────
 export interface AdminProfile {

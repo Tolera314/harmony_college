@@ -9,12 +9,15 @@ export type InstructorNavTab =
   | 'attendance'
   | 'students'
   | 'grades'
+  | 'assignments'
+  | 'quizzes'
   | 'materials'
   | 'announcements'
   | 'reports'
   | 'notifications'
   | 'audit_log'
-  | 'settings';
+  | 'settings'
+  | 'messages';
 
 // ── Instructor Profile ────────────────────────────────────────────────────────
 export interface InstructorProfile {
@@ -92,6 +95,51 @@ export interface GradeEntry {
   updatedAt: string;
 }
 
+// ── Quizzes ───────────────────────────────────────────────────────────────────
+
+export type InstructorQuizQuestionType = 'MCQ' | 'TrueFalse' | 'FillBlank' | 'Matching' | 'ShortAnswer' | 'Essay';
+
+export interface InstructorQuizQuestion {
+  id: string;
+  type: InstructorQuizQuestionType;
+  questionText: string;
+  options?: string[]; // for MCQ/Matching
+  correctAnswer?: string; // or multiple, just a string for mock
+  points: number;
+}
+
+export interface InstructorQuizAttempt {
+  id: string;
+  studentId: string;
+  status: 'in_progress' | 'submitted' | 'graded';
+  startedAt: string;
+  submittedAt?: string;
+  score?: number;
+  answers: Record<string, string>; // questionId -> answer
+  feedback?: string;
+  // For manual grading:
+  needsManualGrading?: boolean;
+}
+
+export interface InstructorQuiz {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  instructions: string;
+  durationMinutes: number;
+  availableDate: string;
+  closingDate: string;
+  passingScore: number;
+  maxAttempts: number;
+  shuffleQuestions: boolean;
+  shuffleAnswers: boolean;
+  showResultsImmediately: boolean;
+  status: 'Draft' | 'Published' | 'Closed';
+  questions: InstructorQuizQuestion[];
+  attempts: InstructorQuizAttempt[];
+}
+
 // ── Course Material ───────────────────────────────────────────────────────────
 export type MaterialType = 'PDF' | 'Slides' | 'Assignment' | 'Video' | 'Reference' | 'Syllabus';
 export type MaterialVisibility = 'Published' | 'Draft' | 'Scheduled';
@@ -156,4 +204,50 @@ export interface ClockEntry {
   clockOut?: string;
   hoursWorked?: number;
   status: 'Active' | 'Completed';
+}
+
+// ── Assignment Workflow ───────────────────────────────────────────────────────
+export type SubmissionType = 'File Upload' | 'Text' | 'Both';
+export type AssignmentStatus = 'Draft' | 'Published' | 'Closed';
+export type SubmissionStatus = 'Not Submitted' | 'Submitted' | 'Late' | 'Graded' | 'Resubmitted';
+
+export interface AssignmentAttachment {
+  name: string;
+  size: string;
+  type: 'PDF' | 'DOCX' | 'ZIP' | 'MP4' | 'Other';
+}
+
+export interface LMSAssignment {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  instructions: string;
+  dueDate: string;          // ISO-like string, e.g. 'Aug 20, 2024 23:59'
+  maxMarks: number;
+  allowedFileTypes: string[];
+  maxFileSizeMB: number;
+  submissionType: SubmissionType;
+  allowLateSubmission: boolean;
+  allowResubmission: boolean;
+  attachments: AssignmentAttachment[];
+  status: AssignmentStatus;
+  createdAt: string;
+  publishedAt?: string;
+  totalSubmissions: number;
+  gradedCount: number;
+}
+
+export interface AssignmentSubmission {
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  submittedAt: string;
+  status: SubmissionStatus;
+  fileAttachments: AssignmentAttachment[];
+  textAnswer?: string;
+  score?: number;
+  feedback?: string;
+  gradedAt?: string;
+  isLate: boolean;
 }

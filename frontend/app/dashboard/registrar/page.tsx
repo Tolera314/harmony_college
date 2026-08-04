@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ChatView } from '@/src/components/chat/ChatView';
 import { 
   ClipboardList, BookOpen, GraduationCap, FileText, 
   Users, ShieldAlert,
@@ -19,6 +20,7 @@ import dynamic from 'next/dynamic';
 // Dynamic sub-component imports for optimal LCP code splitting
 import { DashboardOverview } from '@/src/components/registrar/DashboardOverview';
 
+const RegistrarStudentsView = dynamic(() => import('@/src/components/registrar/RegistrarStudentsView').then(m => m.RegistrarStudentsView), { ssr: false });
 const AdmissionsManagement = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
 const CourseCatalog = dynamic(() => import('@/src/components/registrar/CourseCatalog').then(m => m.CourseCatalog), { ssr: false });
 const CourseOfferings = dynamic(() => import('@/src/components/registrar/CourseOfferings').then(m => m.CourseOfferings), { ssr: false });
@@ -34,9 +36,9 @@ const AuditLogsTimeline = dynamic(() => import('@/src/components/registrar/Audit
 const RegistrarSettings = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
 
 type RegistrarTab =
-  | 'dashboard' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
+  | 'dashboard' | 'students' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
-  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings';
+  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
 
 interface SidebarItem {
   id: RegistrarTab;
@@ -94,8 +96,9 @@ export default function RegistrarDashboardPage() {
   // and are housed cleanly inside the unified Settings Board (accessed via bottom Settings action button).
   const menuItems: SidebarItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'students', label: 'Student Records', icon: Users },
     { id: 'admissions', label: 'Admissions', icon: ClipboardList },
-    { id: 'enrollments', label: 'Enrollments', icon: Users },
+    { id: 'enrollments', label: 'Course Enrollments', icon: BookOpen },
     { id: 'catalog', label: 'Course Catalog', icon: BookOpen },
     { id: 'offerings', label: 'Course Offerings', icon: Grid },
     { id: 'timetable', label: 'Class Timetable', icon: Clock },
@@ -128,9 +131,9 @@ export default function RegistrarDashboardPage() {
 
   const mobileNavItems: GenericMobileNavItem<RegistrarTab>[] = [
     { id: 'dashboard', label: 'Dash', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'students', label: 'Students', icon: <Users className="w-5 h-5" /> },
     { id: 'admissions', label: 'Admissions', icon: <ClipboardList className="w-5 h-5" /> },
-    { id: 'catalog', label: 'Catalog', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'enrollments', label: 'Enroll', icon: <Users className="w-5 h-5" /> },
+    { id: 'enrollments', label: 'Enroll', icon: <BookOpen className="w-5 h-5" /> },
     { id: 'graduation', label: 'Grad', icon: <GraduationCap className="w-5 h-5" /> }
   ];
 
@@ -139,6 +142,8 @@ export default function RegistrarDashboardPage() {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={triggerCreateCourse} />;
+      case 'students':
+        return <RegistrarStudentsView />;
       case 'admissions':
         return <AdmissionsManagement />;
       case 'catalog':
@@ -167,6 +172,7 @@ export default function RegistrarDashboardPage() {
         return <AuditLogsTimeline />;
       case 'settings':
         return <RegistrarSettings initialTab="account" />;
+      case 'messages':         return <ChatView />;
       default:
         return null;
     }

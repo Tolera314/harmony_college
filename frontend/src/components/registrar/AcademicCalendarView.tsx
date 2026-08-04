@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 const initialEvents = [
   { id: 'ev1', title: 'Fall Course Registration Opens', date: '2026-08-01', time: '08:30 AM', category: 'Registration', desc: 'Fall semester course selection portal goes live for all undergraduate students.' },
@@ -21,37 +22,24 @@ const initialEvents = [
 export const AcademicCalendarView: React.FC = () => {
   const [events, setEvents] = useState(initialEvents);
   const [newEvent, setNewEvent] = useState({
-    title: '',
-    date: '',
-    time: '09:00 AM',
-    category: 'Registration',
-    desc: ''
+    title: '', date: '', time: '09:00 AM', category: 'Registration', desc: ''
   });
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const handleCreateEvent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.title || !newEvent.date) return;
-
     setEvents(prev => [
       ...prev,
-      {
-        id: 'ev' + (prev.length + 1),
-        title: newEvent.title,
-        date: newEvent.date,
-        time: newEvent.time,
-        category: newEvent.category,
-        desc: newEvent.desc || 'No description provided.'
-      }
+      { id: 'ev' + (prev.length + 1), ...newEvent, desc: newEvent.desc || 'No description provided.' }
     ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-
     setNewEvent({ title: '', date: '', time: '09:00 AM', category: 'Registration', desc: '' });
-    alert('Academic Calendar event registered successfully.');
   };
 
-  const handleDeleteEvent = (id: string) => {
-    if (confirm('Are you sure you want to remove this event from the academic schedule?')) {
-      setEvents(prev => prev.filter(ev => ev.id !== id));
-    }
+  const handleDeleteEvent = (id: string) => setDeleteTarget(id);
+  const handleDeleteConfirm = () => {
+    if (deleteTarget) setEvents(prev => prev.filter(ev => ev.id !== deleteTarget));
+    setDeleteTarget(null);
   };
 
   const getBadgeVariant = (cat: string) => {
@@ -66,6 +54,7 @@ export const AcademicCalendarView: React.FC = () => {
   };
 
   return (
+    <>
     <motion.div 
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }} 
@@ -211,5 +200,17 @@ export const AcademicCalendarView: React.FC = () => {
 
       </div>
     </motion.div>
+
+    <ConfirmModal
+      isOpen={!!deleteTarget}
+      onClose={() => setDeleteTarget(null)}
+      onConfirm={handleDeleteConfirm}
+      title="Remove Calendar Event"
+      message="Are you sure you want to remove this event from the academic schedule?"
+      icon={<Trash2 className="w-6 h-6" />}
+      variant="danger"
+      confirmLabel="Remove Event"
+    />
+    </>
   );
 };

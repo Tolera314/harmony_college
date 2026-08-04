@@ -198,7 +198,7 @@ export const AdminReportsView: React.FC = () => {
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader title="Reports" subtitle="Institution-wide analytics" icon={<BarChart3 className="w-5 h-5" />}
-        actions={<Button variant="secondary" size="sm">Export PDF</Button>}
+        actions={<Button variant="secondary" size="sm">Save as PDF</Button>}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card hoverable={false} className="space-y-4">

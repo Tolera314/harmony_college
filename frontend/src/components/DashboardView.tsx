@@ -10,6 +10,7 @@ import {
   ChevronRight,
   MapPin,
   BookOpen,
+  ClipboardList,
   X,
   FileText,
   GraduationCap,
@@ -21,6 +22,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
+import { SlidePanel } from './ui/SlidePanel';
 
 interface DashboardViewProps {
   profile: StudentProfile;
@@ -69,8 +71,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </p>
               <div className="pt-2 flex flex-wrap gap-3">
                 <Button variant="primary" onClick={() => setActiveTab('my_courses')} icon={<BookOpen className="w-4 h-4" />}>My Courses</Button>
+                <Button variant="secondary" onClick={() => setActiveTab('assignments')} icon={<ClipboardList className="w-4 h-4" />}>Assignments</Button>
                 <Button variant="secondary" onClick={() => setActiveTab('grades')} icon={<GraduationCap className="w-4 h-4" />}>View Transcript</Button>
-                <Button variant="secondary" onClick={() => setActiveTab('financials')} icon={<CreditCard className="w-4 h-4" />}>Pay Tuition</Button>
               </div>
             </div>
             <div
@@ -259,8 +261,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Course Detail Modal */}
-      <Modal isOpen={!!selectedCourse} onClose={() => setSelectedCourse(null)} title={selectedCourse ? `${selectedCourse.code}: ${selectedCourse.title}` : undefined}>
+      {/* 4. Course Detail — SlidePanel */}
+      <SlidePanel
+        isOpen={!!selectedCourse}
+        onClose={() => setSelectedCourse(null)}
+        title={selectedCourse ? `${selectedCourse.code}: ${selectedCourse.title}` : ''}
+        subtitle="My Courses"
+        width="max-w-xl"
+      >
         {selectedCourse && (
           <div className="space-y-6">
             <div className="flex items-center gap-4 p-4 rounded-2xl border" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}>
@@ -296,13 +304,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 ))}
               </div>
             </div>
-
-            <div className="flex justify-end pt-2">
-              <Button variant="secondary" onClick={() => setSelectedCourse(null)}>Close Modal</Button>
-            </div>
           </div>
         )}
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

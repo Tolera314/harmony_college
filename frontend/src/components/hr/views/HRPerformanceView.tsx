@@ -11,6 +11,7 @@ import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { BarChart } from '../../dh/DHCharts';
 
 const statusConfig: Record<PerformanceReview['status'], { variant: 'emerald'|'gold'|'amber'|'rose'; icon: React.ReactNode }> = {
@@ -129,8 +130,8 @@ export const HRPerformanceView: React.FC = () => {
         })}
       </div>
 
-      {/* Detail Modal */}
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title="Performance Review" maxWidth="max-w-lg">
+      {/* Detail — SlidePanel */}
+      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title="Performance Review" subtitle="HR Performance" width="max-w-lg">
         {selected && (() => {
           const emp = employees.find(e => e.id === selected.employeeId);
           return (
@@ -171,9 +172,8 @@ export const HRPerformanceView: React.FC = () => {
               )}
             </div>
           );
-          var review = selected; // satisfy closure
         })()}
-      </Modal>
+      </SlidePanel>
     </motion.div>
   );
 };

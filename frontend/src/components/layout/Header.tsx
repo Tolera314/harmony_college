@@ -44,11 +44,14 @@ const defaultStudentTabLabels: Record<NavTab, string> = {
   dashboard: 'Dashboard',
   my_courses: 'My Courses',
   registration: 'Course Registration',
+  assignments: 'Assignments',
+  quizzes: 'Quizzes & Exams',
   grades: 'Grades & Transcript',
   financials: 'Financials & Tuition',
   degree_audit: 'Degree Audit',
   support: 'Support & Advising',
-  settings: 'Settings & Preferences'
+  settings: 'Settings & Preferences',
+  messages: 'Messages',
 };
 
 export const Header = <T extends string = NavTab>({

@@ -10,6 +10,7 @@ import {
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
+import { ChatSidebarButton } from '../chat/ChatSidebarButton';
 
 interface AdminSidebarProps {
   activeTab: AdminNavTab;
@@ -62,9 +63,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     >
       {/* Logo */}
       <div className="mb-5 px-1.5 flex items-center gap-2.5 shrink-0">
-        <button onClick={() => setActiveTab('overview')} className="flex items-center gap-2.5 group focus:outline-none ds-focus-ring rounded-xl">
-          <div className="w-9 h-9 rounded-xl bg-linear-to-br text-[--text-inverse] flex items-center justify-center font-serif font-bold text-lg shadow-md shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundImage: 'linear-gradient(to bottom right, var(--brand-gold), var(--brand-gold-dark))' }}>
-            H
+        <button onClick={() => setActiveTab('overview')} className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] rounded-xl">
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0 group-hover:scale-105 transition-transform shadow-md">
+            <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
           </div>
           <div className="hidden xl:block">
             <span className="font-serif text-base font-bold tracking-tight block leading-none" style={{ color: 'var(--text-primary)' }}>Harmony</span>
@@ -125,6 +126,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <span className="hidden xl:inline">Notifications</span>
           {unreadCount > 0 && <Badge variant="rose" className="hidden xl:inline-block text-[9px] py-0">{unreadCount}</Badge>}
         </motion.button>
+        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
         <motion.button onClick={() => setActiveTab('settings')} whileHover={GESTURE.navHover} whileTap={{ scale: 0.97 }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-sans text-xs font-medium transition-all touch-target ${activeTab === 'settings' ? 'ds-nav-item-active-pill ds-nav-item-active' : 'ds-nav-item'}`}>
           <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />

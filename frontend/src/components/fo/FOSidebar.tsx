@@ -7,6 +7,7 @@ import {
   BarChart3, RefreshCw, Bell, ClipboardList, Settings, LogOut, Landmark,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { ChatSidebarButton } from '../chat/ChatSidebarButton';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 import { Badge } from '../ui/Badge';
 
@@ -63,8 +64,8 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
           onClick={() => setActiveTab('overview')}
           className="flex items-center gap-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-(--brand-gold) rounded-xl"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E9C349] to-[#b8951d] text-(--text-inverse) flex items-center justify-center font-serif font-bold text-xl shadow-md shrink-0 group-hover:scale-105 transition-transform">
-            <Landmark className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#E9C349]/50 shrink-0 group-hover:scale-105 transition-transform shadow-md">
+            <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
           </div>
           <div className="hidden xl:block">
             <span className="font-serif text-xl font-bold text-(--text-primary) tracking-tight block leading-none">Harmony</span>
@@ -119,6 +120,7 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
 
       {/* Bottom section */}
       <div className="mt-auto ds-sidebar-divider border-t pt-4 space-y-1">
+        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
         <motion.button
           onClick={() => setActiveTab('settings')}
           whileHover={GESTURE.navHover}

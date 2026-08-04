@@ -45,7 +45,11 @@ export const InteractiveReports: React.FC = () => {
   const [reportRange, setReportRange] = useState('Academic Year 2026-2027');
 
   const handleDownload = (format: string) => {
-    alert(`Compiling analytical records...\nFormat: ${format}\nData parsed: 4 core reports, 525 enrolled student rosters.\nDownload initialized: institutional_report_${format.toLowerCase()}.${format.toLowerCase()}`);
+    const filename = `institutional_report_${Date.now()}.${format.toLowerCase()}`;
+    const link = document.createElement('a');
+    link.href = 'data:text/plain;charset=utf-8,Report+placeholder';
+    link.download = filename;
+    link.click();
   };
 
   const totalEnrollments = enrollmentTrend[enrollmentTrend.length - 1].value;

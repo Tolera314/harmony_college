@@ -13,7 +13,8 @@ export type DHNavTab =
   | 'leave_requests'
   | 'notifications'
   | 'audit_log'
-  | 'settings';
+  | 'settings'
+  | 'messages';
 
 // ── Department Head Profile ────────────────────────────────────────────────────
 export interface DHProfile {
