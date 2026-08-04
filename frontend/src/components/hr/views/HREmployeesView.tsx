@@ -48,16 +48,27 @@ function MaskedField({ value, label }: { value: string; label: string }) {
 }
 
 export const HREmployeesView: React.FC = () => {
+  const [empList, setEmpList] = useState<Employee[]>(employees);
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<'All'|Employee['status']>('All');
   const [typeFilter, setTypeFilter] = useState<'All'|Employee['employmentType']>('All');
   const [selected, setSelected] = useState<Employee | null>(null);
   const [deactivateModal, setDeactivateModal] = useState<Employee | null>(null);
+  
+  // Modals
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  
+  // Form State
+  const [formData, setFormData] = useState({
+    name: '', email: '', departmentId: 'dept1', position: '', employmentType: 'Full-Time' as Employee['employmentType']
+  });
+
   const [page, setPage] = useState(1);
   const PER_PAGE = 8;
 
-  const filtered = employees.filter(e => {
+  const filtered = empList.filter(e => {
     const q = search.toLowerCase();
     const matchQ = !q || e.name.toLowerCase().includes(q) || e.employeeId.toLowerCase().includes(q) || e.position.toLowerCase().includes(q);
     const matchD = deptFilter === 'All' || e.departmentId === deptFilter;
@@ -68,16 +79,66 @@ export const HREmployeesView: React.FC = () => {
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
 
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newEmp: Employee = {
+      id: `emp${Date.now()}`,
+      employeeId: `EMP-${Math.floor(Math.random() * 10000)}`,
+      name: formData.name,
+      email: formData.email,
+      departmentId: formData.departmentId,
+      position: formData.position,
+      employmentType: formData.employmentType,
+      status: 'Active',
+      contractStatus: 'Active',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      phone: '+251911000000',
+      hireDate: new Date().toISOString().split('T')[0],
+      basicSalary: 10000,
+      allowances: 0,
+      education: 'B.Sc.',
+      experience: 1,
+      nationalId: 'ET-00000000',
+      bankAccount: '100000000000',
+      taxNumber: '00000000',
+      gender: 'Male',
+      deductions: 0,
+      emergencyName: 'Contact Name',
+      emergencyRelation: 'Relative',
+      emergencyPhone: '+251911000000'
+    };
+    setEmpList(prev => [newEmp, ...prev]);
+    setIsAddModalOpen(false);
+    setFormData({ name: '', email: '', departmentId: 'dept1', position: '', employmentType: 'Full-Time' });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEmployee) return;
+    setEmpList(prev => prev.map(emp => 
+      emp.id === editingEmployee.id ? { ...emp, ...formData } : emp
+    ));
+    setEditingEmployee(null);
+  };
+
+  const handleDeactivateConfirm = () => {
+    if (!deactivateModal) return;
+    setEmpList(prev => prev.map(emp => 
+      emp.id === deactivateModal.id ? { ...emp, status: 'Inactive' } : emp
+    ));
+    setDeactivateModal(null);
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Employees"
-        subtitle={`${employees.filter(e => e.status === 'Active').length} active · ${employees.filter(e => e.contractStatus === 'Expiring Soon').length} contracts expiring`}
+        subtitle={`${empList.filter(e => e.status === 'Active').length} active · ${empList.filter(e => e.contractStatus === 'Expiring Soon').length} contracts expiring`}
         icon={<Users className="w-5 h-5" />}
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />}>Export</Button>
-            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}>Add Employee</Button>
+            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setIsAddModalOpen(true)}>Add Employee</Button>
           </div>
         }
       />
@@ -136,7 +197,7 @@ export const HREmployeesView: React.FC = () => {
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1.5">
                       <button onClick={() => setSelected(emp)} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="View profile"><Eye className="w-4 h-4" /></button>
-                      <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit"><Edit className="w-4 h-4" /></button>
+                      <button onClick={() => { setEditingEmployee(emp); setFormData({ name: emp.name, email: emp.email, departmentId: emp.departmentId, position: emp.position, employmentType: emp.employmentType }); }} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit"><Edit className="w-4 h-4" /></button>
                       {emp.status === 'Active' && (
                         <button onClick={() => setDeactivateModal(emp)} className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors" aria-label="Deactivate"><UserX className="w-4 h-4" /></button>
                       )}
@@ -227,13 +288,71 @@ export const HREmployeesView: React.FC = () => {
       <ConfirmModal
         isOpen={!!deactivateModal}
         onClose={() => setDeactivateModal(null)}
-        onConfirm={() => setDeactivateModal(null)}
+        onConfirm={handleDeactivateConfirm}
         title="Deactivate Employee"
         message={`This will disable system access for ${deactivateModal?.name} and move them to Inactive status. Historical records will be preserved.`}
         icon={<UserX className="w-6 h-6" />}
         variant="danger"
         confirmLabel="Confirm Deactivate"
       />
+
+      {/* Add Employee Modal */}
+      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Add New Employee" maxWidth="max-w-md">
+        <form onSubmit={handleAddSubmit} className="space-y-4">
+          <Input label="Full Name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+          <Input label="Email Address" type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+          
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Department</label>
+            <select value={formData.departmentId} onChange={e => setFormData({ ...formData, departmentId: e.target.value })} className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          
+          <Input label="Position Title" required value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} />
+          
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Employment Type</label>
+            <select value={formData.employmentType} onChange={e => setFormData({ ...formData, employmentType: e.target.value as Employee['employmentType'] })} className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {['Full-Time', 'Part-Time', 'Contract', 'Intern'].map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" type="button" className="flex-1" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
+            <Button variant="gold" type="submit" className="flex-1 font-semibold">Create Employee</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Employee Modal */}
+      <Modal isOpen={!!editingEmployee} onClose={() => setEditingEmployee(null)} title={`Edit Employee: ${editingEmployee?.name}`} maxWidth="max-w-md">
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <Input label="Full Name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+          <Input label="Email Address" type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+          
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Department</label>
+            <select value={formData.departmentId} onChange={e => setFormData({ ...formData, departmentId: e.target.value })} className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          
+          <Input label="Position Title" required value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} />
+          
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Employment Type</label>
+            <select value={formData.employmentType} onChange={e => setFormData({ ...formData, employmentType: e.target.value as Employee['employmentType'] })} className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {['Full-Time', 'Part-Time', 'Contract', 'Intern'].map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" type="button" className="flex-1" onClick={() => setEditingEmployee(null)}>Cancel</Button>
+            <Button variant="primary" type="submit" className="flex-1 font-semibold">Save Changes</Button>
+          </div>
+        </form>
+      </Modal>
     </motion.div>
   );
 };
