@@ -262,6 +262,14 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             </button>
           </div>
         </div>
+        <div className="bg-white text-black p-6 rounded-2xl space-y-6">
+          <div className="border-b-2 border-black pb-4">
+            <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
+            <p className="font-mono text-xs uppercase tracking-widest text-gray-600 mt-1">
+              OFFICIAL ACADEMIC TRANSCRIPT • OFFICE OF THE REGISTRAR
+            </p>
+          </div>
+        </div>
 
         {/* Transcript document */}
         <div id="official-transcript" className="bg-white text-black rounded-2xl border border-gray-200 overflow-hidden">

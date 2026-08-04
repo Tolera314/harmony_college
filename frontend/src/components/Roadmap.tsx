@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Palette, Music, Mic2, Camera, BookOpen, Award,
   MapPin, Users, GraduationCap, Star, ChevronRight, Landmark,
+  FileText, Calendar, CheckCircle2
 } from 'lucide-react';
 
 // ── Program categories ────────────────────────────────────────────────────────
@@ -107,6 +108,65 @@ interface RoadmapProps {
   appliedData?: unknown;
 }
 
+export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
+  const [activeStep, setActiveStep] = useState(1);
+  const [activeProgram, setActiveProgram] = useState(programs[0].id);
+  const current = programs.find(p => p.id === activeProgram) || programs[0];
+  const [completedSteps, setCompletedSteps] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false });
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [calcGPA, setCalcGPA] = useState('3.8');
+  const [calcSAT, setCalcSAT] = useState('1450');
+  const [acceptanceChance, setAcceptanceChance] = useState<number | null>(null);
+  const [interviewDate, setInterviewDate] = useState('');
+  const [interviewer, setInterviewer] = useState('Ato Biruk Tadesse');
+  const [interviewBooked, setInterviewBooked] = useState(false);
+  const [signedConduct, setSignedConduct] = useState(false);
+
+  useEffect(() => {
+    if (hasApplied) {
+      setCompletedSteps(p => ({ ...p, 1: true }));
+      setUploadedFileName('Harmony_Application_Form_Submitted.pdf');
+    }
+  }, [hasApplied]);
+
+  const handleCalculateChance = (e: React.FormEvent) => {
+    e.preventDefault();
+    const gpa = parseFloat(calcGPA); const sat = parseInt(calcSAT);
+    if (isNaN(gpa) || gpa < 0 || gpa > 4.0 || isNaN(sat) || sat < 400 || sat > 1600) return;
+    const finalChance = Math.min(99, Math.max(10, Math.round(gpa * 15 + ((sat - 400) / 1200) * 40)));
+    setAcceptanceChance(finalChance);
+    setCompletedSteps(p => ({ ...p, 2: true }));
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setDragActive(false);
+    if (e.dataTransfer.files?.[0]?.type === 'application/pdf') {
+      setUploadedFileName(e.dataTransfer.files[0].name);
+      setCompletedSteps(p => ({ ...p, 1: true }));
+    } else {
+      // Invalid file type — silently ignore or show inline error
+    }
+  };
+
+  const handleManualFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) { setUploadedFileName(e.target.files[0].name); setCompletedSteps(p => ({ ...p, 1: true })); }
+  };
+
+  const handleBookInterview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!interviewDate) return;
+    setInterviewBooked(true);
+    setCompletedSteps(p => ({ ...p, 3: true }));
+  };
+
+  const numCompleted = Object.values(completedSteps).filter(Boolean).length;
+  const progressPercent = (numCompleted / 4) * 100;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 interface RoadmapProps {
