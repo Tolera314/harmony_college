@@ -285,6 +285,8 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
             >
               <Download className="w-3.5 h-3.5" /> Save as PDF
             </button>
+          </div>
+        </div>
         <div className="bg-white text-black p-6 rounded-2xl space-y-6">
           <div className="border-b-2 border-black pb-4">
             <h2 className="font-serif text-3xl font-bold tracking-wide">HARMONY COLLEGE</h2>
@@ -413,8 +415,6 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
           </div>
 
         </div>{/* end official-transcript */}
-      </Modal>
-        </div>
       </SlidePanel>
     </motion.div>
   );

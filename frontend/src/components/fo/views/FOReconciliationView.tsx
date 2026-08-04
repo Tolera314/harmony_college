@@ -9,6 +9,7 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
+import { SlidePanel } from '../../ui/SlidePanel';
 import { reconciliationEntries } from '../../../data/financeData';
 import { ReconciliationEntry, ReconciliationStatus, GatewaySource } from '../../../types/finance';
 

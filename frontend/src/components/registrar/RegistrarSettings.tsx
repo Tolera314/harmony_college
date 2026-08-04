@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   User, Shield, Key, Clock,
   Save, Monitor,
-  Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, Settings, CheckCheck
+  Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, Settings, CheckCheck, CheckCircle2, Palette
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { AppearanceSection } from '../ui/AppearanceSection';
@@ -21,6 +21,9 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'sessions',     label: 'Active Sessions',     icon: <Clock className="w-4 h-4" /> },
   { id: 'registration', label: 'Registration Engine', icon: <Sliders className="w-4 h-4" /> },
 ];
+
+const labelCls = "text-[11px] font-mono text-white/40 uppercase tracking-wider";
+const inputCls = "w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-[#D4AF37]";
 
 export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ initialTab }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'profile');
@@ -90,7 +93,6 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   const handleToggle = (key: keyof typeof toggles) => {
     setToggles(prev => ({ ...prev, [key]: !prev[key] }));
   };
-  const handleToggle = (key: keyof typeof toggles) => setToggles((p) => ({ ...p, [key]: !p[key] }));
   const handleRegToggle = (key: keyof typeof regToggles) => setRegToggles((p) => ({ ...p, [key]: !p[key] }));
   const handleRuleToggle = (id: string) => setRules((p) => p.map((r) => r.id === id ? { ...r, enabled: !r.enabled } : r));
   const handleDeleteRule = (id: string) => setRules((p) => p.filter((r) => r.id !== id));
@@ -99,10 +101,6 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
     if (!newRule.name) return;
     setRules((p) => [...p, { id: 'r' + (p.length + 1), name: newRule.name, desc: newRule.desc || 'No description.', enabled: true }]);
     setNewRule({ name: '', desc: '' });
-  };
-
-  const handleDeleteRule = (id: string) => {
-    setRules(prev => prev.filter(r => r.id !== id));
   };
 
   const handleRevokeSession = (id: string) => setRevokeTarget(id);
@@ -124,11 +122,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-serif font-bold text-white tracking-wide">Settings Board</h2>
-          <p className="text-xs text-white/50">Manage personal profile details, account security, and academic registration rules.</p>
-        </div>
+
 
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -406,31 +400,23 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                 <span><strong>Alert:</strong> Disabling verification rules takes effect immediately and affects active student checkouts.</span>
               </div>
 
-              <div className="flex justify-end">
-                <Button variant="gold" size="sm" icon={<Save className="w-4 h-4" />}
-                  onClick={() => { handleSave(); }}>
-                  Save Configuration
+              <div className="flex justify-end items-center gap-3">
+                {regSaved && (
+                  <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
+                    <CheckCheck className="w-4 h-4" /> Configuration saved
+                  </span>
+                )}
+                <Button
+                  variant="gold"
+                  size="sm"
+                  onClick={handleSaveRegSettings}
+                  className="flex items-center gap-1.5 py-2 font-semibold text-xs"
+                >
+                  <Save className="w-4 h-4" /> Save Configuration
                 </Button>
               </div>
             </div>
           )}
-
-          </div>
-          <div className="flex justify-end items-center gap-3">
-            {regSaved && (
-              <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
-                <CheckCheck className="w-4 h-4" /> Configuration saved
-              </span>
-            )}
-            <Button
-              variant="gold"
-              size="sm"
-              onClick={handleSaveRegSettings}
-              className="flex items-center gap-1.5 py-2 font-semibold text-xs"
-            >
-              <Save className="w-4 h-4" /> Save Configuration
-            </Button>
-          </div>
         </div>
       </div>
     </motion.div>

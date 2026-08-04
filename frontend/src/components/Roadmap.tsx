@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Palette, Music, Mic2, Camera, BookOpen, Award,
   MapPin, Users, GraduationCap, Star, ChevronRight, Landmark,
+  FileText, Calendar, CheckCircle2
 } from 'lucide-react';
 
 // ── Program categories ────────────────────────────────────────────────────────
@@ -109,6 +110,8 @@ interface RoadmapProps {
 
 export default function Roadmap({ hasApplied, appliedData }: RoadmapProps) {
   const [activeStep, setActiveStep] = useState(1);
+  const [activeProgram, setActiveProgram] = useState(programs[0].id);
+  const current = programs.find(p => p.id === activeProgram) || programs[0];
   const [completedSteps, setCompletedSteps] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false });
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
