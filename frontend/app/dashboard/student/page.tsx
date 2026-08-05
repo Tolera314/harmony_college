@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavTab, StudentProfile } from '@/src/types';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
@@ -16,6 +16,8 @@ import { StudentAssignmentsView } from '@/src/components/StudentAssignmentsView'
 import { StudentQuizzesView } from '@/src/components/StudentQuizzesView';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
+import { ProfileCompletionBanner, LockedFeatureCard } from '@/src/components/onboarding/ProfileCompletionBanner';
+import { loadOnboardingState } from '@/src/lib/onboardingStore';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard,
@@ -40,6 +42,9 @@ import {
   degreeRequirements,
 } from '@/src/data/studentData';
 
+// Tabs that require a complete profile
+const LOCKED_TABS: NavTab[] = ['my_courses', 'registration', 'assignments', 'quizzes', 'grades', 'financials', 'degree_audit'];
+
 export default function StudentDashboardPage() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [profile, setProfile] = useState<StudentProfile>(initialStudentProfile);
@@ -47,12 +52,34 @@ export default function StudentDashboardPage() {
   const [tabLoading, setTabLoading] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [onboardingCompletion, setOnboardingCompletion] = useState(0);
+  const [applicationNumber, setApplicationNumber] = useState('');
   const { toast, show: showToast, hide: hideToast } = useToast();
+
+  // Load onboarding state to determine access level
+  useEffect(() => {
+    const state = loadOnboardingState();
+    if (state.stage !== 'create-account') {
+      setOnboardingCompletion(state.profileCompletionPct);
+      setApplicationNumber(state.applicationNumber);
+      // Pre-fill profile name from onboarding if available
+      if (state.account.fullName) {
+        setProfile((p) => ({ ...p, name: state.account.fullName }));
+      }
+    }
+  }, []);
 
   const enrolledCourses = initialActiveCourses;
 
+  const isProfileIncomplete = onboardingCompletion < 100;
+
   const handleTabChange = (tab: NavTab) => {
     if (tab === activeTab) return;
+    // Redirect locked tabs to onboarding
+    if (isProfileIncomplete && LOCKED_TABS.includes(tab)) {
+      showToast('Complete your profile to access this feature.', 'warning');
+      return;
+    }
     setTabLoading(true);
     setTimeout(() => { setActiveTab(tab); setTabLoading(false); }, 120);
   };
@@ -82,13 +109,54 @@ export default function StudentDashboardPage() {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <DashboardView
-            profile={profile}
-            activeCourses={enrolledCourses}
-            timetable={todayTimetable}
-            alerts={recentAlerts}
-            setActiveTab={handleTabChange}
-          />
+          <>
+            {/* Profile completion banner — visible until profile is complete */}
+            {isProfileIncomplete && (
+              <ProfileCompletionBanner
+                completionPct={onboardingCompletion}
+                applicationNumber={applicationNumber}
+              />
+            )}
+            <DashboardView
+              profile={profile}
+              activeCourses={enrolledCourses}
+              timetable={todayTimetable}
+              alerts={recentAlerts}
+              setActiveTab={handleTabChange}
+            />
+            {/* Locked features grid — shown when profile incomplete */}
+            {isProfileIncomplete && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+                className="mt-8"
+              >
+                <div className="mb-4">
+                  <h2 className="font-serif text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                    Unlock Student Services
+                  </h2>
+                  <p className="text-xs font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Complete your profile to access all features.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <LockedFeatureCard title="Course Registration" description="Browse and register for your courses for the upcoming semester."
+                    icon={BookOpen} />
+                  <LockedFeatureCard title="Grades & Transcript" description="View your grades, GPA history, and official transcripts."
+                    icon={GraduationCap} />
+                  <LockedFeatureCard title="Assignments" description="Access assignments, deadlines, and submission portal."
+                    icon={ClipboardList} />
+                  <LockedFeatureCard title="Financials & Tuition" description="View your account balance, tuition invoices, and payment history."
+                    icon={CreditCard} />
+                  <LockedFeatureCard title="Degree Audit" description="Track your degree progress and remaining requirements."
+                    icon={BarChart3} />
+                  <LockedFeatureCard title="Quizzes & Exams" description="Access exam schedules, quizzes, and results."
+                    icon={HelpCircle} />
+                </div>
+              </motion.div>
+            )}
+          </>
         );
       case 'my_courses':
       case 'registration':
