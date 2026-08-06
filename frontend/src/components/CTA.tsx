@@ -49,6 +49,13 @@ export default function CTA({ onOpenContact }: CTAProps) {
           >
             Apply Now <ArrowRight className="w-4 h-4" />
           </Link>
+          <Link
+            href="/marketplace"
+            className="px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer hover:bg-white/5"
+            style={{ border: '1px solid rgba(233,195,73,0.4)', color: '#E9C349' }}
+          >
+            📚 Browse Marketplace
+          </Link>
           <button
             onClick={onOpenContact}
             className="px-8 py-4 rounded-full text-xs font-mono font-bold uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer hover:bg-white/5"

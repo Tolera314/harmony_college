@@ -154,6 +154,31 @@ export default function StudentDashboardPage() {
                   <LockedFeatureCard title="Quizzes & Exams" description="Access exam schedules, quizzes, and results."
                     icon={HelpCircle} />
                 </div>
+
+                {/* Marketplace promo */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.4 }}
+                  className="mt-6 flex flex-col sm:flex-row items-start sm:items-center gap-5 p-5 rounded-2xl cursor-pointer group"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(233,195,73,0.1) 0%, rgba(233,195,73,0.03) 100%)',
+                    border: '1px solid var(--accent-gold-border)',
+                  }}
+                  onClick={() => window.location.href = '/marketplace'}
+                  role="link"
+                >
+                  <div className="text-4xl shrink-0">🛒</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-serif text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+                      Explore the Learning Marketplace
+                    </p>
+                    <p className="text-xs font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
+                      Premium books, video courses, and downloadable resources curated by Harmony College faculty.
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: 'var(--brand-gold)' }} />
+                </motion.div>
               </motion.div>
             )}
           </>
