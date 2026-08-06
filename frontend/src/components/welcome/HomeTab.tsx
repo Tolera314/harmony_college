@@ -34,9 +34,7 @@ const QUICK_ACTIONS: {
   { id: 'events',        label: 'Events & Activities',    description: 'Upcoming events & important dates',   icon: Calendar,      color: '#fb923c' },
   { id: 'announcements', label: 'Announcements',          description: 'Official notices from admissions',    icon: HelpCircle,    color: '#38bdf8' },
   { id: 'admission',     label: 'Contact Admissions',     description: 'Get help from our admissions team',   icon: Phone,         color: '#4ade80' },
-];
-
-// ── Locked feature cards ──────────────────────────────────────────────────────
+];// ── Locked feature cards ──────────────────────────────────────────────────────
 const LOCKED_FEATURES = [
   { label: 'Course Registration', description: 'Register for your program courses', icon: ClipboardList },
   { label: 'Grades & Transcript', description: 'View academic performance & GPA',   icon: GraduationCap },
@@ -268,6 +266,38 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      {/* ── Marketplace promo ── */}
+      <section>
+        <motion.a
+          href="/marketplace"
+          whileHover={{ scale: 1.005 }}
+          className="flex flex-col sm:flex-row items-center gap-5 p-6 rounded-2xl cursor-pointer group"
+          style={{
+            background: 'linear-gradient(135deg, rgba(233,195,73,0.1) 0%, rgba(233,195,73,0.03) 100%)',
+            border: '1px solid var(--accent-gold-border)',
+          }}
+        >
+          <div className="text-5xl shrink-0">📚</div>
+          <div className="flex-1">
+            <p className="text-[10px] font-mono font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--brand-gold)' }}>
+              Learning Marketplace
+            </p>
+            <h3 className="font-serif text-lg sm:text-xl font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>
+              Premium Resources for Every Program
+            </h3>
+            <p className="text-xs sm:text-sm font-sans" style={{ color: 'var(--text-muted)' }}>
+              Books, video courses, and downloadable assets curated by Harmony College faculty. Start learning today.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'var(--brand-gold)' }}>
+              <span>Browse Marketplace</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+        </motion.a>
       </section>
 
       {/* ── Featured Programs ── */}

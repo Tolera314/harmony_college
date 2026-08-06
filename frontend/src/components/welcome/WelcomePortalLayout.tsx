@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, BookOpen, Bell, Newspaper, Calendar,
   Image as ImageIcon, GraduationCap, User, Settings, LogOut,
-  ChevronRight, X, Menu
+  ChevronRight, X, Menu, ShoppingBag
 } from 'lucide-react';
 import ThemeToggle from '@/src/components/ThemeToggle';
 import { MobileNav } from '@/src/components/layout/MobileNav';
@@ -140,6 +140,13 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
 
         {/* Bottom actions */}
         <div className="mt-auto border-t pt-4 space-y-1" style={{ borderColor: 'var(--border-subtle)' }}>
+          {/* Marketplace shortcut */}
+          <a href="/marketplace"
+            className="flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-sm font-medium font-sans transition-all ds-nav-item w-full"
+            aria-label="Learning Marketplace">
+            <ShoppingBag className="w-4 h-4 shrink-0 text-[#E9C349]" />
+            <span className="hidden xl:inline">Marketplace</span>
+          </a>
           <motion.button
             onClick={() => setActiveTab('settings')}
             whileHover={{ x: 4 }} whileTap={{ scale: 0.97 }}
@@ -287,6 +294,10 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
                 })}
               </div>
               <div className="p-3 border-t space-y-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                <a href="/marketplace"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ds-nav-item">
+                  <ShoppingBag className="w-4 h-4 text-[#E9C349]" /><span>Marketplace</span>
+                </a>
                 <button onClick={() => { setActiveTab('settings'); setMobileOpen(false); }} className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold ds-nav-item transition-all">
                   <Settings className="w-4 h-4" /><span>Settings</span>
                 </button>

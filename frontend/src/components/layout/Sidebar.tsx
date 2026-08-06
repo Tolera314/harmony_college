@@ -13,7 +13,8 @@ import {
   Settings,
   LogOut,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  ShoppingBag
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
@@ -150,6 +151,19 @@ export const Sidebar = <T extends string = NavTab>({
 
       <div className="mt-auto border-t border-(--border-subtle) pt-4 space-y-1 shrink-0">
         <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
+
+        {/* Marketplace shortcut */}
+        <motion.a
+          href="/marketplace"
+          whileHover={{ x: 4 }}
+          whileTap={{ scale: 0.97 }}
+          aria-label="Marketplace"
+          title="Learning Marketplace"
+          className="w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl transition-all font-sans text-sm font-medium touch-target ds-nav-item"
+        >
+          <ShoppingBag className="w-5 h-5 shrink-0 text-[#E9C349]" />
+          {!collapsed && <span className="hidden xl:inline">Marketplace</span>}
+        </motion.a>
         <motion.button
           onClick={() => setActiveTab('settings' as T)}
           whileHover={{ x: 4 }}
