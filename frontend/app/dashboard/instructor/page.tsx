@@ -98,6 +98,7 @@ export default function InstructorDashboardPage() {
       case 'notifications':  return <InNotificationsView notifications={notifications} onMarkRead={handleMarkRead} onMarkAllRead={handleMarkAllRead} setActiveTab={setActiveTab} />;
       case 'audit_log':      return <InAuditLogView />;
       case 'settings':       return <InSettingsView profile={instructorProfile} />;
+      case 'messages':       return <ChatView />;
       default:               return null;
     }
   };
