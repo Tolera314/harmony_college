@@ -131,6 +131,12 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
             </button>
             <ThemeToggle />
             <Link
+              href="/marketplace"
+              className="border border-[#E9C349]/50 text-[#E9C349] px-5 py-2.5 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:bg-[#E9C349]/10 transition-all cursor-pointer hidden lg:inline-flex items-center gap-1.5"
+            >
+              📚 Marketplace
+            </Link>
+            <Link
               href="/apply"
               className="bg-[#E9C349] text-black px-6 py-2.5 rounded-full text-xs font-mono font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md shadow-[#E9C349]/20 cursor-pointer inline-flex items-center justify-center"
             >
@@ -192,6 +198,13 @@ export default function Navbar({ onOpenSearch, onOpenApply }: NavbarProps) {
               </li>
             ))}
           </ul>
+          <Link
+            href="/marketplace"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="w-full block border border-[#E9C349]/50 text-[#E9C349] py-3 rounded-full text-xs font-mono font-bold uppercase tracking-widest text-center hover:bg-[#E9C349]/10 transition-all"
+          >
+            📚 Marketplace
+          </Link>
           <Link
             href="/apply"
             onClick={() => setIsMobileMenuOpen(false)}

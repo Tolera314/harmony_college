@@ -13,11 +13,11 @@ import { AppearanceSection } from '../ui/AppearanceSection';
 type SettingsTab = 'profile' | 'account' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration';
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'profile',      label: 'Personal Profile',    icon: <User className="w-4 h-4" /> },
-  { id: 'password',     label: 'Password',            icon: <Key className="w-4 h-4" /> },
-  { id: 'appearance',   label: 'Appearance & Theme',  icon: <Palette className="w-4 h-4" /> },
-  { id: 'security',     label: 'Security',            icon: <Shield className="w-4 h-4" /> },
-  { id: 'sessions',     label: 'Active Sessions',     icon: <Clock className="w-4 h-4" /> },
+  { id: 'profile', label: 'Personal Profile', icon: <User className="w-4 h-4" /> },
+  { id: 'password', label: 'Password', icon: <Key className="w-4 h-4" /> },
+  { id: 'appearance', label: 'Appearance & Theme', icon: <Palette className="w-4 h-4" /> },
+  { id: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
+  { id: 'sessions', label: 'Active Sessions', icon: <Clock className="w-4 h-4" /> },
   { id: 'registration', label: 'Registration Engine', icon: <Sliders className="w-4 h-4" /> },
 ];
 
@@ -29,24 +29,24 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   const resolvedTab = activeTab === 'account' ? 'profile' : activeTab;
 
   const [profile, setProfile] = useState({
-    name:   'Robel Bekele',
-    title:  'University Registrar Officer',
-    email:  'registrar@harmony.edu',
-    phone:  '+251911500330',
+    name: 'Robel Bekele',
+    title: 'University Registrar Officer',
+    email: 'registrar@harmony.edu',
+    phone: '+251911500330',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
   });
 
-  const [password,      setPassword]      = useState({ current: '', newPass: '', confirm: '' });
+  const [password, setPassword] = useState({ current: '', newPass: '', confirm: '' });
   const [passwordError, setPasswordError] = useState('');
-  const [profileSaved,  setProfileSaved]  = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
-  const [regSaved,      setRegSaved]      = useState(false);
+  const [regSaved, setRegSaved] = useState(false);
 
   const [toggles, setToggles] = useState({ twoFa: false, emailAlerts: true });
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
 
   const [sessions, setSessions] = useState([
-    { id: 's1', device: 'HP Laptop · Firefox',    ip: '196.188.100.44', location: 'Addis Ababa, ET', status: 'Active Now',    current: true  },
+    { id: 's1', device: 'HP Laptop · Firefox', ip: '196.188.100.44', location: 'Addis Ababa, ET', status: 'Active Now', current: true },
     { id: 's2', device: 'iPhone 15 Pro · Safari', ip: '196.188.100.45', location: 'Addis Ababa, ET', status: 'Active 2h ago', current: false },
   ]);
 
@@ -61,11 +61,11 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
   });
 
   const [rules, setRules] = useState([
-    { id: 'r1', name: 'Credit Hour Cap',          desc: 'Maximum allowed credits for regular semester is 18.',                     enabled: true  },
-    { id: 'r2', name: 'GPA Honor Overload',        desc: 'Students with CGPA >= 3.50 can register for up to 21 credits.',           enabled: true  },
-    { id: 'r3', name: 'Prerequisite Verification', desc: 'Verify all course prerequisite trees before final course checkout.',       enabled: true  },
-    { id: 'r4', name: 'Financial Clearance Block', desc: 'Block course registration if outstanding student tuition balance is > 0.', enabled: true  },
-    { id: 'r5', name: 'Probation Credit Limiter',  desc: 'Limit probation students to a maximum of 12 credit hours.',               enabled: false },
+    { id: 'r1', name: 'Credit Hour Cap', desc: 'Maximum allowed credits for regular semester is 18.', enabled: true },
+    { id: 'r2', name: 'GPA Honor Overload', desc: 'Students with CGPA >= 3.50 can register for up to 21 credits.', enabled: true },
+    { id: 'r3', name: 'Prerequisite Verification', desc: 'Verify all course prerequisite trees before final course checkout.', enabled: true },
+    { id: 'r4', name: 'Financial Clearance Block', desc: 'Block course registration if outstanding student tuition balance is > 0.', enabled: true },
+    { id: 'r5', name: 'Probation Credit Limiter', desc: 'Limit probation students to a maximum of 12 credit hours.', enabled: false },
   ]);
   const [newRule, setNewRule] = useState({ name: '', desc: '' });
 
@@ -133,11 +133,10 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
           <nav className="space-y-1">
             {tabs.map((t) => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-sans text-sm transition-all ${
-                  resolvedTab === (t.id === 'account' ? 'profile' : t.id)
-                    ? 'bg-[#D4AF37]/12 text-[#D4AF37] border border-[#D4AF37]/20 font-semibold'
-                    : 'text-white/60 hover:bg-white/5 hover:text-white'
-                }`}>
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-sans text-sm transition-all ${resolvedTab === (t.id === 'account' ? 'profile' : t.id)
+                  ? 'bg-[#D4AF37]/12 text-[#D4AF37] border border-[#D4AF37]/20 font-semibold'
+                  : 'text-white/60 hover:bg-white/5 hover:text-white'
+                  }`}>
                 {t.icon}{t.label}
               </button>
             ))}
@@ -238,8 +237,8 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
               </h3>
               <div className="space-y-3 font-sans">
                 {([
-                  { key: 'twoFa',       label: 'Two-Factor Authentication (2FA)', desc: 'Secures login with a verification code on each sign-in.' },
-                  { key: 'emailAlerts', label: 'Login Email Alerts',              desc: 'Receive an email whenever a new session is started.' },
+                  { key: 'twoFa', label: 'Two-Factor Authentication (2FA)', desc: 'Secures login with a verification code on each sign-in.' },
+                  { key: 'emailAlerts', label: 'Login Email Alerts', desc: 'Receive an email whenever a new session is started.' },
                 ] as { key: keyof typeof toggles; label: string; desc: string }[]).map((item) => (
                   <div key={item.key} className="flex items-center justify-between p-4 bg-black/20 border border-white/5 rounded-xl">
                     <div className="min-w-0 flex-1 pr-4">
@@ -278,9 +277,9 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                     {s.current
                       ? <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/15 text-[#D4AF37] font-mono text-[10px] font-bold border border-[#D4AF37]/30 shrink-0">Current</span>
                       : <button onClick={() => handleRevokeSession(s.id)}
-                          className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/40 rounded-lg text-white/40 hover:text-red-400 transition-all shrink-0" title="Revoke">
-                          <LogOut className="w-3.5 h-3.5" />
-                        </button>
+                        className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/40 rounded-lg text-white/40 hover:text-red-400 transition-all shrink-0" title="Revoke">
+                        <LogOut className="w-3.5 h-3.5" />
+                      </button>
                     }
                   </div>
                 ))}
@@ -300,10 +299,10 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
                     {[
-                      { key: 'openDate',    label: 'Open Date' },
-                      { key: 'closeDate',   label: 'Close Date' },
+                      { key: 'openDate', label: 'Open Date' },
+                      { key: 'closeDate', label: 'Close Date' },
                       { key: 'addDeadline', label: 'Add Deadline' },
-                      { key: 'dropDeadline',label: 'Drop Deadline' },
+                      { key: 'dropDeadline', label: 'Drop Deadline' },
                     ].map((f) => (
                       <div key={f.key} className="space-y-1.5">
                         <label className={labelCls}>{f.label}</label>
@@ -323,10 +322,10 @@ export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ init
                   <div className="space-y-3 font-sans">
                     {([
                       { key: 'lateRegistration', label: 'Late Registration Period', desc: 'Allow registration after close date.' },
-                      { key: 'waitlistEnable',   label: 'Waitlist Functionality',   desc: 'Enable waitlists at capacity.' },
-                      { key: 'autoPromotion',    label: 'Auto Waitlist Promotion',  desc: 'Fill dropped seats automatically.' },
-                      { key: 'advisorApproval',  label: 'Advisor Sign-off',         desc: 'Require advisor approval to register.' },
-                      { key: 'gpaCapCheck',      label: 'GPA Overload Rule',        desc: 'Apply dynamic credit cap based on GPA.' },
+                      { key: 'waitlistEnable', label: 'Waitlist Functionality', desc: 'Enable waitlists at capacity.' },
+                      { key: 'autoPromotion', label: 'Auto Waitlist Promotion', desc: 'Fill dropped seats automatically.' },
+                      { key: 'advisorApproval', label: 'Advisor Sign-off', desc: 'Require advisor approval to register.' },
+                      { key: 'gpaCapCheck', label: 'GPA Overload Rule', desc: 'Apply dynamic credit cap based on GPA.' },
                     ] as { key: keyof typeof regToggles; label: string; desc: string }[]).map((item) => (
                       <div key={item.key} className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-xl">
                         <div className="min-w-0 flex-1 pr-3">
