@@ -107,6 +107,7 @@ export default function AdminDashboardPage() {
         />
       );
       case 'settings':      return <AdminSettingsView profile={adminProfile} />;
+      case 'messages':      return <ChatView />;
       default:              return null;
     }
   };

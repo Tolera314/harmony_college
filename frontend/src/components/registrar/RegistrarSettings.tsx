@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   User, Shield, Key, Clock,
-  Save, Monitor,
+  Save, Monitor, Settings,
   Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, CheckCheck, Palette
 } from 'lucide-react';
 import { Button } from '../ui/Button';

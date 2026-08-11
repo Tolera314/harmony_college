@@ -86,6 +86,7 @@ export default function HRDashboardPage() {
       );
       case 'audit_log':      return <HRAuditLogView />;
       case 'settings':       return <HRSettingsView profile={hrProfile} />;
+      case 'messages':       return <ChatView />;
       default:               return null;
     }
   };
