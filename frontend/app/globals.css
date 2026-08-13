@@ -339,6 +339,8 @@ html.light .dashboard-bg::after {
   z-index: 10;
   min-height: 100vh;
   color: var(--text-primary);
+  display: flex;
+  overflow: hidden;
 }
 
 /* Light mode: main content area gets a subtle warm surface lift */

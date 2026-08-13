@@ -38,7 +38,7 @@ export const InHeader: React.FC<InHeaderProps> = ({
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
-    <header className="sticky top-0 z-40 w-full ds-header backdrop-blur-xl border-b h-16 flex items-center md:pl-20 xl:pl-64 transition-all duration-300">
+    <header className="sticky top-0 z-40 w-full ds-header backdrop-blur-xl border-b h-16 flex items-center transition-all duration-300">
       <div className="flex justify-between items-center w-full px-4 sm:px-6 py-3">
 
         {/* Breadcrumb */}
