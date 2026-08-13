@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { Role } from '../types/auth';
 
 const router = Router();
 
@@ -8,8 +9,12 @@ const router = Router();
 router.use(requireAuth);
 
 // ── Permission helpers ────────────────────────────────────────────────────────
-const ADMIN_ROLES = ['SUPER_ADMIN', 'REGISTRAR_OFFICER'];
-const PRIVILEGED_ROLES = ['SUPER_ADMIN', 'REGISTRAR_OFFICER', 'FINANCE_OFFICER', 'HR_OFFICER', 'DEPARTMENT_HEAD'];
+// Updated to use the new Role enum values (REGISTRAR_OFFICER → REGISTRAR, LECTURER → INSTRUCTOR).
+const ADMIN_ROLES: string[] = [Role.SUPER_ADMIN, Role.ADMIN, Role.REGISTRAR];
+const PRIVILEGED_ROLES: string[] = [
+  Role.SUPER_ADMIN, Role.ADMIN, Role.REGISTRAR,
+  Role.FINANCE_OFFICER, Role.HR_OFFICER, Role.DEPARTMENT_HEAD,
+];
 
 /** Returns true if the requester is allowed to open a DM with the target */
 async function canMessage(
@@ -24,9 +29,9 @@ async function canMessage(
   // Any staff can message Admin / Registrar
   if (ADMIN_ROLES.includes(targetRole)) return true;
 
-  // Lecturer ↔ their enrolled students
-  if (requesterRole === 'LECTURER' && targetRole === 'STUDENT') return true;
-  if (requesterRole === 'STUDENT' && targetRole === 'LECTURER') return true;
+  // Instructor ↔ their enrolled students
+  if (requesterRole === Role.INSTRUCTOR && targetRole === Role.STUDENT) return true;
+  if (requesterRole === Role.STUDENT    && targetRole === Role.INSTRUCTOR) return true;
 
   // Privileged staff can message each other
   if (PRIVILEGED_ROLES.includes(requesterRole) && PRIVILEGED_ROLES.includes(targetRole)) return true;
@@ -43,14 +48,14 @@ router.get('/users', async (req: AuthRequest, res: Response): Promise<void> => {
 
     const users = await prisma.user.findMany({
       where: { id: { not: userId } },
-      select: { id: true, email: true, role: true },
+      select: { id: true, fullName: true, role: true },  // Phase 7 M4: fullName instead of email
     });
 
     const allowed = users.filter((u) => {
-      if (ADMIN_ROLES.includes(role)) return true;
+      if (ADMIN_ROLES.includes(role))   return true;
       if (ADMIN_ROLES.includes(u.role)) return true;
-      if (role === 'LECTURER' && u.role === 'STUDENT') return true;
-      if (role === 'STUDENT' && u.role === 'LECTURER') return true;
+      if (role === Role.INSTRUCTOR && u.role === Role.STUDENT)   return true;
+      if (role === Role.STUDENT    && u.role === Role.INSTRUCTOR) return true;
       if (PRIVILEGED_ROLES.includes(role) && PRIVILEGED_ROLES.includes(u.role)) return true;
       return false;
     });
@@ -115,18 +120,18 @@ router.get('/conversations', async (req: AuthRequest, res: Response): Promise<vo
 router.get('/conversations/:id/messages', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { userId } = req.user!;
-    const { id } = req.params;
+    const conversationId = req.params['id'] as string;
     const cursor = req.query.cursor as string | undefined;
     const PAGE = 30;
 
     // Check participant
     const participant = await prisma.conversationParticipant.findUnique({
-      where: { conversationId_userId: { conversationId: id, userId } },
+      where: { conversationId_userId: { conversationId, userId } },
     });
     if (!participant) { res.status(403).json({ error: 'Not a participant.' }); return; }
 
     const messages = await prisma.message.findMany({
-      where: { conversationId: id },
+      where: { conversationId },
       orderBy: { createdAt: 'desc' },
       take: PAGE,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -135,7 +140,7 @@ router.get('/conversations/:id/messages', async (req: AuthRequest, res: Response
 
     // Mark as read
     await prisma.conversationParticipant.update({
-      where: { conversationId_userId: { conversationId: id, userId } },
+      where: { conversationId_userId: { conversationId, userId } },
       data: { lastReadAt: new Date() },
     });
 

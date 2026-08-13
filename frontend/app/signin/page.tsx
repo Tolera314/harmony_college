@@ -22,42 +22,50 @@ export default function SignInPage() {
     setErrorMsg('');
 
     try {
-      const res = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const res = await fetch('/api/auth/login', {
+        method:      'POST',
+        headers:     { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ identifier: email, password }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
 
-      // Role-based redirect
-      switch (data.role) {
-        case 'REGISTRAR_OFFICER':
-          window.location.href = '/dashboard/registrar';
-          break;
-        case 'SUPER_ADMIN':
-        case 'FINANCE_OFFICER':
-          window.location.href = '/dashboard/admin';
-          break;
-        case 'HR_OFFICER':
-          window.location.href = '/dashboard/hr';
-          break;
-        case 'DEPARTMENT_HEAD':
-          window.location.href = '/dashboard/department-head';
-          break;
-        case 'LECTURER':
-          window.location.href = '/dashboard/instructor';
-          break;
-        case 'STUDENT':
-          window.location.href = '/dashboard/student';
-          break;
-        default:
-          window.location.href = '/dashboard/student';
-          break;
+      if (!res.ok) {
+        // If account exists but needs verification, send user back to verify page
+        if (data.code === 'PENDING_VERIFICATION' && data.userId) {
+          window.location.href = `/apply?userId=${data.userId}&step=verify`;
+          return;
+        }
+        const msg: string = data.error ?? 'Sign in failed.';
+        setErrorMsg(msg);
+        return;
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'An error occurred during sign in.');
+
+      const { role, profileCompleted } = data.user as {
+        role: string;
+        profileCompleted: boolean;
+      };
+
+      // Student routing uses profile-completion gate
+      if (role === 'STUDENT') {
+        window.location.href = profileCompleted ? '/dashboard/student' : '/welcome';
+        return;
+      }
+
+      // All other roles go directly to their dashboard
+      const dashMap: Record<string, string> = {
+        INSTRUCTOR:      '/dashboard/instructor',
+        DEPARTMENT_HEAD: '/dashboard/department-head',
+        HR_OFFICER:      '/dashboard/hr',
+        FINANCE_OFFICER: '/dashboard/finance-officer',
+        REGISTRAR:       '/dashboard/registrar',
+        ADMIN:           '/dashboard/admin',
+        SUPER_ADMIN:     '/dashboard/admin',
+      };
+      window.location.href = dashMap[role] ?? '/dashboard/student';
+    } catch {
+      setErrorMsg('Could not reach the server. Please check your connection.');
     } finally {
       setIsLoading(false);
     }
@@ -161,16 +169,17 @@ export default function SignInPage() {
             <div className="relative group">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-[#D4AF37] transition-colors" />
               <input 
-                type="email" 
+                type="text"
                 id="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-black/40 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white text-sm focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all peer placeholder-transparent"
-                placeholder="Email Address"
+                placeholder="Email or Phone Number"
+                autoComplete="username"
               />
               <label htmlFor="email" className="absolute left-12 -top-2.5 bg-[var(--bg-base)] px-1 text-xs text-gray-500 peer-focus:text-[#D4AF37] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-focus:-top-2.5 peer-focus:text-xs">
-                Email Address
+                Email or Phone Number
               </label>
             </div>
 
@@ -197,17 +206,8 @@ export default function SignInPage() {
               </button>
             </div>
 
-            <div className="flex items-center justify-between pb-2">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative flex items-center justify-center w-4 h-4">
-                  <input type="checkbox" className="peer appearance-none w-4 h-4 border border-gray-600 rounded-[3px] checked:bg-[#D4AF37] checked:border-[#D4AF37] transition-all cursor-pointer" />
-                  <svg className="absolute w-3 h-3 text-[#0F0F10] opacity-0 peer-checked:opacity-100 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
-                <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">Remember Me</span>
-              </label>
-              <a href="#" className="text-xs text-[#D4AF37] hover:text-[#E9C349] transition-colors font-medium">
+            <div className="flex items-center justify-end pb-2">
+              <a href="/forgot-password" className="text-xs text-[#D4AF37] hover:text-[#E9C349] transition-colors font-medium">
                 Forgot Password?
               </a>
             </div>
@@ -222,7 +222,7 @@ export default function SignInPage() {
               disabled={isLoading}
             >
               {isLoading ? (
-                <div className="w-5 h-5 border-2 border-[#0F0F10]/30 border-t-[#0F0F10] rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-[#0F0F10]/30 border-t-[#0F0F10] rounded-full animate-spin" role="status" aria-label="Signing in" />
               ) : (
                 <>
                   <span className="text-sm">Sign In</span>

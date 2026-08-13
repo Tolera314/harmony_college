@@ -10,10 +10,39 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test": "jest --runInBand --forceExit",
+    "test:watch": "jest --watch --runInBand"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ],
+    "transform": {
+      "^.+\\.[tj]sx?$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.json"
+        }
+      ]
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(jose)/)"
+    ],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "setupFiles": [
+      "<rootDir>/src/__tests__/setup.ts"
+    ]
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -22,6 +51,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.3.0",
     "jose": "^6.2.3",
     "multer": "^2.0.1",
     "socket.io": "^4.8.3",
@@ -32,9 +63,14 @@
     "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.14.0",
+    "@types/supertest": "^7.2.1",
+    "jest": "^30.4.2",
     "prisma": "^6.19.3",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.12",
     "tsx": "^4.19.4",
     "typescript": "~5.8.2"
   }

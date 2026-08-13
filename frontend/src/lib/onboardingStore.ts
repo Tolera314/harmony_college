@@ -17,6 +17,8 @@ export interface AccountData {
   phone: string;
   email: string;
   password: string;
+  /** Populated after successful POST /api/auth/register. Used by Phase 3 OTP verification. */
+  userId: string;
 }
 
 export interface ProfileData {
@@ -61,6 +63,7 @@ const DEFAULT_ACCOUNT: AccountData = {
   phone: '',
   email: '',
   password: '',
+  userId: '',
 };
 
 const DEFAULT_PROFILE: ProfileData = {

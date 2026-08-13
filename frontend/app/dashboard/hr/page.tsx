@@ -58,10 +58,7 @@ export default function HRDashboardPage() {
   }, []);
 
   const handleLogout = async () => {
-    await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/auth/signout`,
-      { method: 'POST', credentials: 'include' }
-    ).catch(() => {});
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     window.location.href = '/signin';
   };
 

@@ -5,31 +5,47 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, Phone, Mail, RefreshCw, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 
-interface OTPVerificationProps {
-  contactType: 'phone' | 'email';
-  contactValue: string;
-  onVerified: () => void;
-  onChangeContact: () => void;
-  onBack: () => void;
+// Safe user fields returned by the verify endpoints
+export interface VerifiedUser {
+  id:                string;
+  fullName:          string;
+  email:             string | null;
+  phone:             string | null;
+  role:              string;
+  status:            string;
+  profileCompleted:  boolean;
+  profileCompletion: number;
 }
 
-const MOCK_OTP = '123456'; // Demo OTP — replace with real API integration
-const RESEND_COOLDOWN = 30; // seconds
+interface OTPVerificationProps {
+  /** userId returned by POST /api/auth/register — required to call backend */
+  userId:       string;
+  contactType:  'phone' | 'email';
+  contactValue: string;
+  /** Called with the safe user object returned by the verify endpoint */
+  onVerified:       (user: VerifiedUser) => void;
+  onChangeContact:  () => void;
+  onBack:           () => void;
+}
+
+const RESEND_COOLDOWN = 60; // seconds — matches OTP_RESEND_COOLDOWN_SECONDS on backend
 
 export function OTPVerification({
+  userId,
   contactType,
   contactValue,
   onVerified,
   onChangeContact,
   onBack,
 }: OTPVerificationProps) {
-  const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
-  const [error, setError] = useState('');
+  const [digits,      setDigits]      = useState<string[]>(Array(6).fill(''));
+  const [error,       setError]       = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
-  const [countdown, setCountdown] = useState(RESEND_COOLDOWN);
-  const [canResend, setCanResend] = useState(false);
+  const [isVerified,  setIsVerified]  = useState(false);
+  const [countdown,   setCountdown]   = useState(RESEND_COOLDOWN);
+  const [canResend,   setCanResend]   = useState(false);
   const [resendCount, setResendCount] = useState(0);
+  const [maxAttempts, setMaxAttempts] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Countdown timer
@@ -46,19 +62,16 @@ export function OTPVerification({
 
   const handleDigitChange = useCallback((idx: number, val: string) => {
     setError('');
-    // Handle paste of full code
     if (val.length === 6 && /^\d{6}$/.test(val)) {
       const newDigits = val.split('');
       setDigits(newDigits);
       inputRefs.current[5]?.focus();
       return;
     }
-    // Only allow single digit
     const digit = val.replace(/\D/g, '').slice(-1);
     const newDigits = [...digits];
     newDigits[idx] = digit;
     setDigits(newDigits);
-    // Auto-advance
     if (digit && idx < 5) {
       setTimeout(() => inputRefs.current[idx + 1]?.focus(), 0);
     }
@@ -73,11 +86,11 @@ export function OTPVerification({
         inputRefs.current[idx - 1]?.focus();
       }
     }
-    if (e.key === 'ArrowLeft' && idx > 0) inputRefs.current[idx - 1]?.focus();
+    if (e.key === 'ArrowLeft'  && idx > 0) inputRefs.current[idx - 1]?.focus();
     if (e.key === 'ArrowRight' && idx < 5) inputRefs.current[idx + 1]?.focus();
   }, [digits]);
 
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     const code = digits.join('');
     if (code.length !== 6) {
       setError('Please enter all 6 digits.');
@@ -86,33 +99,79 @@ export function OTPVerification({
     setIsVerifying(true);
     setError('');
 
-    // Simulate verification delay
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const res = await fetch('/api/auth/verify/phone', {
+        method:      'POST',
+        headers:     { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId, code }),
+      });
+      const data = await res.json();
 
-    if (code === MOCK_OTP) {
+      if (!res.ok) {
+        if (data.code === 'CODE_EXPIRED') {
+          setError('Code expired. Please request a new one.');
+          setDigits(Array(6).fill(''));
+          inputRefs.current[0]?.focus();
+          return;
+        }
+        if (data.code === 'MAX_ATTEMPTS') {
+          setMaxAttempts(true);
+          setError('Too many incorrect attempts. Please request a new code.');
+          return;
+        }
+        setError(data.error ?? 'Incorrect code. Please try again.');
+        setDigits(Array(6).fill(''));
+        inputRefs.current[0]?.focus();
+        return;
+      }
+
+      // Success
       setIsVerified(true);
-      setTimeout(() => onVerified(), 1500);
-    } else {
-      setError('Incorrect code. Try 123456 for this demo.');
-      setDigits(Array(6).fill(''));
-      inputRefs.current[0]?.focus();
+      setTimeout(() => onVerified(data.user as VerifiedUser), 1500);
+    } catch {
+      setError('Could not reach the server. Please check your connection.');
+    } finally {
+      setIsVerifying(false);
     }
-    setIsVerifying(false);
-  };
+  }, [digits, userId, onVerified]);
 
-  const handleResend = () => {
+  const handleResend = useCallback(async () => {
     if (!canResend) return;
+    setMaxAttempts(false);
+    setError('');
+    setDigits(Array(6).fill(''));
+
+    try {
+      const res = await fetch('/api/auth/verify/resend', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          type: contactType === 'phone' ? 'phone' : 'email',
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok && data.code === 'RESEND_COOLDOWN') {
+        const retryAfter: number = data.retryAfterSeconds ?? RESEND_COOLDOWN;
+        setCountdown(retryAfter);
+        setCanResend(false);
+        return;
+      }
+    } catch {
+      // Ignore — user can try again
+    }
+
     setResendCount((c) => c + 1);
     setCanResend(false);
     setCountdown(RESEND_COOLDOWN);
-    setDigits(Array(6).fill(''));
-    setError('');
     setTimeout(() => inputRefs.current[0]?.focus(), 100);
-  };
+  }, [canResend, userId, contactType]);
 
   // Auto-submit when all 6 digits are filled
   useEffect(() => {
-    if (digits.every((d) => d !== '') && !isVerifying && !isVerified) {
+    if (digits.every((d) => d !== '') && !isVerifying && !isVerified && !maxAttempts) {
       handleVerify();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -179,7 +238,8 @@ export function OTPVerification({
                   onKeyDown={(e) => handleKeyDown(idx, e)}
                   onFocus={(e) => e.target.select()}
                   aria-label={`Digit ${idx + 1}`}
-                  className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl font-bold font-mono rounded-xl border-2 transition-all duration-200 focus:outline-none"
+                  disabled={maxAttempts}
+                  className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl font-bold font-mono rounded-xl border-2 transition-all duration-200 focus:outline-none disabled:opacity-40"
                   style={{
                     backgroundColor: 'var(--bg-input)',
                     borderColor: error
@@ -211,22 +271,24 @@ export function OTPVerification({
             </AnimatePresence>
 
             {/* Verify button */}
-            <Button
-              variant="gold"
-              size="lg"
-              className="w-full"
-              onClick={handleVerify}
-              disabled={isVerifying || digits.some((d) => !d)}
-            >
-              {isVerifying ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-[var(--bg-base)]/30 border-t-[var(--bg-base)] rounded-full animate-spin" />
-                  Verifying…
-                </span>
-              ) : (
-                'Verify Code'
-              )}
-            </Button>
+            {!maxAttempts && (
+              <Button
+                variant="gold"
+                size="lg"
+                className="w-full"
+                onClick={handleVerify}
+                disabled={isVerifying || digits.some((d) => !d)}
+              >
+                {isVerifying ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-[var(--bg-base)]/30 border-t-[var(--bg-base)] rounded-full animate-spin" />
+                    Verifying…
+                  </span>
+                ) : (
+                  'Verify Code'
+                )}
+              </Button>
+            )}
 
             {/* Resend & change */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
@@ -249,18 +311,6 @@ export function OTPVerification({
               >
                 Change {contactType === 'phone' ? 'phone number' : 'email'}
               </button>
-            </div>
-
-            {/* Demo hint */}
-            <div
-              className="text-center py-3 rounded-xl border text-[11px] font-mono"
-              style={{
-                backgroundColor: 'var(--accent-gold-subtle)',
-                borderColor: 'var(--accent-gold-border)',
-                color: 'var(--brand-gold)',
-              }}
-            >
-              Demo: enter <strong>123456</strong> to verify
             </div>
           </motion.div>
         ) : (
@@ -286,10 +336,7 @@ export function OTPVerification({
               <ShieldCheck className="w-10 h-10" style={{ color: 'var(--status-success)' }} />
             </motion.div>
             <div className="text-center">
-              <h3
-                className="font-serif text-xl font-bold"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <h3 className="font-serif text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 Verified!
               </h3>
               <p className="font-sans text-sm mt-1" style={{ color: 'var(--text-muted)' }}>

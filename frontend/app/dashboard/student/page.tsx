@@ -17,7 +17,6 @@ import { StudentQuizzesView } from '@/src/components/StudentQuizzesView';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { ProfileCompletionBanner, LockedFeatureCard } from '@/src/components/onboarding/ProfileCompletionBanner';
-import { loadOnboardingState } from '@/src/lib/onboardingStore';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard,
@@ -56,17 +55,34 @@ export default function StudentDashboardPage() {
   const [applicationNumber, setApplicationNumber] = useState('');
   const { toast, show: showToast, hide: hideToast } = useToast();
 
-  // Load onboarding state to determine access level
+  // Load profile state from backend (/api/auth/me) — backend is source of truth
   useEffect(() => {
-    const state = loadOnboardingState();
-    if (state.stage !== 'create-account') {
-      setOnboardingCompletion(state.profileCompletionPct);
-      setApplicationNumber(state.applicationNumber);
-      // Pre-fill profile name from onboarding if available
-      if (state.account.fullName) {
-        setProfile((p) => ({ ...p, name: state.account.fullName }));
+    const load = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) {
+          // Session invalid — redirect to sign-in
+          window.location.href = '/signin';
+          return;
+        }
+        const data = await res.json();
+        if (!data.authenticated) {
+          window.location.href = '/signin';
+          return;
+        }
+        const u = data.user;
+        // Profile completion gate: incomplete students go to /welcome
+        if (u.role === 'STUDENT' && !u.profileCompleted) {
+          window.location.href = '/welcome';
+          return;
+        }
+        setOnboardingCompletion(u.profileCompletion ?? 0);
+        if (u.fullName) setProfile((p) => ({ ...p, name: u.fullName }));
+      } catch {
+        // Network failure — leave existing state, don't force logout
       }
-    }
+    };
+    load();
   }, []);
 
   const enrolledCourses = initialActiveCourses;
@@ -86,10 +102,8 @@ export default function StudentDashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/auth/signout`, {
-        method: 'POST', credentials: 'include',
-      });
-    } catch { /* network error */ }
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch { /* network error — proceed with redirect anyway */ }
     window.location.href = '/signin';
   };
 
