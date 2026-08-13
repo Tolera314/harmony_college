@@ -62,14 +62,7 @@ export default function FinanceOfficerPage() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/auth/signout`,
-        { method: 'POST', credentials: 'include' }
-      );
-    } catch (_) {
-      // proceed even if the request fails
-    }
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     window.location.href = '/signin';
   };
 

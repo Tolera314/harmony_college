@@ -7,78 +7,327 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// All roles supported by the system.
+/// Public registration ALWAYS produces STUDENT — never anything else.
+/// All other roles are assigned by authorised administrators only.
 enum Role {
-  SUPER_ADMIN
-  REGISTRAR_OFFICER
-  FINANCE_OFFICER
-  HR_OFFICER
-  LECTURER
-  STUDENT
-  DEPARTMENT_HEAD
+  SUPER_ADMIN      // Highest privilege — seeded, never via public signup
+  ADMIN            // Institution-level admin — assigned by SUPER_ADMIN only
+  REGISTRAR        // Academic records management
+  FINANCE_OFFICER  // Student payments and accounts
+  HR_OFFICER       // Staff/faculty HR management
+  DEPARTMENT_HEAD  // Departmental oversight
+  INSTRUCTOR       // Teaching faculty
+  STUDENT          // Default role — the only role created via public signup
 }
 
-model User {
-  id           String       @id @default(uuid())
-  email        String       @unique
-  passwordHash String
-  role         Role         @default(STUDENT)
-  application  Application?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+/// Lifecycle state of a user account.
+enum AccountStatus {
+  ACTIVE               // Verified and fully operational
+  PENDING_VERIFICATION // Account created but primary contact not yet verified
+  SUSPENDED            // Temporarily blocked by an administrator
+  DEACTIVATED          // Soft-deleted / permanently disabled
+  LOCKED               // Automatically locked after too many failed login attempts
+}
 
-  // Chat relations
+/// Discriminates the purpose of a VerificationToken record.
+enum VerificationTokenType {
+  PHONE_OTP    // 6-digit OTP sent via SMS to verify phone number
+  EMAIL_TOKEN  // Signed token sent via email link to verify email address
+}
+
+/// Audit log event types for authentication and account lifecycle events.
+/// No passwords, tokens, OTPs, or other secrets are ever stored here.
+enum AuditAction {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  EMAIL_VERIFIED
+  PHONE_VERIFIED
+  ROLE_CHANGED
+  ACCOUNT_SUSPENDED
+  ACCOUNT_DEACTIVATED
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  PROFILE_COMPLETED
+  SESSION_REVOKED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTHENTICATION MODELS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Core identity record for every user in the system.
+/// Authentication data lives here; academic/profile data lives in StudentProfile.
+model User {
+  id String @id @default(uuid())
+
+  // ── Identity ──────────────────────────────────────────────────────────────
+  fullName String
+  /// Optional — phone-only signup is supported
+  email    String?  @unique
+  /// Optional — email-only signup is supported (staff accounts)
+  /// Stored in E.164 format: +251XXXXXXXXX
+  phone    String?  @unique
+
+  // ── Credentials ───────────────────────────────────────────────────────────
+  /// bcrypt hash of the user's password.  NEVER store plaintext.
+  passwordHash String
+
+  // ── Role & Status ─────────────────────────────────────────────────────────
+  /// Application role.  Backend sets this — never trusted from the client.
+  role   Role          @default(STUDENT)
+  status AccountStatus @default(PENDING_VERIFICATION)
+
+  // ── Verification flags ────────────────────────────────────────────────────
+  emailVerified Boolean @default(false)
+  phoneVerified Boolean @default(false)
+
+  // ── Profile completion ─────────────────────────────────────────────────────
+  /// True only when profileCompletion reaches 100 for the first time.
+  profileCompleted  Boolean @default(false)
+  /// Percentage 0–100.  Updated by the backend after every profile mutation.
+  profileCompletion Int     @default(0)
+
+  // ── Security counters ─────────────────────────────────────────────────────
+  /// Incremented on each failed login attempt; reset to 0 on success.
+  /// When it reaches the threshold the account status becomes LOCKED.
+  failedLoginAttempts Int @default(0)
+
+  // ── Timestamps ────────────────────────────────────────────────────────────
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // ── Relations ─────────────────────────────────────────────────────────────
+  sessions           Session[]
+  verificationTokens VerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs          AuditLog[]
+  studentProfile     StudentProfile?
+  application        Application?
+
+  // Chat relations (pre-existing — do not remove)
   conversations ConversationParticipant[]
   messages      Message[]
+
+  // ── Indexes ───────────────────────────────────────────────────────────────
+  @@index([role])
+  @@index([status])
+  @@index([email])
+  @@index([phone])
 }
 
+/// An authenticated session tied to a specific device/browser.
+/// One user can have many sessions (multi-device).
+/// Deleting a session immediately invalidates the corresponding refresh token.
+model Session {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// bcrypt hash of the opaque refresh token value.  Raw token is never stored.
+  refreshTokenHash String
+
+  /// Truncated user-agent string (≤ 255 chars) for display in "active sessions" UI.
+  deviceInfo String?  @db.VarChar(255)
+  ipAddress  String?  @db.VarChar(45)
+
+  /// Whether this session has been explicitly revoked (e.g., via "sign out all").
+  /// authenticate() middleware checks this for instant revocation.
+  isRevoked Boolean @default(false)
+
+  expiresAt  DateTime
+  lastUsedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Stores hashed OTPs (phone) and email verification tokens.
+/// Raw OTP / token values are NEVER persisted — only their bcrypt hashes.
+model VerificationToken {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type VerificationTokenType
+
+  /// bcrypt hash of the raw OTP or email token.  Never store the raw value.
+  tokenHash String
+
+  /// Number of incorrect verification attempts against this token.
+  /// When this reaches 5 the token is considered used/invalid.
+  attempts Int @default(0)
+
+  /// Once consumed (correct code entered) this is set to true to prevent reuse.
+  used Boolean @default(false)
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, type])
+  @@index([expiresAt])
+}
+
+/// One-time-use tokens for the forgot-password / reset-password flow.
+/// Raw token values are NEVER persisted — only their bcrypt hashes.
+model PasswordResetToken {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// bcrypt hash of the raw reset token.  Never store the raw value.
+  tokenHash String
+
+  /// Number of incorrect reset attempts (OTP flow only).
+  /// When this reaches MAX_RESET_ATTEMPTS the token is invalidated.
+  attempts Int @default(0)
+
+  used Boolean @default(false)
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Append-only log of authentication and account lifecycle events.
+/// NEVER log: passwords, password hashes, JWTs, OTPs, or reset tokens.
+model AuditLog {
+  id String @id @default(uuid())
+
+  /// Null when the event is not tied to a specific user (e.g. failed login on unknown email).
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action AuditAction
+
+  /// Optional free-form context — e.g. { "ip": "1.2.3.4", "role": "STUDENT" }.
+  /// Must NEVER contain secrets.
+  metadata Json?
+
+  ipAddress String?   @db.VarChar(45)
+  userAgent String?   @db.VarChar(255)
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT PROFILE
+// Separates the student's academic/personal profile from auth identity.
+// Populated during the onboarding wizard (/onboarding) after account creation.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model StudentProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ── Personal ──────────────────────────────────────────────────────────────
+  dob         DateTime?
+  gender      String?
+  nationality String?
+  region      String?
+  city        String?
+  address     String?
+
+  // ── Academic ──────────────────────────────────────────────────────────────
+  program      String?
+  academicYear String?
+  semester     String?
+  matricResult     String?
+  ministryResult   String?
+
+  // ── Documents (file URLs stored after upload) ──────────────────────────────
+  profilePictureUrl String?
+  faydaIdUrl        String?
+  transcriptUrl     String?
+
+  // ── Emergency contact ─────────────────────────────────────────────────────
+  emergencyName         String?
+  emergencyRelationship String?
+  emergencyPhone        String?
+  emergencyNotes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMISSIONS APPLICATION (pre-existing — extended with enum status)
+// Tracks the formal admission application submitted via the /apply flow.
+// Separate from StudentProfile which is the post-admission academic record.
+// ─────────────────────────────────────────────────────────────────────────────
+
 model Application {
-  id               String     @id @default(uuid())
-  userId           String     @unique
-  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Step 1: Personal
-  fullName         String
-  dob              DateTime
-  age              Int
-  gender           String
-  
+  fullName String
+  dob      DateTime
+  age      Int
+  gender   String
+
   // Step 2: Contact
   nationality      String
   emergencyContact String
   phone            String
   city             String
   address          String
-  
+
   // Step 3: Academic
-  program          String
-  academicYear     String
-  semester         String
-  studyMode        String
-  
+  program      String
+  academicYear String
+  semester     String
+  studyMode    String
+
   // Status & Timestamps
-  status           String     @default("DRAFT") // "DRAFT", "SUBMITTED", "UNDER_REVIEW", "ACCEPTED", "REJECTED"
-  documents        Document[]
-  submittedAt      DateTime?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  /// "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED"
+  status      String     @default("DRAFT")
+  documents   Document[]
+  submittedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Document {
-  id            String       @id @default(uuid())
+  id            String      @id @default(uuid())
   applicationId String
-  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  type          String       // "MATRIC", "GRADE_8", "TRANSCRIPT_9_10", "TRANSCRIPT_11_12"
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  /// "MATRIC" | "GRADE_8" | "TRANSCRIPT_9_10" | "TRANSCRIPT_11_12"
+  type          String
   fileUrl       String
-  uploadedAt    DateTime     @default(now())
+  uploadedAt    DateTime    @default(now())
 }
 
-// ── Chat Models ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAT MODELS (pre-existing — unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
 
 model Conversation {
-  id           String                    @id @default(uuid())
-  isGroup      Boolean                   @default(false)
-  name         String?                   // only for group conversations
-  createdAt    DateTime                  @default(now())
+  id        String   @id @default(uuid())
+  isGroup   Boolean  @default(false)
+  name      String?
+  createdAt DateTime @default(now())
+
   participants ConversationParticipant[]
   messages     Message[]
 }
@@ -87,18 +336,21 @@ model ConversationParticipant {
   conversationId String
   userId         String
   lastReadAt     DateTime?
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([conversationId, userId])
 }
 
 model Message {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   conversationId String
   senderId       String
-  content        String
-  createdAt      DateTime     @default(now())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  /// Max 4000 chars to prevent storage abuse.
+  content        String   @db.VarChar(4000)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 }

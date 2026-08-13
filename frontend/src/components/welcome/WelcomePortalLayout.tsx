@@ -50,7 +50,12 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
   const completion = state.profileCompletionPct;
   const name = state.account.fullName.split(' ')[0] || 'Student';
 
-  const handleLogout = () => { router.push('/signin'); };
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch { /* ignore */ }
+    router.push('/signin');
+  };
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>

@@ -800,27 +800,86 @@ export function OnboardingWizard() {
   const [errors, setErrors] = useState<Partial<Record<keyof ProfileData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
-  // File upload states (not serialized — kept in memory)
+  // File upload states (kept in memory — URLs stored in profile state)
   const [profilePic, setProfilePic] = useState<UploadState>(emptyUpload());
-  const [faydaId, setFaydaId] = useState<UploadState>(emptyUpload());
+  const [faydaId,    setFaydaId]    = useState<UploadState>(emptyUpload());
   const [transcript, setTranscript] = useState<UploadState>(emptyUpload());
 
-  // Guard: redirect if user hasn't completed account creation + verification
+  // ── Guard + pre-populate from backend ──────────────────────────────────────
   useEffect(() => {
-    setMounted(true);
-    const s = loadOnboardingState();
-    if (s.stage === 'create-account' || s.stage === 'verify-contact') {
-      router.replace('/apply');
-      return;
-    }
-    setOnboardingState(s);
-    // Apply ?step=N deep-link after confirming the user is authorised
-    const stepParam = searchParams.get('step');
-    if (stepParam) {
-      const n = parseInt(stepParam, 10);
-      if (n >= 1 && n <= 5) setWizardStep(n);
-    }
+    const init = async () => {
+      // Check session first
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!meRes.ok) { router.replace('/signin'); return; }
+      const meData = await meRes.json();
+      if (!meData.authenticated) { router.replace('/signin'); return; }
+
+      // Load existing StudentProfile to pre-fill form
+      const profileRes = await fetch('/api/student/profile', { credentials: 'include' });
+      let existingProfile: ProfileData = DEFAULT_STATE.profile;
+      if (profileRes.ok) {
+        const pd = await profileRes.json();
+        const bp = pd.profile;
+        if (bp) {
+          existingProfile = {
+            nationality:          bp.nationality          ?? '',
+            dob:                  bp.dob ? bp.dob.split('T')[0] : '',
+            gender:               bp.gender              ?? '',
+            region:               bp.region              ?? '',
+            city:                 bp.city                ?? '',
+            address:              bp.address             ?? '',
+            program:              bp.program             ?? '',
+            academicYear:         bp.academicYear        ?? '',
+            semester:             bp.semester            ?? '',
+            matricResult:         bp.matricResult        ?? '',
+            ministryResult:       bp.ministryResult      ?? '',
+            profilePictureName:   bp.profilePictureUrl   ? 'Uploaded' : '',
+            profilePicturePreview:bp.profilePictureUrl   ?? '',
+            faydaIdName:          bp.faydaIdUrl          ? 'Uploaded' : '',
+            transcriptName:       bp.transcriptUrl       ? 'Uploaded' : '',
+            emergencyName:        bp.emergencyName        ?? '',
+            emergencyRelationship:bp.emergencyRelationship ?? '',
+            emergencyPhone:       bp.emergencyPhone       ?? '',
+            emergencyNotes:       bp.emergencyNotes       ?? '',
+          };
+          // Pre-fill upload display states with existing URLs
+          if (bp.profilePictureUrl) setProfilePic({ file: null, preview: bp.profilePictureUrl, uploading: false, error: '' });
+          if (bp.faydaIdUrl)        setFaydaId(   { file: null, preview: bp.faydaIdUrl,        uploading: false, error: '' });
+          if (bp.transcriptUrl)     setTranscript( { file: null, preview: bp.transcriptUrl,     uploading: false, error: '' });
+        }
+      }
+
+      // Build full state
+      const s = loadOnboardingState();
+      const user = meData.user;
+      const merged: OnboardingState = {
+        stage:              'complete-profile',
+        account:            {
+          fullName: user.fullName,
+          phone:    user.phone    ?? s.account.phone    ?? '',
+          email:    user.email    ?? s.account.email    ?? '',
+          password: '',
+          userId:   user.id,
+        },
+        contactVerified:    true,
+        profile:            existingProfile,
+        applicationNumber:  s.applicationNumber || `HC-${new Date().getFullYear()}-${user.id.slice(0,6).toUpperCase()}`,
+        profileCompletionPct: user.profileCompletion,
+      };
+      setOnboardingState(merged);
+
+      // Deep-link to correct step
+      const stepParam = searchParams.get('step');
+      if (stepParam) {
+        const n = parseInt(stepParam, 10);
+        if (n >= 1 && n <= 5) setWizardStep(n);
+      }
+
+      setMounted(true);
+    };
+    init().catch(() => { router.replace('/signin'); });
   }, [router, searchParams]);
 
   if (!mounted) return null;
@@ -831,52 +890,140 @@ export function OnboardingWizard() {
     if (errors[key]) setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
   };
 
-  const handleFileChange = (type: 'profilePic' | 'faydaId' | 'transcript') => (file: File) => {
-    const url = URL.createObjectURL(file);
-    const state: UploadState = { file, preview: url, uploading: false, error: '' };
+  // ── File upload — POST to /api/upload then store fileUrl ──────────────────
+  const uploadFile = async (file: File): Promise<string | null> => {
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', credentials: 'include', body: form });
+      const data = await res.json();
+      if (!res.ok) return null;
+      return data.fileUrl as string;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleFileChange = (type: 'profilePic' | 'faydaId' | 'transcript') => async (file: File) => {
+    const preview = URL.createObjectURL(file);
+    const setUpState = type === 'profilePic' ? setProfilePic : type === 'faydaId' ? setFaydaId : setTranscript;
+    setUpState({ file, preview, uploading: true, error: '' });
+
+    const fileUrl = await uploadFile(file);
+    if (!fileUrl) {
+      setUpState({ file, preview: '', uploading: false, error: 'Upload failed. Please try again.' });
+      return;
+    }
+
+    setUpState({ file, preview, uploading: false, error: '' });
+
+    // Store the server URL in profile state
     if (type === 'profilePic') {
-      setProfilePic(state);
-      setField('profilePictureName', file.name);
-      setField('profilePicturePreview', url);
+      setField('profilePictureName',   file.name);
+      setField('profilePicturePreview', fileUrl);
+      setOnboardingState((prev) => updateProfile(prev, { profilePicturePreview: fileUrl }));
+      // Save to backend immediately
+      await fetch('/api/student/profile', {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profilePictureUrl: fileUrl }),
+      }).catch(() => {});
     } else if (type === 'faydaId') {
-      setFaydaId(state);
       setField('faydaIdName', file.name);
+      await fetch('/api/student/profile', {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faydaIdUrl: fileUrl }),
+      }).catch(() => {});
     } else {
-      setTranscript(state);
       setField('transcriptName', file.name);
+      await fetch('/api/student/profile', {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcriptUrl: fileUrl }),
+      }).catch(() => {});
     }
   };
 
   const handleRemove = (type: 'profilePic' | 'faydaId' | 'transcript') => () => {
-    if (type === 'profilePic') { setProfilePic(emptyUpload()); setField('profilePictureName', ''); }
+    if (type === 'profilePic') { setProfilePic(emptyUpload()); setField('profilePictureName', ''); setField('profilePicturePreview', ''); }
     else if (type === 'faydaId') { setFaydaId(emptyUpload()); setField('faydaIdName', ''); }
     else { setTranscript(emptyUpload()); setField('transcriptName', ''); }
+  };
+
+  // ── Step-level auto-save to backend ─────────────────────────────────────────
+  const autoSaveStep = async (step: number): Promise<void> => {
+    const p = onboardingState.profile;
+    const stepPayload: Record<string, unknown> = {};
+
+    if (step === 1) {
+      Object.assign(stepPayload, {
+        nationality: p.nationality || undefined,
+        dob:         p.dob         || undefined,
+        gender:      p.gender      || undefined,
+        region:      p.region      || undefined,
+        city:        p.city        || undefined,
+        address:     p.address     || undefined,
+      });
+    } else if (step === 2) {
+      Object.assign(stepPayload, {
+        program:       p.program       || undefined,
+        academicYear:  p.academicYear  || undefined,
+        semester:      p.semester      || undefined,
+        matricResult:  p.matricResult  || undefined,
+        ministryResult:p.ministryResult|| undefined,
+      });
+    } else if (step === 4) {
+      Object.assign(stepPayload, {
+        emergencyName:         p.emergencyName         || undefined,
+        emergencyRelationship: p.emergencyRelationship || undefined,
+        emergencyPhone:        p.emergencyPhone        || undefined,
+        emergencyNotes:        p.emergencyNotes        || undefined,
+      });
+    }
+
+    // Remove undefined so they are not sent
+    const clean = Object.fromEntries(Object.entries(stepPayload).filter(([, v]) => v !== undefined));
+    if (Object.keys(clean).length === 0) return;
+
+    try {
+      const res = await fetch('/api/student/profile', {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clean),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOnboardingState((prev) => ({ ...prev, profileCompletionPct: data.profileCompletion ?? prev.profileCompletionPct }));
+      }
+    } catch { /* best-effort */ }
   };
 
   const validateStep = (): boolean => {
     const errs: typeof errors = {};
     if (wizardStep === 1) {
       if (!profile.nationality) errs.nationality = 'Required.';
-      if (!profile.dob) errs.dob = 'Required.';
-      if (!profile.gender) errs.gender = 'Select a gender.';
-      if (!profile.city) errs.city = 'Required.';
-      if (!profile.address) errs.address = 'Required.';
+      if (!profile.dob)         errs.dob         = 'Required.';
+      if (!profile.gender)      errs.gender      = 'Select a gender.';
+      if (!profile.city)        errs.city        = 'Required.';
+      if (!profile.address)     errs.address     = 'Required.';
     }
     if (wizardStep === 2) {
-      if (!profile.program) errs.program = 'Select a program.';
+      if (!profile.program)      errs.program      = 'Select a program.';
       if (!profile.academicYear) errs.academicYear = 'Select an academic year.';
     }
     if (wizardStep === 4) {
-      if (!profile.emergencyName) errs.emergencyName = 'Required.';
+      if (!profile.emergencyName)         errs.emergencyName         = 'Required.';
       if (!profile.emergencyRelationship) errs.emergencyRelationship = 'Required.';
-      if (!profile.emergencyPhone) errs.emergencyPhone = 'Required.';
+      if (!profile.emergencyPhone)        errs.emergencyPhone        = 'Required.';
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validateStep()) return;
+    await autoSaveStep(wizardStep);
     if (wizardStep < 5) setWizardStep((s) => s + 1);
   };
 
@@ -888,11 +1035,61 @@ export function OnboardingWizard() {
   const handleSubmit = async () => {
     if (!validateStep()) return;
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1800));
-    const completed = completeOnboarding(onboardingState);
-    setOnboardingState(completed);
-    setIsSubmitting(false);
-    setShowSuccess(true);
+    setSaveError('');
+
+    try {
+      const p = onboardingState.profile;
+      const payload = {
+        nationality:          p.nationality          || undefined,
+        dob:                  p.dob                  || undefined,
+        gender:               p.gender               || undefined,
+        region:               p.region               || undefined,
+        city:                 p.city                 || undefined,
+        address:              p.address              || undefined,
+        program:              p.program              || undefined,
+        academicYear:         p.academicYear         || undefined,
+        semester:             p.semester             || undefined,
+        matricResult:         p.matricResult         || undefined,
+        ministryResult:       p.ministryResult       || undefined,
+        profilePictureUrl:    p.profilePicturePreview || undefined,
+        emergencyName:        p.emergencyName         || undefined,
+        emergencyRelationship:p.emergencyRelationship || undefined,
+        emergencyPhone:       p.emergencyPhone        || undefined,
+        emergencyNotes:       p.emergencyNotes        || undefined,
+        submit: true,
+      };
+
+      const res = await fetch('/api/student/profile', {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 422) {
+        // Missing required fields — show error and stop
+        const missing: string[] = data.missingFields ?? [];
+        setSaveError(`Please complete: ${missing.join(', ')}.`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!res.ok) {
+        setSaveError(data.error ?? 'Submission failed. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Success — update local state
+      const completed = completeOnboarding(onboardingState);
+      setOnboardingState({ ...completed, profileCompletionPct: 100 });
+      setShowSuccess(true);
+    } catch {
+      setSaveError('Could not reach the server. Please check your connection.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const completion = onboardingState.profileCompletionPct;
@@ -904,7 +1101,7 @@ export function OnboardingWizard() {
           <div className="w-full max-w-lg rounded-2xl p-8 shadow-2xl"
             style={{ backgroundColor: 'var(--bg-modal)', border: '1px solid var(--accent-gold-border)', backdropFilter: 'blur(24px)' }}>
             <SuccessScreen appNumber={onboardingState.applicationNumber}
-              onContinue={() => router.push('/welcome')} />
+              onContinue={() => router.push('/dashboard/student')} />
           </div>
         </div>
       </OnboardingBackground>
@@ -1085,6 +1282,13 @@ export function OnboardingWizard() {
 
             {/* Navigation */}
             <div className="space-y-3 mt-8 pt-6" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              {/* Save error message */}
+              {saveError && (
+                <div className="p-3 rounded-xl text-xs font-sans text-center"
+                  style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)', color: 'var(--status-danger)' }}>
+                  {saveError}
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <Button variant="secondary" size="md"
                   onClick={handlePrev} disabled={wizardStep === 1}

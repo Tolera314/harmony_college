@@ -18,10 +18,11 @@ import { Button } from '@/src/components/ui/Button';
 import ThemeToggle from '@/src/components/ThemeToggle';
 import {
   advanceToVerify,
-  advanceToProfile,
+  clearOnboardingState,
   loadOnboardingState,
   type AccountData,
 } from '@/src/lib/onboardingStore';
+import type { VerifiedUser } from './OTPVerification';
 
 type Stage = 'create' | 'verify';
 
@@ -143,7 +144,7 @@ export function ApplyPageInner() {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>('create');
   const [account, setAccount] = useState<AccountData>({
-    fullName: '', phone: '', email: '', password: '',
+    fullName: '', phone: '', email: '', password: '', userId: '',
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -152,8 +153,33 @@ export function ApplyPageInner() {
   const [errors, setErrors] = useState<Partial<Record<keyof AccountData | 'confirm' | 'terms', string>>>({});
   const [isCreating, setIsCreating] = useState(false);
 
-  // Restore state if user navigated back
+  // Send first OTP automatically when stage transitions to 'verify'
   useEffect(() => {
+    if (stage !== 'verify' || !account.userId) return;
+    fetch('/api/auth/verify/resend', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: account.userId,
+        type:   account.phone ? 'phone' : 'email',
+      }),
+    }).catch(() => {}); // best-effort — component shows resend button if it fails
+  }, [stage, account.userId, account.phone]);
+
+  // Restore state if user navigated back or redirected from signin
+  useEffect(() => {
+    // Check for ?userId=...&step=verify (redirect from signin page)
+    const params = new URLSearchParams(window.location.search);
+    const redirectedUserId = params.get('userId');
+    const redirectedStep   = params.get('step');
+
+    if (redirectedUserId && redirectedStep === 'verify') {
+      setAccount((prev) => ({ ...prev, userId: redirectedUserId }));
+      setStage('verify');
+      return;
+    }
+
+    // Standard sessionStorage restore
     const saved = loadOnboardingState();
     if (saved.stage === 'verify-contact' && saved.account.fullName) {
       setAccount(saved.account);
@@ -190,20 +216,58 @@ export function ApplyPageInner() {
     if (!validate()) return;
     setIsCreating(true);
 
-    // Simulate account creation (replace with real API call)
-    await new Promise((r) => setTimeout(r, 1400));
+    try {
+      const res = await fetch('/api/auth/register', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName:        account.fullName,
+          phone:           account.phone  || undefined,
+          email:           account.email  || undefined,
+          password:        account.password,
+          confirmPassword,
+          acceptTerms:     true,
+        }),
+      });
 
-    advanceToVerify(account);
-    setIsCreating(false);
-    setStage('verify');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Surface the first field error the backend returned, or the top-level error
+        if (data.details) {
+          const firstField = Object.keys(data.details)[0] as
+            keyof (typeof errors);
+          const firstMessage = data.details[firstField]?.[0] ?? 'Registration failed.';
+          setErrors((prev) => ({ ...prev, [firstField]: firstMessage }));
+        } else {
+          setErrors((prev) => ({ ...prev, fullName: data.error ?? 'Registration failed.' }));
+        }
+        return;
+      }
+
+      // Success — persist userId so Phase 3 OTP can reference the account
+      advanceToVerify({ ...account, userId: data.user.id });
+      setStage('verify');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      setErrors((prev) => ({
+        ...prev,
+        fullName: 'Could not reach the server. Please check your connection.',
+      }));
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const handleVerified = () => {
-    const saved = loadOnboardingState();
-    advanceToProfile(saved);
-    // Go to Welcome Portal — the portal shows the profile completion CTA
-    router.push('/welcome');
+  const handleVerified = (user: VerifiedUser) => {
+    // Auth cookies are now set by the backend — clear the sessionStorage
+    // onboarding state so the welcome page reads from the real session.
+    clearOnboardingState();
+    if (user.profileCompleted) {
+      router.push('/dashboard/student');
+    } else {
+      router.push('/welcome');
+    }
   };
 
   const handleChangeContact = () => {
@@ -511,9 +575,10 @@ export function ApplyPageInner() {
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.25 }}
                   >
-                    <OTPVerification
-                      contactType={account.email ? 'email' : 'phone'}
-                      contactValue={account.email || account.phone}
+                  <OTPVerification
+                      userId={account.userId}
+                      contactType={account.phone ? 'phone' : 'email'}
+                      contactValue={account.phone || account.email}
                       onVerified={handleVerified}
                       onChangeContact={handleChangeContact}
                       onBack={handleChangeContact}

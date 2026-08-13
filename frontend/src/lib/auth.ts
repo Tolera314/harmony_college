@@ -1,6 +1,6 @@
 import { jwtVerify } from 'jose';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-at-least-32-chars-long';
+const JWT_SECRET = process.env.JWT_SECRET || 'harmony_college_development_jwt_secret_key_32chars_min';
 const key = new TextEncoder().encode(JWT_SECRET);
 
 /**
