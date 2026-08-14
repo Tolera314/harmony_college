@@ -98,7 +98,7 @@ export default function DepartmentHeadPage() {
           activeTab={activeTab} setActiveTab={setActiveTab} profile={dhProfile}
           pendingCount={pendingCount} unreadCount={unreadCount} onLogout={() => setLogoutOpen(true)}
         />
-        <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen transition-all duration-300">
+        <div className="flex-1 md:pl-20 xl:pl-64 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300">
           <DHHeader
             activeTab={activeTab} setActiveTab={setActiveTab} profile={dhProfile}
             notifications={notifications} unreadCount={unreadCount}

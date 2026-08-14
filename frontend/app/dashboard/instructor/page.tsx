@@ -109,7 +109,7 @@ export default function InstructorDashboardPage() {
       <div className="dashboard-bg" aria-hidden="true" />
       <div className="dashboard-content">
         <InSidebar activeTab={activeTab} setActiveTab={setActiveTab} profile={instructorProfile} unreadCount={unreadCount} pendingGrades={pendingGrades} activeSession={activeSession} onLogout={() => setLogoutOpen(true)} />
-        <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen transition-all duration-300">
+        <div className="flex-1 md:pl-20 xl:pl-64 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300">
           <InHeader activeTab={activeTab} setActiveTab={setActiveTab} profile={instructorProfile} notifications={notifications} unreadCount={unreadCount} onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)} onMobileMenuToggle={() => setMobileMenuOpen(true)} />
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
             <AnimatePresence mode="wait">

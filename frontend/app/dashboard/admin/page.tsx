@@ -121,7 +121,7 @@ export default function AdminDashboardPage() {
           activeTab={activeTab} setActiveTab={setActiveTab} profile={adminProfile}
           unreadCount={unreadCount} onLogout={() => setLogoutOpen(true)}
         />
-        <div className="md:pl-16 xl:pl-60 flex flex-col min-h-screen transition-all duration-300">
+        <div className="flex-1 md:pl-16 xl:pl-60 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300">
           <AdminHeader
             activeTab={activeTab} setActiveTab={setActiveTab} profile={adminProfile}
             notifications={notifications} unreadCount={unreadCount}

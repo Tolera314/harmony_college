@@ -100,7 +100,7 @@ export default function HRDashboardPage() {
           activeTab={activeTab} setActiveTab={setActiveTab} profile={hrProfile}
           unreadCount={unreadCount} pendingLeave={pendingLeave} onLogout={() => setLogoutOpen(true)}
         />
-        <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen transition-all duration-300">
+        <div className="flex-1 md:pl-20 xl:pl-64 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300">
           <HRHeader
             activeTab={activeTab} setActiveTab={setActiveTab} profile={hrProfile}
             notifications={notifications} unreadCount={unreadCount}
