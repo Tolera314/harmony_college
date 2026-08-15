@@ -8,36 +8,31 @@ datasource db {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ENUMS
+// ENUMS — Auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// All roles supported by the system.
-/// Public registration ALWAYS produces STUDENT — never anything else.
-/// All other roles are assigned by authorised administrators only.
 enum Role {
-  SUPER_ADMIN      // Highest privilege — seeded, never via public signup
-  ADMIN            // Institution-level admin — assigned by SUPER_ADMIN only
-  REGISTRAR        // Academic records management
-  FINANCE_OFFICER  // Student payments and accounts
-  HR_OFFICER       // Staff/faculty HR management
-  DEPARTMENT_HEAD  // Departmental oversight
-  INSTRUCTOR       // Teaching faculty
-  STUDENT          // Default role — the only role created via public signup
+  SUPER_ADMIN
+  ADMIN
+  REGISTRAR
+  FINANCE_OFFICER
+  HR_OFFICER
+  DEPARTMENT_HEAD
+  INSTRUCTOR
+  STUDENT
 }
 
-/// Lifecycle state of a user account.
 enum AccountStatus {
-  ACTIVE               // Verified and fully operational
-  PENDING_VERIFICATION // Account created but primary contact not yet verified
-  SUSPENDED            // Temporarily blocked by an administrator
-  DEACTIVATED          // Soft-deleted / permanently disabled
-  LOCKED               // Automatically locked after too many failed login attempts
+  ACTIVE
+  PENDING_VERIFICATION
+  SUSPENDED
+  DEACTIVATED
+  LOCKED
 }
 
-/// Discriminates the purpose of a VerificationToken record.
 enum VerificationTokenType {
-  PHONE_OTP    // 6-digit OTP sent via SMS to verify phone number
-  EMAIL_TOKEN  // Signed token sent via email link to verify email address
+  PHONE_OTP
+  EMAIL_TOKEN
 }
 
 /// Supported OAuth / OIDC Identity Providers.
@@ -68,47 +63,152 @@ enum AuditAction {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AUTHENTICATION MODELS
+// ENUMS — Registrar Academic
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Core identity record for every user in the system.
-/// Authentication data lives here; academic/profile data lives in StudentProfile.
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  WAITLISTED
+}
+
+enum StudentStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  GRADUATED
+  WITHDRAWN
+}
+
+enum CourseStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum OfferingStatus {
+  DRAFT
+  INSTRUCTOR_ASSIGNED
+  SCHEDULED
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  DROPPED
+  COMPLETED
+  WAITLISTED
+  FORCE_ADDED
+  FORCE_DROPPED
+}
+
+enum TranscriptRequestStatus {
+  PENDING
+  PROCESSING
+  ISSUED
+  REJECTED
+}
+
+enum GraduationStatus {
+  PENDING
+  ELIGIBLE
+  APPROVED
+  REJECTED
+  GRADUATED
+}
+
+enum CertificateStatus {
+  ISSUED
+  REVOKED
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CalendarEventType {
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSE
+  ADD_DROP_DEADLINE
+  EXAM_PERIOD
+  HOLIDAY
+  GRADUATION
+  ADMISSION_DEADLINE
+  SEMESTER_START
+  SEMESTER_END
+  ACADEMIC_EVENT
+}
+
+enum RegistrarAction {
+  ADMISSION_APPROVED
+  ADMISSION_REJECTED
+  ADMISSION_REVIEW_REQUESTED
+  ADMISSION_COMMENT_ADDED
+  STUDENT_CREATED
+  STUDENT_UPDATED
+  STUDENT_SUSPENDED
+  STUDENT_REACTIVATED
+  COURSE_CREATED
+  COURSE_UPDATED
+  COURSE_DEACTIVATED
+  COURSE_REACTIVATED
+  OFFERING_CREATED
+  OFFERING_UPDATED
+  OFFERING_CANCELLED
+  ENROLLMENT_ADDED
+  ENROLLMENT_DROPPED
+  ENROLLMENT_FORCE_ADDED
+  ENROLLMENT_FORCE_DROPPED
+  TIMETABLE_CREATED
+  TIMETABLE_UPDATED
+  TIMETABLE_DELETED
+  TRANSCRIPT_GENERATED
+  TRANSCRIPT_REQUEST_APPROVED
+  TRANSCRIPT_REQUEST_REJECTED
+  GRADUATION_APPROVED
+  GRADUATION_REJECTED
+  CERTIFICATE_ISSUED
+  CERTIFICATE_REVOKED
+  ANNOUNCEMENT_PUBLISHED
+  ANNOUNCEMENT_ARCHIVED
+  CALENDAR_EVENT_CREATED
+  CALENDAR_EVENT_UPDATED
+  CALENDAR_EVENT_DELETED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH MODELS
+// ─────────────────────────────────────────────────────────────────────────────
+
 model User {
   id String @id @default(uuid())
 
-  // ── Identity ──────────────────────────────────────────────────────────────
   fullName String
-  /// Optional — phone-only signup is supported
   email    String?  @unique
-  /// Optional — email-only signup is supported (staff accounts)
-  /// Stored in E.164 format: +251XXXXXXXXX
   phone    String?  @unique
 
   // ── Credentials ───────────────────────────────────────────────────────────
   /// bcrypt hash of the user's password. Optional for OAuth-only users. NEVER store plaintext.
   passwordHash String?
 
-  // ── Role & Status ─────────────────────────────────────────────────────────
-  /// Application role.  Backend sets this — never trusted from the client.
   role   Role          @default(STUDENT)
   status AccountStatus @default(PENDING_VERIFICATION)
 
-  // ── Verification flags ────────────────────────────────────────────────────
   emailVerified Boolean @default(false)
   phoneVerified Boolean @default(false)
 
-  // ── Profile completion ─────────────────────────────────────────────────────
-  /// True only when profileCompletion reaches 100 for the first time.
   profileCompleted  Boolean @default(false)
-  /// Percentage 0–100.  Updated by the backend after every profile mutation.
   profileCompletion Int     @default(0)
 
-  // ── Security counters ─────────────────────────────────────────────────────
-  /// Incremented on each failed login attempt; reset to 0 on success.
-  /// When it reaches the threshold the account status becomes LOCKED.
   failedLoginAttempts Int @default(0)
 
-  // ── Timestamps ────────────────────────────────────────────────────────────
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -122,11 +222,14 @@ model User {
   studentProfile      StudentProfile?
   application         Application?
 
-  // Chat relations (pre-existing — do not remove)
   conversations ConversationParticipant[]
   messages      Message[]
 
-  // ── Indexes ───────────────────────────────────────────────────────────────
+  // Registrar relations
+  studentRecord    StudentRecord?
+  instructorRecord InstructorRecord?
+  registrarLogs    RegistrarAuditLog[]
+
   @@index([role])
   @@index([status])
   @@index([email])
@@ -156,16 +259,10 @@ model Session {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  /// bcrypt hash of the opaque refresh token value.  Raw token is never stored.
   refreshTokenHash String
-
-  /// Truncated user-agent string (≤ 255 chars) for display in "active sessions" UI.
-  deviceInfo String?  @db.VarChar(255)
-  ipAddress  String?  @db.VarChar(45)
-
-  /// Whether this session has been explicitly revoked (e.g., via "sign out all").
-  /// authenticate() middleware checks this for instant revocation.
-  isRevoked Boolean @default(false)
+  deviceInfo       String?  @db.VarChar(255)
+  ipAddress        String?  @db.VarChar(45)
+  isRevoked        Boolean  @default(false)
 
   expiresAt  DateTime
   lastUsedAt DateTime  @default(now())
@@ -175,25 +272,16 @@ model Session {
   @@index([expiresAt])
 }
 
-/// Stores hashed OTPs (phone) and email verification tokens.
-/// Raw OTP / token values are NEVER persisted — only their bcrypt hashes.
 model VerificationToken {
   id String @id @default(uuid())
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type VerificationTokenType
-
-  /// bcrypt hash of the raw OTP or email token.  Never store the raw value.
+  type      VerificationTokenType
   tokenHash String
-
-  /// Number of incorrect verification attempts against this token.
-  /// When this reaches 5 the token is considered used/invalid.
-  attempts Int @default(0)
-
-  /// Once consumed (correct code entered) this is set to true to prevent reuse.
-  used Boolean @default(false)
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
 
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -202,22 +290,15 @@ model VerificationToken {
   @@index([expiresAt])
 }
 
-/// One-time-use tokens for the forgot-password / reset-password flow.
-/// Raw token values are NEVER persisted — only their bcrypt hashes.
 model PasswordResetToken {
   id String @id @default(uuid())
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  /// bcrypt hash of the raw reset token.  Never store the raw value.
   tokenHash String
-
-  /// Number of incorrect reset attempts (OTP flow only).
-  /// When this reaches MAX_RESET_ATTEMPTS the token is invalidated.
-  attempts Int @default(0)
-
-  used Boolean @default(false)
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
 
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -226,21 +307,14 @@ model PasswordResetToken {
   @@index([expiresAt])
 }
 
-/// Append-only log of authentication and account lifecycle events.
-/// NEVER log: passwords, password hashes, JWTs, OTPs, or reset tokens.
 model AuditLog {
   id String @id @default(uuid())
 
-  /// Null when the event is not tied to a specific user (e.g. failed login on unknown email).
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  action AuditAction
-
-  /// Optional free-form context — e.g. { "ip": "1.2.3.4", "role": "STUDENT" }.
-  /// Must NEVER contain secrets.
-  metadata Json?
-
+  action    AuditAction
+  metadata  Json?
   ipAddress String?   @db.VarChar(45)
   userAgent String?   @db.VarChar(255)
   createdAt DateTime  @default(now())
@@ -251,9 +325,7 @@ model AuditLog {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STUDENT PROFILE
-// Separates the student's academic/personal profile from auth identity.
-// Populated during the onboarding wizard (/onboarding) after account creation.
+// STUDENT PROFILE (onboarding wizard data)
 // ─────────────────────────────────────────────────────────────────────────────
 
 model StudentProfile {
@@ -261,7 +333,6 @@ model StudentProfile {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // ── Personal ──────────────────────────────────────────────────────────────
   dob         DateTime?
   gender      String?
   nationality String?
@@ -269,19 +340,16 @@ model StudentProfile {
   city        String?
   address     String?
 
-  // ── Academic ──────────────────────────────────────────────────────────────
   program      String?
   academicYear String?
   semester     String?
   matricResult     String?
   ministryResult   String?
 
-  // ── Documents (file URLs stored after upload) ──────────────────────────────
   profilePictureUrl String?
   faydaIdUrl        String?
   transcriptUrl     String?
 
-  // ── Emergency contact ─────────────────────────────────────────────────────
   emergencyName         String?
   emergencyRelationship String?
   emergencyPhone        String?
@@ -292,9 +360,7 @@ model StudentProfile {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADMISSIONS APPLICATION (pre-existing — extended with enum status)
-// Tracks the formal admission application submitted via the /apply flow.
-// Separate from StudentProfile which is the post-admission academic record.
+// APPLICATION (legacy admissions form — extended with proper enum status)
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Application {
@@ -302,46 +368,47 @@ model Application {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Step 1: Personal
-  fullName String
-  dob      DateTime
-  age      Int
-  gender   String
-
-  // Step 2: Contact
+  fullName         String
+  dob              DateTime
+  age              Int
+  gender           String
   nationality      String
   emergencyContact String
   phone            String
   city             String
   address          String
+  program          String
+  academicYear     String
+  semester         String
+  studyMode        String
 
-  // Step 3: Academic
-  program      String
-  academicYear String
-  semester     String
-  studyMode    String
+  status        ApplicationStatus @default(DRAFT)
+  reviewComment String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
 
-  // Status & Timestamps
-  /// "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED"
-  status      String     @default("DRAFT")
   documents   Document[]
   submittedAt DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+  @@index([program])
+  @@index([academicYear])
 }
 
 model Document {
   id            String      @id @default(uuid())
   applicationId String
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  /// "MATRIC" | "GRADE_8" | "TRANSCRIPT_9_10" | "TRANSCRIPT_11_12"
-  type          String
-  fileUrl       String
-  uploadedAt    DateTime    @default(now())
+
+  type       String
+  fileUrl    String
+  uploadedAt DateTime @default(now())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CHAT MODELS (pre-existing — unchanged)
+// CHAT MODELS
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Conversation {
@@ -369,10 +436,519 @@ model Message {
   id             String   @id @default(uuid())
   conversationId String
   senderId       String
-  /// Max 4000 chars to prevent storage abuse.
   content        String   @db.VarChar(4000)
   createdAt      DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACADEMIC FOUNDATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Department {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  code        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  programs         Program[]
+  courses          Course[]
+  instructors      InstructorRecord[]
+  studentRecords   StudentRecord[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model Program {
+  id           String  @id @default(uuid())
+  name         String
+  code         String  @unique
+  description  String?
+  durationYears Int    @default(4)
+  totalCredits Int     @default(120)
+  isActive     Boolean @default(true)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courses        ProgramCourse[]
+  studentRecords StudentRecord[]
+  requirements   ProgramRequirement[]
+
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+model AcademicYear {
+  id         String   @id @default(uuid())
+  name       String   @unique   // e.g. "2024-2025"
+  startDate  DateTime
+  endDate    DateTime
+  isCurrent  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  semesters      Semester[]
+  calendarEvents AcademicCalendarEvent[]
+
+  @@index([isCurrent])
+}
+
+model Semester {
+  id           String   @id @default(uuid())
+  name         String                  // "Semester I", "Semester II"
+  academicYearId String
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  startDate         DateTime
+  endDate           DateTime
+  registrationStart DateTime
+  registrationEnd   DateTime
+  addDropDeadline   DateTime
+  isCurrent         Boolean  @default(false)
+  isActive          Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offerings CourseOffering[]
+
+  @@unique([academicYearId, name])
+  @@index([isCurrent])
+}
+
+model Course {
+  id          String      @id @default(uuid())
+  code        String      @unique
+  name        String
+  description String?
+  creditHours Int         @default(3)
+  status      CourseStatus @default(ACTIVE)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prerequisites   CoursePrerequisite[] @relation("CoursePrereqs")
+  requiredBy      CoursePrerequisite[] @relation("PrereqFor")
+  offerings       CourseOffering[]
+  programCourses  ProgramCourse[]
+
+  @@index([code])
+  @@index([departmentId])
+  @@index([status])
+}
+
+model CoursePrerequisite {
+  id           String @id @default(uuid())
+  courseId     String
+  course       Course @relation("CoursePrereqs", fields: [courseId], references: [id], onDelete: Cascade)
+  prerequisiteId String
+  prerequisite   Course @relation("PrereqFor", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, prerequisiteId])
+  @@index([courseId])
+}
+
+model ProgramCourse {
+  id         String  @id @default(uuid())
+  programId  String
+  program    Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  courseId   String
+  course     Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  isRequired Boolean @default(true)
+  yearLevel  Int     @default(1)
+
+  @@unique([programId, courseId])
+}
+
+model ProgramRequirement {
+  id             String  @id @default(uuid())
+  programId      String
+  program        Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  category       String  // "CORE", "ELECTIVE", "GENERAL"
+  description    String?
+  requiredCredits Int
+  minimumGPA     Float   @default(2.0)
+
+  @@index([programId])
+}
+
+model Room {
+  id       String  @id @default(uuid())
+  name     String
+  building String
+  capacity Int
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offerings  CourseOffering[]
+  timetables TimetableSlot[]
+
+  @@unique([building, name])
+  @@index([building])
+  @@index([isActive])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INSTRUCTORS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model InstructorRecord {
+  id           String  @id @default(uuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId   String  @unique
+  title        String  @default("Instructor")
+  specialization String?
+  isActive     Boolean @default(true)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offerings  CourseOffering[]
+  timetables TimetableSlot[]
+
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT RECORDS (academic record, distinct from StudentProfile/auth)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model StudentRecord {
+  id           String        @id @default(uuid())
+  userId       String        @unique
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId    String        @unique  // e.g. HC-2024-0012
+  status       StudentStatus @default(ACTIVE)
+
+  programId    String
+  program      Program    @relation(fields: [programId], references: [id])
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  yearLevel    Int     @default(1)
+  gpa          Float   @default(0.0)
+  totalCredits Int     @default(0)
+  admittedAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollments       Enrollment[]
+  transcriptRequests TranscriptRequest[]
+  graduationAudit    GraduationAudit?
+  certificate        Certificate?
+  courseGrades       CourseGrade[]
+
+  @@index([studentId])
+  @@index([programId])
+  @@index([departmentId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COURSE OFFERINGS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CourseOffering {
+  id         String         @id @default(uuid())
+  courseId   String
+  course     Course         @relation(fields: [courseId], references: [id])
+  semesterId String
+  semester   Semester       @relation(fields: [semesterId], references: [id])
+  status     OfferingStatus @default(DRAFT)
+
+  instructorId String?
+  instructor   InstructorRecord? @relation(fields: [instructorId], references: [id])
+
+  roomId   String?
+  room     Room?   @relation(fields: [roomId], references: [id])
+
+  capacity Int @default(40)
+  section  String @default("A")   // A, B, C for multiple sections
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollments Enrollment[]
+  timetables  TimetableSlot[]
+
+  @@unique([courseId, semesterId, section])
+  @@index([semesterId])
+  @@index([courseId])
+  @@index([instructorId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TIMETABLE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TimetableSlot {
+  id               String @id @default(uuid())
+  courseOfferingId String
+  courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+
+  dayOfWeek  Int      // 0=Mon, 1=Tue, ..., 4=Fri
+  startTime  String   // "09:00"
+  endTime    String   // "10:30"
+
+  roomId       String?
+  room         Room?         @relation(fields: [roomId], references: [id])
+  instructorId String?
+  instructor   InstructorRecord? @relation(fields: [instructorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseOfferingId])
+  @@index([roomId])
+  @@index([dayOfWeek])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENROLLMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Enrollment {
+  id               String           @id @default(uuid())
+  studentRecordId  String
+  studentRecord    StudentRecord    @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+  courseOfferingId String
+  courseOffering   CourseOffering   @relation(fields: [courseOfferingId], references: [id])
+  status           EnrollmentStatus @default(ACTIVE)
+
+  enrolledAt DateTime @default(now())
+  droppedAt  DateTime?
+  dropReason String?
+
+  // Override fields (force-add/force-drop)
+  isOverride      Boolean @default(false)
+  overrideReason  String?
+  overrideBy      String?   // userId of registrar
+  overrideAt      DateTime?
+
+  grade       CourseGrade?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentRecordId, courseOfferingId])
+  @@index([studentRecordId])
+  @@index([courseOfferingId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRADES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CourseGrade {
+  id             String @id @default(uuid())
+  enrollmentId   String @unique
+  enrollment     Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  studentRecordId String
+  studentRecord  StudentRecord @relation(fields: [studentRecordId], references: [id])
+
+  letterGrade    String?   // A, B+, B, C+, C, D, F
+  gradePoints    Float?    // 4.0, 3.5, 3.0, ...
+  creditHours    Int
+
+  gradedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([studentRecordId])
+  @@index([enrollmentId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSCRIPTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TranscriptRequest {
+  id              String                  @id @default(uuid())
+  studentRecordId String
+  studentRecord   StudentRecord           @relation(fields: [studentRecordId], references: [id])
+  status          TranscriptRequestStatus @default(PENDING)
+  purpose         String?
+  requestedAt     DateTime                @default(now())
+  processedAt     DateTime?
+  processedBy     String?
+  rejectionReason String?
+  issuedAt        DateTime?
+  documentUrl     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentRecordId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRADUATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GraduationAudit {
+  id              String           @id @default(uuid())
+  studentRecordId String           @unique
+  studentRecord   StudentRecord    @relation(fields: [studentRecordId], references: [id])
+  status          GraduationStatus @default(PENDING)
+
+  completedCredits Int     @default(0)
+  requiredCredits  Int     @default(120)
+  currentGpa       Float   @default(0.0)
+  requiredGpa      Float   @default(2.0)
+  isEligible       Boolean @default(false)
+
+  auditNotes    String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  graduatedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CERTIFICATES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Certificate {
+  id              String            @id @default(uuid())
+  studentRecordId String            @unique
+  studentRecord   StudentRecord     @relation(fields: [studentRecordId], references: [id])
+  status          CertificateStatus @default(ISSUED)
+
+  certificateNumber String @unique
+  verificationCode  String @unique
+  issuedAt          DateTime @default(now())
+  issuedBy          String
+
+  revokedAt     DateTime?
+  revokedBy     String?
+  revocationReason String?
+
+  documentUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([verificationCode])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACADEMIC CALENDAR
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AcademicCalendarEvent {
+  id             String            @id @default(uuid())
+  title          String
+  description    String?
+  eventType      CalendarEventType
+  startDate      DateTime
+  endDate        DateTime
+  isPublished    Boolean           @default(false)
+  academicYearId String?
+  academicYear   AcademicYear?     @relation(fields: [academicYearId], references: [id])
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventType])
+  @@index([startDate])
+  @@index([isPublished])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANNOUNCEMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Announcement {
+  id              String             @id @default(uuid())
+  title           String
+  content         String             @db.Text
+  status          AnnouncementStatus @default(DRAFT)
+  priority        String             @default("NORMAL") // HIGH, NORMAL, LOW
+  targetAudience  String             @default("ALL")    // ALL, DEPARTMENT:<id>, PROGRAM:<id>
+  publishDate     DateTime?
+  expirationDate  DateTime?
+  createdBy       String
+  publishedBy     String?
+  publishedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([publishDate])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGISTRAR AUDIT LOG
+// ─────────────────────────────────────────────────────────────────────────────
+
+model RegistrarAuditLog {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  action      RegistrarAction
+  entityType  String          // "Application", "StudentRecord", "Course", etc.
+  entityId    String
+  description String
+  metadata    Json?
+  ipAddress   String?         @db.VarChar(45)
+  createdAt   DateTime        @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  title      String
+  message    String
+  type       String   @default("INFO") // INFO, SUCCESS, WARNING, ERROR
+  isRead     Boolean  @default(false)
+  entityType String?
+  entityId   String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }

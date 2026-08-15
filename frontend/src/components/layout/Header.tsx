@@ -23,11 +23,13 @@ export interface HeaderProps<T extends string = NavTab> {
     name?: string;
     avatar?: string;
     roleLabel?: string;
+    onAvatarClick?: () => void;
   };
   alerts?: AlertItem[];
   notifications?: { id: string; text: string; time: string; read: boolean }[];
   unreadCount?: number;
   onMarkAllRead?: () => void;
+  onNotificationClick?: (id: string) => void;
   darkMode?: boolean;
   setDarkMode?: (val: boolean | ((prev: boolean) => boolean)) => void;
   searchQuery?: string;
@@ -62,6 +64,7 @@ export const Header = <T extends string = NavTab>({
   notifications = [],
   unreadCount: explicitUnreadCount,
   onMarkAllRead,
+  onNotificationClick,
   darkMode = true,
   setDarkMode,
   searchQuery = '',
@@ -219,15 +222,15 @@ export const Header = <T extends string = NavTab>({
                     className="hidden md:block absolute left-0 top-[calc(100%+8px)] w-80 lg:w-96 bg-(--bg-modal) border border-(--border-default) rounded-2xl shadow-2xl z-50 p-3 font-sans space-y-2"
                   >
                     <div className="flex justify-between items-center px-2 pb-1 border-b border-(--border-subtle) text-[10px] font-mono uppercase tracking-wider text-(--text-faint)">
-                      <span>Matching Portal Views</span>
+                      <span>{searchResults.length > 0 ? 'Search Results' : 'Matching Portal Views'}</span>
                       <span className="text-[9px]">Esc to close</span>
                     </div>
 
                     {computedResults.length > 0 ? (
                       <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
-                        {computedResults.map(item => (
+                        {computedResults.map((item, idx) => (
                           <button
-                            key={item.id}
+                            key={`${item.id}-${idx}`}
                             onClick={() => {
                               setActiveTab(item.id);
                               setSearchDropdownOpen(false);
@@ -298,9 +301,9 @@ export const Header = <T extends string = NavTab>({
 
                     {computedResults.length > 0 ? (
                       <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
-                        {computedResults.map(item => (
+                        {computedResults.map((item, idx) => (
                           <button
-                            key={item.id}
+                            key={`${item.id}-${idx}`}
                             onClick={() => {
                               setActiveTab(item.id);
                               setSearchDropdownOpen(false);
@@ -390,13 +393,28 @@ export const Header = <T extends string = NavTab>({
                           ))
                         ) : notifications.length > 0 ? (
                           notifications.map((n) => (
-                            <div key={n.id} className={`px-4 py-3.5 hover:bg-(--hover-overlay) transition-colors flex gap-3 ${!n.read ? 'bg-[#E9C349]/5' : ''}`}>
-                              <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${n.read ? 'bg-(--border-strong)' : 'bg-[#E9C349]'}`} />
-                              <div className="min-w-0">
-                                <p className="font-sans text-xs text-(--text-primary) leading-relaxed">{n.text}</p>
-                                <p className="font-mono text-[10px] text-(--text-faint) mt-1">{n.time}</p>
+                            onNotificationClick ? (
+                              <button
+                                key={n.id}
+                                onClick={() => { onNotificationClick(n.id); setShowAlertsDrawer(false); }}
+                                className={`w-full px-4 py-3.5 hover:bg-(--hover-overlay) transition-colors flex gap-3 text-left group ${!n.read ? 'bg-[#E9C349]/5' : ''}`}
+                              >
+                                <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 group-hover:scale-125 transition-transform ${n.read ? 'bg-(--border-strong)' : 'bg-[#E9C349]'}`} />
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-sans text-xs text-(--text-primary) leading-relaxed group-hover:text-[#E9C349] transition-colors">{n.text}</p>
+                                  <p className="font-mono text-[10px] text-(--text-faint) mt-1">{n.time}</p>
+                                </div>
+                                <ChevronRight className="w-3 h-3 text-(--text-faint) group-hover:text-[#E9C349] mt-1 shrink-0 transition-colors" />
+                              </button>
+                            ) : (
+                              <div key={n.id} className={`px-4 py-3.5 hover:bg-(--hover-overlay) transition-colors flex gap-3 ${!n.read ? 'bg-[#E9C349]/5' : ''}`}>
+                                <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${n.read ? 'bg-(--border-strong)' : 'bg-[#E9C349]'}`} />
+                                <div className="min-w-0">
+                                  <p className="font-sans text-xs text-(--text-primary) leading-relaxed">{n.text}</p>
+                                  <p className="font-mono text-[10px] text-(--text-faint) mt-1">{n.time}</p>
+                                </div>
                               </div>
-                            </div>
+                            )
                           ))
                         ) : (
                           <div className="p-4 text-center text-xs text-(--text-muted)">No notifications</div>
@@ -422,13 +440,23 @@ export const Header = <T extends string = NavTab>({
             )}
 
             {/* Profile Card */}
-            {profile && profile.avatar && (
-              <div className="flex items-center gap-2.5 pl-2 border-l border-(--border-default)">
-                <img
-                  src={profile.avatar}
-                  alt={profile.name ?? 'User Avatar'}
-                  className="w-9 h-9 rounded-xl border border-(--border-default) object-cover"
-                />
+            {profile && (
+              <button
+                onClick={profile.onAvatarClick}
+                className="flex items-center gap-2.5 pl-2 border-l border-(--border-default) focus:outline-none group"
+                aria-label="Account settings"
+              >
+                {profile.avatar ? (
+                  <img
+                    src={profile.avatar}
+                    alt={profile.name ?? 'User Avatar'}
+                    className="w-9 h-9 rounded-xl border border-(--border-default) object-cover group-hover:border-[#E9C349]/50 transition-colors"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center font-serif font-bold text-sm text-[#D4AF37] group-hover:border-[#D4AF37]/70 transition-colors shrink-0">
+                    {profile.name ? profile.name.charAt(0).toUpperCase() : '?'}
+                  </div>
+                )}
                 {profile.name && (
                   <div className="hidden lg:block text-left text-xs leading-none">
                     <p className="font-semibold text-(--text-primary)">{profile.name}</p>
@@ -437,7 +465,7 @@ export const Header = <T extends string = NavTab>({
                     )}
                   </div>
                 )}
-              </div>
+              </button>
             )}
           </div>
         </div>

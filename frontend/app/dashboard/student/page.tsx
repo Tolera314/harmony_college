@@ -241,31 +241,33 @@ export default function StudentDashboardPage() {
     <>
       <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
       <SessionExpiredOverlay isVisible={sessionExpired} onSignIn={() => { window.location.href = '/signin'; }} />
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+      <div className="min-h-screen flex overflow-hidden" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
         <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} profile={profile} onLogout={handleLogout} />
-        <Header
-          activeTab={activeTab}
-          setActiveTab={handleTabChange}
-          profile={profile}
-          alerts={recentAlerts}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onOpenSearchModal={() => {}}
-          onMobileMenuToggle={() => setMobileMenuOpen(true)}
-        />
-        <main id="main-content" className="md:pl-20 xl:pl-64 pt-4 px-4 sm:px-8 pb-24 md:pb-8 max-w-[1600px]">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-            >
-              {renderView()}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+        <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen flex-1 transition-all duration-300 overflow-y-auto max-w-full">
+          <Header
+            activeTab={activeTab}
+            setActiveTab={handleTabChange}
+            profile={profile}
+            alerts={recentAlerts}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onOpenSearchModal={() => {}}
+            onMobileMenuToggle={() => setMobileMenuOpen(true)}
+          />
+          <main id="main-content" className="flex-1 px-4 sm:px-8 pt-4 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
         <MobileNav activeTab={activeTab} setActiveTab={handleTabChange} />
 
         {/* Student Mobile Navigation Drawer Overlay */}

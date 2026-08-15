@@ -49,7 +49,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         </div>
       )}
 
-      <header className={`sticky z-40 w-full ds-header backdrop-blur-xl border-b h-14 flex items-center md:pl-16 xl:pl-60 transition-all duration-300 ${maintenanceMode ? 'top-7' : 'top-0'}`}>
+      <header className={`sticky z-40 w-full ds-header backdrop-blur-xl border-b h-14 flex items-center transition-all duration-300 ${maintenanceMode ? 'top-7' : 'top-0'}`}>
         <div className="flex justify-between items-center w-full px-4 sm:px-5 py-2">
 
           {/* Breadcrumb */}
