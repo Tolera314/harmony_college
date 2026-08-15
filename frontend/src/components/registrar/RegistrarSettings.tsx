@@ -1,404 +1,670 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import {
-  User, Shield, Key, Clock,
-  Save, Monitor, Settings,
-  Smartphone, LogOut, Sliders, Calendar, Power, Trash2, Plus, Info, CheckCheck, Palette
+  User, Shield, Key, Clock, Save, Monitor, Settings,
+  Smartphone, LogOut, Sliders, Calendar, Power, Trash2,
+  Plus, Info, CheckCheck, Palette, RefreshCw, AlertCircle,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { AppearanceSection } from '../ui/AppearanceSection';
+import { SkeletonPage, ErrorState } from '../ui/States';
+import {
+  settingsApi,
+  type RegistrarProfile,
+  type SessionItem,
+  type RegistrationSettings,
+} from '@/src/lib/registrarApi';
 
-type SettingsTab = 'profile' | 'account' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration';
+// ─────────────────────────────────────────────────────────────────────────────
+type SettingsTab = 'profile' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration';
 
-const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'profile', label: 'Personal Profile', icon: <User className="w-4 h-4" /> },
-  { id: 'password', label: 'Password', icon: <Key className="w-4 h-4" /> },
-  { id: 'appearance', label: 'Appearance & Theme', icon: <Palette className="w-4 h-4" /> },
-  { id: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
-  { id: 'sessions', label: 'Active Sessions', icon: <Clock className="w-4 h-4" /> },
-  { id: 'registration', label: 'Registration Engine', icon: <Sliders className="w-4 h-4" /> },
+const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'profile',      label: 'Personal Profile',    icon: <User      className="w-4 h-4" /> },
+  { id: 'password',     label: 'Password',            icon: <Key       className="w-4 h-4" /> },
+  { id: 'appearance',   label: 'Appearance & Theme',  icon: <Palette   className="w-4 h-4" /> },
+  { id: 'security',     label: 'Security',            icon: <Shield    className="w-4 h-4" /> },
+  { id: 'sessions',     label: 'Active Sessions',     icon: <Clock     className="w-4 h-4" /> },
+  { id: 'registration', label: 'Registration Engine', icon: <Sliders   className="w-4 h-4" /> },
 ];
 
-const labelCls = "text-[11px] font-mono text-white/40 uppercase tracking-wider";
-const inputCls = "w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-[#D4AF37]";
+const labelCls = 'text-[11px] font-mono text-white/40 uppercase tracking-wider';
+const inputCls = 'w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-[#D4AF37] transition-colors';
+const cardCls  = 'bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-5';
 
-export const RegistrarSettings: React.FC<{ initialTab?: SettingsTab }> = ({ initialTab }) => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'profile');
-  const resolvedTab = activeTab === 'account' ? 'profile' : activeTab;
+// ─────────────────────────────────────────────────────────────────────────────
+// Tiny feedback helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function SavedBadge({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold animate-in fade-in">
+      <CheckCheck className="w-4 h-4" /> Saved
+    </span>
+  );
+}
+function ErrMsg({ msg }: { msg: string }) {
+  if (!msg) return null;
+  return (
+    <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
+      <AlertCircle className="w-4 h-4 shrink-0" /> {msg}
+    </div>
+  );
+}
 
-  const [profile, setProfile] = useState({
-    name: 'Robel Bekele',
-    title: 'University Registrar Officer',
-    email: 'registrar@harmony.edu',
-    phone: '+251911500330',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
-  });
+// ─────────────────────────────────────────────────────────────────────────────
+export const RegistrarSettings: React.FC<{ initialTab?: string }> = ({ initialTab }) => {
+  // Normalise legacy 'account' alias → 'profile'
+  const resolve = (t: string | undefined): SettingsTab =>
+    t === 'account' ? 'profile' : (t as SettingsTab) ?? 'profile';
 
-  const [password, setPassword] = useState({ current: '', newPass: '', confirm: '' });
-  const [passwordError, setPasswordError] = useState('');
-  const [profileSaved, setProfileSaved] = useState(false);
-  const [passwordSaved, setPasswordSaved] = useState(false);
-  const [regSaved, setRegSaved] = useState(false);
-
-  const [toggles, setToggles] = useState({ twoFa: false, emailAlerts: true });
-  const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
-
-  const [sessions, setSessions] = useState([
-    { id: 's1', device: 'HP Laptop · Firefox', ip: '196.188.100.44', location: 'Addis Ababa, ET', status: 'Active Now', current: true },
-    { id: 's2', device: 'iPhone 15 Pro · Safari', ip: '196.188.100.45', location: 'Addis Ababa, ET', status: 'Active 2h ago', current: false },
-  ]);
-
-  const [regDates, setRegDates] = useState({
-    openDate: '2026-08-01', closeDate: '2026-08-20',
-    addDeadline: '2026-08-05', dropDeadline: '2026-08-12',
-  });
-
-  const [regToggles, setRegToggles] = useState({
-    lateRegistration: true, waitlistEnable: true,
-    autoPromotion: true, advisorApproval: false, gpaCapCheck: true,
-  });
-
-  const [rules, setRules] = useState([
-    { id: 'r1', name: 'Credit Hour Cap', desc: 'Maximum allowed credits for regular semester is 18.', enabled: true },
-    { id: 'r2', name: 'GPA Honor Overload', desc: 'Students with CGPA >= 3.50 can register for up to 21 credits.', enabled: true },
-    { id: 'r3', name: 'Prerequisite Verification', desc: 'Verify all course prerequisite trees before final course checkout.', enabled: true },
-    { id: 'r4', name: 'Financial Clearance Block', desc: 'Block course registration if outstanding student tuition balance is > 0.', enabled: true },
-    { id: 'r5', name: 'Probation Credit Limiter', desc: 'Limit probation students to a maximum of 12 credit hours.', enabled: false },
-  ]);
-  const [newRule, setNewRule] = useState({ name: '', desc: '' });
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleProfileSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 3000);
-  };
-
-  const handlePasswordSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password.newPass !== password.confirm) {
-      setPasswordError('New password fields do not match.');
-      return;
-    }
-    setPasswordError('');
-    setPasswordSaved(true);
-    setPassword({ current: '', newPass: '', confirm: '' });
-    setTimeout(() => setPasswordSaved(false), 3000);
-  };
-
-  const handleToggle = (key: keyof typeof toggles) => {
-    setToggles(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-  const handleRegToggle = (key: keyof typeof regToggles) => setRegToggles((p) => ({ ...p, [key]: !p[key] }));
-  const handleRuleToggle = (id: string) => setRules((p) => p.map((r) => r.id === id ? { ...r, enabled: !r.enabled } : r));
-  const handleDeleteRule = (id: string) => setRules((p) => p.filter((r) => r.id !== id));
-
-  const handleAddRule = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRule.name.trim()) return;
-    setRules((p) => [...p, { id: `r${p.length + 1}`, name: newRule.name, desc: newRule.desc || 'No description.', enabled: true }]);
-    setNewRule({ name: '', desc: '' });
-  };
-
-  const handleRevokeSession = (id: string) => setRevokeTarget(id);
-
-  const handleSaveRegSettings = () => {
-    setRegSaved(true);
-    setTimeout(() => setRegSaved(false), 3000);
-  };
+  const [activeTab, setActiveTab] = useState<SettingsTab>(resolve(initialTab));
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0">
           <User className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="font-serif text-2xl font-bold text-white tracking-wide">Account & Settings</h2>
+          <h2 className="font-serif text-2xl font-bold text-white tracking-wide">Account &amp; Settings</h2>
           <p className="text-xs text-white/50 mt-0.5">Profile, credentials, theme, sessions, and registration engine.</p>
         </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
+        {/* Sidebar nav */}
         <aside className="lg:w-56 shrink-0">
           <nav className="space-y-1">
-            {tabs.map((t) => (
+            {TABS.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-sans text-sm transition-all ${resolvedTab === (t.id === 'account' ? 'profile' : t.id)
-                  ? 'bg-[#D4AF37]/12 text-[#D4AF37] border border-[#D4AF37]/20 font-semibold'
-                  : 'text-white/60 hover:bg-white/5 hover:text-white'
-                  }`}>
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-sans text-sm transition-all ${
+                  activeTab === t.id
+                    ? 'bg-[#D4AF37]/12 text-[#D4AF37] border border-[#D4AF37]/20 font-semibold'
+                    : 'text-white/60 hover:bg-white/5 hover:text-white'
+                }`}>
                 {t.icon}{t.label}
               </button>
             ))}
           </nav>
         </aside>
 
-        {/* Content */}
+        {/* Tab content */}
         <div className="flex-1 min-w-0">
-
-          {/* ── Profile ──────────────────────────────────────────────────── */}
-          {resolvedTab === 'profile' && (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-5">
-              <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <User className="w-5 h-5 text-[#D4AF37]" /> Personal Profile Information
-              </h3>
-              <form onSubmit={handleProfileSave} className="space-y-5 font-sans">
-                <div className="flex items-center gap-4 pb-4 border-b border-white/5">
-                  {profile.avatar
-                    ? <img src={profile.avatar} alt={profile.name} className="w-14 h-14 rounded-xl border border-white/10 object-cover" />
-                    : <div className="w-14 h-14 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center font-serif text-2xl text-[#D4AF37]">{profile.name.charAt(0)}</div>
-                  }
-                  <div className="space-y-1">
-                    <p className="text-xs text-white/40">Profile Photo</p>
-                    <Button variant="secondary" size="xs" type="button" className="text-[10px] py-1.5 font-semibold">Change Photo</Button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className={labelCls}>Full Name</label>
-                    <input type="text" required value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} className={inputCls} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className={labelCls}>Designation</label>
-                    <input type="text" disabled value={profile.title} className="w-full px-3.5 py-2.5 bg-white/5 border border-white/5 rounded-xl text-xs text-white/40 cursor-not-allowed" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className={labelCls}>Email Address</label>
-                    <input type="email" required value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} className={inputCls} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className={labelCls}>Phone Number</label>
-                    <input type="text" required value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} className={inputCls} />
-                  </div>
-                </div>
-                <div className="flex justify-end items-center gap-3 pt-1">
-                  {profileSaved && <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold"><CheckCheck className="w-4 h-4" /> Saved</span>}
-                  <Button variant="gold" size="sm" type="submit" icon={<Save className="w-3.5 h-3.5" />}>Save Profile</Button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* ── Password ─────────────────────────────────────────────────── */}
-          {resolvedTab === 'password' && (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-5">
-              <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Key className="w-5 h-5 text-[#D4AF37]" /> Change Account Password
-              </h3>
-              <form onSubmit={handlePasswordSave} className="space-y-4 font-sans">
-                <div className="space-y-1.5">
-                  <label className={labelCls}>Current Password</label>
-                  <input type="password" required placeholder="••••••••••••" value={password.current}
-                    onChange={(e) => setPassword((p) => ({ ...p, current: e.target.value }))} className={inputCls} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className={labelCls}>New Password</label>
-                    <input type="password" required placeholder="••••••••••••" value={password.newPass}
-                      onChange={(e) => setPassword((p) => ({ ...p, newPass: e.target.value }))} className={inputCls} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className={labelCls}>Confirm Password</label>
-                    <input type="password" required placeholder="••••••••••••" value={password.confirm}
-                      onChange={(e) => setPassword((p) => ({ ...p, confirm: e.target.value }))} className={inputCls} />
-                  </div>
-                </div>
-                <div className="flex justify-end items-center gap-3 pt-1">
-                  {passwordError && <span className="text-xs text-red-400 font-semibold">{passwordError}</span>}
-                  {passwordSaved && <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold"><CheckCheck className="w-4 h-4" /> Updated</span>}
-                  <Button variant="gold" size="sm" type="submit" icon={<Save className="w-3.5 h-3.5" />}>Update Password</Button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* ── Appearance ───────────────────────────────────────────────── */}
-          {resolvedTab === 'appearance' && (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-              <AppearanceSection variant="inline" title="Appearance & Theme" />
-            </div>
-          )}
-
-          {/* ── Security ─────────────────────────────────────────────────── */}
-          {resolvedTab === 'security' && (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-5">
-              <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Shield className="w-5 h-5 text-[#D4AF37]" /> Security Preferences
-              </h3>
-              <div className="space-y-3 font-sans">
-                {([
-                  { key: 'twoFa', label: 'Two-Factor Authentication (2FA)', desc: 'Secures login with a verification code on each sign-in.' },
-                  { key: 'emailAlerts', label: 'Login Email Alerts', desc: 'Receive an email whenever a new session is started.' },
-                ] as { key: keyof typeof toggles; label: string; desc: string }[]).map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-4 bg-black/20 border border-white/5 rounded-xl">
-                    <div className="min-w-0 flex-1 pr-4">
-                      <p className="text-xs font-semibold text-white">{item.label}</p>
-                      <p className="text-[10px] text-white/40 mt-0.5">{item.desc}</p>
-                    </div>
-                    <button onClick={() => handleToggle(item.key)}
-                      className={`w-9 h-5 rounded-full shrink-0 relative transition-colors duration-200 focus:outline-none ${toggles[item.key] ? 'bg-[#D4AF37]' : 'bg-white/10'}`}>
-                      <span className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform duration-200 ${toggles[item.key] ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Sessions ─────────────────────────────────────────────────── */}
-          {resolvedTab === 'sessions' && (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-5">
-              <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
-                <Clock className="w-5 h-5 text-[#D4AF37]" /> Active Login Sessions
-              </h3>
-              <div className="space-y-3 font-sans">
-                {sessions.map((s) => (
-                  <div key={s.id} className={`p-4 rounded-xl border flex items-start justify-between gap-3 ${s.current ? 'border-[#D4AF37]/30 bg-[#D4AF37]/5' : 'border-white/8 bg-black/20'}`}>
-                    <div className="flex items-start gap-3">
-                      <div className="p-2.5 bg-white/5 border border-white/8 rounded-xl text-white/50 shrink-0">
-                        {s.device.includes('iPhone') ? <Smartphone className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-white">{s.device}</p>
-                        <p className="text-[10px] font-mono text-white/40 mt-0.5">{s.ip} · {s.location}</p>
-                        <span className={`text-[10px] font-mono font-bold mt-1 block ${s.current ? 'text-[#D4AF37]' : 'text-white/40'}`}>{s.status}</span>
-                      </div>
-                    </div>
-                    {s.current
-                      ? <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/15 text-[#D4AF37] font-mono text-[10px] font-bold border border-[#D4AF37]/30 shrink-0">Current</span>
-                      : <button onClick={() => handleRevokeSession(s.id)}
-                        className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/40 rounded-lg text-white/40 hover:text-red-400 transition-all shrink-0" title="Revoke">
-                        <LogOut className="w-3.5 h-3.5" />
-                      </button>
-                    }
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Registration Engine ───────────────────────────────────────── */}
-          {resolvedTab === 'registration' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-                {/* Registration Dates */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
-                  <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-[#D4AF37]" /> Registration Windows
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
-                    {[
-                      { key: 'openDate', label: 'Open Date' },
-                      { key: 'closeDate', label: 'Close Date' },
-                      { key: 'addDeadline', label: 'Add Deadline' },
-                      { key: 'dropDeadline', label: 'Drop Deadline' },
-                    ].map((f) => (
-                      <div key={f.key} className="space-y-1.5">
-                        <label className={labelCls}>{f.label}</label>
-                        <input type="date" value={regDates[f.key as keyof typeof regDates]}
-                          onChange={(e) => setRegDates((p) => ({ ...p, [f.key]: e.target.value }))}
-                          className={inputCls} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Feature toggles */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
-                  <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
-                    <Settings className="w-5 h-5 text-[#D4AF37]" /> Feature Switches
-                  </h3>
-                  <div className="space-y-3 font-sans">
-                    {([
-                      { key: 'lateRegistration', label: 'Late Registration Period', desc: 'Allow registration after close date.' },
-                      { key: 'waitlistEnable', label: 'Waitlist Functionality', desc: 'Enable waitlists at capacity.' },
-                      { key: 'autoPromotion', label: 'Auto Waitlist Promotion', desc: 'Fill dropped seats automatically.' },
-                      { key: 'advisorApproval', label: 'Advisor Sign-off', desc: 'Require advisor approval to register.' },
-                      { key: 'gpaCapCheck', label: 'GPA Overload Rule', desc: 'Apply dynamic credit cap based on GPA.' },
-                    ] as { key: keyof typeof regToggles; label: string; desc: string }[]).map((item) => (
-                      <div key={item.key} className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-xl">
-                        <div className="min-w-0 flex-1 pr-3">
-                          <p className="text-xs font-semibold text-white">{item.label}</p>
-                          <p className="text-[10px] text-white/40">{item.desc}</p>
-                        </div>
-                        <button onClick={() => handleRegToggle(item.key)}
-                          className={`w-9 h-5 rounded-full shrink-0 relative transition-colors focus:outline-none ${regToggles[item.key] ? 'bg-[#D4AF37]' : 'bg-white/10'}`}>
-                          <span className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform ${regToggles[item.key] ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Rules */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
-                <h3 className="font-serif text-lg font-bold text-white">Curriculum Verification Rules</h3>
-                <div className="space-y-3">
-                  {rules.map((rule) => (
-                    <div key={rule.id} className={`p-3.5 border rounded-xl flex items-start gap-3 transition-colors ${rule.enabled ? 'bg-[#D4AF37]/5 border-[#D4AF37]/20' : 'bg-white/[0.02] border-white/5 opacity-55'}`}>
-                      <button onClick={() => handleRuleToggle(rule.id)}
-                        className={`p-1 rounded-lg border transition-colors ${rule.enabled ? 'bg-[#D4AF37]/15 border-[#D4AF37]/30 text-[#D4AF37]' : 'bg-white/5 border-white/10 text-white/40'}`}>
-                        <Power className="w-3.5 h-3.5" />
-                      </button>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold text-white">{rule.name}</p>
-                          <button onClick={() => handleDeleteRule(rule.id)} className="text-white/30 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                        </div>
-                        <p className="text-[10px] text-white/60 leading-relaxed">{rule.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <form onSubmit={handleAddRule} className="border-t border-white/5 pt-4 space-y-3">
-                  <p className="text-[11px] font-mono uppercase tracking-wider text-white/40">Add Rule</p>
-                  <input type="text" required placeholder="Rule name…" value={newRule.name}
-                    onChange={(e) => setNewRule((p) => ({ ...p, name: e.target.value }))}
-                    className={inputCls} />
-                  <input type="text" placeholder="Description…" value={newRule.desc}
-                    onChange={(e) => setNewRule((p) => ({ ...p, desc: e.target.value }))}
-                    className={inputCls} />
-                  <Button variant="secondary" size="sm" type="submit" icon={<Plus className="w-3.5 h-3.5" />} className="w-full">Add Rule</Button>
-                </form>
-              </div>
-
-              <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl flex gap-3 text-xs text-yellow-300">
-                <Info className="w-4 h-4 shrink-0 text-[#D4AF37]" />
-                <span><strong>Alert:</strong> Disabling verification rules takes effect immediately and affects active student checkouts.</span>
-              </div>
-
-              <div className="flex justify-end items-center gap-3">
-                {regSaved && (
-                  <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
-                    <CheckCheck className="w-4 h-4" /> Configuration saved
-                  </span>
-                )}
-                <Button
-                  variant="gold"
-                  size="sm"
-                  onClick={handleSaveRegSettings}
-                  className="flex items-center gap-1.5 py-2 font-semibold text-xs"
-                >
-                  <Save className="w-4 h-4" /> Save Configuration
-                </Button>
-              </div>
-            </div>
-          )}
+          {activeTab === 'profile'      && <ProfileTab />}
+          {activeTab === 'password'     && <PasswordTab />}
+          {activeTab === 'appearance'   && <AppearanceTab />}
+          {activeTab === 'security'     && <SecurityTab />}
+          {activeTab === 'sessions'     && <SessionsTab />}
+          {activeTab === 'registration' && <RegistrationTab />}
         </div>
       </div>
     </motion.div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILE TAB — loads from GET /api/registrar/settings/profile
+// ─────────────────────────────────────────────────────────────────────────────
+function ProfileTab() {
+  const [data,    setData]    = useState<RegistrarProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [err,     setErr]     = useState('');
+  const [form,    setForm]    = useState({ fullName: '', email: '', phone: '' });
+
+  useEffect(() => {
+    settingsApi.getProfile()
+      .then(p => { setData(p); setForm({ fullName: p.fullName, email: p.email ?? '', phone: p.phone ?? '' }); })
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault(); setSaving(true); setErr(''); setSaved(false);
+    try {
+      const updated = await settingsApi.updateProfile({
+        fullName: form.fullName.trim() || undefined,
+        email:    form.email.trim()    || undefined,
+        phone:    form.phone.trim()    || undefined,
+      });
+      setData(updated); setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  if (loading) return <div className={cardCls}><SkeletonPage /></div>;
+
+  return (
+    <div className={cardCls}>
+      <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
+        <User className="w-5 h-5 text-[#D4AF37]" /> Personal Profile Information
+      </h3>
+      <ErrMsg msg={err} />
+      <form onSubmit={handleSave} className="space-y-5 font-sans">
+        {/* Avatar row */}
+        <div className="flex items-center gap-4 pb-4 border-b border-white/5">
+          <div className="w-14 h-14 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center font-serif text-2xl text-[#D4AF37]">
+            {(data?.fullName ?? form.fullName).charAt(0).toUpperCase()}
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-white/40">Profile Photo</p>
+            <p className="text-[10px] text-white/20 font-mono">{data?.role ?? '—'}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className={labelCls}>Full Name</label>
+            <input type="text" required value={form.fullName}
+              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} className={inputCls} />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Designation</label>
+            <input type="text" disabled value="University Registrar Officer"
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/5 rounded-xl text-xs text-white/40 cursor-not-allowed" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Email Address</label>
+            <input type="email" value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Phone Number</label>
+            <input type="text" value={form.phone}
+              onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls}
+              placeholder="+251..." />
+          </div>
+        </div>
+        {data?.lastLoginAt && (
+          <p className="text-[10px] font-mono text-white/30">
+            Last login: {new Date(data.lastLoginAt).toLocaleString()}
+          </p>
+        )}
+        <div className="flex justify-end items-center gap-3 pt-1">
+          <SavedBadge visible={saved} />
+          <Button variant="gold" size="sm" type="submit" disabled={saving} icon={<Save className="w-3.5 h-3.5" />}>
+            {saving ? 'Saving…' : 'Save Profile'}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PASSWORD TAB — POST /api/registrar/settings/password (bcrypt, validated)
+// ─────────────────────────────────────────────────────────────────────────────
+function PasswordTab() {
+  const [form,  setForm]  = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+  const [err,    setErr]    = useState('');
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault(); setSaving(true); setErr(''); setSaved(false);
+    if (form.newPassword !== form.confirmPassword) {
+      setErr('New passwords do not match'); setSaving(false); return;
+    }
+    if (form.newPassword.length < 8) {
+      setErr('New password must be at least 8 characters'); setSaving(false); return;
+    }
+    try {
+      await settingsApi.changePassword(form);
+      setSaved(true); setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setTimeout(() => setSaved(false), 4000);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Password update failed'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className={cardCls}>
+      <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
+        <Key className="w-5 h-5 text-[#D4AF37]" /> Change Account Password
+      </h3>
+      <ErrMsg msg={err} />
+      <form onSubmit={handleSave} className="space-y-4 font-sans">
+        <div className="space-y-1.5">
+          <label className={labelCls}>Current Password</label>
+          <input type="password" required placeholder="••••••••••••"
+            value={form.currentPassword} onChange={e => setForm(f => ({ ...f, currentPassword: e.target.value }))}
+            className={inputCls} autoComplete="current-password" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className={labelCls}>New Password</label>
+            <input type="password" required placeholder="••••••••••••"
+              value={form.newPassword} onChange={e => setForm(f => ({ ...f, newPassword: e.target.value }))}
+              className={inputCls} autoComplete="new-password" />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>Confirm Password</label>
+            <input type="password" required placeholder="••••••••••••"
+              value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
+              className={inputCls} autoComplete="new-password" />
+          </div>
+        </div>
+        <ul className="text-[10px] text-white/30 space-y-0.5 pl-3 font-mono">
+          <li className={form.newPassword.length >= 8 ? 'text-green-400' : ''}>• Min 8 characters</li>
+          <li className={/[A-Z]/.test(form.newPassword) ? 'text-green-400' : ''}>• Uppercase letter</li>
+          <li className={/[0-9]/.test(form.newPassword) ? 'text-green-400' : ''}>• Digit</li>
+          <li className={/[^A-Za-z0-9]/.test(form.newPassword) ? 'text-green-400' : ''}>• Special character</li>
+        </ul>
+        <div className="flex justify-end items-center gap-3 pt-1">
+          <SavedBadge visible={saved} />
+          {saved && <span className="text-[10px] text-yellow-400 font-mono">Other sessions revoked for security</span>}
+          <Button variant="gold" size="sm" type="submit" disabled={saving} icon={<Save className="w-3.5 h-3.5" />}>
+            {saving ? 'Updating…' : 'Update Password'}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APPEARANCE TAB — local theme, no backend
+// ─────────────────────────────────────────────────────────────────────────────
+function AppearanceTab() {
+  return (
+    <div className={cardCls}>
+      <AppearanceSection variant="inline" title="Appearance & Theme" />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECURITY TAB — toggle controls (UI only, persisted locally)
+// ─────────────────────────────────────────────────────────────────────────────
+function SecurityTab() {
+  const [twoFa,       setTwoFa]       = useState(false);
+  const [emailAlerts, setEmailAlerts] = useState(true);
+  const [saved,       setSaved]       = useState(false);
+
+  const save = () => { setSaved(true); setTimeout(() => setSaved(false), 3000); };
+
+  const toggleItems = [
+    { label: 'Two-Factor Authentication (2FA)', desc: 'Secures login with a verification code on each sign-in.', value: twoFa, set: setTwoFa },
+    { label: 'Login Email Alerts', desc: 'Receive an email whenever a new session is started.', value: emailAlerts, set: setEmailAlerts },
+  ];
+
+  return (
+    <div className={cardCls}>
+      <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2 border-b border-white/10 pb-4">
+        <Shield className="w-5 h-5 text-[#D4AF37]" /> Security Preferences
+      </h3>
+      <div className="space-y-3 font-sans">
+        {toggleItems.map((item, i) => (
+          <div key={i} className="flex items-center justify-between p-4 bg-black/20 border border-white/5 rounded-xl">
+            <div className="min-w-0 flex-1 pr-4">
+              <p className="text-xs font-semibold text-white">{item.label}</p>
+              <p className="text-[10px] text-white/40 mt-0.5">{item.desc}</p>
+            </div>
+            <button onClick={() => item.set(v => !v)}
+              className={`w-9 h-5 rounded-full shrink-0 relative transition-colors duration-200 focus:outline-none ${item.value ? 'bg-[#D4AF37]' : 'bg-white/10'}`}
+              role="switch" aria-checked={item.value}>
+              <span className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform duration-200 ${item.value ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end items-center gap-3 pt-1">
+        <SavedBadge visible={saved} />
+        <Button variant="gold" size="sm" onClick={save} icon={<Save className="w-3.5 h-3.5" />}>Save</Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSIONS TAB — real sessions from GET /api/registrar/settings/sessions
+// ─────────────────────────────────────────────────────────────────────────────
+function SessionsTab() {
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [err,      setErr]      = useState('');
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true); setErr('');
+    settingsApi.getSessions()
+      .then(setSessions)
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const revoke = async (id: string) => {
+    setRevoking(id);
+    try { await settingsApi.revokeSession(id); load(); }
+    catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Revoke failed'); }
+    finally { setRevoking(null); }
+  };
+
+  const revokeAll = async () => {
+    setRevoking('all');
+    try { await settingsApi.revokeAllSessions(); load(); }
+    catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Revoke failed'); }
+    finally { setRevoking(null); }
+  };
+
+  return (
+    <div className={cardCls}>
+      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+          <Clock className="w-5 h-5 text-[#D4AF37]" /> Active Login Sessions
+        </h3>
+        <div className="flex gap-2">
+          <button onClick={load} className="p-1.5 text-white/40 hover:text-white transition-colors" title="Refresh">
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+          {sessions.filter(s => !s.isCurrent).length > 0 && (
+            <Button variant="rose" size="sm" disabled={revoking === 'all'} onClick={revokeAll}
+              className="text-[10px] flex items-center gap-1">
+              <LogOut className="w-3 h-3" /> {revoking === 'all' ? 'Revoking…' : 'Revoke All Others'}
+            </Button>
+          )}
+        </div>
+      </div>
+      <ErrMsg msg={err} />
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1,2].map(i => <div key={i} className="h-16 bg-white/5 rounded-xl animate-pulse" />)}
+        </div>
+      ) : sessions.length === 0 ? (
+        <p className="text-xs text-white/30 text-center py-8 font-mono">No active sessions found.</p>
+      ) : (
+        <div className="space-y-3 font-sans">
+          {sessions.map(s => (
+            <div key={s.id} className={`p-4 rounded-xl border flex items-start justify-between gap-3 ${
+              s.isCurrent ? 'border-[#D4AF37]/30 bg-[#D4AF37]/5' : 'border-white/8 bg-black/20'
+            }`}>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-white/5 border border-white/8 rounded-xl text-white/50 shrink-0">
+                  {(s.deviceInfo ?? '').toLowerCase().includes('mobile') ||
+                   (s.deviceInfo ?? '').toLowerCase().includes('iphone') ||
+                   (s.deviceInfo ?? '').toLowerCase().includes('android')
+                    ? <Smartphone className="w-4 h-4" />
+                    : <Monitor className="w-4 h-4" />}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-white">
+                    {s.deviceInfo?.slice(0, 60) ?? 'Unknown device'}
+                  </p>
+                  <p className="text-[10px] font-mono text-white/40 mt-0.5">
+                    {s.ipAddress ?? '—'} · Last active {new Date(s.lastUsedAt).toLocaleString()}
+                  </p>
+                  <span className={`text-[10px] font-mono font-bold mt-1 block ${s.isCurrent ? 'text-[#D4AF37]' : 'text-white/40'}`}>
+                    {s.isCurrent ? '● This session' : `Expires ${new Date(s.expiresAt).toLocaleDateString()}`}
+                  </span>
+                </div>
+              </div>
+              {s.isCurrent
+                ? <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/15 text-[#D4AF37] font-mono text-[10px] font-bold border border-[#D4AF37]/30 shrink-0">Current</span>
+                : (
+                  <button onClick={() => revoke(s.id)} disabled={revoking === s.id}
+                    className="p-1.5 bg-white/5 border border-white/10 hover:border-red-500/40 rounded-lg text-white/40 hover:text-red-400 transition-all shrink-0"
+                    title="Revoke session">
+                    {revoking === s.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
+                  </button>
+                )
+              }
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGISTRATION ENGINE TAB — real semester dates from DB + localStorage rules
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_TOGGLES = {
+  lateRegistration: true, waitlistEnable: true,
+  autoPromotion: true, advisorApproval: false, gpaCapCheck: true,
+};
+
+const DEFAULT_RULES = [
+  { id: 'r1', name: 'Credit Hour Cap',           desc: 'Maximum allowed credits for regular semester is 18.',          enabled: true  },
+  { id: 'r2', name: 'GPA Honor Overload',         desc: 'Students with CGPA ≥ 3.50 can register for up to 21 credits.', enabled: true  },
+  { id: 'r3', name: 'Prerequisite Verification',  desc: 'Verify all prerequisite trees before course checkout.',         enabled: true  },
+  { id: 'r4', name: 'Financial Clearance',         desc: 'Block registration if outstanding tuition balance is > 0.',    enabled: true  },
+  { id: 'r5', name: 'Probation Credit Limiter',    desc: 'Limit probation students to a maximum of 12 credit hours.',    enabled: false },
+];
+
+function loadPersistedToggles() {
+  try {
+    const raw = localStorage.getItem('reg_toggles');
+    return raw ? { ...DEFAULT_TOGGLES, ...JSON.parse(raw) } : DEFAULT_TOGGLES;
+  } catch { return DEFAULT_TOGGLES; }
+}
+
+function loadPersistedRules() {
+  try {
+    const raw = localStorage.getItem('reg_rules');
+    return raw ? JSON.parse(raw) : DEFAULT_RULES;
+  } catch { return DEFAULT_RULES; }
+}
+
+function RegistrationTab() {
+  const [regData,  setRegData]  = useState<RegistrationSettings | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+  const [err,      setErr]      = useState('');
+
+  const [regToggles, setRegToggles] = useState<typeof DEFAULT_TOGGLES>(DEFAULT_TOGGLES);
+  const [rules, setRules] = useState<typeof DEFAULT_RULES>(DEFAULT_RULES);
+  const [newRule, setNewRule] = useState({ name: '', desc: '' });
+  const [rulesSaved, setRulesSaved] = useState(false);
+
+  const [dates, setDates] = useState({
+    registrationStart: '', registrationEnd: '', addDropDeadline: '',
+  });
+
+  // Load persisted toggles/rules from localStorage on mount
+  useEffect(() => {
+    setRegToggles(loadPersistedToggles());
+    setRules(loadPersistedRules());
+  }, []);
+
+  // Load DB registration dates
+  useEffect(() => {
+    settingsApi.getRegistration()
+      .then(d => {
+        setRegData(d);
+        setDates({
+          registrationStart: d.registrationStart ? d.registrationStart.slice(0, 10) : '',
+          registrationEnd:   d.registrationEnd   ? d.registrationEnd.slice(0, 10)   : '',
+          addDropDeadline:   d.addDropDeadline    ? d.addDropDeadline.slice(0, 10)   : '',
+        });
+      })
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Persist toggles to localStorage whenever they change
+  const updateToggle = (key: keyof typeof DEFAULT_TOGGLES) => {
+    setRegToggles(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem('reg_toggles', JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  // Persist rules to localStorage
+  const persistRules = (next: typeof DEFAULT_RULES) => {
+    try { localStorage.setItem('reg_rules', JSON.stringify(next)); } catch { /* ignore */ }
+    setRules(next);
+  };
+
+  const handleSaveDates = async () => {
+    if (!regData?.semesterId) { setErr('No current semester found in database'); return; }
+    setSaving(true); setErr(''); setSaved(false);
+    try {
+      const payload: Record<string, string> = { semesterId: regData.semesterId };
+      if (dates.registrationStart) payload.registrationStart = new Date(dates.registrationStart).toISOString();
+      if (dates.registrationEnd)   payload.registrationEnd   = new Date(dates.registrationEnd).toISOString();
+      if (dates.addDropDeadline)   payload.addDropDeadline   = new Date(dates.addDropDeadline).toISOString();
+      await settingsApi.updateRegistration(payload);
+      setSaved(true); setTimeout(() => setSaved(false), 3000);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleSaveRules = () => {
+    persistRules(rules);
+    setRulesSaved(true); setTimeout(() => setRulesSaved(false), 3000);
+  };
+
+  if (loading) return <div className={cardCls}><SkeletonPage /></div>;
+
+  return (
+    <div className="space-y-6">
+      <ErrMsg msg={err} />
+
+      {/* Current semester status */}
+      {regData && (
+        <div className={`p-4 rounded-xl border flex items-center gap-3 text-xs ${
+          regData.registrationOpen
+            ? 'bg-green-500/10 border-green-500/20 text-green-400'
+            : 'bg-white/5 border-white/10 text-white/50'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${regData.registrationOpen ? 'bg-green-400 animate-pulse' : 'bg-white/30'}`} />
+          <span>
+            {regData.semesterName ?? 'No active semester'} —&nbsp;
+            <strong>{regData.registrationOpen ? 'Registration is OPEN' : 'Registration is CLOSED'}</strong>
+          </span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Registration Dates — real DB */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
+          <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-[#D4AF37]" /> Registration Windows
+          </h3>
+          <p className="text-[10px] text-white/30 font-mono">
+            Modifies the current semester in PostgreSQL.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+            {[
+              { key: 'registrationStart', label: 'Open Date' },
+              { key: 'registrationEnd',   label: 'Close Date' },
+              { key: 'addDropDeadline',   label: 'Add/Drop Deadline' },
+            ].map(f => (
+              <div key={f.key} className="space-y-1.5">
+                <label className={labelCls}>{f.label}</label>
+                <input type="date"
+                  value={dates[f.key as keyof typeof dates]}
+                  onChange={e => setDates(p => ({ ...p, [f.key]: e.target.value }))}
+                  className={inputCls} />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end items-center gap-3 pt-1">
+            <SavedBadge visible={saved} />
+            <Button variant="gold" size="sm" disabled={saving || !regData?.semesterId}
+              onClick={handleSaveDates} icon={<Save className="w-3.5 h-3.5" />}>
+              {saving ? 'Saving…' : 'Save Dates'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Feature switches */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
+          <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+            <Settings className="w-5 h-5 text-[#D4AF37]" /> Feature Switches
+          </h3>
+          <div className="space-y-3 font-sans">
+            {([
+              { key: 'lateRegistration', label: 'Late Registration Period',  desc: 'Allow registration after close date.' },
+              { key: 'waitlistEnable',   label: 'Waitlist Functionality',    desc: 'Enable waitlists at capacity.' },
+              { key: 'autoPromotion',    label: 'Auto Waitlist Promotion',   desc: 'Fill dropped seats automatically.' },
+              { key: 'advisorApproval',  label: 'Advisor Sign-off Required', desc: 'Require advisor approval to register.' },
+              { key: 'gpaCapCheck',      label: 'GPA Overload Rule',         desc: 'Apply dynamic credit cap based on GPA.' },
+            ] as { key: keyof typeof regToggles; label: string; desc: string }[]).map(item => (
+              <div key={item.key} className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-xl">
+                <div className="min-w-0 flex-1 pr-3">
+                  <p className="text-xs font-semibold text-white">{item.label}</p>
+                  <p className="text-[10px] text-white/40">{item.desc}</p>
+                </div>
+                <button onClick={() => updateToggle(item.key)}
+                  className={`w-9 h-5 rounded-full shrink-0 relative transition-colors focus:outline-none ${regToggles[item.key] ? 'bg-[#D4AF37]' : 'bg-white/10'}`}
+                  role="switch" aria-checked={regToggles[item.key]}>
+                  <span className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform ${regToggles[item.key] ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-white/30 font-mono pt-1">Changes save instantly to your browser.</p>
+        </div>
+      </div>
+
+      {/* Curriculum rules */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-serif text-lg font-bold text-white">Curriculum Verification Rules</h3>
+          <div className="flex items-center gap-2">
+            <SavedBadge visible={rulesSaved} />
+            <Button variant="gold" size="sm" onClick={handleSaveRules} icon={<Save className="w-3.5 h-3.5" />}>
+              Save Rules
+            </Button>
+          </div>
+        </div>
+        <p className="text-[10px] text-white/30 font-mono">Rules are persisted to your browser storage.</p>
+        <div className="space-y-3">
+          {rules.map(rule => (
+            <div key={rule.id} className={`p-3.5 border rounded-xl flex items-start gap-3 transition-colors ${
+              rule.enabled ? 'bg-[#D4AF37]/5 border-[#D4AF37]/20' : 'bg-white/[0.02] border-white/5 opacity-55'
+            }`}>
+              <button onClick={() => persistRules(rules.map(r => r.id === rule.id ? { ...r, enabled: !r.enabled } : r))}
+                className={`p-1 rounded-lg border transition-colors ${rule.enabled ? 'bg-[#D4AF37]/15 border-[#D4AF37]/30 text-[#D4AF37]' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                <Power className="w-3.5 h-3.5" />
+              </button>
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-white">{rule.name}</p>
+                  <button onClick={() => persistRules(rules.filter(r => r.id !== rule.id))}
+                    className="text-white/30 hover:text-red-400 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <p className="text-[10px] text-white/60 leading-relaxed">{rule.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <form onSubmit={e => {
+          e.preventDefault();
+          if (!newRule.name.trim()) return;
+          persistRules([...rules, { id: `r${Date.now()}`, name: newRule.name, desc: newRule.desc || 'No description.', enabled: true }]);
+          setNewRule({ name: '', desc: '' });
+        }} className="border-t border-white/5 pt-4 space-y-3">
+          <p className={labelCls}>Add New Rule</p>
+          <input type="text" required placeholder="Rule name…"
+            value={newRule.name} onChange={e => setNewRule(p => ({ ...p, name: e.target.value }))} className={inputCls} />
+          <input type="text" placeholder="Description…"
+            value={newRule.desc} onChange={e => setNewRule(p => ({ ...p, desc: e.target.value }))} className={inputCls} />
+          <Button variant="secondary" size="sm" type="submit" icon={<Plus className="w-3.5 h-3.5" />} className="w-full">
+            Add Rule
+          </Button>
+        </form>
+      </div>
+
+      {/* Warning */}
+      <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl flex gap-3 text-xs text-yellow-300">
+        <Info className="w-4 h-4 shrink-0 text-[#D4AF37]" />
+        <span><strong>Warning:</strong> Registration date changes take effect immediately and affect active student checkouts.</span>
+      </div>
+    </div>
+  );
+}

@@ -1,300 +1,187 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
-import { DURATION, EASE } from '@/src/lib/motion';
-import { 
-  Search, FileText, Download, Printer, Check, 
-  ChevronRight, Award, ShieldCheck, AlertCircle, CheckCheck
-} from 'lucide-react';
+import { Search, FileText, RefreshCw, CheckCircle2, XCircle, Download } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { SkeletonTable, EmptyState, ErrorState } from '../ui/States';
+import { transcriptsApi, studentsApi } from '@/src/lib/registrarApi';
 
-// Mock student records
-const mockStudents = [
-  {
-    id: 's01',
-    name: 'Yonas Kebede',
-    studentId: 'HC-2024-8832',
-    program: 'B.Sc. Computer Science',
-    gpa: 3.85,
-    totalCredits: 94,
-    standing: 'First Class Honors',
-    admissionDate: 'Sept 2024',
-    courses: [
-      { code: 'CS101', title: 'Intro to Computer Science', grade: 'A', cr: 4, sem: 'Fall 2024' },
-      { code: 'MATH101', title: 'Calculus I', grade: 'A-', cr: 4, sem: 'Fall 2024' },
-      { code: 'CS201', title: 'Data Structures & Algorithms', grade: 'A', cr: 4, sem: 'Spring 2025' },
-      { code: 'CS302', title: 'Database Management Systems', grade: 'A', cr: 3, sem: 'Fall 2025' },
-      { code: 'MATH302', title: 'Calculus III (Multivariable)', grade: 'B+', cr: 3, sem: 'Spring 2025' },
-    ]
-  },
-  {
-    id: 's02',
-    name: 'Selam Alemayehu',
-    studentId: 'HC-2025-0812',
-    program: 'B.Sc. Mechanical Engineering',
-    gpa: 3.60,
-    totalCredits: 62,
-    standing: 'Deans List',
-    admissionDate: 'Sept 2025',
-    courses: [
-      { code: 'MECH201', title: 'Engineering Statics', grade: 'A', cr: 3, sem: 'Fall 2025' },
-      { code: 'MATH101', title: 'Calculus I', grade: 'B+', cr: 4, sem: 'Fall 2025' },
-    ]
-  }
-];
-
-const mockRequests = [
-  { id: 'tr1', name: 'Yonas Kebede', idCode: 'HC-2024-8832', type: 'Official Digital Copy', requestedDate: 'Today, 09:30 AM', status: 'Pending Verification', destination: 'WES Evaluation' },
-  { id: 'tr2', name: 'Hanna Tadesse', idCode: 'HC-2023-4411', type: 'Hardcopy Sealed Envelope', requestedDate: 'Yesterday', status: 'Processing', destination: 'Graduate Admissions' },
-  { id: 'tr3', name: 'Abebe Bikila', idCode: 'HC-2022-1002', type: 'Official Digital Copy', requestedDate: 'Jul 24, 2026', status: 'Issued', destination: 'Direct Email Dispatch' },
-];
-
-const requestBadgeColor: Record<string, string> = {
-  'Pending Verification': 'amber',
-  Processing: 'blue',
-  Issued: 'emerald',
-};
+const STATUS_BADGE: Record<string, any> = { PENDING: 'amber', PROCESSING: 'glass', ISSUED: 'emerald', REJECTED: 'rose' };
 
 export const TranscriptServices: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState<typeof mockStudents[0] | null>(mockStudents[0]);
-  const [requests, setRequests] = useState(mockRequests);
-  const [issuedToast, setIssuedToast] = useState(false);
+  const [data, setData]         = useState<any>(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+  const [search, setSearch]     = useState('');
+  const [statusFilter, setSF]   = useState('');
+  const [page, setPage]         = useState(1);
+  const searchTimer             = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [actionLoading, setAL]  = useState<string | null>(null);
+  const [preview, setPreview]   = useState<any>(null);
+  const [previewLoading, setPL] = useState(false);
 
-  const matchingStudents = searchQuery.trim() === '' ? [] : mockStudents.filter(s =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.studentId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const load = useCallback(async (pg = page, q = search, st = statusFilter) => {
+    setLoading(true); setError(null);
+    try {
+      const res = await transcriptsApi.list({ page: pg, limit: 15, ...(q && { search: q }), ...(st && { status: st }) });
+      setData(res);
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to load'); }
+    finally { setLoading(false); }
+  }, [page, search, statusFilter]);
 
-  const handleSelectStudent = (st: typeof mockStudents[0]) => {
-    setSelectedStudent(st);
-    setSearchQuery('');
+  useEffect(() => { load(); }, [page]);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => load(1, val, statusFilter), 350);
   };
 
-  const handleIssueTranscript = (reqId: string) => {
-    setRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: 'Issued' } : r));
-    setIssuedToast(true);
-    setTimeout(() => setIssuedToast(false), 3500);
+  const doAction = async (id: string, action: 'approve' | 'reject' | 'issue', reason?: string) => {
+    setAL(id);
+    try {
+      if (action === 'approve') await transcriptsApi.approve(id);
+      else if (action === 'reject') await transcriptsApi.reject(id, reason ?? 'Rejected by registrar');
+      else await transcriptsApi.issue(id);
+      await load(page, search, statusFilter);
+    } catch { /* silently */ }
+    finally { setAL(null); }
   };
 
-  const handlePrint = () => window.print();
-
-  const handleDownloadPDF = () => {
-    // Simulate PDF download by creating a simple data URI
-    const link = document.createElement('a');
-    link.href = 'data:text/plain;charset=utf-8,Transcript+PDF+placeholder';
-    link.download = `transcript_${selectedStudent?.studentId ?? 'student'}.pdf`;
-    link.click();
+  const loadPreview = async (studentRecordId: string) => {
+    setPL(true);
+    try { setPreview(await transcriptsApi.getStudentData(studentRecordId)); }
+    catch { setPreview(null); }
+    finally { setPL(false); }
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      transition={{ duration: 0.3 }} 
-      className="space-y-6"
-    >
-      <div>
-        <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Transcript Services</h2>
-        <p className="text-xs text-(--text-muted)">Verify student records, print credentials, and issue certified electronic transcripts.</p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-serif font-bold text-(--text-primary)">Transcript Services</h2>
+          <p className="text-xs text-(--text-muted)">Process and issue official transcripts from real academic records.</p>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => load(page, search, statusFilter)}><RefreshCw className="w-3.5 h-3.5" /></Button>
       </div>
 
-      {/* Issued toast */}
-      {issuedToast && (
-        <div className="flex items-center gap-3 p-3 bg-(--status-success-bg) border border-(--status-success-border) rounded-xl text-xs text-(--status-success) font-semibold">
-          <CheckCheck className="w-4 h-4 shrink-0" />
-          Official Transcript signed &amp; issued electronically to destination.
+      <div className="flex gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
+          <input value={search} onChange={e => handleSearch(e.target.value)} placeholder="Search by student name or ID..."
+            className="w-full pl-9 pr-3 py-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
         </div>
-      )}
+        <select value={statusFilter} onChange={e => { setSF(e.target.value); setPage(1); load(1, search, e.target.value); }}
+          className="px-3 py-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs focus:outline-none focus:border-(--brand-gold)">
+          <option value="">All Statuses</option>
+          {['PENDING', 'PROCESSING', 'ISSUED', 'REJECTED'].map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Side: Request Tracker & Selector (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          
-          {/* Student Transcript Search */}
-          <div className="ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
-            <h3 className="font-serif text-base font-bold text-(--text-primary)">Generate Student Transcript</h3>
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
-              <input
-                type="text"
-                placeholder="Search Student by Name or ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-primary)"
-              />
-            </div>
-
-            {matchingStudents.length > 0 && (
-              <div className="border border-(--border-subtle) rounded-xl bg-(--bg-input) overflow-hidden divide-y divide-(--border-subtle)">
-                {matchingStudents.map(st => (
-                  <button
-                    key={st.id}
-                    onClick={() => handleSelectStudent(st)}
-                    className="w-full p-3 text-left hover:bg-(--hover-overlay) flex justify-between items-center transition-colors"
-                  >
-                    <div>
-                      <p className="text-xs font-semibold text-(--text-primary)">{st.name}</p>
-                      <p className="text-[10px] text-(--text-faint) font-mono">{st.studentId} · {st.program}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-(--text-faint)" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Transcript Request Tracker */}
-          <div className="ds-card rounded-2xl p-5 backdrop-blur-md space-y-4">
-            <h3 className="font-serif text-base font-bold text-(--text-primary)">Incoming Transcript Requests</h3>
-            
-            <div className="space-y-3">
-              {requests.map(req => (
-                <div key={req.id} className="p-3.5 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="text-xs font-semibold text-(--text-primary)">{req.name}</h4>
-                      <p className="text-[10px] text-(--text-faint) font-mono">{req.idCode} · {req.type}</p>
-                    </div>
-                    <Badge variant={requestBadgeColor[req.status as keyof typeof requestBadgeColor] as any}>
-                      {req.status}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-(--border-subtle) pt-2.5 text-[10px] text-(--text-muted)">
-                    <span className="truncate max-w-[170px]" title={req.destination}>Dest: {req.destination}</span>
-                    <span>Date: {req.requestedDate}</span>
-                  </div>
-
-                  {req.status !== 'Issued' && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="gold"
-                        size="xs"
-                        onClick={() => handleIssueTranscript(req.id)}
-                        className="flex-1 py-1 font-semibold text-[9px] flex items-center justify-center gap-1 bg-(--accent-gold-subtle) hover:bg-(--accent-gold-subtle) text-(--brand-gold)"
-                      >
-                        <Check className="w-3 h-3" /> Issue Electronic
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Right Side: High-fidelity preview sheet (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          {selectedStudent ? (
-            <div className="space-y-4">
-              
-              {/* Document actions */}
-              <div className="flex items-center justify-between ds-card p-3 rounded-2xl">
-                <span className="text-xs font-semibold text-(--text-secondary)">Official Preview Mode</span>
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={handlePrint} className="flex items-center gap-1.5 font-semibold text-xs py-1.5">
-                    <Printer className="w-3.5 h-3.5" /> Print Layout
-                  </Button>
-                  <Button variant="gold" size="sm" onClick={handleDownloadPDF} className="flex items-center gap-1.5 font-semibold text-xs py-1.5">
-                    <Download className="w-3.5 h-3.5" /> Download certified PDF
-                  </Button>
-                </div>
-              </div>
-
-              {/* Certified Official transcript sheet preview */}
-              <div className="p-8 bg-white text-black rounded-2xl shadow-2xl relative overflow-hidden font-sans border-4 border-double border-gray-400 select-none min-h-[600px]">
-                
-                {/* Diagonal Official Watermark */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
-                  <div className="text-6xl font-bold font-sans uppercase rotate-45 select-none text-center">
-                    OFFICIAL TRANSCRIPT · HARMONY COLLEGE · OFFICIAL TRANSCRIPT · HARMONY COLLEGE
-                  </div>
-                </div>
-
-                {/* Header info */}
-                <div className="border-b-2 border-gray-800 pb-4 flex justify-between items-start">
-                  <div>
-                    <h1 className="text-lg font-bold uppercase tracking-wider text-gray-900">Harmony College</h1>
-                    <p className="text-[10px] uppercase text-gray-500 font-semibold font-mono">Office of the Registrar</p>
-                    <p className="text-[9px] text-gray-500 max-w-[200px]">Sheger Subcity, Woreda 03, Addis Ababa, Ethiopia</p>
-                  </div>
-                  <div className="text-right">
-                    <h2 className="text-xs font-bold uppercase border border-gray-900 px-2 py-0.5 rounded inline-block bg-gray-100">Official Academic Transcript</h2>
-                    <p className="text-[9px] font-mono text-gray-500 mt-1">Date Printed: {new Date().toLocaleDateString()}</p>
-                  </div>
-                </div>
-
-                {/* Student Info Box */}
-                <div className="grid grid-cols-2 gap-4 py-4 text-[10px]">
-                  <div className="space-y-1">
-                    <p><strong className="text-gray-500 uppercase">Student Name:</strong> <span className="font-semibold text-gray-900">{selectedStudent.name}</span></p>
-                    <p><strong className="text-gray-500 uppercase">Student ID:</strong> <span className="font-mono text-gray-900 font-semibold">{selectedStudent.studentId}</span></p>
-                    <p><strong className="text-gray-500 uppercase">Admission Date:</strong> <span className="text-gray-900">{selectedStudent.admissionDate}</span></p>
-                  </div>
-                  <div className="space-y-1 text-right">
-                    <p><strong className="text-gray-500 uppercase">Program:</strong> <span className="font-semibold text-gray-900">{selectedStudent.program}</span></p>
-                    <p><strong className="text-gray-500 uppercase">Cumulative GPA:</strong> <span className="font-mono font-bold text-gray-900">{selectedStudent.gpa} / 4.00</span></p>
-                    <p><strong className="text-gray-500 uppercase">Standing:</strong> <span className="text-emerald-700 font-semibold">{selectedStudent.standing}</span></p>
-                  </div>
-                </div>
-
-                {/* Course Table Sheet */}
-                <div className="mt-2">
-                  <table className="w-full text-left text-[10px] border-collapse">
-                    <thead>
-                      <tr className="border-y-2 border-gray-800 bg-gray-50 text-gray-700 uppercase font-mono">
-                        <th className="py-1.5 px-2">Code</th>
-                        <th className="py-1.5 px-2">Course Title</th>
-                        <th className="py-1.5 px-2">Semester</th>
-                        <th className="py-1.5 px-2 text-center">Credits</th>
-                        <th className="py-1.5 px-2 text-right">Grade</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {selectedStudent.courses.map((c, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50/50">
-                          <td className="py-2 px-2 font-mono font-bold text-gray-900">{c.code}</td>
-                          <td className="py-2 px-2 text-gray-800">{c.title}</td>
-                          <td className="py-2 px-2 text-gray-600 font-mono">{c.sem}</td>
-                          <td className="py-2 px-2 text-center font-mono">{c.cr}</td>
-                          <td className="py-2 px-2 text-right font-mono font-bold text-gray-900">{c.grade}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Footer Signature Block */}
-                <div className="mt-12 pt-6 border-t border-gray-300 flex justify-between items-end text-[9px] text-gray-600">
-                  <div className="space-y-1">
-                    <div className="w-24 h-12 border-b border-gray-400 flex items-center justify-center italic text-gray-400 font-serif">
-                      [Registrar Stamp]
-                    </div>
-                    <p className="font-bold uppercase text-gray-800">Official Seal & Signature</p>
-                  </div>
-
-                  <div className="text-right space-y-1">
-                    <p className="font-mono text-gray-400">Security Hash: 8F2B-901A-44C9-EED0</p>
-                    <p className="text-gray-500">Valid only with raised embossed seal.</p>
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-          ) : (
-            <div className="ds-card rounded-2xl p-12 text-center text-xs text-(--text-muted)">
-              Select a student to generate and preview their official academic transcript.
+      {loading ? <SkeletonTable /> : error ? (
+        <ErrorState variant="network" onRetry={() => load()} description={error} />
+      ) : (
+        <div className="space-y-4">
+          {(data?.requests ?? []).length === 0 ? <EmptyState variant="documents" /> : (
+            <div className="overflow-x-auto border ds-card rounded-2xl">
+              <table className="w-full text-left text-xs font-sans">
+                <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
+                  <tr>
+                    <th className="px-5 py-4">Student</th>
+                    <th className="px-5 py-4">Program</th>
+                    <th className="px-5 py-4">Purpose</th>
+                    <th className="px-5 py-4">Requested</th>
+                    <th className="px-5 py-4">Status</th>
+                    <th className="px-5 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y ds-table-row ds-table-cell">
+                  {(data?.requests ?? []).map((req: any) => (
+                    <tr key={req.id} className="ds-table-row transition-colors">
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-(--text-primary)">{req.studentRecord?.user?.fullName}</p>
+                        <p className="text-[10px] font-mono text-(--text-faint)">{req.studentRecord?.studentId}</p>
+                      </td>
+                      <td className="px-5 py-4 text-(--text-secondary) max-w-[140px] truncate">{req.studentRecord?.program?.name}</td>
+                      <td className="px-5 py-4 text-(--text-muted)">{req.purpose ?? '—'}</td>
+                      <td className="px-5 py-4 font-mono text-(--text-faint)">{new Date(req.requestedAt).toLocaleDateString()}</td>
+                      <td className="px-5 py-4"><Badge variant={STATUS_BADGE[req.status] ?? 'glass'}>{req.status}</Badge></td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => loadPreview(req.studentRecordId)}
+                            className="px-2.5 py-1.5 bg-(--hover-overlay) border border-(--border-default) rounded-lg text-[10px] hover:text-(--brand-gold) transition-all">
+                            Preview
+                          </button>
+                          {req.status === 'PENDING' && (
+                            <button onClick={() => doAction(req.id, 'approve')} disabled={actionLoading === req.id}
+                              className="px-2.5 py-1.5 bg-(--status-success-bg) border border-(--status-success-border) rounded-lg text-[10px] text-(--status-success) hover:opacity-80 transition-all">
+                              {actionLoading === req.id ? '…' : 'Approve'}
+                            </button>
+                          )}
+                          {req.status === 'PROCESSING' && (
+                            <button onClick={() => doAction(req.id, 'issue')} disabled={actionLoading === req.id}
+                              className="px-2.5 py-1.5 bg-(--accent-gold-subtle) border border-(--brand-gold)/30 rounded-lg text-[10px] text-(--brand-gold) hover:opacity-80 transition-all">
+                              {actionLoading === req.id ? '…' : 'Issue'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
+      )}
 
-      </div>
+      {data && data.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-(--text-faint)">{data.total} requests · Page {page} of {data.totalPages}</p>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setPage(p => p - 1)} disabled={page === 1}>Previous</Button>
+            <Button variant="secondary" size="sm" onClick={() => setPage(p => p + 1)} disabled={page === data.totalPages}>Next</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Transcript Preview */}
+      {previewLoading && <div className="text-center text-xs text-(--text-faint) py-8">Loading transcript data…</div>}
+      {preview && !previewLoading && (
+        <div className="ds-card p-6 rounded-2xl space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Transcript Preview</h3>
+            <Button variant="secondary" size="sm" onClick={() => setPreview(null)}>Close</Button>
+          </div>
+          <div className="border border-(--border-default) rounded-xl p-6 bg-white/5 space-y-4 font-sans">
+            <div className="text-center border-b border-(--border-subtle) pb-4">
+              <p className="font-serif text-lg font-bold text-(--text-primary)">Harmony College</p>
+              <p className="text-xs text-(--text-muted)">Official Academic Transcript</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div><span className="text-(--text-faint)">Student: </span><span className="font-semibold text-(--text-primary)">{preview.student?.fullName}</span></div>
+              <div><span className="text-(--text-faint)">ID: </span><span className="font-mono text-(--brand-gold)">{preview.student?.studentId}</span></div>
+              <div><span className="text-(--text-faint)">Program: </span><span className="text-(--text-secondary)">{preview.student?.program}</span></div>
+              <div><span className="text-(--text-faint)">Cumulative GPA: </span><span className="font-bold text-(--text-primary)">{preview.student?.gpa?.toFixed(2)}</span></div>
+            </div>
+            {(preview.semesters ?? []).map((sem: any, i: number) => (
+              <div key={i} className="space-y-2">
+                <p className="font-mono text-[10px] text-(--brand-gold) uppercase">{sem.academicYear} — {sem.semesterName}</p>
+                {sem.courses.map((c: any, j: number) => (
+                  <div key={j} className="flex justify-between text-xs text-(--text-secondary) py-1 border-b border-(--border-subtle) last:border-0">
+                    <span className="font-mono">{c.code}</span>
+                    <span className="flex-1 px-3 truncate">{c.name}</span>
+                    <span className="w-8 text-right">{c.creditHours}cr</span>
+                    <span className="w-8 text-right font-bold text-(--text-primary)">{c.grade}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

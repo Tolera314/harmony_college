@@ -66,7 +66,9 @@ function Field({
         {label}
       </label>
       <div className="relative group">
-        <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors" style={{ color: error ? 'var(--status-danger)' : 'var(--text-faint)' }} />
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors" style={{ color: error ? 'var(--status-danger)' : 'var(--text-faint)' }}>
+          <Icon className="w-4 h-4" />
+        </span>
         <input
           id={id} type={type} value={value} autoComplete={autoComplete}
           onChange={(e) => onChange(e.target.value)}
