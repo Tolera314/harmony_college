@@ -170,7 +170,7 @@ describe('POST /api/auth/refresh', () => {
       .send({ identifier: user.email, password: STRONG_PASSWORD });
 
     const rawLogin = loginRes.headers['set-cookie'];
-    const loginCookies = Array.isArray(rawLogin) ? rawLogin : rawLogin ? [rawLogin] : [];
+    const loginCookies = (Array.isArray(rawLogin) ? rawLogin : rawLogin ? [rawLogin] : []).map(c => c.split(';')[0]);
 
     const refreshRes = await request(testApp)
       .post('/api/auth/refresh')

@@ -26,8 +26,8 @@ async function makeUser(suffix: string, opts?: { hasEmail?: boolean; hasPhone?: 
   return prisma.user.create({
     data: {
       fullName:            'Verify Test User',
-      phone:               hasPhone ? `+25191${suffix.slice(0, 7).padStart(7, '0')}` : null,
-      email:               hasEmail ? `verify-${suffix}@test.local` : null,
+      phone:               hasPhone ? `+2519${Math.floor(10000000 + Math.random() * 89999999)}` : null,
+      email:               hasEmail ? `verify-${suffix}-${Math.random().toString(36).substring(7)}@test.local` : null,
       passwordHash:        STRONG_HASH,
       role:                Role.STUDENT,
       status:              AccountStatus.PENDING_VERIFICATION,
@@ -313,6 +313,10 @@ describe('POST /api/auth/verify/resend', () => {
   it('19. Resend invalidates old token and creates new one', async () => {
     const user  = await makeUser(`vr1-${Date.now()}`);
     const first = await createToken(user.id, '111111', VerificationTokenType.PHONE_OTP);
+    await prisma.verificationToken.update({
+      where: { id: first.id },
+      data: { createdAt: new Date(Date.now() - 65000) },
+    });
 
     // Resend (no real SMS — console provider in tests)
     await request(testApp)

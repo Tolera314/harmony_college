@@ -257,7 +257,7 @@ export async function executePasswordReset(
   }
 
   // Check new password ≠ old password
-  const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+  const isSamePassword = user.passwordHash ? await bcrypt.compare(newPassword, user.passwordHash) : false;
   if (isSamePassword) {
     return { ok: false, code: 'SAME_PASSWORD', message: 'New password must be different from your current password.' };
   }
