@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import Groq from 'groq-sdk';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+export const dynamic = 'force-dynamic';
 
 const SYSTEM_PROMPT = `You are the Harmony College AI Assistant, helping students with admissions, enrollment, payments, and general college questions.
 
@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
+
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(

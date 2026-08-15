@@ -50,6 +50,17 @@ async function cleanupUser(id: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('POST /api/auth/login', () => {
+  beforeAll(async () => {
+    await prisma.user.deleteMany({
+      where: {
+        OR: [
+          { phone: '+251912300001' },
+          { email: { contains: 'login-test-' } },
+          { email: { contains: 'cookie-test-' } },
+        ],
+      },
+    });
+  });
 
   it('1. Successful login with email → 200, user returned', async () => {
     const user = await createUser();

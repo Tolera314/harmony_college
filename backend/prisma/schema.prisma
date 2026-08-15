@@ -35,6 +35,14 @@ enum VerificationTokenType {
   EMAIL_TOKEN
 }
 
+/// Supported OAuth / OIDC Identity Providers.
+enum OAuthProvider {
+  GOOGLE
+  FACEBOOK
+}
+
+/// Audit log event types for authentication and account lifecycle events.
+/// No passwords, tokens, OTPs, or other secrets are ever stored here.
 enum AuditAction {
   LOGIN_SUCCESS
   LOGIN_FAILED
@@ -51,6 +59,7 @@ enum AuditAction {
   ACCOUNT_UNLOCKED
   PROFILE_COMPLETED
   SESSION_REVOKED
+  OAUTH_LINKED
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -185,7 +194,9 @@ model User {
   email    String?  @unique
   phone    String?  @unique
 
-  passwordHash String
+  // ── Credentials ───────────────────────────────────────────────────────────
+  /// bcrypt hash of the user's password. Optional for OAuth-only users. NEVER store plaintext.
+  passwordHash String?
 
   role   Role          @default(STUDENT)
   status AccountStatus @default(PENDING_VERIFICATION)
@@ -202,10 +213,12 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // ── Relations ─────────────────────────────────────────────────────────────
   sessions            Session[]
   verificationTokens  VerificationToken[]
   passwordResetTokens PasswordResetToken[]
   auditLogs           AuditLog[]
+  oauthAccounts       OAuthAccount[]
   studentProfile      StudentProfile?
   application         Application?
 
@@ -223,6 +236,23 @@ model User {
   @@index([phone])
 }
 
+/// Federated OAuth identity linked to a User account.
+model OAuthAccount {
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          OAuthProvider
+  providerAccountId String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// An authenticated session tied to a specific device/browser.
+/// One user can have many sessions (multi-device).
+/// Deleting a session immediately invalidates the corresponding refresh token.
 model Session {
   id String @id @default(uuid())
 
