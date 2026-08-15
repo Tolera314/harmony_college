@@ -1,239 +1,286 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatView } from '@/src/components/chat/ChatView';
-import { 
-  ClipboardList, BookOpen, GraduationCap, FileText, 
-  Users, ShieldAlert,
-  Search, ChevronRight, Calendar, Send, ShieldCheck,
-  Grid, LayoutDashboard, Clock, BarChart3, Settings, X, LogOut
+import {
+  ClipboardList, BookOpen, GraduationCap, FileText,
+  Users, ShieldAlert, ChevronRight, Calendar, Send,
+  ShieldCheck, Grid, LayoutDashboard, Clock, BarChart3,
+  Settings, X, LogOut,
 } from 'lucide-react';
 import { Sidebar, GenericNavItem } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { MobileNav, GenericMobileNavItem } from '@/src/components/layout/MobileNav';
 import { DHLogoutModal } from '@/src/components/dh/DHLogoutModal';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
-
 import dynamic from 'next/dynamic';
+import { settingsApi, notificationsApi, type RegistrarProfile, type RegistrarNotification } from '@/src/lib/registrarApi';
 
-// Dynamic sub-component imports for optimal LCP code splitting
 import { DashboardOverview } from '@/src/components/registrar/DashboardOverview';
 
-const RegistrarStudentsView = dynamic(() => import('@/src/components/registrar/RegistrarStudentsView').then(m => m.RegistrarStudentsView), { ssr: false });
-const AdmissionsManagement = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
-const CourseCatalog = dynamic(() => import('@/src/components/registrar/CourseCatalog').then(m => m.CourseCatalog), { ssr: false });
-const CourseOfferings = dynamic(() => import('@/src/components/registrar/CourseOfferings').then(m => m.CourseOfferings), { ssr: false });
-const ClassTimetable = dynamic(() => import('@/src/components/registrar/ClassTimetable').then(m => m.ClassTimetable), { ssr: false });
-const EnrollmentManagement = dynamic(() => import('@/src/components/registrar/EnrollmentManagement').then(m => m.EnrollmentManagement), { ssr: false });
-const TranscriptServices = dynamic(() => import('@/src/components/registrar/TranscriptServices').then(m => m.TranscriptServices), { ssr: false });
-const GraduationAuditing = dynamic(() => import('@/src/components/registrar/GraduationAuditing').then(m => m.GraduationAuditing), { ssr: false });
-const DigitalCertificates = dynamic(() => import('@/src/components/registrar/DigitalCertificates').then(m => m.DigitalCertificates), { ssr: false });
-const InteractiveReports = dynamic(() => import('@/src/components/registrar/InteractiveReports').then(m => m.InteractiveReports), { ssr: false });
-const AcademicCalendarView = dynamic(() => import('@/src/components/registrar/AcademicCalendarView').then(m => m.AcademicCalendarView), { ssr: false });
-const AnnouncementsManager = dynamic(() => import('@/src/components/registrar/AnnouncementsManager').then(m => m.AnnouncementsManager), { ssr: false });
-const AuditLogsTimeline = dynamic(() => import('@/src/components/registrar/AuditLogsTimeline').then(m => m.AuditLogsTimeline), { ssr: false });
-const RegistrarSettings = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
+const RegistrarStudentsView  = dynamic(() => import('@/src/components/registrar/RegistrarStudentsView').then(m => m.RegistrarStudentsView), { ssr: false });
+const AdmissionsManagement   = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
+const CourseCatalog          = dynamic(() => import('@/src/components/registrar/CourseCatalog').then(m => m.CourseCatalog), { ssr: false });
+const CourseOfferings        = dynamic(() => import('@/src/components/registrar/CourseOfferings').then(m => m.CourseOfferings), { ssr: false });
+const ClassTimetable         = dynamic(() => import('@/src/components/registrar/ClassTimetable').then(m => m.ClassTimetable), { ssr: false });
+const EnrollmentManagement   = dynamic(() => import('@/src/components/registrar/EnrollmentManagement').then(m => m.EnrollmentManagement), { ssr: false });
+const TranscriptServices     = dynamic(() => import('@/src/components/registrar/TranscriptServices').then(m => m.TranscriptServices), { ssr: false });
+const GraduationAuditing     = dynamic(() => import('@/src/components/registrar/GraduationAuditing').then(m => m.GraduationAuditing), { ssr: false });
+const DigitalCertificates    = dynamic(() => import('@/src/components/registrar/DigitalCertificates').then(m => m.DigitalCertificates), { ssr: false });
+const InteractiveReports     = dynamic(() => import('@/src/components/registrar/InteractiveReports').then(m => m.InteractiveReports), { ssr: false });
+const AcademicCalendarView   = dynamic(() => import('@/src/components/registrar/AcademicCalendarView').then(m => m.AcademicCalendarView), { ssr: false });
+const AnnouncementsManager   = dynamic(() => import('@/src/components/registrar/AnnouncementsManager').then(m => m.AnnouncementsManager), { ssr: false });
+const AuditLogsTimeline      = dynamic(() => import('@/src/components/registrar/AuditLogsTimeline').then(m => m.AuditLogsTimeline), { ssr: false });
+const RegistrarSettings      = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 type RegistrarTab =
   | 'dashboard' | 'students' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
   | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
 
-interface SidebarItem {
-  id: RegistrarTab;
-  label: string;
-  icon: React.ComponentType<any>;
+interface MenuItem { id: RegistrarTab; label: string; icon: React.ComponentType<any> }
+
+const MENU_ITEMS: MenuItem[] = [
+  { id: 'dashboard',    label: 'Dashboard',           icon: LayoutDashboard },
+  { id: 'students',     label: 'Student Records',     icon: Users },
+  { id: 'admissions',   label: 'Admissions',          icon: ClipboardList },
+  { id: 'enrollments',  label: 'Course Enrollments',  icon: BookOpen },
+  { id: 'catalog',      label: 'Course Catalog',      icon: BookOpen },
+  { id: 'offerings',    label: 'Course Offerings',    icon: Grid },
+  { id: 'timetable',    label: 'Class Timetable',     icon: Clock },
+  { id: 'transcripts',  label: 'Transcripts',         icon: FileText },
+  { id: 'graduation',   label: 'Graduation Auditing', icon: GraduationCap },
+  { id: 'certificates', label: 'Digital Certificates',icon: ShieldCheck },
+  { id: 'reports',      label: 'Interactive Reports', icon: BarChart3 },
+  { id: 'calendar',     label: 'Academic Calendar',   icon: Calendar },
+  { id: 'announcements',label: 'Announcements',       icon: Send },
+  { id: 'audit_logs',   label: 'Audit Logs',          icon: ShieldAlert },
+  { id: 'settings',     label: 'Settings',            icon: Settings },
+];
+
+const TAB_LABELS: Record<string, string> = {
+  ...Object.fromEntries(MENU_ITEMS.map(m => [m.id, m.label])),
+  settings: 'Settings Board',
+  registration: 'Registration Settings',
+  messages: 'Messages',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notification → Tab mapping
+// ─────────────────────────────────────────────────────────────────────────────
+function notifTab(n: RegistrarNotification): RegistrarTab {
+  const { action } = n;
+  if (action.startsWith('ADMISSION'))   return 'admissions';
+  if (action.startsWith('STUDENT'))     return 'students';
+  if (action.startsWith('COURSE_C') || action === 'COURSE_UPDATED' || action === 'COURSE_DEACTIVATED' || action === 'COURSE_REACTIVATED') return 'catalog';
+  if (action.startsWith('OFFERING'))    return 'offerings';
+  if (action.startsWith('ENROLLMENT'))  return 'enrollments';
+  if (action.startsWith('TIMETABLE'))   return 'timetable';
+  if (action.startsWith('TRANSCRIPT'))  return 'transcripts';
+  if (action.startsWith('GRADUATION'))  return 'graduation';
+  if (action.startsWith('CERTIFICATE')) return 'certificates';
+  if (action.startsWith('ANNOUNCEMENT'))return 'announcements';
+  if (action.startsWith('CALENDAR'))    return 'calendar';
+  return 'audit_logs';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Convert real audit-log notifications into the format the shared Header expects
+// ─────────────────────────────────────────────────────────────────────────────
+function toHeaderNotifs(logs: RegistrarNotification[]) {
+  return logs.map(n => ({
+    id:   n.id,
+    text: n.description,
+    time: new Date(n.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    read: false,
+    // store tab destination so we can use it on click (via searchResults hack)
+    _tab: notifTab(n),
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build searchResults that also include real DB entities
+// (The shared Header supports searchResults as { id: T; label: string; sub? }[])
+// We extend it with real-time debounced search through the API.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
 export default function RegistrarDashboardPage() {
-  const [activeTab, setRawTab] = useState<RegistrarTab>('dashboard');
-  const [tabLoading, setTabLoading] = useState(false);
+  const [activeTab,      setRawTab]   = useState<RegistrarTab>('dashboard');
+  const [tabLoading,     setTabLoading]  = useState(false);
+  const [sidebarCollapsed, setSC]     = useState(false);
+  const [mobileMenuOpen,   setMM]     = useState(false);
+  const [logoutOpen,       setLogout] = useState(false);
+
+  const [profile,       setProfile]  = useState<RegistrarProfile | null>(null);
+  const [auditLogs,     setAuditLogs] = useState<RegistrarNotification[]>([]);
+  const [unreadCount,   setUnreadCount] = useState(0);
+
+  // Real-time search state — debounced API query
+  const [searchQuery,   setSearchQuery]  = useState('');
+  const [searchResults, setSearchResults] = useState<{ id: RegistrarTab; label: string; sub?: string }[]>([]);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { toast, show: showToast, hide: hideToast } = useToast();
 
-  const setActiveTab = (tab: RegistrarTab) => {
-    if (tab === (activeTab as string)) return;
+  // Load real profile + recent audit activity on mount
+  useEffect(() => {
+    settingsApi.getProfile().then(setProfile).catch(() => {});
+    notificationsApi.list(12).then(r => {
+      const logs = r.logs ?? [];
+      setAuditLogs(logs);
+      setUnreadCount(logs.length);
+    }).catch(() => {});
+  }, []);
+
+  // Debounced real search — queries /api/registrar/search?q=
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    const q = searchQuery.trim();
+    if (q.length < 2) { setSearchResults([]); return; }
+
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/registrar/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        // Map DB results + tab results into the Header's expected shape.
+        // DB results all map to a tab (e.g. multiple offerings → 'offerings').
+        // We deduplicate: keep only the first DB result per tab, then add
+        // tab-name matches that don't overlap. This prevents duplicate keys.
+        const seen = new Set<string>();
+        const dbMapped: { id: RegistrarTab; label: string; sub?: string }[] = [];
+        for (const r of (data.results ?? [])) {
+          const key = `${r.type}:${r.tab}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            dbMapped.push({
+              id:    r.tab as RegistrarTab,
+              label: r.label,
+              sub:   r.sub ? `${r.type.toUpperCase()} · ${r.sub}` : r.type.toUpperCase(),
+            });
+          }
+        }
+        const tabMatches = MENU_ITEMS
+          .filter(m => m.label.toLowerCase().includes(q.toLowerCase()) && !seen.has(`tab:${m.id}`))
+          .map(m => ({ id: m.id as RegistrarTab, label: m.label, sub: 'Navigate to section' }));
+        setSearchResults([...dbMapped, ...tabMatches].slice(0, 12));
+      } catch { /* silently */ }
+    }, 280);
+  }, [searchQuery]);
+
+  const setActiveTab = useCallback((tab: RegistrarTab) => {
+    if (tab === activeTab) return;
     setTabLoading(true);
-    setTimeout(() => { setRawTab(tab as RegistrarTab); setTabLoading(false); }, 120);
-  };
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [logoutOpen, setLogoutOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+    setTimeout(() => { setRawTab(tab); setTabLoading(false); }, 120);
+  }, [activeTab]);
 
-  // Global Admissions & Notifications lists
-  const [notifications, setNotifications] = useState([
-    { id: 'n1', category: 'admissions', text: 'New admission application from Selam Alemayehu', read: false, time: '10m ago' },
-    { id: 'n2', category: 'registration', text: 'MATH302 Course offering at 100% capacity limit', read: false, time: '2h ago' },
-    { id: 'n3', category: 'graduation', text: 'Graduation file compiled for Yohannes Abebe', read: true, time: '1d ago' },
-    { id: 'n4', category: 'system', text: 'Scheduled automated database backup finished', read: true, time: '2d ago' }
-  ]);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const handleMarkAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
+  const handleMarkAllRead = useCallback(() => setUnreadCount(0), []);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     window.location.href = '/signin';
   };
 
-  // Switch tab and automatically open course catalog modal
-  const triggerCreateCourse = () => {
-    setActiveTab('catalog');
-    setTimeout(() => {
-      const addCourseBtn = document.querySelector('button[onClick*="setIsModalOpen(true)"]') as HTMLButtonElement;
-      if (addCourseBtn) addCourseBtn.click();
-    }, 200);
-  };
-
-  // Note: Account Settings and Registration Settings are removed from the main sidebar items list
-  // and are housed cleanly inside the unified Settings Board (accessed via bottom Settings action button).
-  const menuItems: SidebarItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'students', label: 'Student Records', icon: Users },
-    { id: 'admissions', label: 'Admissions', icon: ClipboardList },
-    { id: 'enrollments', label: 'Course Enrollments', icon: BookOpen },
-    { id: 'catalog', label: 'Course Catalog', icon: BookOpen },
-    { id: 'offerings', label: 'Course Offerings', icon: Grid },
-    { id: 'timetable', label: 'Class Timetable', icon: Clock },
-    { id: 'transcripts', label: 'Transcripts', icon: FileText },
-    { id: 'graduation', label: 'Graduation Auditing', icon: GraduationCap },
-    { id: 'certificates', label: 'Digital Certificates', icon: ShieldCheck },
-    { id: 'reports', label: 'Interactive Reports', icon: BarChart3 },
-    { id: 'calendar', label: 'Academic Calendar', icon: Calendar },
-    { id: 'announcements', label: 'Announcements', icon: Send },
-    { id: 'audit_logs', label: 'Audit Logs', icon: ShieldAlert }
-  ];
-
-  const sidebarNavItems: GenericNavItem<RegistrarTab>[] = menuItems.map((item) => {
-    const IconComp = item.icon;
-    return {
-      id: item.id,
-      label: item.label,
-      icon: <IconComp className="w-5 h-5" />
-    };
-  });
-
-  const tabLabelsMap = {
-    ...menuItems.reduce((acc, item) => {
-      acc[item.id] = item.label;
-      return acc;
-    }, {} as Record<string, string>),
-    settings: 'Settings Board',
-    registration: 'Registration Settings'
-  };
+  const sidebarNavItems: GenericNavItem<RegistrarTab>[] = MENU_ITEMS.map(item => ({
+    id: item.id, label: item.label, icon: <item.icon className="w-5 h-5" />,
+  }));
 
   const mobileNavItems: GenericMobileNavItem<RegistrarTab>[] = [
-    { id: 'dashboard', label: 'Dash', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'students', label: 'Students', icon: <Users className="w-5 h-5" /> },
-    { id: 'admissions', label: 'Admissions', icon: <ClipboardList className="w-5 h-5" /> },
-    { id: 'enrollments', label: 'Enroll', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'graduation', label: 'Grad', icon: <GraduationCap className="w-5 h-5" /> }
+    { id: 'dashboard',   label: 'Dash',       icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'students',    label: 'Students',   icon: <Users className="w-5 h-5" /> },
+    { id: 'admissions',  label: 'Admissions', icon: <ClipboardList className="w-5 h-5" /> },
+    { id: 'enrollments', label: 'Enroll',     icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'graduation',  label: 'Grad',       icon: <GraduationCap className="w-5 h-5" /> },
   ];
+
+  // Convert real audit logs to the notification shape the Header expects
+  const headerNotifications = toHeaderNotifs(auditLogs);
 
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'dashboard':
-        return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={triggerCreateCourse} />;
-      case 'students':
-        return <RegistrarStudentsView />;
-      case 'admissions':
-        return <AdmissionsManagement />;
-      case 'catalog':
-        return <CourseCatalog />;
-      case 'offerings':
-        return <CourseOfferings />;
-      case 'timetable':
-        return <ClassTimetable />;
-      case 'registration':
-        return <RegistrarSettings initialTab="registration" />;
-      case 'enrollments':
-        return <EnrollmentManagement />;
-      case 'transcripts':
-        return <TranscriptServices />;
-      case 'graduation':
-        return <GraduationAuditing />;
-      case 'certificates':
-        return <DigitalCertificates />;
-      case 'reports':
-        return <InteractiveReports />;
-      case 'calendar':
-        return <AcademicCalendarView />;
-      case 'announcements':
-        return <AnnouncementsManager />;
-      case 'audit_logs':
-        return <AuditLogsTimeline />;
-      case 'settings':
-        return <RegistrarSettings initialTab="account" />;
-      case 'messages':         return <ChatView />;
-      default:
-        return null;
+      case 'dashboard':    return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} />;
+      case 'students':     return <RegistrarStudentsView />;
+      case 'admissions':   return <AdmissionsManagement />;
+      case 'catalog':      return <CourseCatalog />;
+      case 'offerings':    return <CourseOfferings />;
+      case 'timetable':    return <ClassTimetable />;
+      case 'registration': return <RegistrarSettings initialTab="registration" />;
+      case 'enrollments':  return <EnrollmentManagement />;
+      case 'transcripts':  return <TranscriptServices />;
+      case 'graduation':   return <GraduationAuditing />;
+      case 'certificates': return <DigitalCertificates />;
+      case 'reports':      return <InteractiveReports />;
+      case 'calendar':     return <AcademicCalendarView />;
+      case 'announcements':return <AnnouncementsManager />;
+      case 'audit_logs':   return <AuditLogsTimeline />;
+      case 'settings':     return <RegistrarSettings initialTab="account" />;
+      case 'messages':     return <ChatView />;
+      default:             return null;
     }
   };
-
-  // Search filter options
-  const searchResults = searchQuery.trim() === '' ? [] : menuItems.filter(item =>
-    item.label.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <>
       <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
-      {/* Background radial glow */}
-      <div className="fixed inset-0 bg-[var(--bg-base)] pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/3 w-[700px] h-[700px] bg-[#D4AF37]/5 rounded-full blur-[140px]" />
-        <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-[#D4AF37]/3 rounded-full blur-[120px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_edges,var(--bg-base)_0%,transparent_65%)]" />
-      </div>
 
-      <div className="relative z-10 min-h-screen text-(--text-primary) font-sans flex overflow-hidden">
-        {/* Reused Sidebar component from src/components/layout */}
+      {/* Theme-aware background — same pattern as other dashboards */}
+      <div className="dashboard-bg" aria-hidden="true" />
+
+      <div className="dashboard-content">
+
+        {/* ── Sidebar (fixed left column, logo+brand inside) ── */}
         <Sidebar<RegistrarTab>
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           navItems={sidebarNavItems}
-          portalTitle="Registrar Portal"
+          portalTitle="Registrar"
           collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onLogout={() => setLogoutOpen(true)}
+          onToggleCollapse={() => setSC(!sidebarCollapsed)}
+          onLogout={() => setLogout(true)}
           profile={{
-            name: 'Robel Bekele',
-            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
+            name:       profile?.fullName ?? 'Registrar',
+            avatar:     undefined,
             department: 'Registrar Desk',
-            employeeId: 'REG-2024-001'
+            employeeId: 'REG-2024-001',
           }}
         />
 
-        {/* Right Section Content viewport */}
-        <div className={`flex-1 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300 ${
-          sidebarCollapsed ? 'md:pl-20' : 'md:pl-20 xl:pl-64'
-        }`}>
-          
-          {/* Reused Header component from src/components/layout */}
+        {/* ── Right: header + scrollable content ── */}
+        <div className={`flex-1 md:pl-20 xl:pl-64 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300`}>
+
+          {/* Shared Header — sticky top-0 inside this scroll container */}
           <Header<RegistrarTab>
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             portalLabel="Registrar Desk"
-            tabLabels={tabLabelsMap}
-            notifications={notifications}
+            tabLabels={TAB_LABELS}
+            notifications={headerNotifications}
             unreadCount={unreadCount}
             onMarkAllRead={handleMarkAllRead}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             searchResults={searchResults}
-            onMobileMenuToggle={() => setMobileMenuOpen(true)}
+            onMobileMenuToggle={() => setMM(true)}
+            onNotificationClick={(id) => {
+              const log = auditLogs.find(l => l.id === id);
+              if (log) setActiveTab(notifTab(log));
+            }}
             profile={{
-              name: 'Robel Bekele',
-              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
-              roleLabel: 'Registrar Desk'
+              name:          profile?.fullName ?? 'Registrar',
+              avatar:        undefined,
+              roleLabel:     'Registrar Desk',
+              onAvatarClick: () => setActiveTab('settings'),
             }}
           />
 
-          {/* Main 12-Column Responsive Layout Body content */}
+          {/* Page content */}
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
@@ -249,34 +296,29 @@ export default function RegistrarDashboardPage() {
           </main>
 
         </div>
+
+        {/* ── Bottom mobile nav ── */}
+        <MobileNav<RegistrarTab>
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          items={mobileNavItems}
+        />
       </div>
 
-      {/* Reused MobileNav component from src/components/layout */}
-      <MobileNav<RegistrarTab>
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        items={mobileNavItems}
-      />
-
-      {/* Mobile Navigation Drawer Overlay (triggered by Top Header Hamburger Menu) */}
+      {/* ── Mobile navigation drawer ── */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileMenuOpen(false)}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setMM(false)}
               className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs md:hidden"
             />
             <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
+              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 280 }}
               className="fixed top-0 left-0 bottom-0 z-50 w-72 max-w-[85vw] bg-(--bg-modal) border-r border-(--border-default) flex flex-col md:hidden shadow-2xl"
             >
-              {/* Drawer Header */}
               <div className="p-4 border-b border-(--border-subtle) flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl text-(--text-inverse) flex items-center justify-center font-serif font-bold text-lg shadow bg-gradient-to-br from-[var(--brand-gold)] to-[var(--brand-gold-dark)]">
@@ -287,35 +329,25 @@ export default function RegistrarDashboardPage() {
                     <p className="text-[10px] text-(--text-faint) font-mono">Mobile Navigation</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 rounded-xl bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors"
-                  aria-label="Close Mobile Menu"
-                >
+                <button onClick={() => setMM(false)}
+                  className="p-2 rounded-xl bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary)">
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Drawer Nav Items */}
               <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                {menuItems.map((item) => {
-                  const IconComp = item.icon;
+                {MENU_ITEMS.map(item => {
                   const isActive = activeTab === item.id;
                   return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id as RegistrarTab);
-                        setMobileMenuOpen(false);
-                      }}
+                    <button key={item.id}
+                      onClick={() => { setActiveTab(item.id); setMM(false); }}
                       className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                         isActive
                           ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--brand-gold)/20'
                           : 'text-(--text-secondary) hover:bg-(--hover-overlay) hover:text-(--text-primary)'
-                      }`}
-                    >
+                      }`}>
                       <div className="flex items-center gap-3">
-                        <IconComp className="w-4 h-4" />
+                        <item.icon className="w-4 h-4" />
                         <span>{item.label}</span>
                       </div>
                       {isActive && <ChevronRight className="w-3.5 h-3.5 text-(--brand-gold)" />}
@@ -324,25 +356,14 @@ export default function RegistrarDashboardPage() {
                 })}
               </div>
 
-              {/* Drawer Footer Actions */}
               <div className="p-3 border-t border-(--border-subtle) space-y-1">
-                <button
-                  onClick={() => {
-                    setActiveTab('settings');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-(--text-secondary) hover:bg-(--hover-overlay) hover:text-(--text-primary) transition-all"
-                >
+                <button onClick={() => { setActiveTab('settings'); setMM(false); }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-(--text-secondary) hover:bg-(--hover-overlay) transition-all">
                   <Settings className="w-4 h-4 text-(--text-muted)" />
                   <span>Settings Board</span>
                 </button>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setLogoutOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-(--status-danger) hover:bg-(--status-danger-bg) transition-all"
-                >
+                <button onClick={() => { setMM(false); setLogout(true); }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-(--status-danger) hover:bg-(--status-danger-bg) transition-all">
                   <LogOut className="w-4 h-4" />
                   <span>Sign Out</span>
                 </button>
@@ -352,12 +373,7 @@ export default function RegistrarDashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* Logout Confirmation Modal — reuses existing shared component */}
-      <DHLogoutModal
-        isOpen={logoutOpen}
-        onClose={() => setLogoutOpen(false)}
-        onConfirm={handleLogout}
-      />
+      <DHLogoutModal isOpen={logoutOpen} onClose={() => setLogout(false)} onConfirm={handleLogout} />
     </>
   );
 }

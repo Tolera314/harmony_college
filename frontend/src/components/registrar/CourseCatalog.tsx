@@ -1,419 +1,326 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { 
-  Search, Filter, Plus, BookOpen, ChevronRight, 
-  ChevronDown, HelpCircle, FileDown, FileUp, 
-  Trash2, Edit, AlertCircle, Sparkles, X, Check
+import {
+  Search, Plus, BookOpen, ChevronRight, ChevronDown,
+  FileDown, Trash2, Edit, Check, X, RefreshCw
 } from 'lucide-react';
-import { EmptyState } from '../ui/States';
+import { EmptyState, SkeletonTable, ErrorState } from '../ui/States';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { SlidePanel } from '../ui/SlidePanel';
 import { ConfirmModal } from '../ui/ConfirmModal';
-
-// Mock catalog data
-const initialCourses = [
-  { id: 'c01', code: 'CS101', name: 'Introduction to Computer Science', credits: 4, department: 'Computer Science', semester: 'Fall', prerequisites: [], desc: 'Covers core algorithmic paradigms, computational concepts, and introduction to Python programming.', status: 'Active' },
-  { id: 'c02', code: 'CS201', name: 'Data Structures & Algorithms', credits: 4, department: 'Computer Science', semester: 'Spring', prerequisites: ['CS101'], desc: 'In-depth study of stacks, queues, hash tables, search trees, graphs, and algorithm runtime analysis (Big O).', status: 'Active' },
-  { id: 'c03', code: 'CS302', name: 'Database Management Systems', credits: 3, department: 'Computer Science', semester: 'Fall', prerequisites: ['CS201'], desc: 'Relational databases, SQL query optimization, transaction management (ACID properties), and schema normalization.', status: 'Active' },
-  { id: 'c04', code: 'CS440', name: 'Artificial Intelligence', credits: 4, department: 'Computer Science', semester: 'Spring', prerequisites: ['CS201', 'MATH302'], desc: 'Introduction to machine learning, neural networks, heuristic search algorithms, and logic systems.', status: 'Active' },
-  { id: 'c05', code: 'MATH101', name: 'Calculus I', credits: 4, department: 'Mathematics', semester: 'Fall', prerequisites: [], desc: 'Limits, derivatives, integrals, and their applications in calculus.', status: 'Active' },
-  { id: 'c06', code: 'MATH302', name: 'Calculus III (Multivariable)', credits: 3, department: 'Mathematics', semester: 'Spring', prerequisites: ['MATH101'], desc: 'Partial derivatives, multiple integrals, vector calculus, and line integrals.', status: 'Active' },
-  { id: 'c07', code: 'MECH201', name: 'Engineering Statics', credits: 3, department: 'Mechanical Engineering', semester: 'Fall', prerequisites: ['MATH101'], desc: 'Forces, moments, couples, equilibrium of rigid bodies, and structure analysis.', status: 'Active' },
-  { id: 'c08', code: 'BUS101', name: 'Principles of Management', credits: 3, department: 'Business Administration', semester: 'Fall', prerequisites: [], desc: 'Fundamentals of planning, organizing, leading, and controlling in organizational environments.', status: 'Active' }
-];
-
-const initialDepartments = ['Computer Science', 'Mathematics', 'Mechanical Engineering', 'Business Administration'];
+import {
+  coursesApi, type CourseItem, type CoursesListResponse, type CourseMeta,
+} from '@/src/lib/registrarApi';
 
 export const CourseCatalog: React.FC = () => {
-  const [courses, setCourses] = useState(initialCourses);
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-  
-  // Search & Filter state
-  const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('All');
-  const [semFilter, setSemFilter] = useState('All');
+  const [data, setData]           = useState<CoursesListResponse | null>(null);
+  const [meta, setMeta]           = useState<CourseMeta | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [expanded, setExpanded]   = useState<Record<string, boolean>>({});
 
-  // Add course panel
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  // Delete confirmation
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [newCourse, setNewCourse] = useState({
-    code: '',
-    name: '',
-    credits: 3,
-    department: 'Computer Science',
-    semester: 'Fall',
-    prerequisites: [] as string[],
-    desc: '',
-    status: 'Active'
+  const [search, setSearch]       = useState('');
+  const [deptFilter, setDeptF]    = useState('');
+  const [page, setPage]           = useState(1);
+  const searchTimer               = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<CourseItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CourseItem | null>(null);
+  const [saving, setSaving]       = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [form, setForm] = useState({
+    code: '', name: '', description: '', creditHours: 3,
+    departmentId: '', prerequisiteIds: [] as string[],
   });
 
-  const toggleRow = (id: string) => {
-    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  const load = useCallback(async (pg = page, q = search, dept = deptFilter) => {
+    setLoading(true); setError(null);
+    try {
+      const res = await coursesApi.list({ page: pg, limit: 15, search: q, departmentId: dept || undefined });
+      setData(res);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load courses');
+    } finally { setLoading(false); }
+  }, [page, search, deptFilter]);
+
+  useEffect(() => {
+    load();
+    coursesApi.getMeta().then(setMeta).catch(() => {});
+  }, [page]);
+
+  const handleSearch = (val: string) => {
+    setSearch(val); setPage(1);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => load(1, val, deptFilter), 350);
   };
 
-  const handlePrereqSelect = (code: string) => {
-    setNewCourse(prev => {
-      const selected = prev.prerequisites.includes(code)
-        ? prev.prerequisites.filter(c => c !== code)
-        : [...prev.prerequisites, code];
-      return { ...prev, prerequisites: selected };
+  const openAdd = () => {
+    setEditTarget(null);
+    setForm({ code: '', name: '', description: '', creditHours: 3, departmentId: meta?.departments[0]?.id ?? '', prerequisiteIds: [] });
+    setSaveError(null);
+    setPanelOpen(true);
+  };
+
+  const openEdit = (c: CourseItem) => {
+    setEditTarget(c);
+    setForm({
+      code: c.code, name: c.name, description: c.description ?? '',
+      creditHours: c.creditHours, departmentId: c.department.id,
+      prerequisiteIds: c.prerequisites.map(p => p.prerequisite.id),
     });
+    setSaveError(null);
+    setPanelOpen(true);
   };
 
-  const handleAddCourseSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCourse.code || !newCourse.name) return;
-
-    const courseRecord = {
-      id: 'c' + (courses.length + 1),
-      code: newCourse.code.toUpperCase().replace(/\s/g, ''),
-      name: newCourse.name,
-      credits: Number(newCourse.credits),
-      department: newCourse.department,
-      semester: newCourse.semester,
-      prerequisites: newCourse.prerequisites,
-      desc: newCourse.desc || 'No description provided.',
-      status: newCourse.status
-    };
-
-    setCourses(prev => [courseRecord, ...prev]);
-    setIsModalOpen(false);
-    
-    // Reset form
-    setNewCourse({
-      code: '',
-      name: '',
-      credits: 3,
-      department: 'Computer Science',
-      semester: 'Fall',
-      prerequisites: [],
-      desc: '',
-      status: 'Active'
-    });
+    setSaving(true); setSaveError(null);
+    try {
+      if (editTarget) {
+        await coursesApi.update(editTarget.id, {
+          name: form.name, description: form.description || undefined,
+          creditHours: form.creditHours, departmentId: form.departmentId,
+          prerequisiteIds: form.prerequisiteIds,
+        });
+      } else {
+        await coursesApi.create({
+          code: form.code.trim().toUpperCase(), name: form.name,
+          description: form.description || undefined,
+          creditHours: form.creditHours, departmentId: form.departmentId,
+          prerequisiteIds: form.prerequisiteIds,
+        });
+      }
+      setPanelOpen(false);
+      await load(page, search, deptFilter);
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : 'Save failed');
+    } finally { setSaving(false); }
   };
 
-  // Bulk simulated actions
+  const handleToggleStatus = async (c: CourseItem) => {
+    const next = c.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    try {
+      await coursesApi.setStatus(c.id, next);
+      await load(page, search, deptFilter);
+    } catch { /* silently fail */ }
+  };
+
   const handleExportCSV = () => {
-    // Simulate CSV export — in production would trigger a real download
-    const csvContent = ['Code,Name,Credits,Department,Semester,Prerequisites']
-      .concat(courses.map(c => `${c.code},"${c.name}",${c.credits},${c.department},${c.semester},"${c.prerequisites.join(';')}"`))
-      .join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
+    if (!data) return;
+    const csv = ['Code,Name,Credits,Department,Status,Prerequisites']
+      .concat(data.courses.map(c =>
+        `${c.code},"${c.name}",${c.creditHours},"${c.department.name}",${c.status},"${c.prerequisites.map(p => p.prerequisite.code).join(';')}"`
+      )).join('\n');
     const a = document.createElement('a');
-    a.href = url; a.download = 'course_catalog_export.csv'; a.click();
-    URL.revokeObjectURL(url);
+    a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'course_catalog.csv'; a.click();
   };
 
-  const handleImportCSV = () => {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = '.csv';
-    input.onchange = () => { /* parse CSV in production */ };
-    input.click();
+  const togglePrereq = (id: string) => {
+    setForm(prev => ({
+      ...prev,
+      prerequisiteIds: prev.prerequisiteIds.includes(id)
+        ? prev.prerequisiteIds.filter(x => x !== id)
+        : [...prev.prerequisiteIds, id],
+    }));
   };
-
-  const handleDeleteCourse = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDeleteTarget(id);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deleteTarget) setCourses(prev => prev.filter(c => c.id !== deleteTarget));
-    setDeleteTarget(null);
-  };
-
-  // Filter computation
-  const filteredCourses = courses.filter(c => {
-    const matchesSearch = c.code.toLowerCase().includes(search.toLowerCase()) || 
-                          c.name.toLowerCase().includes(search.toLowerCase());
-    const matchesDept = deptFilter === 'All' || c.department === deptFilter;
-    const matchesSem = semFilter === 'All' || c.semester === semFilter;
-    return matchesSearch && matchesDept && matchesSem;
-  });
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      transition={{ duration: 0.3 }} 
-      className="space-y-6"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-serif font-bold text-(--text-primary) tracking-wide">Course Catalog</h2>
-          <p className="text-xs text-(--text-muted)">Configure core curricula, prerequisite hierarchies, and departmental structures.</p>
+          <h2 className="text-2xl font-serif font-bold text-(--text-primary)">Course Catalog</h2>
+          <p className="text-xs text-(--text-muted)">Manage courses, prerequisites, and departmental structures.</p>
         </div>
-
         <div className="flex items-center gap-3">
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            onClick={handleImportCSV}
-            className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold py-2"
-          >
-            <FileUp className="w-3.5 h-3.5" /> Import CSV
+          <Button variant="secondary" size="sm" onClick={handleExportCSV} className="flex items-center gap-1 text-xs">
+            <FileDown className="w-3.5 h-3.5" /> Export CSV
           </Button>
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            onClick={handleExportCSV}
-            className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold py-2"
-          >
-            <FileDown className="w-3.5 h-3.5" /> Export Catalog
+          <Button variant="secondary" size="sm" onClick={() => load(page, search, deptFilter)} className="flex items-center gap-1 text-xs">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </Button>
-          <Button 
-            variant="gold" 
-            size="sm" 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold py-2"
-          >
+          <Button variant="gold" size="sm" onClick={openAdd} className="flex items-center gap-1 text-xs">
             <Plus className="w-4 h-4" /> Add Course
           </Button>
         </div>
       </div>
 
-      {/* Advanced Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ds-card p-4 rounded-2xl backdrop-blur-md">
-        <div className="relative">
+      {/* Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ds-card p-4 rounded-2xl">
+        <div className="relative md:col-span-2">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by Course Code or Course Name..."
-            className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-primary)"
-          />
+          <input type="text" value={search} onChange={e => handleSearch(e.target.value)}
+            placeholder="Search by code or name..."
+            className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
         </div>
-
-        <div>
-          <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-secondary)"
-          >
-            <option value="All">All Departments</option>
-            {initialDepartments.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <select
-            value={semFilter}
-            onChange={(e) => setSemFilter(e.target.value)}
-            className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl focus:outline-none focus:border-(--brand-gold) text-xs text-(--text-secondary)"
-          >
-            <option value="All">All Semesters</option>
-            <option value="Fall">Fall Term</option>
-            <option value="Spring">Spring Term</option>
-            <option value="Summer">Summer Term</option>
-          </select>
-        </div>
+        <select value={deptFilter}
+          onChange={e => { setDeptF(e.target.value); setPage(1); load(1, search, e.target.value); }}
+          className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)">
+          <option value="">All Departments</option>
+          {(meta?.departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
       </div>
 
-      {/* Expandable Rows Course Table */}
-      <div className="overflow-hidden border ds-card rounded-2xl backdrop-blur-xl">
-        <table className="w-full text-left text-xs font-sans">
-          <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
-            <tr>
-              <th className="px-5 py-4 w-[60px]" />
-              <th className="px-5 py-4">Course Code</th>
-              <th className="px-5 py-4">Course Title</th>
-              <th className="px-5 py-4">Credits</th>
-              <th className="px-5 py-4">Department</th>
-              <th className="px-5 py-4">Term</th>
-              <th className="px-5 py-4">Status</th>
-              <th className="px-5 py-4 text-right">Delete</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y ds-table-row ds-table-cell">
-            {filteredCourses.map((c) => {
-              const isExpanded = !!expandedRows[c.id];
-              return (
-                <React.Fragment key={c.id}>
-                  <tr 
-                    onClick={() => toggleRow(c.id)}
-                    className="ds-table-row transition-colors cursor-pointer group"
-                  >
-                    <td className="px-5 py-4 text-center">
-                      <div className="w-5 h-5 rounded-lg bg-(--hover-overlay) border border-(--border-default) flex items-center justify-center text-(--text-muted) group-hover:text-(--brand-gold) group-hover:border-(--brand-gold)/30 transition-all">
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 font-mono font-bold text-(--text-primary) tracking-wider group-hover:text-(--brand-gold) transition-colors">{c.code}</td>
-                    <td className="px-5 py-4 text-(--text-primary) font-medium">{c.name}</td>
-                    <td className="px-5 py-4 font-mono text-(--text-secondary)">{c.credits} Cr</td>
-                    <td className="px-5 py-4 text-(--text-secondary)">{c.department}</td>
-                    <td className="px-5 py-4 font-mono text-(--text-muted)">{c.semester}</td>
-                    <td className="px-5 py-4">
-                      <Badge variant={c.status === 'Active' ? 'emerald' : 'amber'}>
-                        {c.status}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button 
-                        onClick={(e) => handleDeleteCourse(c.id, e)}
-                        className="p-1.5 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20 text-(--text-faint) hover:text-(--status-danger) transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                  
-                  {/* Expanded Syllabus and Prerequisites Panel */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <tr className="bg-(--hover-overlay)">
-                        <td />
-                        <td colSpan={7} className="px-5 py-5 border-l-2 border-(--brand-gold) space-y-4">
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="space-y-3.5 overflow-hidden text-xs text-(--text-secondary) leading-relaxed"
-                          >
-                            <div className="space-y-1">
-                              <span className="text-[10px] font-mono text-(--brand-gold) uppercase tracking-wider">Course Syllabus Description</span>
-                              <p className="text-(--text-secondary) max-w-2xl">{c.desc}</p>
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-wider block">Academic Prerequisites</span>
-                              <div className="flex flex-wrap gap-2">
-                                {c.prerequisites.length > 0 ? (
-                                  c.prerequisites.map(pr => {
-                                    const pRec = courses.find(cr => cr.code === pr);
-                                    return (
-                                      <div key={pr} className="px-2.5 py-1 bg-(--hover-overlay) border border-(--border-subtle) rounded-lg flex items-center gap-1.5 text-[11px]">
-                                        <BookOpen className="w-3.5 h-3.5 text-(--brand-gold)" />
-                                        <span className="font-semibold text-(--text-primary) font-mono">{pr}</span>
-                                        <span className="text-(--text-faint) font-sans">({pRec?.name || 'Curriculum Course'})</span>
-                                      </div>
-                                    );
-                                  })
-                                ) : (
-                                  <span className="text-[10px] font-mono text-(--status-success) font-semibold bg-(--status-success-bg) px-2.5 py-0.5 rounded border border-(--status-success-border)">
-                                    No Prerequisites Required (Introductory Course)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </motion.div>
-                        </td>
-                      </tr>
-                    )}
-                  </AnimatePresence>
-                </React.Fragment>
-              );
-            })}
-            {filteredCourses.length === 0 && (
+      {/* Table */}
+      {loading ? <SkeletonTable /> : error ? (
+        <ErrorState variant="network" onRetry={() => load()} description={error} />
+      ) : (
+        <div className="overflow-hidden border ds-card rounded-2xl backdrop-blur-xl">
+          <table className="w-full text-left text-xs font-sans">
+            <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
               <tr>
-                <td colSpan={8} className="p-0"><EmptyState variant="default" compact /></td>
+                <th className="px-5 py-4 w-10" />
+                <th className="px-5 py-4">Code</th>
+                <th className="px-5 py-4">Title</th>
+                <th className="px-5 py-4">Credits</th>
+                <th className="px-5 py-4">Department</th>
+                <th className="px-5 py-4">Status</th>
+                <th className="px-5 py-4 text-right">Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y ds-table-row ds-table-cell">
+              {(data?.courses ?? []).map(c => {
+                const isExpanded = !!expanded[c.id];
+                return (
+                  <React.Fragment key={c.id}>
+                    <tr onClick={() => setExpanded(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
+                      className="ds-table-row transition-colors cursor-pointer group">
+                      <td className="px-5 py-4 text-center">
+                        <div className="w-5 h-5 rounded-lg bg-(--hover-overlay) border border-(--border-default) flex items-center justify-center text-(--text-muted) group-hover:text-(--brand-gold) transition-all">
+                          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 font-mono font-bold text-(--text-primary) group-hover:text-(--brand-gold) transition-colors">{c.code}</td>
+                      <td className="px-5 py-4 text-(--text-primary) font-medium">{c.name}</td>
+                      <td className="px-5 py-4 font-mono text-(--text-secondary)">{c.creditHours} Cr</td>
+                      <td className="px-5 py-4 text-(--text-secondary)">{c.department.name}</td>
+                      <td className="px-5 py-4">
+                        <Badge variant={c.status === 'ACTIVE' ? 'emerald' : 'amber'}>{c.status}</Badge>
+                      </td>
+                      <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => openEdit(c)}
+                            className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors">
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleToggleStatus(c)}
+                            className={`p-1.5 rounded-lg transition-colors ${c.status === 'ACTIVE' ? 'hover:bg-(--status-warning-bg) hover:text-(--status-warning)' : 'hover:bg-(--status-success-bg) hover:text-(--status-success)'} text-(--text-muted)`}
+                            title={c.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}>
+                            {c.status === 'ACTIVE' ? <Trash2 className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <tr className="bg-(--hover-overlay)">
+                          <td />
+                          <td colSpan={6} className="px-5 py-4 border-l-2 border-(--brand-gold)">
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                              className="space-y-3 overflow-hidden text-xs text-(--text-secondary)">
+                              {c.description && (
+                                <div>
+                                  <span className="text-[10px] font-mono text-(--brand-gold) uppercase tracking-wider">Description</span>
+                                  <p className="mt-1 max-w-2xl leading-relaxed">{c.description}</p>
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-wider block mb-2">Prerequisites</span>
+                                <div className="flex flex-wrap gap-2">
+                                  {c.prerequisites.length > 0 ? c.prerequisites.map(p => (
+                                    <div key={p.prerequisite.id} className="px-2.5 py-1 bg-(--hover-overlay) border border-(--border-subtle) rounded-lg flex items-center gap-1.5 text-[11px]">
+                                      <BookOpen className="w-3 h-3 text-(--brand-gold)" />
+                                      <span className="font-mono font-semibold text-(--text-primary)">{p.prerequisite.code}</span>
+                                      <span className="text-(--text-faint)">— {p.prerequisite.name}</span>
+                                    </div>
+                                  )) : (
+                                    <span className="text-[10px] font-mono text-(--status-success) bg-(--status-success-bg) px-2.5 py-0.5 rounded border border-(--status-success-border)">
+                                      No Prerequisites
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-[10px] font-mono text-(--text-faint)">{c._count.offerings} offering{c._count.offerings !== 1 ? 's' : ''} total</p>
+                            </motion.div>
+                          </td>
+                        </tr>
+                      )}
+                    </AnimatePresence>
+                  </React.Fragment>
+                );
+              })}
+              {(data?.courses ?? []).length === 0 && (
+                <tr><td colSpan={7} className="p-0"><EmptyState variant="courses" compact /></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      {/* Add Course — SlidePanel */}
-      <SlidePanel
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Add Course to Catalog"
-        subtitle="Course Catalog"
-        width="max-w-lg"
-      >
-        <form onSubmit={handleAddCourseSubmit} className="space-y-4 font-sans">
+      {/* Pagination */}
+      {data && data.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-(--text-faint)">{data.total} courses · Page {page} of {data.totalPages}</p>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setPage(p => p - 1)} disabled={page === 1}>Previous</Button>
+            <Button variant="secondary" size="sm" onClick={() => setPage(p => p + 1)} disabled={page === data.totalPages}>Next</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit SlidePanel */}
+      <SlidePanel isOpen={panelOpen} onClose={() => setPanelOpen(false)}
+        title={editTarget ? `Edit — ${editTarget.code}` : 'Add Course to Catalog'}
+        subtitle="Course Catalog" width="max-w-lg">
+        <form onSubmit={handleSubmit} className="space-y-4 font-sans">
+          {saveError && <div className="p-3 bg-(--status-danger-bg) border border-(--status-danger-border) rounded-xl text-xs text-(--status-danger)">{saveError}</div>}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-(--text-secondary)">Course Code</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. CS202"
-                value={newCourse.code}
-                onChange={(e) => setNewCourse(prev => ({ ...prev, code: e.target.value }))}
-                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-              />
+              <input type="text" required disabled={!!editTarget}
+                placeholder="e.g. CS202" value={form.code}
+                onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) disabled:opacity-50" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-(--text-secondary)">Credits</label>
-              <input
-                type="number"
-                min={1}
-                max={5}
-                required
-                value={newCourse.credits}
-                onChange={(e) => setNewCourse(prev => ({ ...prev, credits: Number(e.target.value) }))}
-                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) font-mono"
-              />
+              <label className="text-xs font-semibold text-(--text-secondary)">Credit Hours</label>
+              <input type="number" min={1} max={10} required value={form.creditHours}
+                onChange={e => setForm(f => ({ ...f, creditHours: Number(e.target.value) }))}
+                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) font-mono" />
             </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-xs font-semibold text-(--text-secondary)">Course Title</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Advanced Operating Systems"
-              value={newCourse.name}
-              onChange={(e) => setNewCourse(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-            />
+            <input type="text" required placeholder="e.g. Advanced Operating Systems" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-(--text-secondary)">Department</label>
-              <select
-                value={newCourse.department}
-                onChange={(e) => setNewCourse(prev => ({ ...prev, department: e.target.value }))}
-                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
-              >
-                {initialDepartments.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-(--text-secondary)">Default Semester</label>
-              <select
-                value={newCourse.semester}
-                onChange={(e) => setNewCourse(prev => ({ ...prev, semester: e.target.value }))}
-                className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none"
-              >
-                <option value="Fall">Fall</option>
-                <option value="Spring">Spring</option>
-                <option value="Summer">Summer</option>
-              </select>
-            </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Department</label>
+            <select value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
+              className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none">
+              {(meta?.departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-(--text-secondary) block">Select Prerequisites</label>
-            <div className="flex flex-wrap gap-2 max-h-[85px] overflow-y-auto p-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl">
-              {courses.map(c => {
-                const isSelected = newCourse.prerequisites.includes(c.code);
+            <label className="text-xs font-semibold text-(--text-secondary)">Prerequisites</label>
+            <div className="flex flex-wrap gap-2 max-h-[80px] overflow-y-auto p-2 bg-(--bg-input) border border-(--border-subtle) rounded-xl">
+              {(data?.courses ?? []).filter(c => c.id !== editTarget?.id).map(c => {
+                const sel = form.prerequisiteIds.includes(c.id);
                 return (
-                  <button
-                    type="button"
-                    key={c.id}
-                    onClick={() => handlePrereqSelect(c.code)}
-                    className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-semibold flex items-center gap-1 transition-all ${
-                      isSelected
-                        ? 'bg-(--accent-gold-subtle) border-(--brand-gold) text-(--brand-gold)'
-                        : 'bg-(--hover-overlay) border-(--border-subtle) text-(--text-faint) hover:text-(--text-primary)'
-                    }`}
-                  >
-                    {isSelected && <Check className="w-3 h-3" />}
+                  <button type="button" key={c.id} onClick={() => togglePrereq(c.id)}
+                    className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-semibold flex items-center gap-1 transition-all ${sel ? 'bg-(--accent-gold-subtle) border-(--brand-gold) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-subtle) text-(--text-faint) hover:text-(--text-primary)'}`}>
+                    {sel && <Check className="w-3 h-3" />}
                     {c.code}
                   </button>
                 );
@@ -422,38 +329,22 @@ export const CourseCatalog: React.FC = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-(--text-secondary)">Syllabus Summary Description</label>
-            <textarea
-              rows={3}
-              placeholder="Enter short syllabus contents..."
-              value={newCourse.desc}
-              onChange={(e) => setNewCourse(prev => ({ ...prev, desc: e.target.value }))}
+            <label className="text-xs font-semibold text-(--text-secondary)">Description</label>
+            <textarea rows={3} value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               className="w-full px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold) resize-none"
-            />
+              placeholder="Course syllabus summary..." />
           </div>
 
           <div className="flex gap-3 pt-2">
-            <Button variant="secondary" size="sm" type="button" className="flex-1" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="gold" size="sm" type="submit" className="flex-1">
-              Add Course
+            <Button variant="secondary" size="sm" type="button" className="flex-1" onClick={() => setPanelOpen(false)}>Cancel</Button>
+            <Button variant="gold" size="sm" type="submit" className="flex-1" disabled={saving}>
+              {saving ? 'Saving…' : editTarget ? 'Save Changes' : 'Add Course'}
             </Button>
           </div>
         </form>
       </SlidePanel>
-
-      {/* Delete Confirmation */}
-      <ConfirmModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDeleteConfirm}
-        title="Retire Course"
-        message="Are you sure you want to retire this course from the catalog? This will disable future enrollment."
-        icon={<Trash2 className="w-6 h-6" />}
-        variant="danger"
-        confirmLabel="Retire Course"
-      />
     </motion.div>
   );
 };
+
