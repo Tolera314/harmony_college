@@ -62,14 +62,14 @@ app.use('/api/auth/reset-password',            resetPasswordLimiter);
 app.use('/api/auth/reset-password/validate',   verifyStatusLimiter);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/auth',    authRouter);
+app.use('/api/auth',      authRouter);
 
 // Phase 5: authenticate guards upload
 // Phase 7: upload file serving also requires authenticate (see upload route)
-app.use('/api/upload',  authenticate, uploadRouter);
+app.use('/api/upload',    authenticate, uploadRouter);
 
 // Phase 7 C3: advisor now requires authentication
-app.use('/api/advisor', authenticate, advisorRouter);
+app.use('/api/advisor',   authenticate, advisorRouter);
 
 app.use('/api/chat',              chatRouter);
 app.use('/api/student',          studentRouter);

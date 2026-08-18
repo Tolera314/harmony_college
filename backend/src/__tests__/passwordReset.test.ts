@@ -151,8 +151,8 @@ describe('POST /api/auth/reset-password', () => {
     await request(testApp).post('/api/auth/reset-password')
       .send({ userId: user.id, token: rawToken, password: 'NewPass1!', confirmPassword: 'NewPass1!' });
     const updated = await prisma.user.findUnique({ where: { id: user.id } });
-    const newHashWorks = await bcrypt.compare('NewPass1!', updated!.passwordHash);
-    const oldHashWorks = await bcrypt.compare('OldPass1!', updated!.passwordHash);
+    const newHashWorks = await bcrypt.compare('NewPass1!', updated!.passwordHash!);
+    const oldHashWorks = await bcrypt.compare('OldPass1!', updated!.passwordHash!);
     expect(newHashWorks).toBe(true);
     expect(oldHashWorks).toBe(false);
     await cleanup(user.id);

@@ -275,7 +275,7 @@ describe('POST /api/auth/register', () => {
     // The stored hash must NOT equal the plaintext password
     expect(dbUser!.passwordHash).not.toBe(plainPassword);
     // bcrypt.compare must return true — proves the hash is correct
-    const hashIsValid = await bcrypt.compare(plainPassword, dbUser!.passwordHash);
+    const hashIsValid = await bcrypt.compare(plainPassword, dbUser!.passwordHash!);
     expect(hashIsValid).toBe(true);
 
     await cleanup(null, phone);

@@ -153,37 +153,17 @@ export function ApplyPageInner() {
   const [errors, setErrors] = useState<Partial<Record<keyof AccountData | 'confirm' | 'terms', string>>>({});
   const [isCreating, setIsCreating] = useState(false);
 
-  // Send first OTP automatically when stage transitions to 'verify'
-  useEffect(() => {
-    if (stage !== 'verify' || !account.userId) return;
-    fetch('/api/auth/verify/resend', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: account.userId,
-        type:   account.phone ? 'phone' : 'email',
-      }),
-    }).catch(() => {}); // best-effort — component shows resend button if it fails
-  }, [stage, account.userId, account.phone]);
+  // No OTP/verify stage in apply anymore — verification lives in Settings.
 
   // Restore state if user navigated back or redirected from signin
   useEffect(() => {
-    // Check for ?userId=...&step=verify (redirect from signin page)
-    const params = new URLSearchParams(window.location.search);
-    const redirectedUserId = params.get('userId');
-    const redirectedStep   = params.get('step');
-
-    if (redirectedUserId && redirectedStep === 'verify') {
-      setAccount((prev) => ({ ...prev, userId: redirectedUserId }));
-      setStage('verify');
-      return;
-    }
-
-    // Standard sessionStorage restore
+    // Previously, ?userId=...&step=verify would show the OTP screen here.
+    // Verification is now done from Settings, so we ignore that redirect
+    // and let the signin page send PENDING_VERIFICATION users to /welcome instead.
+    // Clean up any stale sessionStorage verify state.
     const saved = loadOnboardingState();
-    if (saved.stage === 'verify-contact' && saved.account.fullName) {
-      setAccount(saved.account);
-      setStage('verify');
+    if (saved.stage === 'verify-contact') {
+      clearOnboardingState();
     }
   }, []);
 
@@ -245,10 +225,11 @@ export function ApplyPageInner() {
         return;
       }
 
-      // Success — persist userId so Phase 3 OTP can reference the account
+      // Success — backend now sets auth cookies on registration,
+      // so we can redirect straight to /welcome.
       advanceToVerify({ ...account, userId: data.user.id });
-      setStage('verify');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      clearOnboardingState();
+      router.push('/welcome');
     } catch {
       setErrors((prev) => ({
         ...prev,
@@ -401,12 +382,12 @@ export function ApplyPageInner() {
                     className="text-[10px] font-mono font-bold uppercase tracking-widest"
                     style={{ color: 'var(--brand-gold)' }}
                   >
-                    {stage === 'create' ? 'Step 1 of 2' : 'Step 2 of 2'}
+                    {stage === 'create' ? 'Step 1 of 1' : 'Step 2 of 2'}
                   </span>
                 </div>
                 <LinearProgress
                   value={stage === 'create' ? 1 : 2}
-                  total={2}
+                  total={stage === 'create' ? 1 : 2}
                 />
                 <h2 className="font-serif text-2xl font-bold mt-5 mb-1.5" style={{ color: 'var(--text-primary)' }}>
                   {stage === 'create' ? 'Create Your Account' : 'Verify Your Contact'}
@@ -556,6 +537,41 @@ export function ApplyPageInner() {
                     >
                       {isCreating ? 'Creating Account…' : 'Create Account'}
                     </Button>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3 my-4">
+                      <div className="h-[1px] flex-1 bg-white/10" />
+                      <span className="text-[10px] uppercase tracking-widest text-gray-500 font-mono">Or Apply With</span>
+                      <div className="h-[1px] flex-1 bg-white/10" />
+                    </div>
+
+                    {/* Social Auth Options */}
+                    <div className="grid grid-cols-2 gap-3 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => { window.location.href = '/api/auth/oauth/google'; }}
+                        title="Sign up with Google"
+                        className="flex items-center justify-center py-2.5 border border-white/10 rounded-xl hover:bg-white/10 transition-all cursor-pointer shadow-sm hover:border-[#D4AF37]/50"
+                      >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { window.location.href = '/api/auth/oauth/facebook'; }}
+                        title="Sign up with Facebook"
+                        className="flex items-center justify-center py-2.5 border border-white/10 rounded-xl hover:bg-white/10 transition-all cursor-pointer shadow-sm hover:border-[#D4AF37]/50"
+                      >
+                        {/* Facebook Logo */}
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.532-4.697 1.312 0 2.686.235 2.686.235v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.265h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" fill="#1877F2"/>
+                        </svg>
+                      </button>
+                    </div>
 
                     <div className="flex items-center gap-2 justify-center pt-1">
                       <Shield className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-faint)' }} />

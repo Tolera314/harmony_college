@@ -26,7 +26,7 @@ const AUTH_ONLY_ROUTES = ['/signin', '/apply'];
  * /verify-email must be reachable by unauthenticated users who click
  * an email verification link.
  */
-const ALWAYS_PUBLIC = ['/verify-email', '/forgot-password', '/reset-password'];
+const ALWAYS_PUBLIC = ['/verify-email', '/forgot-password', '/reset-password', '/link-account'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

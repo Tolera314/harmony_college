@@ -35,6 +35,14 @@ enum VerificationTokenType {
   EMAIL_TOKEN
 }
 
+/// Supported OAuth / OIDC Identity Providers.
+enum OAuthProvider {
+  GOOGLE
+  FACEBOOK
+}
+
+/// Audit log event types for authentication and account lifecycle events.
+/// No passwords, tokens, OTPs, or other secrets are ever stored here.
 enum AuditAction {
   LOGIN_SUCCESS
   LOGIN_FAILED
@@ -51,6 +59,7 @@ enum AuditAction {
   ACCOUNT_UNLOCKED
   PROFILE_COMPLETED
   SESSION_REVOKED
+  OAUTH_LINKED
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,6 +133,18 @@ enum AnnouncementStatus {
   ARCHIVED
 }
 
+/// Tracks where a student is in the post-admission onboarding pipeline.
+enum OnboardingStatus {
+  /// Profile submitted, waiting for student to upload their registration screenshot.
+  PENDING
+  /// Student has uploaded the registration screenshot; awaiting registrar/admin approval.
+  SUBMITTED
+  /// Approved — student may access the full dashboard.
+  APPROVED
+  /// Rejected — student must re-upload.
+  REJECTED
+}
+
 enum CalendarEventType {
   REGISTRATION_OPEN
   REGISTRATION_CLOSE
@@ -185,7 +206,9 @@ model User {
   email    String?  @unique
   phone    String?  @unique
 
-  passwordHash String
+  // ── Credentials ───────────────────────────────────────────────────────────
+  /// bcrypt hash of the user's password. Optional for OAuth-only users. NEVER store plaintext.
+  passwordHash String?
 
   role   Role          @default(STUDENT)
   status AccountStatus @default(PENDING_VERIFICATION)
@@ -202,10 +225,12 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // ── Relations ─────────────────────────────────────────────────────────────
   sessions            Session[]
   verificationTokens  VerificationToken[]
   passwordResetTokens PasswordResetToken[]
   auditLogs           AuditLog[]
+  oauthAccounts       OAuthAccount[]
   studentProfile      StudentProfile?
   application         Application?
 
@@ -223,6 +248,23 @@ model User {
   @@index([phone])
 }
 
+/// Federated OAuth identity linked to a User account.
+model OAuthAccount {
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          OAuthProvider
+  providerAccountId String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// An authenticated session tied to a specific device/browser.
+/// One user can have many sessions (multi-device).
+/// Deleting a session immediately invalidates the corresponding refresh token.
 model Session {
   id String @id @default(uuid())
 
@@ -325,6 +367,14 @@ model StudentProfile {
   emergencyPhone        String?
   emergencyNotes        String?
 
+  /// Department chosen on the /onboarding/about page (pre-enrollment preference).
+  selectedDepartmentId  String?
+  /// Set to true once the student confirms registration fee payment on /onboarding/about.
+  registrationFeePaid   Boolean  @default(false)
+  registrationFeePaidAt DateTime?
+  /// Set to true once the student picks a department on /onboarding/about.
+  departmentSelected    Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -356,6 +406,14 @@ model Application {
   reviewComment String?
   reviewedBy    String?
   reviewedAt    DateTime?
+
+  // ── Post-admission onboarding ─────────────────────────────────────────────
+  onboardingStatus              OnboardingStatus @default(PENDING)
+  registrationScreenshotUrl     String?
+  screenshotUploadedAt          DateTime?
+  onboardingReviewedBy          String?
+  onboardingReviewedAt          DateTime?
+  onboardingRejectionReason     String?
 
   documents   Document[]
   submittedAt DateTime?

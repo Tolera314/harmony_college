@@ -14,6 +14,7 @@ import {
 import { OnboardingBackground } from './OnboardingBackground';
 import { OnboardingProgress } from './OnboardingProgress';
 import { FileUploadCard, emptyUpload, type UploadState } from './FileUploadCard';
+import { SuccessConfetti } from './SuccessConfetti';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { CircularProgress } from './OnboardingProgress';
@@ -728,65 +729,111 @@ function StepReview({ state, profilePic, onEdit }: {
   );
 }
 
-// Success screen
+// Success screen — confetti + applause sound, then sends to /onboarding/about
 function SuccessScreen({ appNumber, onContinue }: { appNumber: string; onContinue: () => void }) {
+  // Play applause on mount
+  React.useEffect(() => {
+    let audio: HTMLAudioElement | null = null;
+    try {
+      audio = new Audio('/sounds/pwlpl-applause-sound-effect-521104.mp3');
+      audio.volume = 0.55;
+      audio.play().catch(() => {});
+    } catch { /* audio not supported */ }
+    return () => { audio?.pause(); };
+  }, []);
+
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96, y: 8 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96, y: 8 }}
-      transition={{ duration: 0.2 }}
-      className="flex flex-col items-center text-center py-8 gap-6"
-    >
+    <>
+      {/* Confetti particles */}
+      <ConfettiBurst />
       <motion.div
-        initial={{ scale: 0, rotate: -45 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.2 }}
-        className="w-24 h-24 rounded-full flex items-center justify-center"
-        style={{ background: 'radial-gradient(circle, var(--status-success-bg), transparent)', border: '2px solid var(--status-success-border)' }}
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ duration: 0.2 }}
+        className="flex flex-col items-center text-center py-8 gap-6"
       >
-        <CheckCircle2 className="w-12 h-12" style={{ color: 'var(--status-success)' }} />
-      </motion.div>
-      <div>
-        <motion.h2 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-          className="font-serif text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
-          Application Submitted!
-        </motion.h2>
-        <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="text-sm font-sans mt-2 max-w-sm" style={{ color: 'var(--text-muted)' }}>
-          Your application has been received. Our admissions team will review and respond within 2–5 business days.
-        </motion.p>
-      </div>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-        className="w-full max-w-xs p-5 rounded-2xl space-y-3"
-        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
-        <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Application Number</p>
-        <p className="font-mono text-xl font-bold" style={{ color: 'var(--brand-gold)' }}>{appNumber}</p>
-        <p className="text-[11px] font-sans" style={{ color: 'var(--text-muted)' }}>Save this number for future reference.</p>
-      </motion.div>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
-        className="w-full max-w-xs space-y-3">
-        {[
-          { step: '1', text: 'Application under review', done: true },
-          { step: '2', text: 'Admissions decision (2–5 days)', done: false },
-          { step: '3', text: 'Enrollment confirmation', done: false },
-        ].map((item) => (
-          <div key={item.step} className="flex items-center gap-3 text-sm font-sans">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-mono font-bold"
-              style={{ backgroundColor: item.done ? 'var(--status-success-bg)' : 'var(--hover-overlay)', border: `1px solid ${item.done ? 'var(--status-success-border)' : 'var(--border-default)'}`, color: item.done ? 'var(--status-success)' : 'var(--text-faint)' }}>
-              {item.done ? <CheckCircle2 className="w-3.5 h-3.5" /> : item.step}
+        <motion.div
+          initial={{ scale: 0, rotate: -45 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.2 }}
+          className="w-24 h-24 rounded-full flex items-center justify-center"
+          style={{ background: 'radial-gradient(circle, var(--status-success-bg), transparent)', border: '2px solid var(--status-success-border)' }}
+        >
+          <CheckCircle2 className="w-12 h-12" style={{ color: 'var(--status-success)' }} />
+        </motion.div>
+        <div>
+          <motion.h2 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+            className="font-serif text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            Welcome to Harmony College! 🎉
+          </motion.h2>
+          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+            className="text-sm font-sans mt-2 max-w-sm" style={{ color: 'var(--text-muted)' }}>
+            Congratulations! Your application has been received. Our admissions team will review it within 2–5 business days.
+          </motion.p>
+        </div>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          className="w-full max-w-xs p-5 rounded-2xl space-y-3"
+          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
+          <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Application Number</p>
+          <p className="font-mono text-xl font-bold" style={{ color: 'var(--brand-gold)' }}>{appNumber}</p>
+          <p className="text-[11px] font-sans" style={{ color: 'var(--text-muted)' }}>Save this number for future reference.</p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
+          className="w-full max-w-xs space-y-3">
+          {[
+            { step: '1', text: 'Application under review', done: true },
+            { step: '2', text: 'Learn about Harmony College', done: false },
+            { step: '3', text: 'Upload registration screenshot', done: false },
+            { step: '4', text: 'Admissions decision (2–5 days)', done: false },
+          ].map((item) => (
+            <div key={item.step} className="flex items-center gap-3 text-sm font-sans">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-mono font-bold"
+                style={{ backgroundColor: item.done ? 'var(--status-success-bg)' : 'var(--hover-overlay)', border: `1px solid ${item.done ? 'var(--status-success-border)' : 'var(--border-default)'}`, color: item.done ? 'var(--status-success)' : 'var(--text-faint)' }}>
+                {item.done ? <CheckCircle2 className="w-3.5 h-3.5" /> : item.step}
+              </div>
+              <span style={{ color: item.done ? 'var(--text-primary)' : 'var(--text-muted)' }}>{item.text}</span>
             </div>
-            <span style={{ color: item.done ? 'var(--text-primary)' : 'var(--text-muted)' }}>{item.text}</span>
-          </div>
-        ))}
+          ))}
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85 }} className="w-full max-w-xs">
+          <Button variant="gold" size="lg" className="w-full" onClick={onContinue}
+            icon={<ArrowRight className="w-4 h-4" />}>
+            Discover Harmony College →
+          </Button>
+        </motion.div>
       </motion.div>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85 }} className="w-full max-w-xs">
-        <Button variant="gold" size="lg" className="w-full" onClick={onContinue}
-          icon={<ArrowRight className="w-4 h-4" />}>
-          Continue to Dashboard
-        </Button>
-      </motion.div>
-    </motion.div>
+    </>
+  );
+}
+
+// Inline confetti burst (no extra package)
+const CONFETTI_COLOURS = ['#E9C349','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#EF4444','#ffffff'];
+function ConfettiBurst() {
+  const particles = React.useMemo(() =>
+    Array.from({ length: 48 }, (_, i) => ({
+      id: i,
+      x:  Math.random() * 100,
+      vx: (Math.random() - 0.5) * 30,
+      vy: -(55 + Math.random() * 40),
+      size: 6 + Math.random() * 8,
+      colour: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
+      delay: Math.random() * 0.35,
+      rotate: Math.random() * 720,
+      dur: 1.4 + Math.random() * 0.8,
+    })), []);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
+      {particles.map(p => (
+        <motion.div key={p.id}
+          initial={{ left: `${p.x}vw`, top: '100vh', opacity: 1, rotate: 0, scale: 1 }}
+          animate={{ left: `calc(${p.x}vw + ${p.vx}vw)`, top: `calc(100vh + ${p.vy}vh)`, opacity: [1, 1, 0], rotate: p.rotate, scale: [1, 1.2, 0.5] }}
+          transition={{ duration: p.dur, delay: p.delay, ease: 'easeOut' }}
+          style={{ position: 'fixed', width: p.size, height: p.size * 0.5, backgroundColor: p.colour, borderRadius: p.size < 10 ? '50%' : 2 }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -1101,7 +1148,7 @@ export function OnboardingWizard() {
           <div className="w-full max-w-lg rounded-2xl p-8 shadow-2xl"
             style={{ backgroundColor: 'var(--bg-modal)', border: '1px solid var(--accent-gold-border)', backdropFilter: 'blur(24px)' }}>
             <SuccessScreen appNumber={onboardingState.applicationNumber}
-              onContinue={() => router.push('/dashboard/student')} />
+              onContinue={() => router.push('/onboarding/about')} />
           </div>
         </div>
       </OnboardingBackground>

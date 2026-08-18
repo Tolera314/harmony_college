@@ -57,7 +57,7 @@ function Field({
 }: {
   id: string; label: string; type?: string; value: string;
   onChange: (v: string) => void; error?: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   suffix?: React.ReactNode; autoComplete?: string;
 }) {
   return (

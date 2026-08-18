@@ -752,6 +752,7 @@ router.post('/settings/password', async (req: AuthRequest, res) => {
 
     const user = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { passwordHash: true } });
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    if (!user.passwordHash) { res.status(400).json({ error: 'No password set on this account (OAuth-only account).' }); return; }
 
     const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
     if (!valid) { res.status(400).json({ error: 'Current password is incorrect' }); return; }

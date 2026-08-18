@@ -145,7 +145,18 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
                       <Button
                         variant="gold"
                         size="lg"
-                        onClick={() => onNavigate('profile')}
+                        onClick={() => {
+                          // Go directly to the wizard at the first incomplete step
+                          // instead of showing the ProfileTab overview first
+                          const stepMap = [
+                            { done: !!(state.profile.nationality && state.profile.dob && state.profile.gender && state.profile.city && state.profile.address), step: 1 },
+                            { done: !!(state.profile.program && state.profile.academicYear), step: 2 },
+                            { done: !!(state.profile.profilePictureName && state.profile.faydaIdName), step: 3 },
+                            { done: !!(state.profile.emergencyName && state.profile.emergencyPhone), step: 4 },
+                          ];
+                          const next = stepMap.find(s => !s.done)?.step ?? 5;
+                          window.location.href = `/onboarding?step=${next}`;
+                        }}
                         icon={<ArrowRight className="w-4 h-4" />}
                       >
                         Continue Profile
@@ -464,7 +475,17 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
             size="lg"
             className="w-full"
             icon={<ArrowRight className="w-4 h-4" />}
-            onClick={() => { setLockedModal(null); onNavigate('profile'); }}
+            onClick={() => {
+              setLockedModal(null);
+              const stepMap = [
+                { done: !!(state.profile.nationality && state.profile.dob && state.profile.gender && state.profile.city && state.profile.address), step: 1 },
+                { done: !!(state.profile.program && state.profile.academicYear), step: 2 },
+                { done: !!(state.profile.profilePictureName && state.profile.faydaIdName), step: 3 },
+                { done: !!(state.profile.emergencyName && state.profile.emergencyPhone), step: 4 },
+              ];
+              const next = stepMap.find(s => !s.done)?.step ?? 5;
+              window.location.href = `/onboarding?step=${next}`;
+            }}
           >
             Continue Profile — {completion}% complete
           </Button>

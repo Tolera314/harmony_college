@@ -33,8 +33,35 @@ import {
   validateResetToken,
   executePasswordReset,
 } from '../services/passwordReset';
+import { OAuthProvider } from '@prisma/client';
+import {
+  generateState,
+  generatePKCE,
+  buildGoogleAuthUrl,
+  buildFacebookAuthUrl,
+  exchangeGoogleCode,
+  exchangeFacebookCode,
+  processOAuthUser,
+  verifyPendingLinkToken,
+} from '../services/oauth';
 
 const router = Router();
+
+function getPostAuthDestination(role: string, profileCompleted: boolean): string {
+  if (role === 'STUDENT') {
+    return profileCompleted ? '/dashboard/student' : '/welcome';
+  }
+  const dashMap: Record<string, string> = {
+    INSTRUCTOR:      '/dashboard/instructor',
+    DEPARTMENT_HEAD: '/dashboard/department-head',
+    HR_OFFICER:      '/dashboard/hr',
+    FINANCE_OFFICER: '/dashboard/finance-officer',
+    REGISTRAR:       '/dashboard/registrar',
+    ADMIN:           '/dashboard/admin',
+    SUPER_ADMIN:     '/dashboard/admin',
+  };
+  return dashMap[role] ?? '/dashboard/student';
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COOKIE HELPERS
@@ -160,8 +187,45 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       select: SAFE_USER_SELECT,
     });
 
+    // ── Create session + set auth cookies so the student is immediately
+    //    authenticated after registration (status PENDING_VERIFICATION is fine —
+    //    the welcome portal handles the soft verification reminder).
+    const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+    const rawRefreshToken  = randomBytes(40).toString('hex');
+    const refreshTokenHash = await bcrypt.hash(rawRefreshToken, TOKEN_BCRYPT_ROUNDS);
+
+    const session = await prisma.session.create({
+      data: {
+        userId:           user.id,
+        refreshTokenHash,
+        expiresAt:        sessionExpiresAt,
+        lastUsedAt:       new Date(),
+        deviceInfo:       (req.headers['user-agent'] ?? '').slice(0, 255) || null,
+        ipAddress:        (req.ip ?? '').slice(0, 45) || null,
+        isRevoked:        false,
+      },
+    });
+
+    const accessToken = await signAccessToken({
+      userId:           user.id,
+      sessionId:        session.id,
+      email:            user.email ?? null,
+      role:             user.role,
+      status:           user.status,
+      profileCompleted: user.profileCompleted,
+    });
+    const refreshToken = await signRefreshToken({ sessionId: session.id });
+    const refreshTokenFinal = await bcrypt.hash(refreshToken, TOKEN_BCRYPT_ROUNDS);
+    await prisma.session.update({
+      where: { id: session.id },
+      data:  { refreshTokenHash: refreshTokenFinal },
+    });
+
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, rawRefreshToken);
+
     res.status(201).json({
-      message: 'Account created successfully. Please verify your contact to continue.',
+      message: 'Account created successfully.',
       user,
     });
   } catch (err: unknown) {
@@ -222,6 +286,13 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'This account is locked due to too many failed login attempts. Please contact support to unlock it.', code: 'ACCOUNT_LOCKED' });
       return;
     }
+    if (!user.passwordHash) {
+      await bcrypt.compare(password, '$2a$12$dummyhashfortimingnobodyshoulduseXXXXXXXXXX');
+      await writeAudit(AuditAction.LOGIN_FAILED, req, user.id, { reason: 'no_password_set' });
+      res.status(401).json({ error: 'Invalid credentials.' });
+      return;
+    }
+
     if (user.status === AccountStatus.PENDING_VERIFICATION) {
       // Still verify password so we don't inadvertently confirm the account exists to an attacker
       const pwOk = await bcrypt.compare(password, user.passwordHash);
@@ -261,15 +332,13 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // ── 5. Create session ────────────────────────────────────────────────────
-    const rawRefreshToken = randomBytes(40).toString('hex');
-    const refreshTokenHash = await bcrypt.hash(rawRefreshToken, TOKEN_BCRYPT_ROUNDS);
+    // ── 5. Create session & tokens ───────────────────────────────────────────
     const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
 
     const session = await prisma.session.create({
       data: {
         userId:           user.id,
-        refreshTokenHash,
+        refreshTokenHash: 'pending',
         expiresAt:        sessionExpiresAt,
         lastUsedAt:       new Date(),
         deviceInfo:       (req.headers['user-agent'] ?? '').slice(0, 255) || null,
@@ -278,7 +347,6 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       },
     });
 
-    // ── 6. Issue tokens ──────────────────────────────────────────────────────
     const accessToken = await signAccessToken({
       userId:           user.id,
       sessionId:        session.id,
@@ -289,6 +357,12 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     });
 
     const refreshToken = await signRefreshToken({ sessionId: session.id });
+    const refreshTokenHash = await bcrypt.hash(refreshToken, TOKEN_BCRYPT_ROUNDS);
+
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { refreshTokenHash },
+    });
 
     // ── 7. Update user counters ───────────────────────────────────────────────
     await prisma.user.update({
@@ -298,7 +372,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 
     // ── 8. Set cookies ────────────────────────────────────────────────────────
     setAccessTokenCookie(res, accessToken);
-    setRefreshTokenCookie(res, rawRefreshToken);
+    setRefreshTokenCookie(res, refreshToken);
 
     await writeAudit(AuditAction.LOGIN_SUCCESS, req, user.id, { role: user.role, sessionId: session.id });
 
@@ -656,6 +730,11 @@ router.post('/signin', async (req: Request, res: Response): Promise<void> => {
         SUSPENDED: 'ACCOUNT_SUSPENDED', DEACTIVATED: 'ACCOUNT_DEACTIVATED', LOCKED: 'ACCOUNT_LOCKED',
       };
       res.status(403).json({ error: 'Account is not active.', code: codeMap[user.status] ?? user.status });
+      return;
+    }
+    if (!user.passwordHash) {
+      await bcrypt.compare(password, '$2a$12$dummyhashfortimingnobodyshoulduseXXXXXXXXXX');
+      res.status(401).json({ error: 'Invalid credentials.' });
       return;
     }
     const passwordValid = await bcrypt.compare(password, user.passwordHash);
@@ -1137,6 +1216,311 @@ router.post('/forgot-password/phone-otp', async (req: Request, res: Response): P
   } catch (err: unknown) {
     console.error('[forgot-password/phone-otp]', err instanceof Error ? err.message : err);
     res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OAUTH ROUTES (Google & Facebook)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** GET /api/auth/oauth/google — Redirects browser to Google authorization screen */
+router.get('/oauth/google', (req: Request, res: Response): void => {
+  const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent('Google sign-in is not configured yet. Please set GOOGLE_CLIENT_ID in backend/.env')}`);
+    return;
+  }
+
+  const state = generateState();
+  const { verifier, challenge } = generatePKCE();
+
+  res.cookie('oauth_state', state, { httpOnly: true, secure: IS_PROD, sameSite: 'lax', maxAge: 600 * 1000, path: '/' });
+  res.cookie('oauth_verifier', verifier, { httpOnly: true, secure: IS_PROD, sameSite: 'lax', maxAge: 600 * 1000, path: '/' });
+
+  const authUrl = buildGoogleAuthUrl(state, challenge);
+  res.redirect(authUrl);
+});
+
+/** GET /api/auth/oauth/google/callback — OAuth authorization-code callback for Google */
+router.get('/oauth/google/callback', async (req: Request, res: Response): Promise<void> => {
+  const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+  const { code, state, error: providerError } = req.query;
+  const savedState = req.cookies?.oauth_state;
+  const savedVerifier = req.cookies?.oauth_verifier;
+
+  res.clearCookie('oauth_state', { path: '/' });
+  res.clearCookie('oauth_verifier', { path: '/' });
+
+  if (providerError) {
+    res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent('Google login was cancelled or denied.')}`);
+    return;
+  }
+
+  if (!code || !state || typeof code !== 'string' || typeof state !== 'string' || state !== savedState || !savedVerifier) {
+    res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent('Invalid OAuth state or expired request.')}`);
+    return;
+  }
+
+  try {
+    const profile = await exchangeGoogleCode(code, savedVerifier);
+    const result = await processOAuthUser(OAuthProvider.GOOGLE, profile);
+
+    if (result.type === 'ACCOUNT_BLOCKED') {
+      res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent(result.error)}`);
+      return;
+    }
+
+    // LINK_REQUIRED: existing account found by email — send user to password verification
+    if (result.type === 'LINK_REQUIRED') {
+      const dest = `/link-account?token=${encodeURIComponent(result.pendingLinkToken)}&email=${encodeURIComponent(result.email)}`;
+      res.redirect(`${FRONTEND_URL}${dest}`);
+      return;
+    }
+
+    const user = result.user;
+    const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+
+    const session = await prisma.session.create({
+      data: {
+        userId: user.id,
+        refreshTokenHash: 'pending',
+        expiresAt: sessionExpiresAt,
+        lastUsedAt: new Date(),
+        deviceInfo: (req.headers['user-agent'] ?? '').slice(0, 255) || null,
+        ipAddress: (req.ip ?? '').slice(0, 45) || null,
+        isRevoked: false,
+      },
+    });
+
+    const accessToken = await signAccessToken({
+      userId: user.id,
+      sessionId: session.id,
+      email: user.email ?? null,
+      role: user.role,
+      status: user.status,
+      profileCompleted: user.profileCompleted,
+    });
+
+    const refreshToken = await signRefreshToken({ sessionId: session.id });
+    const refreshTokenHash = await bcrypt.hash(refreshToken, TOKEN_BCRYPT_ROUNDS);
+
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { refreshTokenHash },
+    });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lastLoginAt: new Date() },
+    });
+
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshToken);
+
+    await writeAudit(AuditAction.LOGIN_SUCCESS, req, user.id, { provider: 'GOOGLE', sessionId: session.id });
+
+    const dest = getPostAuthDestination(user.role, user.profileCompleted);
+    res.redirect(`${FRONTEND_URL}${dest}`);
+  } catch (err: unknown) {
+    console.error('[OAuth Google Callback Error]', err instanceof Error ? err.message : err);
+    res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent('Google authentication failed. Please try again.')}`);
+  }
+});
+
+/** GET /api/auth/oauth/facebook — Redirects browser to Facebook authorization screen */
+router.get('/oauth/facebook', (req: Request, res: Response): void => {
+  const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+  if (!process.env.FACEBOOK_APP_ID) {
+    res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent('Facebook sign-in is not configured yet. Please set FACEBOOK_APP_ID in backend/.env')}`);
+    return;
+  }
+
+  const state = generateState();
+  const { verifier, challenge } = generatePKCE();
+
+  res.cookie('oauth_state',    state,    { httpOnly: true, secure: IS_PROD, sameSite: 'lax', maxAge: 600 * 1000, path: '/' });
+  res.cookie('oauth_verifier', verifier, { httpOnly: true, secure: IS_PROD, sameSite: 'lax', maxAge: 600 * 1000, path: '/' });
+
+  const authUrl = buildFacebookAuthUrl(state, challenge);
+  res.redirect(authUrl);
+});
+
+/** GET /api/auth/oauth/facebook/callback — OAuth authorization-code callback for Facebook */
+router.get('/oauth/facebook/callback', async (req: Request, res: Response): Promise<void> => {
+  const FRONTEND_URL  = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+  const { code, state, error: providerError } = req.query;
+  const savedState    = req.cookies?.oauth_state;
+  const savedVerifier = req.cookies?.oauth_verifier;
+
+  res.clearCookie('oauth_state',    { path: '/' });
+  res.clearCookie('oauth_verifier', { path: '/' });
+
+  if (providerError) {
+    res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent('Facebook login was cancelled or denied.')}`);
+    return;
+  }
+
+  if (!code || !state || typeof code !== 'string' || typeof state !== 'string' || state !== savedState || !savedVerifier) {
+    res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent('Invalid OAuth state or expired request.')}`);
+    return;
+  }
+
+  try {
+    const profile = await exchangeFacebookCode(code, savedVerifier);
+    const result  = await processOAuthUser(OAuthProvider.FACEBOOK, profile);
+
+    if (result.type === 'ACCOUNT_BLOCKED') {
+      res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent(result.error)}`);
+      return;
+    }
+
+    if (result.type === 'LINK_REQUIRED') {
+      const dest = `/link-account?token=${encodeURIComponent(result.pendingLinkToken)}&email=${encodeURIComponent(result.email)}`;
+      res.redirect(`${FRONTEND_URL}${dest}`);
+      return;
+    }
+
+    const user             = result.user;
+    const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+
+    const session = await prisma.session.create({
+      data: {
+        userId:           user.id,
+        refreshTokenHash: 'pending',
+        expiresAt:        sessionExpiresAt,
+        lastUsedAt:       new Date(),
+        deviceInfo:       (req.headers['user-agent'] ?? '').slice(0, 255) || null,
+        ipAddress:        (req.ip ?? '').slice(0, 45) || null,
+        isRevoked:        false,
+      },
+    });
+
+    const accessToken = await signAccessToken({
+      userId:           user.id,
+      sessionId:        session.id,
+      email:            user.email ?? null,
+      role:             user.role,
+      status:           user.status,
+      profileCompleted: user.profileCompleted,
+    });
+
+    const refreshToken     = await signRefreshToken({ sessionId: session.id });
+    const refreshTokenHash = await bcrypt.hash(refreshToken, TOKEN_BCRYPT_ROUNDS);
+
+    await prisma.session.update({ where: { id: session.id }, data: { refreshTokenHash } });
+    await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lastLoginAt: new Date() } });
+
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshToken);
+
+    await writeAudit(AuditAction.LOGIN_SUCCESS, req, user.id, { provider: 'FACEBOOK', sessionId: session.id });
+
+    const dest = getPostAuthDestination(user.role, user.profileCompleted);
+    res.redirect(`${FRONTEND_URL}${dest}`);
+  } catch (err: unknown) {
+    console.error('[OAuth Facebook Callback Error]', err instanceof Error ? err.message : err);
+    res.redirect(`${FRONTEND_URL}/signin?error=${encodeURIComponent('Facebook authentication failed. Please try again.')}`);
+  }
+});
+
+/** POST /api/auth/oauth/link-account — Authorize and complete account linking */
+router.post('/oauth/link-account', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { pendingToken, password } = req.body;
+    if (!pendingToken || !password) {
+      res.status(400).json({ error: 'Missing required parameters.' });
+      return;
+    }
+
+    const payload = await verifyPendingLinkToken(pendingToken);
+    if (!payload) {
+      res.status(400).json({ error: 'Account linking request expired or invalid. Please try logging in again.' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    if (!user.passwordHash) {
+      await bcrypt.compare(password, '$2a$12$dummyhashfortimingnobodyshoulduseXXXXXXXXXX');
+      res.status(401).json({ error: 'Invalid credentials.' });
+      return;
+    }
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: 'Incorrect password. Account linking failed.' });
+      return;
+    }
+
+    // Attach OAuth identity to existing user
+    await prisma.oAuthAccount.create({
+      data: {
+        provider: payload.provider,
+        providerAccountId: payload.providerAccountId,
+        userId: user.id,
+      },
+    });
+
+    // Create session
+    const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+
+    const session = await prisma.session.create({
+      data: {
+        userId: user.id,
+        refreshTokenHash: 'pending',
+        expiresAt: sessionExpiresAt,
+        lastUsedAt: new Date(),
+        deviceInfo: (req.headers['user-agent'] ?? '').slice(0, 255) || null,
+        ipAddress: (req.ip ?? '').slice(0, 45) || null,
+        isRevoked: false,
+      },
+    });
+
+    const accessToken = await signAccessToken({
+      userId: user.id,
+      sessionId: session.id,
+      email: user.email ?? null,
+      role: user.role,
+      status: user.status,
+      profileCompleted: user.profileCompleted,
+    });
+
+    const refreshToken = await signRefreshToken({ sessionId: session.id });
+    const refreshTokenHash = await bcrypt.hash(refreshToken, TOKEN_BCRYPT_ROUNDS);
+
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { refreshTokenHash },
+    });
+
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshToken);
+
+    await writeAudit(AuditAction.OAUTH_LINKED, req, user.id, { provider: payload.provider });
+    await writeAudit(AuditAction.LOGIN_SUCCESS, req, user.id, { provider: payload.provider, sessionId: session.id });
+
+    res.status(200).json({
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified,
+        profileCompleted: user.profileCompleted,
+        profileCompletion: user.profileCompletion,
+        lastLoginAt: new Date(),
+      },
+    });
+  } catch (err: unknown) {
+    console.error('[OAuth Link Account Error]', err instanceof Error ? err.message : err);
+    res.status(500).json({ error: 'An unexpected error occurred while linking your account.' });
   }
 });
 
