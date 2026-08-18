@@ -89,29 +89,54 @@ function GPASummary({ grades, filteredGrades, selectedTerm }: GPASummaryProps) {
 interface GradesViewProps {
   profile: StudentProfile;
   grades: GradeRecord[];
+  enrolledCourses?: { id: string; code: string; name: string; credits: number }[];
 }
 
-export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
+export const GradesView: React.FC<GradesViewProps> = ({ profile, grades, enrolledCourses }) => {
   const [selectedTerm, setSelectedTerm] = useState<string>('All');
   const [showTranscriptModal, setShowTranscriptModal] = useState<boolean>(false);
 
-  // Grade Simulator
-  const [simCs402, setSimCs402] = useState<number>(4.0);
-  const [simDs301, setSimDs301] = useState<number>(3.7);
-  const [simAi440, setSimAi440] = useState<number>(4.0);
+  // GPA Simulator — use real enrolled courses if available, fall back to 3 hardcoded defaults
+  const simCourses = enrolledCourses && enrolledCourses.length > 0
+    ? enrolledCourses.slice(0, 4)
+    : [
+        { id: 'cs402', code: 'CS402', name: 'Software Engineering II', credits: 4 },
+        { id: 'ds301', code: 'DS301', name: 'Database Systems',        credits: 4 },
+        { id: 'ai440', code: 'AI440', name: 'Artificial Intelligence', credits: 4 },
+      ];
 
-  const terms = ['All', 'Spring 2024', 'Fall 2023', 'Spring 2023'];
+  const [simValues, setSimValues] = useState<Record<string, number>>(() =>
+    Object.fromEntries(simCourses.map(c => [c.id, 4.0])),
+  );
+
+  // Keep simValues in sync if courses change (lazy init won't re-run)
+  const simKeys = simCourses.map(c => c.id).join(',');
+  React.useEffect(() => {
+    setSimValues(prev => {
+      const next: Record<string, number> = {};
+      simCourses.forEach(c => { next[c.id] = prev[c.id] ?? 4.0; });
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simKeys]);
+
+  const calculateSimulatedGpa = () => {
+    const newCredits = simCourses.reduce((s, c) => s + c.credits, 0);
+    const newPoints  = simCourses.reduce((s, c) => s + (simValues[c.id] ?? 4.0) * c.credits, 0);
+    const prevPoints = profile.cumulativeGpa * profile.completedCredits;
+    const total      = profile.completedCredits + newCredits;
+    return total > 0 ? ((prevPoints + newPoints) / total).toFixed(3) : '0.000';
+  };
+
+  const gpaLabels: Record<number, string> = { 4.0: 'A (4.0)', 3.7: 'A- (3.7)', 3.5: 'B+ (3.5)', 3.0: 'B (3.0)', 2.7: 'B- (2.7)', 2.0: 'C (2.0)' };
+  const gpaSteps = [4.0, 3.7, 3.5, 3.0, 2.7, 2.0];
+
+  const allTerms = [...new Set(grades.map(g => g.term))];
+  const terms = ['All', ...allTerms];
 
   const filteredGrades = selectedTerm === 'All'
     ? grades
     : grades.filter((g) => g.term === selectedTerm);
-
-  const calculateSimulatedGpa = () => {
-    const totalPreviousPoints = profile.cumulativeGpa * profile.completedCredits;
-    const newCourseCredits    = 12;
-    const newPoints           = (simCs402 * 4) + (simDs301 * 4) + (simAi440 * 4);
-    return ((totalPreviousPoints + newPoints) / (profile.completedCredits + newCourseCredits)).toFixed(3);
-  };
 
   const columns: Column<GradeRecord>[] = [
     { header: 'Course Title', cell: (g) => <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{g.courseTitle}</span> },
@@ -208,33 +233,50 @@ export const GradesView: React.FC<GradesViewProps> = ({ profile, grades }) => {
         <Card hoverable={false} className="lg:col-span-4 space-y-6">
           <div className="flex items-center gap-2.5 border-b pb-4" style={{ borderColor: 'var(--border-default)' }}>
             <Calculator className="w-5 h-5 text-[#E9C349]" />
-            <h3 className="font-sans font-bold text-base" style={{ color: 'var(--text-primary)' }}>Fall 2024 GPA Simulator</h3>
+            <h3 className="font-sans font-bold text-base" style={{ color: 'var(--text-primary)' }}>GPA Simulator</h3>
           </div>
-          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Test prospective term grades to project your final graduation GPA.</p>
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            Adjust expected grades for your current enrolled courses to project your GPA.
+          </p>
           <div className="space-y-4">
-            {[
-              ['CS402: Software Eng II (4 cr)',       simCs402, setSimCs402],
-              ['DS301: Database Systems (4 cr)',       simDs301, setSimDs301],
-              ['AI440: Artificial Intelligence (4 cr)', simAi440, setSimAi440],
-            ].map(([label, val, setter]) => (
-              <div key={String(label)} className="space-y-1.5">
-                <div className="flex justify-between text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  <span>{String(label)}</span>
-                  <span className="font-mono" style={{ color: 'var(--brand-gold)' }}>
-                    {(val as number) === 4 ? 'A (4.0)' : (val as number) === 3.7 ? 'A- (3.7)' : 'B+ (3.3)'}
-                  </span>
+            {simCourses.map(course => {
+              const val = simValues[course.id] ?? 4.0;
+              return (
+                <div key={course.id} className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    <span className="truncate max-w-[65%]">{course.code}: {course.name} ({course.credits} cr)</span>
+                    <span className="font-mono shrink-0 ml-2" style={{ color: 'var(--brand-gold)' }}>
+                      {gpaLabels[val] ?? `${val.toFixed(1)}`}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="2.0" max="4.0" step="0.1"
+                    value={val}
+                    onChange={e => {
+                      const raw = parseFloat(e.target.value);
+                      // Snap to nearest allowed step
+                      const snapped = gpaSteps.reduce((prev, curr) =>
+                        Math.abs(curr - raw) < Math.abs(prev - raw) ? curr : prev,
+                      );
+                      setSimValues(prev => ({ ...prev, [course.id]: snapped }));
+                    }}
+                    className="w-full accent-[#E9C349] cursor-pointer"
+                  />
                 </div>
-                <input type="range" min="3.0" max="4.0" step="0.3" value={val as number}
-                  onChange={(e) => (setter as (v: number) => void)(parseFloat(e.target.value))}
-                  className="w-full accent-[#E9C349] cursor-pointer" />
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="p-4 rounded-2xl space-y-1 text-center border"
             style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--accent-gold-border)' }}>
             <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>Projected Cumulative GPA</p>
             <p className="font-serif text-3xl font-bold" style={{ color: 'var(--brand-gold)' }}>{calculateSimulatedGpa()}</p>
-            <p className="text-[10px] font-bold" style={{ color: 'var(--status-success)' }}>On track for Graduation with Highest Honors</p>
+            <p className="text-[10px] font-bold" style={{ color: parseFloat(calculateSimulatedGpa()) >= 3.7 ? 'var(--status-success)' : 'var(--brand-gold)' }}>
+              {parseFloat(calculateSimulatedGpa()) >= 3.9 ? 'On track for Highest Honors'
+                : parseFloat(calculateSimulatedGpa()) >= 3.7 ? 'On track for Magna Cum Laude'
+                : parseFloat(calculateSimulatedGpa()) >= 3.0 ? 'Good Academic Standing'
+                : 'Review academic advisor'}
+            </p>
           </div>
         </Card>
       </div>

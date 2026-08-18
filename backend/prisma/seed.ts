@@ -23,6 +23,13 @@ import {
   GraduationStatus,
   CalendarEventType,
   AnnouncementStatus,
+  AssignmentStatus,
+  SubmissionStatus,
+  QuizStatus,
+  QuizAttemptStatus,
+  AttendanceStatus,
+  TransactionType,
+  QuestionType,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -475,8 +482,8 @@ async function main(): Promise<void> {
           program: a.prog, academicYear: '2026-2027', semester: 'Semester I',
           studyMode: a.studyMode, status: a.status,
           reviewComment: a.reviewComment ?? null,
-          reviewedBy: [ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED].includes(a.status) ? regId : null,
-          reviewedAt: [ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED].includes(a.status) ? new Date() : null,
+          reviewedBy: (a.status === ApplicationStatus.ACCEPTED || a.status === ApplicationStatus.REJECTED) ? regId : null,
+          reviewedAt: (a.status === ApplicationStatus.ACCEPTED || a.status === ApplicationStatus.REJECTED) ? new Date() : null,
           submittedAt: new Date(),
           documents: {
             create: [
@@ -609,6 +616,9 @@ async function main(): Promise<void> {
   ]});
   console.log('   ✓ program requirements');
 
+  // ── 19. Student Dashboard Data (assignments, quizzes, attendance, financials) ──
+  await seedStudentDashboardData();
+
   // ── Summary ──────────────────────────────────────────────────────────────
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🎉  Seeding complete');
@@ -629,3 +639,409 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+async function seedStudentDashboardData(): Promise<void> {
+  console.log('\n📚  Seeding student dashboard data...');
+
+  // ── Get all student records + their active enrollments ────────────────────
+  const studentRecords = await prisma.studentRecord.findMany({
+    include: {
+      enrollments: {
+        where: { status: { in: ['ACTIVE', 'FORCE_ADDED'] } },
+        include: {
+          courseOffering: {
+            include: { course: true, semester: true, instructor: true },
+          },
+        },
+      },
+      user: { select: { fullName: true } },
+    },
+  });
+
+  for (const sr of studentRecords) {
+    // ── Financial Account ────────────────────────────────────────────────────
+    const existingAccount = await prisma.financialAccount.findUnique({
+      where: { studentRecordId: sr.id },
+    });
+    if (!existingAccount) {
+      const account = await prisma.financialAccount.create({
+        data: {
+          studentRecordId: sr.id,
+          balance: 0,
+          clearedForTerm: 'Fall 2026',
+        },
+      });
+      // Create realistic transactions
+      await prisma.financialTransaction.createMany({
+        data: [
+          { financialAccountId: account.id, type: TransactionType.TUITION,     amount: 18500, description: 'Fall 2026 Undergraduate Tuition',   category: 'Tuition',     receiptId: `TUI-${sr.id.slice(0,8)}-001`, status: 'POSTED', transactionDate: new Date('2026-08-15') },
+          { financialAccountId: account.id, type: TransactionType.FEE,         amount: 1200,  description: 'Student Health & Insurance Fee',      category: 'Fee',         receiptId: `FEE-${sr.id.slice(0,8)}-001`, status: 'POSTED', transactionDate: new Date('2026-08-15') },
+          { financialAccountId: account.id, type: TransactionType.FEE,         amount: 650,   description: 'Technology & Infrastructure Fee',     category: 'Fee',         receiptId: `FEE-${sr.id.slice(0,8)}-002`, status: 'POSTED', transactionDate: new Date('2026-08-15') },
+          { financialAccountId: account.id, type: TransactionType.SCHOLARSHIP, amount: -15000, description: "Dean's Merit Scholarship",           category: 'Scholarship', receiptId: `SCH-${sr.id.slice(0,8)}-001`, status: 'POSTED', transactionDate: new Date('2026-08-01') },
+          { financialAccountId: account.id, type: TransactionType.GRANT,       amount: -5350, description: 'Departmental Research Grant',         category: 'Grant',       receiptId: `GRT-${sr.id.slice(0,8)}-001`, status: 'POSTED', transactionDate: new Date('2026-08-01') },
+        ],
+        skipDuplicates: true,
+      });
+      // Update balance to 0 (cleared)
+      await prisma.financialAccount.update({
+        where: { id: account.id },
+        data: { balance: 0 },
+      });
+    }
+
+    // ── Notification Preferences ─────────────────────────────────────────────
+    await prisma.studentNotificationPreference.upsert({
+      where: { studentRecordId: sr.id },
+      update: {},
+      create: { studentRecordId: sr.id, gradeAlerts: true, tuitionReminders: true, registrarNotices: true, advisorMessages: true },
+    });
+
+    // ── Assignments & Quizzes per enrollment ─────────────────────────────────
+    for (const enroll of sr.enrollments) {
+      const offering = enroll.courseOffering;
+      const instructorUserId = offering.instructor?.userId ?? null;
+      if (!instructorUserId) continue;
+
+      // Check if assignments already exist for this offering
+      const existingAssignments = await prisma.assignment.count({
+        where: { courseOfferingId: offering.id },
+      });
+      if (existingAssignments > 0) continue;
+
+      // ── 3 Assignments per course ─────────────────────────────────────────
+      const a1 = await prisma.assignment.create({
+        data: {
+          courseOfferingId: offering.id,
+          createdBy: instructorUserId,
+          title: `${offering.course.code} — Midterm Project`,
+          description: `Comprehensive midterm project for ${offering.course.name}. Apply core concepts covered in the first half of the semester.`,
+          instructions: '1. Review the course materials from weeks 1-7.\n2. Complete the project according to the rubric provided.\n3. Submit as a ZIP file containing all source files.\n4. Include a brief README with your approach.\n5. Maximum file size: 250 MB.',
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          totalPoints: 100,
+          status: AssignmentStatus.PUBLISHED,
+          attachments: {
+            create: [
+              { fileName: `${offering.course.code}_Midterm_Rubric.pdf`, fileUrl: '/uploads/sample_rubric.pdf', fileSize: '180 KB', fileType: 'PDF' },
+            ],
+          },
+        },
+      });
+
+      const a2 = await prisma.assignment.create({
+        data: {
+          courseOfferingId: offering.id,
+          createdBy: instructorUserId,
+          title: `${offering.course.code} — Lab Exercise 2`,
+          description: `Practical lab exercise applying techniques from the recent lectures on ${offering.course.name}.`,
+          instructions: '1. Complete all tasks in the lab sheet.\n2. Document your results with screenshots.\n3. Submit as a single PDF report.',
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days — urgent
+          totalPoints: 50,
+          status: AssignmentStatus.PUBLISHED,
+        },
+      });
+
+      const a3 = await prisma.assignment.create({
+        data: {
+          courseOfferingId: offering.id,
+          createdBy: instructorUserId,
+          title: `${offering.course.code} — Assignment 1`,
+          description: `First assignment for ${offering.course.name}.`,
+          instructions: '1. Read the provided materials.\n2. Answer all questions in full sentences.\n3. Submit as a Word document or PDF.',
+          dueDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago — past
+          totalPoints: 100,
+          status: AssignmentStatus.PUBLISHED,
+          allowLateSubmit: false,
+        },
+      });
+
+      // ── Submission for past assignment (graded) ────────────────────────────
+      const existingSubmission = await prisma.assignmentSubmission.findUnique({
+        where: { assignmentId_studentRecordId: { assignmentId: a3.id, studentRecordId: sr.id } },
+      });
+      if (!existingSubmission) {
+        await prisma.assignmentSubmission.create({
+          data: {
+            assignmentId: a3.id,
+            studentRecordId: sr.id,
+            status: SubmissionStatus.GRADED,
+            submittedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+            textContent: 'Assignment completed as per instructions. Applied core concepts from the lecture materials.',
+            score: 92,
+            letterGrade: 'A',
+            feedback: 'Excellent work! Your analysis is thorough and well-structured. The approach you took in section 3 was particularly innovative.',
+            gradedAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
+            gradedBy: instructorUserId,
+          },
+        });
+      }
+
+      // ── 2 Quizzes per course ─────────────────────────────────────────────
+      const existingQuizzes = await prisma.quiz.count({
+        where: { courseOfferingId: offering.id },
+      });
+      if (existingQuizzes > 0) continue;
+
+      const quiz1 = await prisma.quiz.create({
+        data: {
+          courseOfferingId: offering.id,
+          createdBy: instructorUserId,
+          title: `${offering.course.code} — Fundamentals Quiz`,
+          description: `A comprehensive quiz testing your understanding of ${offering.course.name} fundamentals.`,
+          instructions: 'You have 30 minutes to complete this quiz. All questions are mandatory. No external resources allowed.',
+          durationMinutes: 30,
+          availableFrom: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+          availableUntil: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+          passingScore: 60,
+          maxAttempts: 1,
+          totalPoints: 10,
+          showResultsImmediately: true,
+          status: QuizStatus.ACTIVE,
+          questions: {
+            create: [
+              {
+                type: QuestionType.MCQ,
+                questionText: `What is the primary purpose of ${offering.course.name}?`,
+                points: 2,
+                orderIndex: 0,
+                options: {
+                  create: [
+                    { text: 'To provide theoretical knowledge only', isCorrect: false, orderIndex: 0 },
+                    { text: 'To apply core concepts in practical scenarios', isCorrect: true,  orderIndex: 1 },
+                    { text: 'To memorize facts and formulas', isCorrect: false, orderIndex: 2 },
+                    { text: 'None of the above', isCorrect: false, orderIndex: 3 },
+                  ],
+                },
+              },
+              {
+                type: QuestionType.MCQ,
+                questionText: 'Which approach is most effective when solving complex problems in this field?',
+                points: 2,
+                orderIndex: 1,
+                options: {
+                  create: [
+                    { text: 'Trial and error without planning', isCorrect: false, orderIndex: 0 },
+                    { text: 'Systematic analysis and structured methodology', isCorrect: true,  orderIndex: 1 },
+                    { text: 'Copying existing solutions directly', isCorrect: false, orderIndex: 2 },
+                    { text: 'Skipping the planning phase', isCorrect: false, orderIndex: 3 },
+                  ],
+                },
+              },
+              {
+                type: QuestionType.TRUE_FALSE,
+                questionText: 'Documentation is an essential part of professional work in this field.',
+                points: 2,
+                orderIndex: 2,
+                options: {
+                  create: [
+                    { text: 'True',  isCorrect: true,  orderIndex: 0 },
+                    { text: 'False', isCorrect: false, orderIndex: 1 },
+                  ],
+                },
+              },
+              {
+                type: QuestionType.SHORT_ANSWER,
+                questionText: `Briefly explain one key concept you have learned in ${offering.course.name} so far.`,
+                points: 4,
+                orderIndex: 3,
+              },
+            ],
+          },
+        },
+      });
+
+      // Past graded quiz attempt for this student
+      const q1WithQuestions = await prisma.quiz.findUnique({
+        where: { id: quiz1.id },
+        include: { questions: { include: { options: { where: { isCorrect: true } } }, orderBy: { orderIndex: 'asc' } } },
+      });
+
+      if (q1WithQuestions) {
+        const attempt = await prisma.quizAttempt.create({
+          data: {
+            quizId: quiz1.id,
+            studentRecordId: sr.id,
+            status: QuizAttemptStatus.GRADED,
+            startedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+            submittedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000 + 25 * 60 * 1000),
+            timeSpentSeconds: 25 * 60,
+            score: 8,
+            percentageScore: 80,
+            isPassing: true,
+            feedback: 'Good understanding of the fundamentals. Review the short answer question for deeper insight.',
+            gradedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+            gradedBy: instructorUserId,
+          },
+        });
+
+        // Create answers for graded attempt
+        for (const q of q1WithQuestions.questions) {
+          const correctOpt = q.options[0];
+          await prisma.quizAnswer.create({
+            data: {
+              attemptId: attempt.id,
+              questionId: q.id,
+              selectedOptionId: correctOpt?.id ?? null,
+              answerText: q.type === QuestionType.SHORT_ANSWER
+                ? `This concept is fundamental to understanding ${offering.course.name} and involves systematic application of learned principles.`
+                : null,
+              isCorrect: q.type !== QuestionType.SHORT_ANSWER ? true : null,
+              pointsEarned: q.type !== QuestionType.SHORT_ANSWER ? q.points : 2,
+            },
+          }).catch(() => {});
+        }
+      }
+
+      // Second quiz — upcoming / pending
+      await prisma.quiz.create({
+        data: {
+          courseOfferingId: offering.id,
+          createdBy: instructorUserId,
+          title: `${offering.course.code} — Midterm Assessment`,
+          description: `Comprehensive midterm assessment covering all topics from the first half of the semester.`,
+          instructions: 'You have 60 minutes to complete this assessment. Read each question carefully. Partial credit may be awarded for short answers.',
+          durationMinutes: 60,
+          availableFrom: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+          availableUntil: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+          passingScore: 70,
+          maxAttempts: 1,
+          totalPoints: 50,
+          showResultsImmediately: false,
+          status: QuizStatus.PUBLISHED,
+          questions: {
+            create: [
+              {
+                type: QuestionType.MCQ,
+                questionText: 'Which of the following best describes the core principle of this subject?',
+                points: 5,
+                orderIndex: 0,
+                options: {
+                  create: [
+                    { text: 'Optimization and efficiency', isCorrect: true,  orderIndex: 0 },
+                    { text: 'Randomized approaches', isCorrect: false, orderIndex: 1 },
+                    { text: 'Brute force solutions', isCorrect: false, orderIndex: 2 },
+                    { text: 'Manual processing only', isCorrect: false, orderIndex: 3 },
+                  ],
+                },
+              },
+              {
+                type: QuestionType.ESSAY,
+                questionText: `Discuss in detail how the concepts from ${offering.course.name} apply to a real-world scenario of your choice.`,
+                points: 20,
+                orderIndex: 1,
+              },
+              {
+                type: QuestionType.TRUE_FALSE,
+                questionText: 'Continuous learning and adaptation are essential in this professional field.',
+                points: 5,
+                orderIndex: 2,
+                options: {
+                  create: [
+                    { text: 'True',  isCorrect: true,  orderIndex: 0 },
+                    { text: 'False', isCorrect: false, orderIndex: 1 },
+                  ],
+                },
+              },
+              {
+                type: QuestionType.SHORT_ANSWER,
+                questionText: 'List three best practices that professionals in this field should follow.',
+                points: 20,
+                orderIndex: 3,
+              },
+            ],
+          },
+        },
+      });
+
+      // ── Attendance sessions via ClassSession ────────────────────────────
+      const existingClassSessions = await prisma.classSession.count({
+        where: { courseOfferingId: offering.id },
+      });
+      if (existingClassSessions > 0) continue;
+
+      const weekDays = [0, 2]; // Mon, Wed (matching timetable pattern)
+      const sessionsToCreate = 8;
+      for (let i = 0; i < sessionsToCreate; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - (sessionsToCreate - i) * 7 + weekDays[i % 2]);
+        date.setHours(9, 0, 0, 0);
+
+        // Create ClassSession first
+        const classSession = await prisma.classSession.upsert({
+          where: {
+            courseOfferingId_date_startTime: {
+              courseOfferingId: offering.id,
+              date,
+              startTime: '09:00',
+            },
+          },
+          update: {},
+          create: {
+            courseOfferingId: offering.id,
+            date,
+            startTime: '09:00',
+            endTime:   '10:30',
+            topic:     `Week ${i + 1} — ${offering.course.name}`,
+          },
+        });
+
+        // Create AttendanceSession for this ClassSession
+        const attendSession = await prisma.attendanceSession.upsert({
+          where: { classSessionId: classSession.id },
+          update: {},
+          create: {
+            classSessionId: classSession.id,
+            openedBy:       instructorUserId,
+            lifecycle:      'FINALIZED',
+            openedAt:       date,
+            closedAt:       new Date(date.getTime() + 90 * 60 * 1000),
+            finalizedAt:    new Date(date.getTime() + 120 * 60 * 1000),
+          },
+        });
+
+        // Mark student as present (97% rate → 1 absent)
+        const status = i === 3 ? AttendanceStatus.ABSENT : AttendanceStatus.PRESENT;
+        await prisma.attendanceRecord.upsert({
+          where: {
+            attendanceSessionId_studentRecordId: {
+              attendanceSessionId: attendSession.id,
+              studentRecordId:     sr.id,
+            },
+          },
+          update: {},
+          create: {
+            attendanceSessionId: attendSession.id,
+            studentRecordId:     sr.id,
+            status,
+            method:  'MANUAL',
+            markedAt: date,
+            markedBy: instructorUserId,
+          },
+        }).catch(() => {});
+      }
+    }
+
+    console.log(`   ✓ Dashboard data for ${sr.user.fullName} (${sr.studentId})`);
+  }
+
+  // ── Notifications for students ──────────────────────────────────────────
+  const students = await prisma.studentRecord.findMany({
+    select: { userId: true, studentId: true },
+  });
+  for (const st of students) {
+    const existingNotifs = await prisma.notification.count({ where: { userId: st.userId } });
+    if (existingNotifs > 0) continue;
+    await prisma.notification.createMany({
+      data: [
+        { userId: st.userId, title: 'Assignment Graded', message: 'Your Assignment 1 has been graded. Score: 92/100.', type: 'SUCCESS', entityType: 'Assignment' },
+        { userId: st.userId, title: 'Quiz Available', message: 'A new quiz is available for your course. Opens in 3 days.', type: 'INFO', entityType: 'Quiz' },
+        { userId: st.userId, title: 'Registration Reminder', message: 'Course registration for Semester II opens on January 5, 2027.', type: 'WARNING', entityType: 'Calendar' },
+        { userId: st.userId, title: 'Financial Aid Applied', message: 'Your Dean\'s Merit Scholarship has been applied to your account.', type: 'SUCCESS', entityType: 'Financial' },
+      ],
+      skipDuplicates: true,
+    });
+  }
+  console.log('   ✓ Student notifications');
+  console.log('✅  Student dashboard data complete');
+}
+
+// Export for use in main seed

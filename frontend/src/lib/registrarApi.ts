@@ -319,3 +319,20 @@ export const notificationsApi = {
     apiFetch<{ total: number; logs: RegistrarNotification[] }>(`/api/registrar/audit-logs?limit=${limit}`),
   markAllRead: () => Promise.resolve({ success: true }), // audit logs don't have read state; UI resets badge
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRADE SCALE (registrar-managed)
+// ═══════════════════════════════════════════════════════════════════════════
+export interface GradeScaleEntry {
+  id: string; letterGrade: string; gradePoints: number;
+  description: string | null; isPassing: boolean; isActive: boolean; displayOrder: number;
+}
+export const gradeScaleApi = {
+  list:   () => apiFetch<GradeScaleEntry[]>('/api/registrar/grade-scale'),
+  create: (data: { letterGrade: string; gradePoints: number; description?: string; isPassing?: boolean; displayOrder?: number }) =>
+    apiFetch<GradeScaleEntry>('/api/registrar/grade-scale', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<Pick<GradeScaleEntry, 'gradePoints' | 'description' | 'isPassing' | 'isActive' | 'displayOrder'>>) =>
+    apiFetch<GradeScaleEntry>(`/api/registrar/grade-scale/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) =>
+    apiFetch<GradeScaleEntry>(`/api/registrar/grade-scale/${id}`, { method: 'DELETE' }),
+};

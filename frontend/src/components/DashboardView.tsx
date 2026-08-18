@@ -6,8 +6,6 @@ import {
   Sparkles,
   Star,
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   MapPin,
   BookOpen,
   ClipboardList,
@@ -30,13 +28,51 @@ interface DashboardViewProps {
   timetable: TimetableEvent[];
   alerts: AlertItem[];
   setActiveTab: (tab: NavTab) => void;
+  degreeCompletionPct?: number;      // real value from /api/student/dashboard/degree-audit
+  upcomingEvents?: { id: string; title: string; eventType: string; startDate: string; endDate: string }[];
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
-  profile, activeCourses, timetable, alerts, setActiveTab
+  profile, activeCourses, timetable, alerts, setActiveTab,
+  degreeCompletionPct, upcomingEvents = [],
 }) => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [selectedCalendarDay, setSelectedCalendarDay] = useState<number>(20);
+
+  // Calendar: derive from upcoming events or fall back to current month
+  const today = new Date();
+  const calendarYear  = today.getFullYear();
+  const calendarMonth = today.getMonth(); // 0-indexed
+  const monthName     = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Days in current month for mini-calendar grid
+  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const firstDow    = new Date(calendarYear, calendarMonth, 1).getDay(); // 0=Sun
+  // Convert to Mon-first: Sun becomes 6
+  const firstDowMon = firstDow === 0 ? 6 : firstDow - 1;
+
+  // Which days have events
+  const eventDays = new Set(
+    upcomingEvents
+      .filter(e => {
+        const d = new Date(e.startDate);
+        return d.getFullYear() === calendarYear && d.getMonth() === calendarMonth;
+      })
+      .map(e => new Date(e.startDate).getDate()),
+  );
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<number>(today.getDate());
+
+  // Events for the selected calendar day
+  const eventsForDay = upcomingEvents.filter(e => {
+    const d = new Date(e.startDate);
+    return d.getFullYear() === calendarYear && d.getMonth() === calendarMonth && d.getDate() === selectedCalendarDay;
+  });
+
+  // Degree completion: use real value if available, fall back to computed
+  const completionPct = degreeCompletionPct != null
+    ? degreeCompletionPct
+    : profile.totalRequiredCredits > 0
+      ? Math.round((profile.completedCredits / profile.totalRequiredCredits) * 100)
+      : 0;
 
   return (
     <motion.div
@@ -66,7 +102,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h2>
               <p className="font-sans text-sm sm:text-base text-white/80 max-w-xl leading-relaxed">
                 You're making outstanding progress at Harmony College. You've completed{' '}
-                <span className="font-semibold" style={{ color: 'var(--brand-gold)' }}>85% of your core degree requirements</span>{' '}
+                <span className="font-semibold" style={{ color: 'var(--brand-gold)' }}>{completionPct}% of your core degree requirements</span>{' '}
                 for the {profile.major} major.
               </p>
               <div className="pt-2 flex flex-wrap gap-3">
@@ -204,31 +240,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Right: Calendar & Timetable */}
         <div className="lg:col-span-4 space-y-6 rounded-2xl p-6 shadow-xl border" style={{ backgroundColor: 'var(--bg-card-solid)', borderColor: 'var(--border-default)' }}>
+          {/* ── Mini Calendar ── */}
           <section className="space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="font-sans text-base font-bold" style={{ color: 'var(--text-primary)' }}>July 2024</h3>
-              <div className="flex gap-1">
-                <button className="p-1 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><ChevronLeft className="w-4 h-4" /></button>
-                <button className="p-1 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><ChevronRight className="w-4 h-4" /></button>
-              </div>
+              <h3 className="font-sans text-base font-bold" style={{ color: 'var(--text-primary)' }}>{monthName}</h3>
             </div>
-            <div className="grid grid-cols-7 gap-y-2 text-center font-mono text-xs">
+            <div className="grid grid-cols-7 gap-y-1 text-center font-mono text-xs">
               {['M','T','W','T','F','S','S'].map((day, idx) => (
-                <span key={idx} className="font-bold" style={{ color: 'var(--text-faint)' }}>{day}</span>
+                <span key={idx} className="font-bold py-1" style={{ color: 'var(--text-faint)' }}>{day}</span>
               ))}
-              {[15,16,17,18,19,20,21,22,23,24,25,26,27,28].map((day) => {
+              {/* Leading blank cells */}
+              {Array.from({ length: firstDowMon }).map((_, i) => <span key={`b${i}`} />)}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
                 const isSelected = selectedCalendarDay === day;
+                const hasEvent   = eventDays.has(day);
+                const isToday    = day === today.getDate();
                 return (
                   <button key={day} onClick={() => setSelectedCalendarDay(day)}
-                    className={`py-1 w-7 h-7 mx-auto rounded-full transition-all text-xs font-semibold ${isSelected ? 'shadow-sm font-bold scale-105' : ''}`}
+                    className="relative py-1 w-7 h-7 mx-auto rounded-full transition-all text-xs font-semibold flex items-center justify-center"
                     style={isSelected
                       ? { backgroundColor: 'var(--brand-gold)', color: 'var(--text-inverse)' }
-                      : { color: 'var(--text-primary)' }
-                    }
-                  >{day}</button>
+                      : isToday
+                        ? { border: '1.5px solid var(--brand-gold)', color: 'var(--brand-gold)' }
+                        : { color: 'var(--text-primary)' }
+                    }>
+                    {day}
+                    {hasEvent && !isSelected && (
+                      <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                        style={{ backgroundColor: 'var(--brand-gold)' }} />
+                    )}
+                  </button>
                 );
               })}
             </div>
+
+            {/* Events for selected day */}
+            {eventsForDay.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                {eventsForDay.map(ev => (
+                  <div key={ev.id} className="flex items-center gap-2 px-2 py-1.5 rounded-xl border text-xs"
+                    style={{ backgroundColor: 'var(--accent-gold-subtle)', borderColor: 'var(--accent-gold-border)' }}>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: 'var(--brand-gold)' }} />
+                    <span className="font-semibold truncate" style={{ color: 'var(--brand-gold)' }}>{ev.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <hr style={{ borderColor: 'var(--border-default)' }} />

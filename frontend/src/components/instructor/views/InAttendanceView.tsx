@@ -1,397 +1,735 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
   CalendarCheck, QrCode, RefreshCw, Clock, Users, CheckCircle2,
-  XCircle, AlertCircle, FileDown, Pencil, ChevronDown,
+  XCircle, AlertCircle, FileDown, ChevronDown, Lock, Unlock,
+  PlayCircle, StopCircle, Copy, Check,
 } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
-import { Modal } from '../../ui/Modal';
-import { SlidePanel } from '../../ui/SlidePanel';
-import { attendanceSessions } from '../../../data/instructorData';
-import { courses, students } from '../../../data/departmentData';
-import { AttendanceStatus, AttendanceRecord } from '../../../types/instructor';
+import { SkeletonPage, ErrorState, EmptyState } from '../../ui/States';
+import { AttendanceStatus } from '../../../types/instructor';
+import { useSocket } from '@/src/context/SocketContext';
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-const statusCfg: Record<AttendanceStatus, { variant: 'emerald'|'amber'|'rose'|'glass'; icon: React.ReactNode; bg: string }> = {
-  Present: { variant: 'emerald', icon: <CheckCircle2 className="w-3.5 h-3.5" />, bg: 'bg-(--status-success-bg) border-(--status-success-border)' },
-  Late:    { variant: 'amber',   icon: <Clock className="w-3.5 h-3.5" />,         bg: 'bg-(--status-warning-bg) border-(--status-warning-border)' },
-  Absent:  { variant: 'rose',    icon: <XCircle className="w-3.5 h-3.5" />,       bg: 'bg-(--status-danger-bg) border-(--status-danger-border)' },
-  Excused: { variant: 'glass',   icon: <AlertCircle className="w-3.5 h-3.5" />,   bg: 'bg-(--hover-overlay) border-(--border-default)' },
+// ── API helper ────────────────────────────────────────────────────────────────
+const API = '/api/attendance';
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...init, credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as any).error ?? `HTTP ${res.status}`);
+  return data as T;
+}
+
+// ── Status config ─────────────────────────────────────────────────────────────
+const STATUS_CFG: Record<AttendanceStatus, {
+  label: string; bg: string; border: string; text: string;
+  icon: React.ReactNode;
+}> = {
+  Present: {
+    label: 'Present', bg: 'var(--status-success-bg)', border: 'var(--status-success-border)', text: 'var(--status-success)',
+    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+  },
+  Late: {
+    label: 'Late', bg: 'var(--status-warning-bg)', border: 'var(--status-warning-border)', text: 'var(--status-warning)',
+    icon: <Clock className="w-3.5 h-3.5" />,
+  },
+  Absent: {
+    label: 'Absent', bg: 'var(--status-danger-bg)', border: 'var(--status-danger-border)', text: 'var(--status-danger)',
+    icon: <XCircle className="w-3.5 h-3.5" />,
+  },
+  Excused: {
+    label: 'Excused', bg: 'var(--hover-overlay)', border: 'var(--border-default)', text: 'var(--text-secondary)',
+    icon: <AlertCircle className="w-3.5 h-3.5" />,
+  },
 };
 
+// DB status → frontend AttendanceStatus
+function toFrontend(s: string): AttendanceStatus {
+  const map: Record<string, AttendanceStatus> = {
+    PRESENT: 'Present', LATE: 'Late', ABSENT: 'Absent', EXCUSED: 'Excused',
+  };
+  return map[s] ?? 'Absent';
+}
+function toBackend(s: AttendanceStatus): string {
+  return s.toUpperCase();
+}
+
+// ── QR visual pattern ─────────────────────────────────────────────────────────
 function QRPattern({ seed }: { seed: number }) {
-  // Deterministic pseudo-random grid for visual QR-like display
   const size = 11;
   const cells = Array.from({ length: size * size }, (_, i) => {
     const x = i % size; const y = Math.floor(i / size);
-    // Finder patterns (corners)
     if ((x < 3 && y < 3) || (x >= size - 3 && y < 3) || (x < 3 && y >= size - 3)) return true;
-    // Data modules — seeded pseudo-random
     return (((i * 2971 + seed * 1301) % 17) < 8);
   });
   return (
     <div className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${size}, 1fr)`, width: 220, height: 220 }}>
       {cells.map((on, i) => (
-        <div key={i} className={`rounded-[1px] ${on ? 'bg-(--bg-base)' : 'bg-transparent'}`} />
+        <div key={i} className="rounded-[1px]" style={{ backgroundColor: on ? 'var(--bg-base)' : 'transparent' }} />
       ))}
     </div>
   );
 }
 
-// ── component ─────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 export const InAttendanceView: React.FC = () => {
+  const { onAttendanceRecord, onAttendanceClosed, joinAttendanceRoom, leaveAttendanceRoom } = useSocket();
+
+  // ── State ─────────────────────────────────────────────────────────────────
   const [view, setView] = useState<'qr' | 'manual' | 'history'>('qr');
-  const [sessionActive, setSessionActive] = useState(true);
-  const [selectedCourse, setSelectedCourse] = useState<'c01' | 'c02'>('c01');
-  const [qrSeed, setQrSeed] = useState(Date.now());
-  const [countdown, setCountdown] = useState(25);
-  const [manualModal, setManualModal] = useState(false);
 
-  // Pull the initial session
-  const session = attendanceSessions.find(s => s.courseId === selectedCourse) ?? attendanceSessions[0];
-  const course = courses.find(c => c.id === selectedCourse);
+  // Courses / session selection
+  const [sessions, setSessions]             = useState<any[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionsError, setSessionsError]   = useState<string | null>(null);
 
-  // Live student list with editable statuses
-  const allStudents = students.filter(s => s.enrolledCourseIds.includes(selectedCourse));
-  const [statuses, setStatuses] = useState<Record<string, AttendanceStatus>>(() => {
-    const init: Record<string, AttendanceStatus> = {};
-    allStudents.forEach(s => {
-      const rec = session?.records.find(r => r.studentId === s.id);
-      init[s.id] = rec?.status ?? 'Absent';
-    });
-    return init;
-  });
-  const [remarks, setRemarks] = useState<Record<string, string>>({});
-  const [saved, setSaved] = useState(false);
+  // Current session details
+  const [roster, setRoster]                 = useState<any[]>([]);
+  const [rosterLoading, setRosterLoading]   = useState(false);
+  const [sessionOpen, setSessionOpen]       = useState(false);
+  const [sessionFinalized, setSessionFinalized] = useState(false);
 
-  // QR auto-rotate countdown
+  // QR token
+  const [qrToken, setQrToken]               = useState<string | null>(null);
+  const [qrSeed, setQrSeed]                 = useState(Date.now());
+  const [countdown, setCountdown]           = useState(30);
+  const [tokenLoading, setTokenLoading]     = useState(false);
+  const [copied, setCopied]                 = useState(false);
+
+  // Manual entry
+  const [statuses, setStatuses]             = useState<Record<string, AttendanceStatus>>({});
+  const [notes, setNotes]                   = useState<Record<string, string>>({});
+  const [saving, setSaving]                 = useState(false);
+  const [saved, setSaved]                   = useState(false);
+
+  // History
+  const [history, setHistory]               = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Operation in-progress flags
+  const [opening, setOpening] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Load today's sessions ─────────────────────────────────────────────────
+  const loadSessions = useCallback(async () => {
+    setSessionsLoading(true); setSessionsError(null);
+    try {
+      const data = await apiFetch<any[]>(`${API}/sessions/today`);
+      setSessions(data);
+      if (data.length > 0 && !selectedSessionId) {
+        setSelectedSessionId(data[0].id);
+      }
+    } catch (e: unknown) {
+      setSessionsError(e instanceof Error ? e.message : 'Failed to load sessions');
+    } finally { setSessionsLoading(false); }
+  }, [selectedSessionId]);
+
+  useEffect(() => { loadSessions(); }, []);
+
+  // ── Load roster when session changes ─────────────────────────────────────
+  const loadRoster = useCallback(async (sessionId: string) => {
+    if (!sessionId) return;
+    setRosterLoading(true);
+    try {
+      const data = await apiFetch<any>(`${API}/sessions/${sessionId}/roster`);
+      setRoster(data.records ?? []);
+      setSessionOpen(data.session?.status === 'OPEN');
+      setSessionFinalized(data.session?.status === 'FINALIZED');
+
+      // Initialise statuses from DB
+      const s: Record<string, AttendanceStatus> = {};
+      const n: Record<string, string> = {};
+      for (const r of (data.records ?? [])) {
+        s[r.studentRecordId] = toFrontend(r.status);
+        n[r.studentRecordId] = r.note ?? '';
+      }
+      setStatuses(s); setNotes(n);
+    } catch { /* keep empty roster */ }
+    finally { setRosterLoading(false); }
+  }, []);
+
   useEffect(() => {
-    if (!sessionActive) return;
-    const interval = setInterval(() => {
+    if (selectedSessionId) loadRoster(selectedSessionId);
+  }, [selectedSessionId, loadRoster]);
+
+  // ── Load history for a specific offering ─────────────────────────────────
+  const loadHistory = useCallback(async () => {
+    const session = sessions.find(s => s.id === selectedSessionId);
+    if (!session?.courseOfferingId) return;
+    setHistoryLoading(true);
+    try {
+      const data = await apiFetch<any>(`${API}/sessions/offering/${session.courseOfferingId}`);
+      setHistory(Array.isArray(data) ? data : (data.sessions ?? []));
+    } catch { setHistory([]); }
+    finally { setHistoryLoading(false); }
+  }, [sessions, selectedSessionId]);
+
+  useEffect(() => {
+    if (view === 'history' && selectedSessionId) loadHistory();
+  }, [view, selectedSessionId, loadHistory]);
+
+  // ── QR countdown ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!sessionOpen || !qrToken) { if (timerRef.current) clearInterval(timerRef.current); return; }
+    timerRef.current = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) { setQrSeed(Date.now()); return 25; }
+        if (prev <= 1) {
+          // Auto-refresh token
+          if (selectedSessionId) generateQrToken(selectedSessionId);
+          return 30;
+        }
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(interval);
-  }, [sessionActive]);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [sessionOpen, qrToken, selectedSessionId]);
 
-  const handleRefreshQr = () => { setQrSeed(Date.now()); setCountdown(25); };
-  const handleMarkAll = (status: AttendanceStatus) => {
-    const updated: Record<string, AttendanceStatus> = {};
-    allStudents.forEach(s => { updated[s.id] = status; });
-    setStatuses(updated);
+  // ── Realtime: new check-in via QR ─────────────────────────────────────────
+  useEffect(() => {
+    const unsub = onAttendanceRecord((ev) => {
+      if (ev.sessionId !== selectedSessionId) return;
+      setRoster(prev => prev.map(r =>
+        r.studentRecordId === ev.studentRecordId
+          ? { ...r, status: ev.status, markedAt: ev.markedAt, method: ev.method }
+          : r,
+      ));
+      setStatuses(prev => ({ ...prev, [ev.studentRecordId]: toFrontend(ev.status) }));
+    });
+    return unsub;
+  }, [selectedSessionId, onAttendanceRecord]);
+
+  // ── Realtime: session closed/finalized by server ───────────────────────────
+  useEffect(() => {
+    const unsub = onAttendanceClosed((ev) => {
+      if (ev.sessionId !== selectedSessionId) return;
+      if (ev.status === 'FINALIZED') { setSessionFinalized(true); setSessionOpen(false); }
+      else { setSessionOpen(false); }
+      setQrToken(null);
+    });
+    return unsub;
+  }, [selectedSessionId, onAttendanceClosed]);
+
+  // ── Join / leave the course attendance room for realtime events ────────────
+  useEffect(() => {
+    const session = sessions.find(s => s.id === selectedSessionId);
+    if (!session?.courseOfferingId) return;
+    joinAttendanceRoom(session.courseOfferingId);
+    return () => { leaveAttendanceRoom(session.courseOfferingId); };
+  }, [selectedSessionId, sessions, joinAttendanceRoom, leaveAttendanceRoom]);
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+  const generateQrToken = async (sessionId: string) => {
+    setTokenLoading(true);
+    try {
+      const res = await apiFetch<{ rawToken: string }>(`${API}/sessions/${sessionId}/qr-token`, { method: 'POST' });
+      setQrToken(res.rawToken);
+      setQrSeed(Date.now());
+      setCountdown(30);
+    } catch { /* keep old token */ }
+    finally { setTokenLoading(false); }
   };
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
 
-  const presentCount = Object.values(statuses).filter(s => s === 'Present').length;
-  const lateCount    = Object.values(statuses).filter(s => s === 'Late').length;
-  const absentCount  = Object.values(statuses).filter(s => s === 'Absent').length;
-  const excusedCount = Object.values(statuses).filter(s => s === 'Excused').length;
-  const attendancePct = allStudents.length
-    ? Math.round(((presentCount + lateCount) / allStudents.length) * 100)
+  const handleOpenSession = async () => {
+    if (!selectedSessionId) return;
+    setOpening(true);
+    try {
+      await apiFetch(`${API}/sessions/${selectedSessionId}/open`, { method: 'POST' });
+      setSessionOpen(true);
+      await generateQrToken(selectedSessionId);
+      await loadRoster(selectedSessionId);
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Open failed'); }
+    finally { setOpening(false); }
+  };
+
+  const handleCloseSession = async () => {
+    if (!selectedSessionId) return;
+    setClosing(true);
+    try {
+      await apiFetch(`${API}/sessions/${selectedSessionId}/close`, { method: 'POST' });
+      setSessionOpen(false);
+      setQrToken(null);
+      await loadRoster(selectedSessionId);
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Close failed'); }
+    finally { setClosing(false); }
+  };
+
+  const handleFinalize = async () => {
+    if (!selectedSessionId || !confirm('Finalize this session? This permanently locks attendance records.')) return;
+    setFinalizing(true);
+    try {
+      await apiFetch(`${API}/sessions/${selectedSessionId}/finalize`, { method: 'POST' });
+      setSessionFinalized(true); setSessionOpen(false);
+      await loadRoster(selectedSessionId);
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Finalize failed'); }
+    finally { setFinalizing(false); }
+  };
+
+  const handleMarkOne = async (studentRecordId: string, status: AttendanceStatus) => {
+    if (!selectedSessionId) return;
+    const record = roster.find(r => r.studentRecordId === studentRecordId);
+    if (!record) return;
+    setStatuses(prev => ({ ...prev, [studentRecordId]: status }));
+    try {
+      await apiFetch(`${API}/sessions/${selectedSessionId}/mark`, {
+        method: 'PATCH',
+        body: JSON.stringify({ studentRecordId: record.attendanceRecordId ?? record.id, status: toBackend(status), note: notes[studentRecordId] }),
+      });
+    } catch { /* revert optimistic */
+      setStatuses(prev => ({ ...prev, [studentRecordId]: toFrontend(record.status) }));
+    }
+  };
+
+  const handleBulkSave = async () => {
+    if (!selectedSessionId) return;
+    setSaving(true);
+    try {
+      const marks = roster.map(r => ({
+        studentRecordId: r.attendanceRecordId ?? r.id,
+        status: toBackend(statuses[r.studentRecordId] ?? 'Absent'),
+      }));
+      await apiFetch(`${API}/sessions/${selectedSessionId}/bulk-mark`, {
+        method: 'POST', body: JSON.stringify({ marks }),
+      });
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+      await loadRoster(selectedSessionId);
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleMarkAll = (status: AttendanceStatus) => {
+    const next: Record<string, AttendanceStatus> = {};
+    roster.forEach(r => { next[r.studentRecordId] = status; });
+    setStatuses(next);
+  };
+
+  const exportCSV = () => {
+    if (!roster.length) return;
+    const headers = ['Name', 'Student ID', 'Status', 'Method', 'Time'];
+    const rows = roster.map(r => [
+      r.student?.fullName ?? 'Unknown',
+      r.student?.studentId ?? '',
+      statuses[r.studentRecordId] ?? 'Absent',
+      r.method ?? 'Manual',
+      r.markedAt ? new Date(r.markedAt).toLocaleTimeString() : '—',
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `attendance-${selectedSessionId}.csv`; a.click();
+  };
+
+  const copyToken = () => {
+    if (!qrToken) return;
+    navigator.clipboard.writeText(qrToken).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
+  // ── Derived counts ────────────────────────────────────────────────────────
+  const counts = {
+    Present: Object.values(statuses).filter(s => s === 'Present').length,
+    Late:    Object.values(statuses).filter(s => s === 'Late').length,
+    Absent:  Object.values(statuses).filter(s => s === 'Absent').length,
+    Excused: Object.values(statuses).filter(s => s === 'Excused').length,
+  };
+  const rate = roster.length
+    ? Math.round(((counts.Present + counts.Late) / roster.length) * 100)
     : 0;
 
+  const selectedSession = sessions.find(s => s.id === selectedSessionId);
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  if (sessionsLoading) return <SkeletonPage />;
+  if (sessionsError)   return <ErrorState variant="network" onRetry={loadSessions} description={sessionsError} />;
+
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
+
       <DHPageHeader
         title="Attendance"
-        subtitle={sessionActive ? 'QR session active' : 'No active session'}
+        subtitle={sessionOpen ? '● Live session active' : selectedSession ? `${selectedSession.courseCode ?? ''} — ${new Date(selectedSession.date ?? Date.now()).toLocaleDateString()}` : 'Select a session'}
         icon={<CalendarCheck className="w-5 h-5" />}
         actions={
-          <div className="flex gap-2 items-center">
-            {/* Course picker */}
-            <div className="relative">
-              <select
-                value={selectedCourse}
-                onChange={e => setSelectedCourse(e.target.value as 'c01' | 'c02')}
-                className="appearance-none pl-3 pr-7 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-              >
-                <option className="bg-(--bg-card-solid)" value="c01">FILM402</option>
-                <option className="bg-(--bg-card-solid)" value="c02">FILM301</option>
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-(--text-faint) pointer-events-none" />
-            </div>
-            {!sessionActive
-              ? <Button variant="primary" size="sm" icon={<QrCode className="w-4 h-4" />} onClick={() => setSessionActive(true)}>Start Session</Button>
-              : <Button variant="danger" size="sm" onClick={() => setSessionActive(false)}>End Session</Button>
-            }
+          <div className="flex gap-2 items-center flex-wrap">
+            {/* Session picker */}
+            {sessions.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedSessionId}
+                  onChange={e => setSelectedSessionId(e.target.value)}
+                  className="appearance-none pl-3 pr-7 py-2 rounded-xl font-sans text-xs focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--hover-overlay)',
+                    border: '1px solid var(--border-default)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {sessions.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.courseCode ?? s.course?.code ?? 'Session'} · {new Date(s.date ?? Date.now()).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+                  style={{ color: 'var(--text-faint)' }} />
+              </div>
+            )}
+            {/* Session lifecycle buttons */}
+            {!sessionFinalized && !sessionOpen && (
+              <Button variant="primary" size="sm" disabled={opening || !selectedSessionId}
+                icon={<PlayCircle className="w-4 h-4" />} onClick={handleOpenSession}>
+                {opening ? 'Opening…' : 'Open Session'}
+              </Button>
+            )}
+            {sessionOpen && (
+              <>
+                <Button variant="secondary" size="sm" disabled={closing}
+                  icon={<StopCircle className="w-4 h-4" />} onClick={handleCloseSession}>
+                  {closing ? 'Closing…' : 'Close Session'}
+                </Button>
+                <Button variant="danger" size="sm" disabled={finalizing} onClick={handleFinalize}>
+                  {finalizing ? 'Finalizing…' : 'Finalize'}
+                </Button>
+              </>
+            )}
+            {!sessionOpen && !sessionFinalized && selectedSessionId && (
+              <Button variant="danger" size="sm" disabled={finalizing} onClick={handleFinalize}>
+                {finalizing ? 'Finalizing…' : 'Finalize'}
+              </Button>
+            )}
           </div>
         }
       />
 
-      {/* View toggle */}
-      <div className="flex gap-2 flex-wrap">
-        {([['qr', 'QR Attendance'], ['manual', 'Manual Entry'], ['history', 'Session History']] as const).map(([id, label]) => (
-          <button key={id} onClick={() => setView(id)}
-            className={`px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${view === id ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Empty state — no sessions today */}
+      {sessions.length === 0 && (
+        <EmptyState variant="timetable"
+          title="No sessions today"
+          description="You have no scheduled classes for today. Sessions are auto-generated from your timetable." />
+      )}
 
-      {/* ── QR View ── */}
-      {view === 'qr' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* QR panel */}
-          <Card hoverable={false} className="lg:col-span-2 space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-serif text-xl font-bold text-(--text-primary)">
-                  {sessionActive ? 'Live QR Code' : 'Session Ended'}
-                </h3>
-                <p className="font-sans text-xs text-(--text-muted) mt-0.5">
-                  {course?.code} · {course?.title} · {session?.date}
-                </p>
+      {sessions.length > 0 && (
+        <>
+          {/* View toggle */}
+          <div className="flex gap-2 flex-wrap">
+            {([['qr', 'QR Attendance'], ['manual', 'Manual Entry'], ['history', 'Session History']] as const).map(([id, label]) => (
+              <button key={id} onClick={() => setView(id)}
+                className="px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all"
+                style={view === id
+                  ? { backgroundColor: 'var(--accent-gold-subtle)', borderColor: 'var(--accent-gold-border)', color: 'var(--brand-gold)' }
+                  : { backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── QR View ─────────────────────────────────────────────────── */}
+          {view === 'qr' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* QR Panel */}
+              <Card hoverable={false} className="lg:col-span-2 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-serif text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                      {sessionOpen ? 'Live QR Code' : sessionFinalized ? 'Session Finalized' : 'Session Closed'}
+                    </h3>
+                    <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      {selectedSession?.courseCode ?? '—'} · {selectedSession?.courseName ?? ''} · {selectedSession?.date ? new Date(selectedSession.date).toLocaleDateString() : ''}
+                    </p>
+                  </div>
+                  {sessionFinalized
+                    ? <Badge variant="glass"><Lock className="w-3 h-3 mr-1 inline" />Finalized</Badge>
+                    : sessionOpen
+                      ? <Badge variant="emerald" className="animate-pulse">● Live</Badge>
+                      : <Badge variant="rose">Closed</Badge>}
+                </div>
+
+                <div className="flex flex-col items-center gap-5">
+                  <div className={`relative p-4 bg-white rounded-2xl shadow-2xl transition-opacity ${sessionOpen ? 'opacity-100' : 'opacity-30'}`}>
+                    <motion.div key={qrSeed} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                      transition={{ ...DURATION.medium, ...EASE.out }}>
+                      <QRPattern seed={qrSeed} />
+                    </motion.div>
+                    {sessionOpen && qrToken && (
+                      <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full shadow-lg"
+                        style={{ backgroundColor: 'var(--bg-card-solid)', border: '1px solid var(--border-strong)' }}>
+                        <motion.div className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: 'var(--brand-gold)' }}
+                          animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+                        <span className="font-mono text-[11px] font-bold" style={{ color: 'var(--brand-gold)' }}>
+                          Refreshes in {countdown}s
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Token display */}
+                  {qrToken && sessionOpen && (
+                    <div className="w-full max-w-sm flex items-center gap-2 px-3 py-2 rounded-xl"
+                      style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)' }}>
+                      <p className="font-mono text-[11px] flex-1 truncate" style={{ color: 'var(--text-faint)' }}>
+                        {qrToken}
+                      </p>
+                      <button onClick={copyToken} className="shrink-0 transition-colors"
+                        style={{ color: copied ? 'var(--status-success)' : 'var(--text-muted)' }}>
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />}
+                      onClick={() => selectedSessionId && generateQrToken(selectedSessionId)}
+                      disabled={!sessionOpen || tokenLoading}>
+                      {tokenLoading ? 'Generating…' : 'New QR Token'}
+                    </Button>
+                    <Button variant="secondary" size="sm" icon={<FileDown className="w-4 h-4" />}
+                      onClick={exportCSV} disabled={!roster.length}>
+                      Export CSV
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Stats + Live feed */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => {
+                    const cfg = STATUS_CFG[s];
+                    return (
+                      <div key={s} className="p-3.5 border rounded-xl"
+                        style={{ backgroundColor: cfg.bg, borderColor: cfg.border }}>
+                        <p className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>{s}</p>
+                        <p className="font-mono text-2xl font-bold mt-0.5" style={{ color: cfg.text }}>{counts[s]}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="p-4 border rounded-xl" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>Session Rate</p>
+                    <p className="font-mono text-xl font-bold" style={{ color: rate >= 80 ? 'var(--status-success)' : 'var(--status-danger)' }}>{rate}%</p>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--hover-overlay)' }}>
+                    <motion.div className="h-full rounded-full"
+                      style={{ backgroundColor: rate >= 80 ? 'var(--status-success)' : 'var(--status-danger)' }}
+                      initial={{ width: 0 }} animate={{ width: `${rate}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut' }} />
+                  </div>
+                  <p className="font-sans text-[10px] mt-2" style={{ color: 'var(--text-faint)' }}>
+                    {roster.length} enrolled · {selectedSession?.startTime ?? ''}–{selectedSession?.endTime ?? ''}
+                  </p>
+                </div>
+
+                {/* Live check-in feed */}
+                <Card hoverable={false} className="p-4 space-y-3">
+                  <p className="font-mono text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+                    Live Check-ins
+                    {sessionOpen && <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-[var(--status-success)] animate-pulse" />}
+                  </p>
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {rosterLoading ? (
+                      <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>Loading…</p>
+                    ) : roster.filter(r => r.markedAt && r.status !== 'ABSENT').length === 0 ? (
+                      <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>No check-ins yet.</p>
+                    ) : (
+                      roster
+                        .filter(r => r.markedAt && r.status !== 'ABSENT')
+                        .sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime())
+                        .map((rec, i) => {
+                          const cfg = STATUS_CFG[toFrontend(rec.status)];
+                          return (
+                            <motion.div key={rec.id ?? i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.04 }}
+                              className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                                  {rec.student?.fullName ?? 'Unknown'}
+                                </p>
+                                <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                                  {new Date(rec.markedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                  {rec.method === 'QR' && ' · QR'}
+                                </p>
+                              </div>
+                              <span className="flex items-center gap-1 font-mono text-[10px] font-semibold shrink-0"
+                                style={{ color: cfg.text }}>
+                                {cfg.icon} {cfg.label}
+                              </span>
+                            </motion.div>
+                          );
+                        })
+                    )}
+                  </div>
+                </Card>
               </div>
-              {sessionActive
-                ? <Badge variant="emerald" className="animate-pulse">● Live</Badge>
-                : <Badge variant="rose">Ended</Badge>
-              }
             </div>
+          )}
 
-            {/* QR Code display */}
-            <div className="flex flex-col items-center gap-5">
-              <div className={`relative p-4 bg-white rounded-2xl shadow-2xl transition-opacity ${sessionActive ? 'opacity-100' : 'opacity-40'}`}>
-                <motion.div
-                  key={qrSeed}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ ...DURATION.medium, ...EASE.out }}
-                >
-                  <QRPattern seed={qrSeed} />
-                </motion.div>
-                {/* Countdown ring overlay */}
-                {sessionActive && (
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-(--bg-card-solid) border border-(--border-strong) px-3 py-1 rounded-full shadow-lg">
-                    <motion.div
-                      className="w-1.5 h-1.5 rounded-full bg-[#E9C349]"
-                      animate={{ opacity: [1, 0.3, 1] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    />
-                    <span className="font-mono text-[11px] text-(--brand-gold) font-bold">Refreshes in {countdown}s</span>
+          {/* ── Manual Entry View ────────────────────────────────────────── */}
+          {view === 'manual' && (
+            <Card hoverable={false} className="space-y-5">
+              {sessionFinalized && (
+                <div className="flex items-center gap-2 p-3 rounded-xl text-xs font-semibold"
+                  style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>
+                  <Lock className="w-4 h-4" /> This session is finalized. Records are locked.
+                </div>
+              )}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h3 className="font-serif text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Manual Attendance</h3>
+                  <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {selectedSession?.courseCode ?? ''} · {roster.length} students enrolled
+                  </p>
+                </div>
+                {!sessionFinalized && (
+                  <div className="flex gap-2 flex-wrap">
+                    <Button variant="secondary" size="sm" onClick={() => handleMarkAll('Present')}>All Present</Button>
+                    <Button variant="secondary" size="sm" onClick={() => handleMarkAll('Absent')}>Reset All</Button>
+                    {saved && (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold"
+                        style={{ color: 'var(--status-success)' }}>
+                        <CheckCircle2 className="w-4 h-4" /> Saved
+                      </span>
+                    )}
+                    <Button variant="primary" size="sm" disabled={saving}
+                      icon={<CheckCircle2 className="w-4 h-4" />} onClick={handleBulkSave}>
+                      {saving ? 'Saving…' : 'Save All'}
+                    </Button>
                   </div>
                 )}
               </div>
 
-              <div className="text-center">
-                <p className="font-mono text-[10px] text-(--text-faint) tracking-wider">{session?.qrCode}</p>
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={handleRefreshQr} disabled={!sessionActive}>
-                  Refresh QR
-                </Button>
-                <Button variant="secondary" size="sm" icon={<Pencil className="w-4 h-4" />} onClick={() => setManualModal(true)}>
-                  Manual Entry
-                </Button>
-                <Button variant="secondary" size="sm" icon={<FileDown className="w-4 h-4" />}>Export</Button>
-              </div>
-            </div>
-          </Card>
-
-          {/* Stats panel */}
-          <div className="space-y-4">
-            {/* Summary stats */}
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Present', value: presentCount, color: 'text-(--status-success)', bg: 'bg-(--status-success-bg) border-(--status-success-border)' },
-                { label: 'Late',    value: lateCount,    color: 'text-(--status-warning)',   bg: 'bg-(--status-warning-bg) border-(--status-warning-border)' },
-                { label: 'Absent',  value: absentCount,  color: 'text-(--status-danger)',    bg: 'bg-(--status-danger-bg) border-(--status-danger-border)' },
-                { label: 'Excused', value: excusedCount, color: 'text-(--text-secondary)',    bg: 'bg-(--hover-overlay) border-(--border-default)' },
-              ].map(item => (
-                <div key={item.label} className={`p-3.5 border rounded-xl ${item.bg}`}>
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{item.label}</p>
-                  <p className={`font-mono text-2xl font-bold mt-0.5 ${item.color}`}>{item.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Attendance rate */}
-            <div className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Session Rate</p>
-                <p className={`font-mono text-xl font-bold ${attendancePct >= 80 ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>{attendancePct}%</p>
-              </div>
-              <div className="h-2 bg-(--hover-overlay) rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ backgroundColor: attendancePct >= 80 ? '#34d399' : '#f87171' }}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${attendancePct}%` }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
-                />
-              </div>
-              <p className="font-sans text-[10px] text-(--text-faint) mt-2">{allStudents.length} enrolled · {session?.startTime}–{session?.endTime}</p>
-            </div>
-
-            {/* Live check-in feed */}
-            <Card hoverable={false} className="space-y-3 p-4">
-              <p className="font-mono text-[11px] uppercase tracking-wider text-(--text-faint)">Check-in Feed</p>
-              <div className="space-y-2 max-h-52 overflow-y-auto">
-                {session?.records.map((rec, i) => {
-                  const student = students.find(s => s.id === rec.studentId);
-                  const cfg = statusCfg[rec.status];
-                  return (
-                    <motion.div key={rec.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
-                      className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <img src={student?.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-(--border-default) shrink-0" />
-                        <p className="font-sans text-xs text-(--text-secondary) truncate">{student?.name}</p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {rec.markedAt && <span className="font-mono text-[10px] text-(--text-faint)">{rec.markedAt}</span>}
-                        <Badge variant={cfg.variant} className="text-[10px] py-0">{rec.status}</Badge>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* ── Manual Entry View ── */}
-      {view === 'manual' && (
-        <Card hoverable={false} className="space-y-5">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Manual Attendance</h3>
-              <p className="font-sans text-xs text-(--text-muted) mt-0.5">{course?.code} · {allStudents.length} students</p>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button variant="secondary" size="sm" onClick={() => handleMarkAll('Present')}>Mark All Present</Button>
-              <Button variant="secondary" size="sm" onClick={() => handleMarkAll('Absent')}>Reset All</Button>
-              {saved && (
-                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 text-(--status-success) font-sans text-xs">
-                  <CheckCircle2 className="w-4 h-4" /> Saved
-                </motion.span>
-              )}
-              <Button variant="primary" size="sm" icon={<CheckCircle2 className="w-4 h-4" />} onClick={handleSave}>Save & Submit</Button>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs font-sans min-w-[600px]">
-              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-                <tr>
-                  {['Student', 'ID', 'Status', 'Note'].map(h => (
-                    <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle)">
-                {allStudents.map(student => (
-                  <tr key={student.id} className="hover:bg-(--hover-overlay) transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <img src={student.avatar} alt={student.name} className="w-7 h-7 rounded-full border border-(--border-default) shrink-0" />
-                        <span className="font-semibold text-(--text-primary)">{student.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-(--text-faint)">{student.studentId}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => (
-                          <button
-                            key={s}
-                            onClick={() => setStatuses(prev => ({ ...prev, [student.id]: s }))}
-                            className={`px-2 py-1 rounded-lg font-sans text-[10px] font-semibold border transition-all ${
-                              statuses[student.id] === s
-                                ? s === 'Present' ? 'bg-(--status-success-bg) border-(--status-success-border) text-(--status-success)'
-                                  : s === 'Late'    ? 'bg-(--status-warning-bg) border-(--status-warning-border) text-(--status-warning)'
-                                  : s === 'Absent'  ? 'bg-(--status-danger-bg) border-(--status-danger-border) text-(--status-danger)'
-                                  : 'bg-(--hover-overlay) border-(--border-strong) text-(--text-secondary)'
-                                : 'bg-transparent border-(--border-default) text-(--text-faint) hover:border-(--border-strong) hover:text-(--text-secondary)'
-                            }`}
-                          >
-                            {s}
-                          </button>
+              {rosterLoading ? <SkeletonPage /> : roster.length === 0 ? (
+                <EmptyState variant="default" title="No students enrolled" description="No enrollment records found for this session." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs font-sans min-w-[600px]">
+                    <thead style={{ backgroundColor: 'var(--hover-overlay)', borderBottom: '1px solid var(--border-default)' }}>
+                      <tr>
+                        {['Student', 'Student ID', 'Status', 'Note'].map(h => (
+                          <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-left"
+                            style={{ color: 'var(--text-muted)' }}>{h}</th>
                         ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roster.map((r, i) => (
+                        <tr key={r.studentRecordId} className="transition-colors"
+                          style={{ borderBottom: i < roster.length - 1 ? '1px solid var(--border-subtle)' : undefined }}
+                          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+                          onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}>
+                          <td className="px-4 py-3">
+                            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                              {r.student?.fullName ?? 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                            {r.student?.studentId ?? '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1 flex-wrap">
+                              {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => {
+                                const cfg = STATUS_CFG[s];
+                                const active = statuses[r.studentRecordId] === s;
+                                return (
+                                  <button key={s} disabled={sessionFinalized}
+                                    onClick={() => handleMarkOne(r.studentRecordId, s)}
+                                    className="px-2 py-1 rounded-lg font-sans text-[10px] font-semibold border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    style={active
+                                      ? { backgroundColor: cfg.bg, borderColor: cfg.border, color: cfg.text }
+                                      : { backgroundColor: 'transparent', borderColor: 'var(--border-default)', color: 'var(--text-faint)' }}>
+                                    {s}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <input type="text" disabled={sessionFinalized}
+                              value={notes[r.studentRecordId] ?? ''}
+                              onChange={e => setNotes(prev => ({ ...prev, [r.studentRecordId]: e.target.value }))}
+                              placeholder="Optional note…"
+                              className="w-full bg-transparent border-b outline-none font-sans text-xs py-0.5 transition-colors placeholder:opacity-30 disabled:cursor-not-allowed"
+                              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+                              onFocus={e => (e.target.style.borderColor = 'var(--brand-gold)')}
+                              onBlur={e => (e.target.style.borderColor = 'var(--border-default)')}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* ── Session History ──────────────────────────────────────────── */}
+          {view === 'history' && (
+            <div className="space-y-4">
+              {historyLoading ? <SkeletonPage /> : history.length === 0 ? (
+                <EmptyState variant="timetable" title="No session history" description="No previous sessions found for this course." />
+              ) : (
+                history.map(s => {
+                  const pres = (s.records ?? []).filter((r: any) => r.status === 'PRESENT' || r.status === 'LATE').length;
+                  const total = (s.records ?? []).length || s._count?.records || 0;
+                  const pct = total ? Math.round((pres / total) * 100) : 0;
+                  const isFinalized = s.status === 'FINALIZED';
+                  return (
+                    <Card key={s.id} hoverable className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-mono text-xs font-bold" style={{ color: 'var(--brand-gold)' }}>
+                            {s.courseCode ?? s.course?.code ?? '—'}
+                          </span>
+                          <p className="font-sans text-sm font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                            {s.date ? new Date(s.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}
+                            {s.startTime ? ` · ${s.startTime}–${s.endTime}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={pct >= 80 ? 'emerald' : 'rose'}>{pct}%</Badge>
+                          {isFinalized
+                            ? <Badge variant="glass"><Lock className="w-3 h-3 mr-1 inline" />Finalized</Badge>
+                            : s.status === 'OPEN'
+                              ? <Badge variant="emerald" className="animate-pulse">● Open</Badge>
+                              : <Badge variant="glass">Closed</Badge>}
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        value={remarks[student.id] ?? ''}
-                        onChange={e => setRemarks(prev => ({ ...prev, [student.id]: e.target.value }))}
-                        placeholder="Optional note..."
-                        className="w-full bg-transparent border-b border-(--border-default) focus:border-(--brand-gold) outline-none font-sans text-xs text-(--text-secondary) py-0.5 transition-colors placeholder:text-(--text-faint)"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* ── Session History ── */}
-      {view === 'history' && (
-        <div className="space-y-4">
-          {attendanceSessions.map(s => {
-            const c = courses.find(x => x.id === s.courseId);
-            const pres = s.records.filter(r => r.status === 'Present' || r.status === 'Late').length;
-            const pct  = s.records.length ? Math.round((pres / s.records.length) * 100) : 0;
-            return (
-              <Card key={s.id} hoverable className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-mono text-xs font-bold text-(--brand-gold)">{c?.code}</span>
-                    <p className="font-sans text-sm font-semibold text-(--text-primary) mt-0.5">{s.date} · {s.startTime}–{s.endTime}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={pct >= 80 ? 'emerald' : 'rose'}>{pct}%</Badge>
-                    {s.isActive && <Badge variant="emerald" className="animate-pulse">Active</Badge>}
-                  </div>
-                </div>
-                <div className="flex gap-4 text-xs font-mono text-(--text-muted)">
-                  <span className="text-(--status-success)">{s.records.filter(r => r.status === 'Present').length} Present</span>
-                  <span className="text-(--status-warning)">{s.records.filter(r => r.status === 'Late').length} Late</span>
-                  <span className="text-(--status-danger)">{s.records.filter(r => r.status === 'Absent').length} Absent</span>
-                  <span className="text-(--text-faint)">{s.records.filter(r => r.status === 'Excused').length} Excused</span>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Manual Quick-Add — SlidePanel */}
-      <SlidePanel isOpen={manualModal} onClose={() => setManualModal(false)} title="Quick Mark — Manual Attendance" subtitle="Attendance" width="max-w-md">
-        <div className="space-y-3 font-sans text-sm">
-          <p className="text-(--text-secondary) text-xs">Select a student to quickly mark their attendance status.</p>
-          {allStudents.map(student => (
-            <div key={student.id} className="flex items-center justify-between gap-3 p-3 bg-(--hover-overlay) rounded-xl">
-              <div className="flex items-center gap-2">
-                <img src={student.avatar} alt="" className="w-7 h-7 rounded-full border border-(--border-default)" />
-                <span className="font-sans text-xs font-semibold text-(--text-primary)">{student.name}</span>
-              </div>
-              <select
-                value={statuses[student.id]}
-                onChange={e => setStatuses(prev => ({ ...prev, [student.id]: e.target.value as AttendanceStatus }))}
-                className="bg-(--hover-overlay) border border-(--border-default) rounded-lg px-2 py-1 font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-              >
-                {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => (
-                  <option key={s} className="bg-(--bg-card-solid)" value={s}>{s}</option>
-                ))}
-              </select>
+                      <div className="flex gap-4 text-xs font-mono flex-wrap">
+                        <span style={{ color: 'var(--status-success)' }}>
+                          {(s.records ?? []).filter((r: any) => r.status === 'PRESENT').length} Present
+                        </span>
+                        <span style={{ color: 'var(--status-warning)' }}>
+                          {(s.records ?? []).filter((r: any) => r.status === 'LATE').length} Late
+                        </span>
+                        <span style={{ color: 'var(--status-danger)' }}>
+                          {(s.records ?? []).filter((r: any) => r.status === 'ABSENT').length} Absent
+                        </span>
+                        <span style={{ color: 'var(--text-faint)' }}>
+                          {(s.records ?? []).filter((r: any) => r.status === 'EXCUSED').length} Excused
+                        </span>
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
             </div>
-          ))}
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setManualModal(false)}>Cancel</Button>
-            <Button variant="primary" className="flex-1" onClick={() => { handleSave(); setManualModal(false); }}>Save</Button>
-          </div>
-        </div>
-      </SlidePanel>
+          )}
+        </>
+      )}
     </motion.div>
   );
 };

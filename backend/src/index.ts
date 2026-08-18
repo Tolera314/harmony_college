@@ -6,14 +6,14 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
 
-import authRouter          from './routes/auth';
-import uploadRouter        from './routes/upload';
-import advisorRouter       from './routes/advisor';
-import chatRouter          from './routes/chat';
-import studentRouter       from './routes/student';
-import studentOnboarding   from './routes/studentOnboarding';
-import registrarRouter     from './routes/registrar';
-import adminRouter         from './routes/admin';
+import authRouter        from './routes/auth';
+import uploadRouter      from './routes/upload';
+import advisorRouter     from './routes/advisor';
+import chatRouter        from './routes/chat';
+import studentRouter     from './routes/student';
+import registrarRouter   from './routes/registrar';
+import studentDashRouter from './routes/studentDashboard';
+import attendanceRouter  from './routes/attendance';
 import { initSocket } from './lib/socket';
 import {
   loginLimiter, registerLimiter, refreshLimiter,
@@ -71,11 +71,11 @@ app.use('/api/upload',    authenticate, uploadRouter);
 // Phase 7 C3: advisor now requires authentication
 app.use('/api/advisor',   authenticate, advisorRouter);
 
-app.use('/api/chat',      chatRouter);
-app.use('/api/student',   studentRouter);
-app.use('/api/student/onboarding', studentOnboarding);
-app.use('/api/registrar', registrarRouter);
-app.use('/api/admin',     adminRouter);
+app.use('/api/chat',              chatRouter);
+app.use('/api/student',          studentRouter);
+app.use('/api/student/dashboard', studentDashRouter);
+app.use('/api/registrar',         registrarRouter);
+app.use('/api/attendance',        attendanceRouter);
 
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
