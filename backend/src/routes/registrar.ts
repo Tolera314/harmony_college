@@ -752,6 +752,7 @@ router.post('/settings/password', async (req: AuthRequest, res) => {
 
     const user = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { passwordHash: true } });
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    if (!user.passwordHash) { res.status(400).json({ error: 'No password set on this account (OAuth-only account).' }); return; }
 
     const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
     if (!valid) { res.status(400).json({ error: 'Current password is incorrect' }); return; }
@@ -991,6 +992,140 @@ router.delete('/timetable/:id', async (req: AuthRequest, res) => {
       data: { userId: req.user!.userId, action: 'TIMETABLE_DELETED', entityType: 'TimetableSlot', entityId: pid(req), description: 'Timetable slot deleted' },
     });
     ok(res, { success: true });
+  } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ONBOARDING REVIEW QUEUE (registration screenshot approval)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/registrar/onboarding  — list students pending/submitted/rejected
+router.get('/onboarding', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    const { page, limit } = pageParams(qp);
+    const skip = (page - 1) * limit;
+
+    const statusFilter = qp.status ?? 'SUBMITTED';
+    const where: any = { onboardingStatus: statusFilter };
+    if (qp.search) {
+      where.OR = [
+        { fullName: { contains: qp.search, mode: 'insensitive' } },
+        { user: { email: { contains: qp.search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.application.count({ where }),
+      prisma.application.findMany({
+        where, skip, take: limit,
+        orderBy: { screenshotUploadedAt: 'desc' },
+        select: {
+          id:                        true,
+          userId:                    true,
+          fullName:                  true,
+          program:                   true,
+          onboardingStatus:          true,
+          registrationScreenshotUrl: true,
+          screenshotUploadedAt:      true,
+          onboardingRejectionReason: true,
+          onboardingReviewedAt:      true,
+          user: { select: { email: true, phone: true } },
+        },
+      }),
+    ]);
+
+    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), items });
+  } catch (e) { fail(res, e); }
+});
+
+// PATCH /api/registrar/onboarding/:applicationId/approve
+router.patch('/onboarding/:id/approve', async (req: AuthRequest, res) => {
+  try {
+    const app = await prisma.application.findUnique({ where: { id: pid(req) } });
+    if (!app) { res.status(404).json({ error: 'Application not found' }); return; }
+    if (app.onboardingStatus === 'APPROVED') { res.status(400).json({ error: 'Already approved' }); return; }
+
+    const updated = await prisma.application.update({
+      where: { id: pid(req) },
+      data: {
+        onboardingStatus:      'APPROVED',
+        onboardingReviewedBy:  req.user!.userId,
+        onboardingReviewedAt:  new Date(),
+        onboardingRejectionReason: null,
+      },
+    });
+
+    // Notify the student
+    await prisma.notification.create({
+      data: {
+        userId:     app.userId,
+        title:      'Onboarding Approved! 🎉',
+        message:    'Your registration has been verified. You now have full access to your student dashboard.',
+        type:       'SUCCESS',
+        entityType: 'Application',
+        entityId:   app.id,
+      },
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId:      req.user!.userId,
+        action:      'ADMISSION_APPROVED',
+        entityType:  'Application',
+        entityId:    pid(req),
+        description: `Onboarding screenshot approved for ${app.fullName}`,
+      },
+    });
+
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/registrar/onboarding/:applicationId/reject
+router.patch('/onboarding/:id/reject', async (req: AuthRequest, res) => {
+  try {
+    const parsed = z.object({ reason: z.string().min(5, 'Reason must be at least 5 characters') }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message }); return; }
+
+    const app = await prisma.application.findUnique({ where: { id: pid(req) } });
+    if (!app) { res.status(404).json({ error: 'Application not found' }); return; }
+
+    const updated = await prisma.application.update({
+      where: { id: pid(req) },
+      data: {
+        onboardingStatus:          'REJECTED',
+        onboardingReviewedBy:      req.user!.userId,
+        onboardingReviewedAt:      new Date(),
+        onboardingRejectionReason: parsed.data.reason,
+        // Reset so student can re-upload
+        registrationScreenshotUrl: null,
+        screenshotUploadedAt:      null,
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId:     app.userId,
+        title:      'Registration Screenshot Rejected',
+        message:    `Your screenshot was rejected. Reason: ${parsed.data.reason}. Please re-upload.`,
+        type:       'WARNING',
+        entityType: 'Application',
+        entityId:   app.id,
+      },
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId:      req.user!.userId,
+        action:      'ADMISSION_REJECTED',
+        entityType:  'Application',
+        entityId:    pid(req),
+        description: `Onboarding screenshot rejected for ${app.fullName} — ${parsed.data.reason}`,
+      },
+    });
+
+    ok(res, updated);
   } catch (e) { fail(res, e, 400); }
 });
 

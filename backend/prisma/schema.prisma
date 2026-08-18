@@ -133,6 +133,18 @@ enum AnnouncementStatus {
   ARCHIVED
 }
 
+/// Tracks where a student is in the post-admission onboarding pipeline.
+enum OnboardingStatus {
+  /// Profile submitted, waiting for student to upload their registration screenshot.
+  PENDING
+  /// Student has uploaded the registration screenshot; awaiting registrar/admin approval.
+  SUBMITTED
+  /// Approved — student may access the full dashboard.
+  APPROVED
+  /// Rejected — student must re-upload.
+  REJECTED
+}
+
 enum CalendarEventType {
   REGISTRATION_OPEN
   REGISTRATION_CLOSE
@@ -355,6 +367,14 @@ model StudentProfile {
   emergencyPhone        String?
   emergencyNotes        String?
 
+  /// Department chosen on the /onboarding/about page (pre-enrollment preference).
+  selectedDepartmentId  String?
+  /// Set to true once the student confirms registration fee payment on /onboarding/about.
+  registrationFeePaid   Boolean  @default(false)
+  registrationFeePaidAt DateTime?
+  /// Set to true once the student picks a department on /onboarding/about.
+  departmentSelected    Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -386,6 +406,14 @@ model Application {
   reviewComment String?
   reviewedBy    String?
   reviewedAt    DateTime?
+
+  // ── Post-admission onboarding ─────────────────────────────────────────────
+  onboardingStatus              OnboardingStatus @default(PENDING)
+  registrationScreenshotUrl     String?
+  screenshotUploadedAt          DateTime?
+  onboardingReviewedBy          String?
+  onboardingReviewedAt          DateTime?
+  onboardingRejectionReason     String?
 
   documents   Document[]
   submittedAt DateTime?

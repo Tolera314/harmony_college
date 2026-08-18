@@ -153,37 +153,17 @@ export function ApplyPageInner() {
   const [errors, setErrors] = useState<Partial<Record<keyof AccountData | 'confirm' | 'terms', string>>>({});
   const [isCreating, setIsCreating] = useState(false);
 
-  // Send first OTP automatically when stage transitions to 'verify'
-  useEffect(() => {
-    if (stage !== 'verify' || !account.userId) return;
-    fetch('/api/auth/verify/resend', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: account.userId,
-        type:   account.phone ? 'phone' : 'email',
-      }),
-    }).catch(() => {}); // best-effort — component shows resend button if it fails
-  }, [stage, account.userId, account.phone]);
+  // No OTP/verify stage in apply anymore — verification lives in Settings.
 
   // Restore state if user navigated back or redirected from signin
   useEffect(() => {
-    // Check for ?userId=...&step=verify (redirect from signin page)
-    const params = new URLSearchParams(window.location.search);
-    const redirectedUserId = params.get('userId');
-    const redirectedStep   = params.get('step');
-
-    if (redirectedUserId && redirectedStep === 'verify') {
-      setAccount((prev) => ({ ...prev, userId: redirectedUserId }));
-      setStage('verify');
-      return;
-    }
-
-    // Standard sessionStorage restore
+    // Previously, ?userId=...&step=verify would show the OTP screen here.
+    // Verification is now done from Settings, so we ignore that redirect
+    // and let the signin page send PENDING_VERIFICATION users to /welcome instead.
+    // Clean up any stale sessionStorage verify state.
     const saved = loadOnboardingState();
-    if (saved.stage === 'verify-contact' && saved.account.fullName) {
-      setAccount(saved.account);
-      setStage('verify');
+    if (saved.stage === 'verify-contact') {
+      clearOnboardingState();
     }
   }, []);
 
@@ -245,10 +225,11 @@ export function ApplyPageInner() {
         return;
       }
 
-      // Success — persist userId so Phase 3 OTP can reference the account
+      // Success — backend now sets auth cookies on registration,
+      // so we can redirect straight to /welcome.
       advanceToVerify({ ...account, userId: data.user.id });
-      setStage('verify');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      clearOnboardingState();
+      router.push('/welcome');
     } catch {
       setErrors((prev) => ({
         ...prev,
@@ -401,12 +382,12 @@ export function ApplyPageInner() {
                     className="text-[10px] font-mono font-bold uppercase tracking-widest"
                     style={{ color: 'var(--brand-gold)' }}
                   >
-                    {stage === 'create' ? 'Step 1 of 2' : 'Step 2 of 2'}
+                    {stage === 'create' ? 'Step 1 of 1' : 'Step 2 of 2'}
                   </span>
                 </div>
                 <LinearProgress
                   value={stage === 'create' ? 1 : 2}
-                  total={2}
+                  total={stage === 'create' ? 1 : 2}
                 />
                 <h2 className="font-serif text-2xl font-bold mt-5 mb-1.5" style={{ color: 'var(--text-primary)' }}>
                   {stage === 'create' ? 'Create Your Account' : 'Verify Your Contact'}

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
@@ -10,72 +10,60 @@ import {
 import { AdminNavTab } from '../../../types/admin';
 import { KPICard } from '../../dh/KPICard';
 import { DHPageHeader } from '../../dh/DHPageHeader';
-import { LineChart, BarChart, DonutChart } from '../../dh/DHCharts';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
-import { adminKPIs, adminNotifications, adminAuditLog, systemHealth, admissions, payments, gateways } from '../../../data/adminData2';
-import { programs, adminStudents, systemUsers } from '../../../data/adminData';
+import { SkeletonKPICard, SkeletonCard, ErrorState } from '../../ui/States';
+import { adminDashboardApi, AdminDashboardStats, ROLE_DISPLAY } from '../../../lib/adminApi';
+// Charts and gateway/system-health data still use mock (no backend model yet)
+import { systemHealth, gateways } from '../../../data/adminData2';
 import { departments, employees } from '../../../data/hrData';
+import { BarChart } from '../../dh/DHCharts';
 
-interface AdminOverviewViewProps {
-  setActiveTab: (tab: AdminNavTab) => void;
-}
+interface Props { setActiveTab: (tab: AdminNavTab) => void; }
 
 const healthColor: Record<string, string> = {
   Healthy: 'bg-(--status-success)', Degraded: 'bg-(--status-warning)', Down: 'bg-(--status-danger)',
 };
 
-export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveTab }) => {
-  const unread = adminNotifications.filter(n => !n.read);
-  const criticals = adminNotifications.filter(n => !n.read && n.severity === 'critical');
+export const AdminOverviewView: React.FC<Props> = ({ setActiveTab }) => {
+  const [stats, setStats]   = useState<AdminDashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]   = useState('');
 
-  // Chart data
-  const enrollmentTrend = [
-    { label: 'Sep 23', value: 312 }, { label: 'Nov 23', value: 318 },
-    { label: 'Feb 24', value: 298 }, { label: 'Apr 24', value: 305 },
-    { label: 'Jul 24', value: 315 },
-  ];
-  const revenueTrend = [
-    { label: 'Apr', value: 4.2 }, { label: 'May', value: 4.5 },
-    { label: 'Jun', value: 4.8 }, { label: 'Jul', value: 5.1 },
-  ];
-  const deptBar = departments.map(d => ({ label: d.name.split(' ')[0].slice(0, 6), value: d.employeeCount, color: 'var(--brand-gold)' }));
-  const admissionSegs = [
-    { label: 'Enrolled', value: admissions.filter(a => a.status === 'Enrolled').length, color: 'var(--status-success)' },
-    { label: 'Approved', value: admissions.filter(a => a.status === 'Approved').length, color: 'var(--brand-gold)' },
-    { label: 'Under Review', value: admissions.filter(a => a.status === 'Under Review' || a.status === 'Applied').length, color: 'var(--status-warning)' },
-    { label: 'Rejected', value: admissions.filter(a => a.status === 'Rejected').length, color: 'var(--status-danger)' },
-  ].filter(s => s.value > 0);
+  useEffect(() => {
+    adminDashboardApi.getStats()
+      .then(setStats)
+      .catch(e => setError(e.message ?? 'Failed to load dashboard'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const deptBar = departments.map(d => ({
+    label: d.name.split(' ')[0].slice(0, 6),
+    value: employees.filter(e => e.departmentId === d.id && e.status === 'Active').length,
+    color: 'var(--brand-gold)',
+  }));
+
+  if (error) {
+    return <ErrorState compact description={error} onRetry={() => { setError(''); setLoading(true); adminDashboardApi.getStats().then(setStats).catch(e => setError(e.message)).finally(() => setLoading(false)); }} />;
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
+
       {/* Hero */}
       <section className="relative rounded-3xl overflow-hidden border border-(--border-default) shadow-2xl">
         <div className="absolute inset-0 bg-linear-to-br from-[#E9C349]/10 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#E9C349]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
           <div className="space-y-2.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[10px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" /> Academic Year 2024–2025 · Active
-              </div>
-              {criticals.length > 0 && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 border border-(--status-danger-border) text-[10px] font-mono font-semibold text-(--status-danger) uppercase">
-                  <AlertTriangle className="w-3 h-3" /> {criticals.length} Critical Alert{criticals.length > 1 ? 's' : ''}
-                </div>
-              )}
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[10px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" /> System Admin · Active
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
-              Institutional Overview
-            </h2>
-            <p className="font-sans text-sm text-(--text-muted) max-w-xl">
-              Harmony College Super Administration · Complete system authority
-            </p>
+            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">Institutional Overview</h2>
+            <p className="font-sans text-sm text-(--text-muted) max-w-xl">Harmony College Administration · Complete system authority</p>
             <div className="flex flex-wrap gap-2 pt-1">
-              {unread.length > 0 && <Button variant="primary" size="sm" icon={<AlertTriangle className="w-3.5 h-3.5" />} onClick={() => setActiveTab('notifications')}>{unread.length} Unread Alerts</Button>}
               <Button variant="secondary" size="sm" icon={<Users className="w-3.5 h-3.5" />} onClick={() => setActiveTab('users')}>Manage Users</Button>
-              <Button variant="secondary" size="sm" icon={<Shield className="w-3.5 h-3.5" />} onClick={() => setActiveTab('security')}>Security Center</Button>
+              <Button variant="secondary" size="sm" icon={<Shield className="w-3.5 h-3.5" />} onClick={() => setActiveTab('audit_logs')}>Audit Logs</Button>
             </div>
           </div>
 
@@ -91,91 +79,67 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
                 </div>
               </div>
             ))}
-            <Button variant="ghost" size="sm" className="text-[10px] mt-1 px-2 py-1" onClick={() => setActiveTab('backup')}>
-              View all services →
-            </Button>
           </div>
         </div>
       </section>
 
-      {/* KPI Grid */}
+      {/* KPI Row 1 — real data */}
       <section className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-        <KPICard label="Total Students"       value={adminKPIs.totalStudents}  icon={<GraduationCap className="w-4 h-4" />}  trend="up"      trendLabel="+2 this month"   sparkline={[298,305,308,310,312,315]}  onClick={() => setActiveTab('students')} />
-        <KPICard label="Faculty & Staff"      value={adminKPIs.totalEmployees} icon={<UserCheck className="w-4 h-4" />}      trend="up"      trendLabel="Active employees" sparkline={[36,37,38,39,40,40]}        onClick={() => setActiveTab('faculty')} />
-        <KPICard label="Active Programs"      value={adminKPIs.totalPrograms}  icon={<BookOpen className="w-4 h-4" />}       trend="neutral" trendLabel="1 under review"   sparkline={[11,11,12,12,13,13]}        onClick={() => setActiveTab('programs')} />
-        <KPICard label="Revenue (Jul)"        value={`ETB ${(adminKPIs.totalRevenue / 1000).toFixed(0)}K`} icon={<DollarSign className="w-4 h-4" />} trend="up" trendLabel="+6% vs Jun" sparkline={[4.2,4.5,4.8,4.9,5.0,5.1]} accent onClick={() => setActiveTab('finance')} />
-        <KPICard label="Outstanding"          value={`ETB ${(adminKPIs.outstandingPayments / 1000).toFixed(0)}K`} icon={<AlertTriangle className="w-4 h-4" />} trend="down" trendLabel="Needs collection" sparkline={[62,58,55,52,50,49]} onClick={() => setActiveTab('payments')} />
-        <KPICard label="Pending Admissions"   value={adminKPIs.pendingAdmissions} icon={<ClipboardIcon />}                  trend="neutral" trendLabel="Awaiting review"   sparkline={[2,3,3,4,2,2]}             onClick={() => setActiveTab('admissions')} />
+        {loading ? [...Array(6)].map((_, i) => <SkeletonKPICard key={i} />) : stats ? <>
+          <KPICard label="Total Users"       value={stats.totalUsers}            icon={<Users className="w-4 h-4" />}         trend="neutral" trendLabel="All roles"         sparkline={[0,0,0,0,0,stats.totalUsers]}        onClick={() => setActiveTab('users')} />
+          <KPICard label="Students"          value={stats.usersByRole['STUDENT'] ?? 0}   icon={<GraduationCap className="w-4 h-4" />}  trend="neutral" trendLabel="Enrolled"            sparkline={[0,0,0,0,0,stats.usersByRole['STUDENT']??0]}  onClick={() => setActiveTab('students')} />
+          <KPICard label="Active Sessions"   value={stats.activeSessions}        icon={<Shield className="w-4 h-4" />}        trend="neutral" trendLabel="Right now"         sparkline={[0,0,0,0,0,stats.activeSessions]} />
+          <KPICard label="New Today"         value={stats.newUsersToday}         icon={<UserCheck className="w-4 h-4" />}     trend="up"      trendLabel="Registrations"     sparkline={[0,0,0,0,0,stats.newUsersToday]} accent onClick={() => setActiveTab('users')} />
+          <KPICard label="Logins Today"      value={stats.loginSuccessToday}     icon={<CalendarCheck className="w-4 h-4" />} trend="neutral" trendLabel="Successful"        sparkline={[0,0,0,0,0,stats.loginSuccessToday]} />
+          <KPICard label="Failed Logins"     value={stats.loginFailedToday}      icon={<AlertTriangle className="w-4 h-4" />} trend={stats.loginFailedToday > 0 ? 'down' : 'neutral'} trendLabel="Today" sparkline={[0,0,0,0,0,stats.loginFailedToday]} accent={stats.loginFailedToday > 5} />
+        </> : null}
       </section>
 
+      {/* KPI Row 2 — user counts by role */}
       <section className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-        <KPICard label="Avg Attendance"       value={`${adminKPIs.avgAttendance}%`} icon={<CalendarCheck className="w-4 h-4" />} trend="neutral" trendLabel="Dept avg"   sparkline={[90,91,91,90,91,90]} onClick={() => setActiveTab('attendance')} />
-        <KPICard label="Avg GPA"              value={adminKPIs.avgGpa}           icon={<TrendingUp className="w-4 h-4" />}     trend="up"      trendLabel="+0.05 vs last" sparkline={[3.38,3.40,3.41,3.42,3.44,3.44]} onClick={() => setActiveTab('students')} />
-        <KPICard label="Departments"          value={adminKPIs.totalDepartments} icon={<Building2 className="w-4 h-4" />}     trend="neutral" trendLabel="All active"     sparkline={[6,6,6,6,6,6]}           onClick={() => setActiveTab('departments')} />
-        <KPICard label="Active Users"         value={adminKPIs.activeUsers}      icon={<Users className="w-4 h-4" />}         trend="up"      trendLabel="System users"   sparkline={[9,10,10,11,11,11]}      onClick={() => setActiveTab('users')} />
-        <KPICard label="System Alerts"        value={adminKPIs.systemAlerts}     icon={<AlertTriangle className="w-4 h-4" />} trend={adminKPIs.systemAlerts > 0 ? 'down' : 'neutral'} trendLabel="Unread" sparkline={[0,1,2,3,4,5]} accent={adminKPIs.systemAlerts > 0} onClick={() => setActiveTab('notifications')} />
-        <KPICard label="Storage Used"         value="89%"                        icon={<HardDrive className="w-4 h-4" />}     trend="down"    trendLabel="Warning level"  sparkline={[72,75,78,82,85,89]} accent onClick={() => setActiveTab('backup')} />
+        {loading ? [...Array(6)].map((_, i) => <SkeletonKPICard key={i} />) : stats ? <>
+          <KPICard label="Instructors"       value={stats.usersByRole['INSTRUCTOR'] ?? 0}      icon={<BookOpen className="w-4 h-4" />}  trend="neutral" trendLabel=""  sparkline={[]} onClick={() => setActiveTab('faculty')} />
+          <KPICard label="Registrars"        value={stats.usersByRole['REGISTRAR'] ?? 0}        icon={<ClipboardIcon />}                  trend="neutral" trendLabel=""  sparkline={[]} />
+          <KPICard label="Finance Officers"  value={stats.usersByRole['FINANCE_OFFICER'] ?? 0}  icon={<DollarSign className="w-4 h-4" />} trend="neutral" trendLabel=""  sparkline={[]} onClick={() => setActiveTab('finance')} />
+          <KPICard label="Dept. Heads"       value={stats.usersByRole['DEPARTMENT_HEAD'] ?? 0}  icon={<Building2 className="w-4 h-4" />} trend="neutral" trendLabel=""  sparkline={[]} onClick={() => setActiveTab('departments')} />
+          <KPICard label="Admins"            value={(stats.usersByRole['ADMIN'] ?? 0) + (stats.usersByRole['SUPER_ADMIN'] ?? 0)} icon={<Shield className="w-4 h-4" />} trend="neutral" trendLabel="" sparkline={[]} />
+          <KPICard label="New This Month"    value={stats.newUsersThisMonth}                   icon={<TrendingUp className="w-4 h-4" />} trend="up"      trendLabel="Registrations" sparkline={[0,0,0,0,0,stats.newUsersThisMonth]} accent onClick={() => setActiveTab('users')} />
+        </> : null}
       </section>
 
-      {/* Analytics row */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <Card hoverable={false} className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Student Enrollment Trend</h3>
-              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Total enrolled students — 6 months</p>
-            </div>
-            <Badge variant="emerald">+1.0% growth</Badge>
-          </div>
-          <LineChart data={enrollmentTrend} height={130} />
-        </Card>
-
-        <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Admissions Funnel</h3>
-          <DonutChart segments={admissionSegs} total={admissions.length} centerLabel={String(admissions.length)} />
-        </Card>
-      </section>
-
+      {/* Charts + recent activity */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card hoverable={false} className="space-y-4">
-          <div>
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue Trend (ETB M)</h3>
-            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Monthly net payments collected</p>
-          </div>
-          <BarChart data={revenueTrend.map(r => ({ label: r.label, value: r.value, color: 'var(--brand-gold)' }))} height={130} />
-        </Card>
-
-        <Card hoverable={false} className="space-y-4">
-          <div>
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Staff by Department</h3>
-            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Active employees per department</p>
-          </div>
+          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Staff by Department</h3>
           <BarChart data={deptBar} height={130} />
         </Card>
-      </section>
 
-      {/* Bottom row: recent activity + payment gateways */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-serif text-lg font-bold text-(--text-primary)">Recent Audit Activity</h3>
             <Button variant="ghost" size="sm" icon={<ArrowRight className="w-4 h-4" />} onClick={() => setActiveTab('audit_logs')}>View all</Button>
           </div>
-          <div className="space-y-2">
-            {adminAuditLog.slice(0, 5).map(entry => (
-              <div key={entry.id} className={`flex items-start gap-3 p-3 rounded-xl hover:bg-(--hover-overlay) transition-colors ${entry.isImpersonated ? 'bg-(--status-warning-bg) border border-(--status-warning-border)' : ''}`}>
-                <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${entry.status === 'Success' ? 'bg-(--status-success)' : entry.status === 'Warning' ? 'bg-(--status-warning)' : 'bg-(--status-danger)'}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="font-sans text-xs font-semibold text-(--text-primary)">{entry.action} — <span className="text-(--text-muted)">{entry.user}</span></p>
-                  <p className="font-sans text-[11px] text-(--text-faint) truncate mt-0.5">{entry.description}</p>
-                  {entry.isImpersonated && <span className="font-mono text-[9px] text-(--status-warning) mt-0.5 block">via Role Override</span>}
+          {loading ? <SkeletonCard rows={5} /> : stats?.recentAuditLogs?.length === 0 ? (
+            <p className="text-sm text-(--text-faint) py-8 text-center">No audit events yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {stats?.recentAuditLogs.slice(0, 6).map(entry => (
+                <div key={entry.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-(--hover-overlay) transition-colors">
+                  <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-(--brand-gold)" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-sans text-xs font-semibold text-(--text-primary)">{entry.action} — <span className="text-(--text-muted)">{entry.user?.fullName ?? 'System'}</span></p>
+                    {entry.user && <p className="font-mono text-[10px] text-(--text-faint) mt-0.5">{ROLE_DISPLAY[entry.user.role] ?? entry.user.role}</p>}
+                  </div>
+                  <p className="font-mono text-[10px] text-(--text-faint) shrink-0">{new Date(entry.createdAt).toLocaleDateString()}</p>
                 </div>
-                <p className="font-mono text-[10px] text-(--text-faint) shrink-0">{entry.timestamp.split(' ')[0]}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
+      </section>
 
+      {/* Payment gateways — still mock data (no payment model) */}
+      <section>
         <Card hoverable={false} className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-serif text-lg font-bold text-(--text-primary)">Payment Gateways</h3>
@@ -202,5 +166,6 @@ export const AdminOverviewView: React.FC<AdminOverviewViewProps> = ({ setActiveT
   );
 };
 
-// inline placeholder icon
-function ClipboardIcon() { return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>; }
+function ClipboardIcon() {
+  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>;
+}

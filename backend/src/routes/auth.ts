@@ -187,8 +187,45 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       select: SAFE_USER_SELECT,
     });
 
+    // ── Create session + set auth cookies so the student is immediately
+    //    authenticated after registration (status PENDING_VERIFICATION is fine —
+    //    the welcome portal handles the soft verification reminder).
+    const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+    const rawRefreshToken  = randomBytes(40).toString('hex');
+    const refreshTokenHash = await bcrypt.hash(rawRefreshToken, TOKEN_BCRYPT_ROUNDS);
+
+    const session = await prisma.session.create({
+      data: {
+        userId:           user.id,
+        refreshTokenHash,
+        expiresAt:        sessionExpiresAt,
+        lastUsedAt:       new Date(),
+        deviceInfo:       (req.headers['user-agent'] ?? '').slice(0, 255) || null,
+        ipAddress:        (req.ip ?? '').slice(0, 45) || null,
+        isRevoked:        false,
+      },
+    });
+
+    const accessToken = await signAccessToken({
+      userId:           user.id,
+      sessionId:        session.id,
+      email:            user.email ?? null,
+      role:             user.role,
+      status:           user.status,
+      profileCompleted: user.profileCompleted,
+    });
+    const refreshToken = await signRefreshToken({ sessionId: session.id });
+    const refreshTokenFinal = await bcrypt.hash(refreshToken, TOKEN_BCRYPT_ROUNDS);
+    await prisma.session.update({
+      where: { id: session.id },
+      data:  { refreshTokenHash: refreshTokenFinal },
+    });
+
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, rawRefreshToken);
+
     res.status(201).json({
-      message: 'Account created successfully. Please verify your contact to continue.',
+      message: 'Account created successfully.',
       user,
     });
   } catch (err: unknown) {

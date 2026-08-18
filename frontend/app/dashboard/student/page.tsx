@@ -76,6 +76,20 @@ export default function StudentDashboardPage() {
           window.location.href = '/welcome';
           return;
         }
+
+        // Mandatory pre-dashboard gate: registration fee + department selection.
+        // Both must be done before the student can access the dashboard.
+        // This replaces the previous screenshot-approval gate.
+        try {
+          const prereqRes = await fetch('/api/student/onboarding/prereqs', { credentials: 'include' });
+          if (prereqRes.ok) {
+            const prereqs = await prereqRes.json();
+            if (!prereqs.feePaid || !prereqs.departmentSelected) {
+              window.location.href = '/onboarding/about';
+              return;
+            }
+          }
+        } catch { /* network error — allow through to avoid false lockout */ }
         setOnboardingCompletion(u.profileCompletion ?? 0);
         if (u.fullName) setProfile((p) => ({ ...p, name: u.fullName }));
       } catch {
