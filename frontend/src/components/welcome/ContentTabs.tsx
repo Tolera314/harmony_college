@@ -310,16 +310,74 @@ export function AdmissionTab({ onNavigate }: { onNavigate: (t: PortalTab) => voi
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
 export function SettingsTab({ state }: { state: OnboardingState }) {
+  const [emailVerified, setEmailVerified]   = React.useState<boolean | null>(null);
+  const [phoneVerified, setPhoneVerified]   = React.useState<boolean | null>(null);
+  const [sending, setSending]               = React.useState(false);
+  const [otpSent, setOtpSent]               = React.useState<'email' | 'phone' | null>(null);
+  const [otp, setOtp]                       = React.useState('');
+  const [verifying, setVerifying]           = React.useState(false);
+  const [verifyMsg, setVerifyMsg]           = React.useState('');
+  const [verifyError, setVerifyError]       = React.useState('');
+
+  // Load verification status on mount
+  React.useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.authenticated) {
+          setEmailVerified(d.user.emailVerified ?? false);
+          setPhoneVerified(d.user.phoneVerified ?? false);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const sendOtp = async (type: 'email' | 'phone') => {
+    setSending(true); setVerifyMsg(''); setVerifyError(''); setOtp('');
+    try {
+      const res = await fetch('/api/auth/verify/resend', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: state.account.userId, type }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send code');
+      setOtpSent(type);
+      setVerifyMsg(`Verification code sent to your ${type}.`);
+    } catch (e: any) { setVerifyError(e.message ?? 'Failed to send code'); }
+    finally { setSending(false); }
+  };
+
+  const verifyOtp = async () => {
+    if (!otp.trim()) { setVerifyError('Enter the code.'); return; }
+    setVerifying(true); setVerifyMsg(''); setVerifyError('');
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: state.account.userId, type: otpSent, code: otp.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Verification failed');
+      setVerifyMsg('✓ Verified successfully!');
+      if (otpSent === 'email') setEmailVerified(true);
+      if (otpSent === 'phone') setPhoneVerified(true);
+      setOtpSent(null); setOtp('');
+    } catch (e: any) { setVerifyError(e.message ?? 'Verification failed'); }
+    finally { setVerifying(false); }
+  };
+
   return (
-    <Section title="Settings" subtitle="Manage your account preferences.">
+    <Section title="Settings" subtitle="Manage your account preferences and verification.">
       <div className="space-y-4 max-w-lg">
+        {/* Account info */}
         <div className="p-5 rounded-2xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
           <h3 className="text-sm font-semibold font-sans mb-3" style={{ color: 'var(--text-primary)' }}>Account Information</h3>
           <div className="space-y-3">
             {[
-              { label: 'Full Name', value: state.account.fullName || '—' },
-              { label: 'Phone', value: state.account.phone || '—' },
-              { label: 'Email', value: state.account.email || 'Not provided' },
+              { label: 'Full Name',       value: state.account.fullName || '—' },
+              { label: 'Phone',           value: state.account.phone || '—' },
+              { label: 'Email',           value: state.account.email || 'Not provided' },
               { label: 'Application No.', value: state.applicationNumber || '—' },
             ].map(item => (
               <div key={item.label} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -329,9 +387,95 @@ export function SettingsTab({ state }: { state: OnboardingState }) {
             ))}
           </div>
         </div>
+
+        {/* Contact verification */}
+        <div className="p-5 rounded-2xl space-y-4" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
+          <h3 className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Verify Your Contact</h3>
+          <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>
+            Verifying your phone or email helps secure your account and enables password recovery.
+          </p>
+
+          {/* Phone row */}
+          {state.account.phone && (
+            <div className="flex items-center justify-between gap-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div>
+                <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Phone</p>
+                <p className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>{state.account.phone}</p>
+              </div>
+              {phoneVerified ? (
+                <span className="text-[10px] font-mono font-bold" style={{ color: 'var(--status-success)' }}>✓ Verified</span>
+              ) : (
+                <button
+                  onClick={() => sendOtp('phone')}
+                  disabled={sending || otpSent === 'phone'}
+                  className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all"
+                  style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)', opacity: sending ? 0.6 : 1 }}
+                >
+                  {sending && otpSent === null ? 'Sending…' : 'Send Code'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Email row */}
+          {state.account.email && (
+            <div className="flex items-center justify-between gap-3 py-2" >
+              <div>
+                <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Email</p>
+                <p className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>{state.account.email}</p>
+              </div>
+              {emailVerified ? (
+                <span className="text-[10px] font-mono font-bold" style={{ color: 'var(--status-success)' }}>✓ Verified</span>
+              ) : (
+                <button
+                  onClick={() => sendOtp('email')}
+                  disabled={sending || otpSent === 'email'}
+                  className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all"
+                  style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)', opacity: sending ? 0.6 : 1 }}
+                >
+                  {sending && otpSent === null ? 'Sending…' : 'Send Code'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* OTP input */}
+          {otpSent && (
+            <div className="space-y-2 pt-2">
+              <p className="text-xs font-sans" style={{ color: 'var(--text-secondary)' }}>
+                Enter the 6-digit code sent to your {otpSent}:
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otp}
+                  onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-mono text-center tracking-widest focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                />
+                <button
+                  onClick={verifyOtp}
+                  disabled={verifying || otp.length < 4}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                  style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)', opacity: verifying ? 0.7 : 1 }}
+                >
+                  {verifying ? '…' : 'Verify'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {verifyMsg   && <p className="text-xs font-sans" style={{ color: 'var(--status-success)' }}>{verifyMsg}</p>}
+          {verifyError && <p className="text-xs font-sans" style={{ color: 'var(--status-danger)'  }}>{verifyError}</p>}
+        </div>
+
+        {/* Appearance */}
         <div className="p-5 rounded-2xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
           <h3 className="text-sm font-semibold font-sans mb-2" style={{ color: 'var(--text-primary)' }}>Appearance</h3>
-          <p className="text-xs font-sans mb-3" style={{ color: 'var(--text-muted)' }}>Theme preference is managed by the toggle in the header.</p>
+          <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>Theme preference is managed by the toggle in the header.</p>
         </div>
       </div>
     </Section>

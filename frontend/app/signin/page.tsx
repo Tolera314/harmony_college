@@ -41,7 +41,8 @@ export default function SignInPage() {
 
       if (!res.ok) {
         if (data.code === 'PENDING_VERIFICATION' && data.userId) {
-          window.location.href = `/apply?userId=${data.userId}&step=verify`;
+          // Verification is now done from Settings inside /welcome — send them there.
+          window.location.href = '/welcome';
           return;
         }
         const msg: string = data.error ?? 'Sign in failed.';

@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { AdminNavTab, AdminNotification, UserRole } from '@/src/types/admin';
-import { adminProfile } from '@/src/data/adminData';
-import { adminNotifications as initialNotifs, maintenanceConfig } from '@/src/data/adminData2';
+import { adminProfile as mockProfile } from '@/src/data/adminData';
+import { maintenanceConfig } from '@/src/data/adminData2';
+import { adminSettingsApi } from '@/src/lib/adminApi';
 import { AdminSidebar }        from '@/src/components/admin/AdminSidebar';
 import { AdminHeader }         from '@/src/components/admin/AdminHeader';
 import { AdminMobileNav }      from '@/src/components/admin/AdminMobileNav';
@@ -34,7 +35,7 @@ import { AnimatePresence, motion } from 'motion/react';
 
 export default function AdminDashboardPage() {
   const [activeTab,       setRawTab]       = useState<AdminNavTab>('overview');
-  const [notifications,   setNotifications] = useState<AdminNotification[]>(initialNotifs);
+  const [notifications,   setNotifications] = useState<AdminNotification[]>([]);
   const [searchOpen,      setSearchOpen]    = useState(false);
   const [logoutOpen,      setLogoutOpen]    = useState(false);
   const [tabLoading,      setTabLoading]    = useState(false);
@@ -43,9 +44,31 @@ export default function AdminDashboardPage() {
   const [impersonating, setImpersonating]   = useState<{
     targetName: string; targetRole: UserRole; startTime: string;
   } | null>(null);
+  // Real profile fetched from the backend; fall back to mock while loading
+  const [profile, setProfile] = useState(mockProfile);
+  const [callerRole, setCallerRole] = useState('ADMIN');
   const { toast, show: showToast, hide: hideToast } = useToast();
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Load real profile on mount
+  useEffect(() => {
+    adminSettingsApi.getProfile().then(p => {
+      setProfile({
+        name:             p.fullName,
+        title:            'System Administrator',
+        email:            p.email ?? '',
+        avatar:           mockProfile.avatar,
+        adminId:          p.id.slice(0, 8).toUpperCase(),
+        role:             'Super Admin',
+        twoFactorEnabled: false,
+        lastLogin:        p.lastLoginAt ? new Date(p.lastLoginAt).toLocaleString() : '—',
+        lastLoginIp:      '',
+        lastLoginDevice:  '',
+      });
+      setCallerRole(p.role);
+    }).catch(() => { /* keep mock profile */ });
+  }, []);
+
+  const unreadCount = 0; // notifications are now self-managed inside AdminNotificationsView
 
   const setActiveTab = (tab: AdminNavTab) => {
     if (tab === activeTab) return;
@@ -61,13 +84,6 @@ export default function AdminDashboardPage() {
     return () => window.removeEventListener('keydown', h);
   }, []);
 
-  const handleMarkRead = useCallback((id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  }, []);
-
-  const handleMarkAllRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, []);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
@@ -78,7 +94,7 @@ export default function AdminDashboardPage() {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':      return <AdminOverviewView setActiveTab={setActiveTab} />;
-      case 'users':         return <AdminUsersView />;
+      case 'users':         return <AdminUsersView callerRole={callerRole} />;
       case 'students':      return <AdminStudentsView />;
       case 'faculty':       return <AdminFacultyView />;
       case 'departments':   return <AdminDepartmentsView />;
@@ -97,13 +113,10 @@ export default function AdminDashboardPage() {
       case 'system_config': return <AdminSystemConfigView />;
       case 'notifications': return (
         <AdminNotificationsView
-          notifications={notifications}
-          onMarkRead={handleMarkRead}
-          onMarkAllRead={handleMarkAllRead}
           setActiveTab={setActiveTab}
         />
       );
-      case 'settings':      return <AdminSettingsView profile={adminProfile} />;
+      case 'settings':      return <AdminSettingsView />;
       case 'messages':      return <ChatView />;
       default:              return null;
     }
@@ -118,14 +131,14 @@ export default function AdminDashboardPage() {
 
       <div className="dashboard-content">
         <AdminSidebar
-          activeTab={activeTab} setActiveTab={setActiveTab} profile={adminProfile}
+          activeTab={activeTab} setActiveTab={setActiveTab} profile={profile}
           unreadCount={unreadCount} onLogout={() => setLogoutOpen(true)}
         />
         <div className="flex-1 md:pl-16 xl:pl-60 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300">
           <AdminHeader
-            activeTab={activeTab} setActiveTab={setActiveTab} profile={adminProfile}
+            activeTab={activeTab} setActiveTab={setActiveTab} profile={profile}
             notifications={notifications} unreadCount={unreadCount}
-            onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)}
+            onMarkRead={() => {}} onOpenSearch={() => setSearchOpen(true)}
             academicYear="2024–2025" maintenanceMode={maintenanceMode}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />

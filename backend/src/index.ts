@@ -6,12 +6,14 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
 
-import authRouter      from './routes/auth';
-import uploadRouter    from './routes/upload';
-import advisorRouter   from './routes/advisor';
-import chatRouter      from './routes/chat';
-import studentRouter   from './routes/student';
-import registrarRouter from './routes/registrar';
+import authRouter          from './routes/auth';
+import uploadRouter        from './routes/upload';
+import advisorRouter       from './routes/advisor';
+import chatRouter          from './routes/chat';
+import studentRouter       from './routes/student';
+import studentOnboarding   from './routes/studentOnboarding';
+import registrarRouter     from './routes/registrar';
+import adminRouter         from './routes/admin';
 import { initSocket } from './lib/socket';
 import {
   loginLimiter, registerLimiter, refreshLimiter,
@@ -60,18 +62,20 @@ app.use('/api/auth/reset-password',            resetPasswordLimiter);
 app.use('/api/auth/reset-password/validate',   verifyStatusLimiter);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/auth',    authRouter);
+app.use('/api/auth',      authRouter);
 
 // Phase 5: authenticate guards upload
 // Phase 7: upload file serving also requires authenticate (see upload route)
-app.use('/api/upload',  authenticate, uploadRouter);
+app.use('/api/upload',    authenticate, uploadRouter);
 
 // Phase 7 C3: advisor now requires authentication
-app.use('/api/advisor', authenticate, advisorRouter);
+app.use('/api/advisor',   authenticate, advisorRouter);
 
-app.use('/api/chat',       chatRouter);
-app.use('/api/student',    studentRouter);
-app.use('/api/registrar',  registrarRouter);
+app.use('/api/chat',      chatRouter);
+app.use('/api/student',   studentRouter);
+app.use('/api/student/onboarding', studentOnboarding);
+app.use('/api/registrar', registrarRouter);
+app.use('/api/admin',     adminRouter);
 
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
