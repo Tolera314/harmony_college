@@ -995,6 +995,69 @@ router.delete('/timetable/:id', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// GRADE SCALE — registrar manages letter grades and their point values
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/grade-scale', async (_req, res) => {
+  try {
+    const scales = await prisma.gradeScale.findMany({
+      orderBy: { displayOrder: 'asc' },
+    });
+    ok(res, scales);
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/grade-scale', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      letterGrade:  z.string().min(1).max(5).toUpperCase(),
+      gradePoints:  z.number().min(0).max(5),
+      description:  z.string().max(100).optional(),
+      isPassing:    z.boolean().optional(),
+      displayOrder: z.number().int().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    const existing = await prisma.gradeScale.findUnique({ where: { letterGrade: parsed.data.letterGrade } });
+    if (existing) { res.status(409).json({ error: `Grade "${parsed.data.letterGrade}" already exists. Use PATCH to update.` }); return; }
+
+    ok(res, await prisma.gradeScale.create({ data: parsed.data }), 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.patch('/grade-scale/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      gradePoints:  z.number().min(0).max(5).optional(),
+      description:  z.string().max(100).optional(),
+      isPassing:    z.boolean().optional(),
+      isActive:     z.boolean().optional(),
+      displayOrder: z.number().int().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    const updated = await prisma.gradeScale.update({
+      where: { id: pid(req) },
+      data: parsed.data,
+    });
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.delete('/grade-scale/:id', async (req: AuthRequest, res) => {
+  try {
+    // Soft-delete via isActive rather than hard delete to preserve historical data integrity
+    const updated = await prisma.gradeScale.update({
+      where: { id: pid(req) },
+      data: { isActive: false },
+    });
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // PUBLIC: Certificate verification (no auth required)
 // ══════════════════════════════════════════════════════════════════════════════
 export { router as registrarRouter };

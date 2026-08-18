@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StudentProfile } from '../types';
 import {
-  User,
-  Bell,
-  CheckCircle2,
-  Save
+  User, Bell, CheckCircle2, Save, AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
@@ -12,6 +9,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { AppearanceSection } from './ui/AppearanceSection';
+import { studentDashApi } from '@/src/lib/studentApi';
 
 interface SettingsViewProps {
   profile: StudentProfile;
@@ -34,19 +32,54 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     gradeAlerts: true,
     tuitionReminders: true,
     registrarNotices: true,
-    advisorMessages: true
+    advisorMessages: true,
   });
+  const [notifsLoaded, setNotifsLoaded] = useState(false);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saveError, setSaveError]       = useState('');
+  const [saving, setSaving]             = useState(false);
+  const [notifSaving, setNotifSaving]   = useState(false);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  // Load real notification preferences on mount
+  useEffect(() => {
+    studentDashApi.getSettings().then(s => {
+      if (s.studentRecord?.notificationPreference) {
+        const p = s.studentRecord.notificationPreference;
+        setNotifications({
+          gradeAlerts:      p.gradeAlerts,
+          tuitionReminders: p.tuitionReminders,
+          registrarNotices: p.registrarNotices,
+          advisorMessages:  p.advisorMessages,
+        });
+      }
+      setNotifsLoaded(true);
+    }).catch(() => setNotifsLoaded(true));
+  }, []);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setProfile((prev) => ({
-      ...prev,
-      ...formData
-    }));
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setSaving(true); setSaveError('');
+    try {
+      await studentDashApi.updateProfile({
+        fullName: formData.name || undefined,
+        email:    formData.email || undefined,
+        phone:    formData.phone || undefined,
+      });
+      setProfile(prev => ({ ...prev, ...formData }));
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed');
+    } finally { setSaving(false); }
+  };
+
+  const handleSaveNotifications = async () => {
+    setNotifSaving(true);
+    try {
+      await studentDashApi.updateNotifications(notifications);
+    } catch { /* silently */ }
+    finally { setNotifSaving(false); }
   };
 
   return (
@@ -64,14 +97,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       <AnimatePresence>
         {savedSuccess && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-4 ds-badge-success border rounded-2xl font-sans text-xs font-semibold flex items-center gap-2"
-          >
-            <CheckCircle2 className="w-5 h-5" style={{ color: "var(--status-success)" }} />
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="p-4 ds-badge-success border rounded-2xl font-sans text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--status-success)' }} />
             <span>Profile changes saved successfully!</span>
+          </motion.div>
+        )}
+        {saveError && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="p-4 border rounded-2xl font-sans text-xs font-semibold flex items-center gap-2"
+            style={{ backgroundColor: 'var(--status-danger-bg)', borderColor: 'var(--status-danger-border)', color: 'var(--status-danger)' }}>
+            <AlertCircle className="w-5 h-5" />
+            <span>{saveError}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -126,12 +163,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div className="flex justify-end pt-3">
-            <Button
-              variant="primary"
-              type="submit"
-              icon={<Save className="w-4 h-4" />}
-            >
-              Save Profile Changes
+            <Button variant="primary" type="submit" disabled={saving} icon={<Save className="w-4 h-4" />}>
+              {saving ? 'Saving…' : 'Save Profile Changes'}
             </Button>
           </div>
         </form>
@@ -185,6 +218,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="w-5 h-5 accent-[#E9C349] cursor-pointer"
             />
           </label>
+        </div>
+        <div className="flex justify-end pt-2">
+          <Button variant="primary" onClick={handleSaveNotifications} disabled={notifSaving} icon={<Save className="w-4 h-4" />}>
+            {notifSaving ? 'Saving…' : 'Save Preferences'}
+          </Button>
         </div>
       </Card>
     </motion.div>

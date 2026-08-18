@@ -570,6 +570,7 @@ model Room {
 
   offerings  CourseOffering[]
   timetables TimetableSlot[]
+  classSessions ClassSession[]
 
   @@unique([building, name])
   @@index([building])
@@ -631,7 +632,12 @@ model StudentRecord {
   graduationAudit    GraduationAudit?
   certificate        Certificate?
   courseGrades       CourseGrade[]
-
+  assignmentSubmissions AssignmentSubmission[]
+  quizAttempts          QuizAttempt[]
+  attendanceRecords     AttendanceRecord[]
+  financialAccount      FinancialAccount?
+  advisorAppointments   AdvisorAppointment[]
+  notificationPreference StudentNotificationPreference?
   @@index([studentId])
   @@index([programId])
   @@index([departmentId])
@@ -664,6 +670,9 @@ model CourseOffering {
 
   enrollments Enrollment[]
   timetables  TimetableSlot[]
+  assignments Assignment[]
+  quizzes     Quiz[]
+  classSessions      ClassSession[]
 
   @@unique([courseId, semesterId, section])
   @@index([semesterId])
@@ -921,4 +930,469 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRADE SCALE (registrar-managed, replaces hardcoded grade point map)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GradeScale {
+  id           String   @id @default(uuid())
+  letterGrade  String   @unique  // "A", "A-", "B+", "B", etc.
+  gradePoints  Float             // 4.0, 3.7, 3.5, etc.
+  description  String?           // "Excellent", "Very Good", etc.
+  isPassing    Boolean  @default(true)
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([letterGrade])
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AssignmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  LATE
+  GRADED
+  RETURNED
+}
+
+enum QuizStatus {
+  DRAFT
+  PUBLISHED
+  ACTIVE
+  CLOSED
+}
+
+enum QuizAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  FILL_BLANK
+  SHORT_ANSWER
+  ESSAY
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum AttendanceSessionLifecycle {
+  NOT_STARTED
+  OPEN
+  CLOSED
+  FINALIZED
+}
+
+enum AttendanceMethod {
+  MANUAL
+  QR
+}
+
+enum TransactionType {
+  TUITION
+  FEE
+  SCHOLARSHIP
+  GRANT
+  PAYMENT
+  REFUND
+  PENALTY
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ASSIGNMENTS (instructor-created, linked to a CourseOffering)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Assignment {
+  id               String           @id @default(uuid())
+  courseOfferingId String
+  courseOffering   CourseOffering   @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+  createdBy        String           // instructorRecord.userId
+
+  title            String
+  description      String           @db.Text
+  instructions     String           @db.Text
+  dueDate          DateTime
+  totalPoints      Int              @default(100)
+  status           AssignmentStatus @default(DRAFT)
+  allowLateSubmit  Boolean          @default(false)
+  maxFileSize      Int              @default(250) // MB
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments  AssignmentAttachment[]
+  submissions  AssignmentSubmission[]
+
+  @@index([courseOfferingId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model AssignmentAttachment {
+  id           String     @id @default(uuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileUrl      String
+  fileSize     String     // human-readable e.g. "420 KB"
+  fileType     String     // "PDF", "TXT", etc.
+  uploadedAt   DateTime   @default(now())
+
+  @@index([assignmentId])
+}
+
+model AssignmentSubmission {
+  id             String           @id @default(uuid())
+  assignmentId   String
+  assignment     Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentRecordId String
+  studentRecord  StudentRecord    @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+
+  status         SubmissionStatus @default(SUBMITTED)
+  submittedAt    DateTime         @default(now())
+
+  // Submission content
+  fileUrl        String?
+  fileName       String?
+  fileSize       String?
+  textContent    String?          @db.Text
+
+  // Grading
+  score          Float?
+  letterGrade    String?
+  feedback       String?          @db.Text
+  gradedAt       DateTime?
+  gradedBy       String?          // instructorRecord.userId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([assignmentId, studentRecordId])
+  @@index([assignmentId])
+  @@index([studentRecordId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUIZZES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Quiz {
+  id               String         @id @default(uuid())
+  courseOfferingId String
+  courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+  createdBy        String         // instructorRecord.userId
+
+  title                  String
+  description            String?
+  instructions           String?          @db.Text
+  durationMinutes        Int              @default(30)
+  availableFrom          DateTime
+  availableUntil         DateTime
+  passingScore           Int              @default(60)   // percentage
+  maxAttempts            Int              @default(1)
+  totalPoints            Int              @default(100)
+  showResultsImmediately Boolean          @default(true)
+  status                 QuizStatus       @default(DRAFT)
+  shuffleQuestions       Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([courseOfferingId])
+  @@index([status])
+  @@index([availableFrom])
+  @@index([availableUntil])
+}
+
+model QuizQuestion {
+  id           String       @id @default(uuid())
+  quizId       String
+  quiz         Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  questionText String       @db.Text
+  type         QuestionType
+  points       Int          @default(1)
+  orderIndex   Int          @default(0)
+
+  options      QuizQuestionOption[]
+  answers      QuizAnswer[]
+
+  @@index([quizId])
+  @@index([orderIndex])
+}
+
+model QuizQuestionOption {
+  id         String       @id @default(uuid())
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean      @default(false)
+  orderIndex Int          @default(0)
+
+  @@index([questionId])
+}
+
+model QuizAttempt {
+  id              String            @id @default(uuid())
+  quizId          String
+  quiz            Quiz              @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  studentRecordId String
+  studentRecord   StudentRecord     @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+
+  status          QuizAttemptStatus @default(IN_PROGRESS)
+  startedAt       DateTime          @default(now())
+  submittedAt     DateTime?
+  timeSpentSeconds Int?
+
+  score           Float?
+  percentageScore Float?
+  isPassing       Boolean?
+  feedback        String?          @db.Text
+  gradedAt        DateTime?
+  gradedBy        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  answers QuizAnswer[]
+
+  @@index([quizId])
+  @@index([studentRecordId])
+  @@index([status])
+}
+
+model QuizAnswer {
+  id          String       @id @default(uuid())
+  attemptId   String
+  attempt     QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  answerText  String?      @db.Text   // for open-ended
+  selectedOptionId String? // for MCQ / TrueFalse
+
+  isCorrect   Boolean?
+  pointsEarned Float?
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATTENDANCE (full spec per attendance.md)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A specific physical class meeting derived from a TimetableSlot.
+model ClassSession {
+  id               String         @id @default(uuid())
+  courseOfferingId String
+  courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+
+  date      DateTime  // The actual calendar date of this session
+  startTime String    // "09:00"
+  endTime   String    // "10:30"
+  topic     String?
+  roomId    String?
+  room      Room?     @relation(fields: [roomId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  attendanceSession AttendanceSession?
+
+  @@unique([courseOfferingId, date, startTime])
+  @@index([courseOfferingId])
+  @@index([date])
+}
+
+/// The attendance-taking period for a ClassSession.
+/// Lifecycle: NOT_STARTED → OPEN → CLOSED → FINALIZED
+model AttendanceSession {
+  id             String                     @id @default(uuid())
+  classSessionId String                     @unique
+  classSession   ClassSession               @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
+  openedBy       String                     // InstructorRecord.userId
+  lifecycle      AttendanceSessionLifecycle @default(NOT_STARTED)
+
+  openedAt    DateTime?
+  closedAt    DateTime?
+  finalizedAt DateTime?
+
+  // QR attendance token (hashed — raw token sent to frontend only once)
+  qrTokenHash  String?
+  qrTokenExpiry DateTime?
+
+  // Policy overrides for this session
+  lateAfterMinutes  Int @default(10)
+  closeAfterMinutes Int @default(30)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  records AttendanceRecord[]
+
+  @@index([openedBy])
+  @@index([lifecycle])
+}
+
+/// One student's attendance for one AttendanceSession.
+model AttendanceRecord {
+  id                  String              @id @default(uuid())
+  attendanceSessionId String
+  attendanceSession   AttendanceSession   @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
+  studentRecordId     String
+  studentRecord       StudentRecord       @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+
+  status   AttendanceStatus  @default(PRESENT)
+  method   AttendanceMethod  @default(MANUAL)
+  markedAt DateTime          @default(now())
+  markedBy String            // userId who marked (instructor or student via QR)
+  note     String?
+
+  // Correction tracking
+  correctionOf    String?           // ID of previous record this corrects
+  correctionReason String?
+  correctedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  corrections AttendanceCorrectionLog[]
+
+  @@unique([attendanceSessionId, studentRecordId])
+  @@index([attendanceSessionId])
+  @@index([studentRecordId])
+}
+
+/// Append-only audit log for attendance corrections.
+model AttendanceCorrectionLog {
+  id                 String           @id @default(uuid())
+  attendanceRecordId String
+  attendanceRecord   AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+
+  oldStatus AttendanceStatus
+  newStatus AttendanceStatus
+  reason    String
+  changedBy String            // userId
+  changedAt DateTime          @default(now())
+
+  @@index([attendanceRecordId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FINANCIALS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model FinancialAccount {
+  id              String        @id @default(uuid())
+  studentRecordId String        @unique
+  studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+
+  balance         Float         @default(0.0)   // 0 = cleared
+  clearedForTerm  String?                        // e.g. "Fall 2024"
+  lastUpdatedAt   DateTime      @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions FinancialTransaction[]
+
+  @@index([studentRecordId])
+}
+
+model FinancialTransaction {
+  id                String          @id @default(uuid())
+  financialAccountId String
+  financialAccount  FinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+
+  type        TransactionType
+  amount      Float            // positive = charge, negative = credit
+  description String
+  category    String           // "Tuition", "Fee", "Scholarship", etc.
+  receiptId   String?          @unique
+  status      String           @default("POSTED") // POSTED, PENDING, REVERSED
+  referenceId String?          // payment gateway reference
+
+  transactionDate DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+
+  @@index([financialAccountId])
+  @@index([transactionDate])
+  @@index([type])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADVISOR APPOINTMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AdvisorAppointment {
+  id              String            @id @default(uuid())
+  studentRecordId String
+  studentRecord   StudentRecord     @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+  advisorUserId   String            // instructor userId acting as advisor
+
+  topic           String
+  requestedDate   DateTime
+  requestedTime   String            // "10:00", "11:30", etc.
+  status          AppointmentStatus @default(PENDING)
+
+  confirmedAt     DateTime?
+  cancelledAt     DateTime?
+  cancellationReason String?
+  meetingLink     String?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentRecordId])
+  @@index([advisorUserId])
+  @@index([status])
+  @@index([requestedDate])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT NOTIFICATION PREFERENCES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model StudentNotificationPreference {
+  id              String        @id @default(uuid())
+  studentRecordId String        @unique
+  studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+
+  gradeAlerts       Boolean @default(true)
+  tuitionReminders  Boolean @default(true)
+  registrarNotices  Boolean @default(true)
+  advisorMessages   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

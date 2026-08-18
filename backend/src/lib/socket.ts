@@ -33,6 +33,8 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
     },
   });
 
+  // Store module-level reference so broadcast helpers work without passing io around
+  registerIo(io);
   // ── JWT Auth middleware ───────────────────────────────────────────────────
   io.use(async (socket: AuthSocket, next) => {
     try {
@@ -62,6 +64,9 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
     const userId = socket.userId!;
 
     setOnline(userId, socket.id);
+
+    // Each socket joins its own personal room for direct notifications (grades, alerts)
+    socket.join(`user:${userId}`);
 
     // Broadcast online status to all
     socket.broadcast.emit('presence', { userId, online: true });
@@ -140,6 +145,38 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
       socket.to(conversationId).emit('stopTyping', { conversationId, userId });
     });
 
+    // ── Attendance: join/leave a course-session room ─────────────────────────
+    // Instructors and students join `attendance:${courseOfferingId}` to receive live events.
+    socket.on('attendance:join', async (courseOfferingId: string) => {
+      try {
+        if (!courseOfferingId) return;
+        // Verify the user has some relation to this offering (enrolled or teaching)
+        const { prisma } = await import('./prisma');
+        const allowed = await prisma.$queryRaw<{ exists: boolean }[]>`
+          SELECT EXISTS(
+            SELECT 1 FROM "Enrollment" e
+              JOIN "CourseOffering" co ON co.id = e."courseOfferingId"
+            WHERE e."studentRecordId" IN (
+              SELECT id FROM "StudentRecord" WHERE "userId" = ${userId}
+            ) AND co.id = ${courseOfferingId}
+            UNION
+            SELECT 1 FROM "CourseOffering" co
+              JOIN "InstructorRecord" ir ON ir.id = co."instructorId"
+            WHERE co.id = ${courseOfferingId} AND ir."userId" = ${userId}
+          ) AS exists
+        `;
+        if (allowed[0]?.exists) {
+          socket.join(`attendance:${courseOfferingId}`);
+        }
+      } catch (err) {
+        console.error('[socket:attendance:join]', err);
+      }
+    });
+
+    socket.on('attendance:leave', (courseOfferingId: string) => {
+      socket.leave(`attendance:${courseOfferingId}`);
+    });
+
     // ── disconnect ──────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       setOffline(userId, socket.id);
@@ -150,4 +187,75 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
   });
 
   return io;
+}
+
+// ── Attendance broadcast helpers (called from attendanceService) ──────────────
+// These are module-level so the service can import and call them without a
+// direct reference to the io instance. We store it once after initSocket().
+
+let _io: IOServer | null = null;
+
+/**
+ * Call once during server startup — keeps a module reference to the io instance
+ * so the broadcast helpers below can emit without being passed io explicitly.
+ */
+export function registerIo(io: IOServer) {
+  _io = io;
+}
+
+/**
+ * Broadcast that a session has been opened.
+ * Room: `attendance:${courseOfferingId}`
+ */
+export function broadcastAttendanceOpened(payload: {
+  sessionId: string;
+  courseOfferingId: string;
+  courseCode: string;
+  openedAt: string;
+}) {
+  _io?.to(`attendance:${payload.courseOfferingId}`).emit('attendance:opened', payload);
+}
+
+/**
+ * Broadcast a single attendance record update (QR scan or manual mark).
+ * Room: `attendance:${courseOfferingId}`
+ */
+export function broadcastAttendanceRecord(payload: {
+  sessionId: string;
+  courseOfferingId: string;
+  studentRecordId: string;
+  studentName: string;
+  status: string;
+  method: string;
+  markedAt: string;
+}) {
+  _io?.to(`attendance:${payload.courseOfferingId}`).emit('attendance:record', payload);
+}
+
+/**
+ * Broadcast that a session has been closed or finalized.
+ * Room: `attendance:${courseOfferingId}`
+ */
+export function broadcastAttendanceClosed(payload: {
+  sessionId: string;
+  courseOfferingId: string;
+  status: 'CLOSED' | 'FINALIZED';
+  closedAt: string;
+}) {
+  _io?.to(`attendance:${payload.courseOfferingId}`).emit('attendance:closed', payload);
+}
+
+/**
+ * Broadcast a grade-posted notification to a specific student's user socket room.
+ * Each authenticated socket joins `user:${userId}` on connect.
+ */
+export function broadcastGradePosted(payload: {
+  studentUserId: string;
+  courseCode: string;
+  courseTitle: string;
+  grade: string;
+  gradePoints: number;
+  term: string;
+}) {
+  _io?.to(`user:${payload.studentUserId}`).emit('grade:posted', payload);
 }

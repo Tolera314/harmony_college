@@ -6,27 +6,31 @@ import {
   User, Shield, Key, Clock, Save, Monitor, Settings,
   Smartphone, LogOut, Sliders, Calendar, Power, Trash2,
   Plus, Info, CheckCheck, Palette, RefreshCw, AlertCircle,
+  GraduationCap, Pencil, X as XIcon,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { AppearanceSection } from '../ui/AppearanceSection';
 import { SkeletonPage, ErrorState } from '../ui/States';
 import {
   settingsApi,
+  gradeScaleApi,
   type RegistrarProfile,
   type SessionItem,
   type RegistrationSettings,
+  type GradeScaleEntry,
 } from '@/src/lib/registrarApi';
 
 // ─────────────────────────────────────────────────────────────────────────────
-type SettingsTab = 'profile' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration';
+type SettingsTab = 'profile' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration' | 'grade_scale';
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'profile',      label: 'Personal Profile',    icon: <User      className="w-4 h-4" /> },
-  { id: 'password',     label: 'Password',            icon: <Key       className="w-4 h-4" /> },
-  { id: 'appearance',   label: 'Appearance & Theme',  icon: <Palette   className="w-4 h-4" /> },
-  { id: 'security',     label: 'Security',            icon: <Shield    className="w-4 h-4" /> },
-  { id: 'sessions',     label: 'Active Sessions',     icon: <Clock     className="w-4 h-4" /> },
-  { id: 'registration', label: 'Registration Engine', icon: <Sliders   className="w-4 h-4" /> },
+  { id: 'profile',      label: 'Personal Profile',    icon: <User          className="w-4 h-4" /> },
+  { id: 'password',     label: 'Password',            icon: <Key           className="w-4 h-4" /> },
+  { id: 'appearance',   label: 'Appearance & Theme',  icon: <Palette       className="w-4 h-4" /> },
+  { id: 'security',     label: 'Security',            icon: <Shield        className="w-4 h-4" /> },
+  { id: 'sessions',     label: 'Active Sessions',     icon: <Clock         className="w-4 h-4" /> },
+  { id: 'registration', label: 'Registration Engine', icon: <Sliders       className="w-4 h-4" /> },
+  { id: 'grade_scale',  label: 'Grade Scale',         icon: <GraduationCap className="w-4 h-4" /> },
 ];
 
 const labelCls = 'text-[11px] font-mono text-white/40 uppercase tracking-wider';
@@ -99,6 +103,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: string }> = ({ initialTa
           {activeTab === 'security'     && <SecurityTab />}
           {activeTab === 'sessions'     && <SessionsTab />}
           {activeTab === 'registration' && <RegistrationTab />}
+          {activeTab === 'grade_scale'  && <GradeScaleTab />}
         </div>
       </div>
     </motion.div>
@@ -664,6 +669,269 @@ function RegistrationTab() {
       <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl flex gap-3 text-xs text-yellow-300">
         <Info className="w-4 h-4 shrink-0 text-[#D4AF37]" />
         <span><strong>Warning:</strong> Registration date changes take effect immediately and affect active student checkouts.</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRADE SCALE TAB — CRUD via /api/registrar/grade-scale
+// Registrar can manage letter grades, grade points, pass/fail threshold
+// ─────────────────────────────────────────────────────────────────────────────
+function GradeScaleTab() {
+  const [entries, setEntries]   = useState<GradeScaleEntry[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [err, setErr]           = useState('');
+  const [saved, setSaved]       = useState(false);
+
+  // Inline edit state
+  const [editing, setEditing]   = useState<string | null>(null); // id of row being edited
+  const [editForm, setEditForm] = useState<Partial<GradeScaleEntry>>({});
+
+  // Add new entry form
+  const [showAdd, setShowAdd]   = useState(false);
+  const [addForm, setAddForm]   = useState({
+    letterGrade: '', gradePoints: '', description: '', isPassing: true, displayOrder: '',
+  });
+  const [adding, setAdding]     = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [saving, setSaving]     = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true); setErr('');
+    gradeScaleApi.list()
+      .then(data => setEntries(data))
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const startEdit = (entry: GradeScaleEntry) => {
+    setEditing(entry.id);
+    setEditForm({
+      gradePoints:  entry.gradePoints,
+      description:  entry.description ?? '',
+      isPassing:    entry.isPassing,
+      isActive:     entry.isActive,
+      displayOrder: entry.displayOrder,
+    });
+  };
+
+  const cancelEdit = () => { setEditing(null); setEditForm({}); };
+
+  const handleUpdate = async (id: string) => {
+    setSaving(true); setErr('');
+    try {
+      await gradeScaleApi.update(id, {
+        gradePoints:  Number(editForm.gradePoints),
+        description:  editForm.description as string | undefined,
+        isPassing:    editForm.isPassing,
+        isActive:     editForm.isActive,
+        displayOrder: Number(editForm.displayOrder),
+      });
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+      setEditing(null);
+      load();
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Update failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault(); setAdding(true); setErr('');
+    try {
+      await gradeScaleApi.create({
+        letterGrade:  addForm.letterGrade.trim().toUpperCase(),
+        gradePoints:  Number(addForm.gradePoints),
+        description:  addForm.description || undefined,
+        isPassing:    addForm.isPassing,
+        displayOrder: addForm.displayOrder ? Number(addForm.displayOrder) : undefined,
+      });
+      setAddForm({ letterGrade: '', gradePoints: '', description: '', isPassing: true, displayOrder: '' });
+      setShowAdd(false);
+      load();
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Create failed'); }
+    finally { setAdding(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this grade scale entry?')) return;
+    setDeleting(id);
+    try { await gradeScaleApi.remove(id); load(); }
+    catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Delete failed'); }
+    finally { setDeleting(null); }
+  };
+
+  if (loading) return <div className={cardCls}><SkeletonPage /></div>;
+
+  return (
+    <div className={cardCls}>
+      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+          <GraduationCap className="w-5 h-5 text-[#D4AF37]" /> Grade Scale Management
+        </h3>
+        <div className="flex items-center gap-3">
+          {saved && <span className="flex items-center gap-1.5 text-xs text-green-400 font-semibold"><CheckCheck className="w-4 h-4" /> Saved</span>}
+          <Button variant="gold" size="sm" onClick={() => setShowAdd(v => !v)} icon={<Plus className="w-3.5 h-3.5" />}>
+            Add Grade
+          </Button>
+        </div>
+      </div>
+
+      <ErrMsg msg={err} />
+
+      <p className="text-[10px] text-white/30 font-mono">
+        Grade points are read from this table when calculating student GPAs.
+        Changes affect all future GPA calculations.
+      </p>
+
+      {/* Add form */}
+      {showAdd && (
+        <form onSubmit={handleAdd} className="p-4 bg-black/30 border border-white/10 rounded-xl space-y-3 font-sans">
+          <p className={labelCls}>New Grade Scale Entry</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className={labelCls}>Letter Grade</label>
+              <input required type="text" placeholder="A+" maxLength={3}
+                value={addForm.letterGrade} onChange={e => setAddForm(f => ({ ...f, letterGrade: e.target.value }))}
+                className={inputCls} />
+            </div>
+            <div className="space-y-1">
+              <label className={labelCls}>Grade Points</label>
+              <input required type="number" step="0.1" min="0" max="4" placeholder="4.0"
+                value={addForm.gradePoints} onChange={e => setAddForm(f => ({ ...f, gradePoints: e.target.value }))}
+                className={inputCls} />
+            </div>
+            <div className="space-y-1">
+              <label className={labelCls}>Display Order</label>
+              <input type="number" min="0" placeholder="0"
+                value={addForm.displayOrder} onChange={e => setAddForm(f => ({ ...f, displayOrder: e.target.value }))}
+                className={inputCls} />
+            </div>
+            <div className="space-y-1 col-span-2">
+              <label className={labelCls}>Description</label>
+              <input type="text" placeholder="Excellent, Good…"
+                value={addForm.description} onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
+                className={inputCls} />
+            </div>
+            <div className="flex items-center gap-3 pt-4">
+              <label className="text-xs text-white/60">Passing?</label>
+              <button type="button" onClick={() => setAddForm(f => ({ ...f, isPassing: !f.isPassing }))}
+                className={`w-9 h-5 rounded-full relative transition-colors focus:outline-none ${addForm.isPassing ? 'bg-[#D4AF37]' : 'bg-white/10'}`}
+                role="switch" aria-checked={addForm.isPassing}>
+                <span className={`block w-4 h-4 rounded-full bg-[var(--bg-base)] shadow absolute top-0.5 transition-transform ${addForm.isPassing ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="gold" size="sm" type="submit" disabled={adding}>
+              {adding ? 'Adding…' : 'Add Entry'}
+            </Button>
+            <Button variant="secondary" size="sm" type="button" onClick={() => setShowAdd(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs font-sans min-w-[520px]">
+          <thead style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <tr>
+              {['Grade', 'Points', 'Description', 'Passing', 'Active', 'Order', 'Actions'].map(h => (
+                <th key={h} className="px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-white/40">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry, i) => (
+              <tr key={entry.id}
+                style={{ borderBottom: i < entries.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined }}>
+                {editing === entry.id ? (
+                  // Inline edit row
+                  <>
+                    <td className="px-3 py-2 font-mono font-bold text-[#D4AF37]">{entry.letterGrade}</td>
+                    <td className="px-3 py-2">
+                      <input type="number" step="0.1" min="0" max="4"
+                        value={editForm.gradePoints ?? ''} onChange={e => setEditForm(f => ({ ...f, gradePoints: Number(e.target.value) }))}
+                        className="w-16 bg-black/40 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-[#D4AF37]" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input type="text" value={editForm.description ?? ''}
+                        onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                        className="w-28 bg-black/40 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-[#D4AF37]" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => setEditForm(f => ({ ...f, isPassing: !f.isPassing }))}
+                        className={`w-8 h-4 rounded-full relative transition-colors ${editForm.isPassing ? 'bg-[#D4AF37]' : 'bg-white/10'}`}>
+                        <span className={`block w-3 h-3 rounded-full bg-[var(--bg-base)] absolute top-0.5 transition-transform ${editForm.isPassing ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => setEditForm(f => ({ ...f, isActive: !f.isActive }))}
+                        className={`w-8 h-4 rounded-full relative transition-colors ${editForm.isActive ? 'bg-[#D4AF37]' : 'bg-white/10'}`}>
+                        <span className={`block w-3 h-3 rounded-full bg-[var(--bg-base)] absolute top-0.5 transition-transform ${editForm.isActive ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </td>
+                    <td className="px-3 py-2">
+                      <input type="number" min="0" value={editForm.displayOrder ?? ''}
+                        onChange={e => setEditForm(f => ({ ...f, displayOrder: Number(e.target.value) }))}
+                        className="w-14 bg-black/40 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-[#D4AF37]" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1.5">
+                        <button onClick={() => handleUpdate(entry.id)} disabled={saving}
+                          className="p-1 bg-[#D4AF37]/15 border border-[#D4AF37]/30 rounded-lg text-[#D4AF37] hover:bg-[#D4AF37]/25 transition-colors">
+                          <CheckCheck className="w-3 h-3" />
+                        </button>
+                        <button onClick={cancelEdit}
+                          className="p-1 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white transition-colors">
+                          <XIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  // Read row
+                  <>
+                    <td className="px-3 py-2.5 font-mono font-bold text-[#D4AF37]">{entry.letterGrade}</td>
+                    <td className="px-3 py-2.5 font-mono font-semibold text-white">{entry.gradePoints.toFixed(1)}</td>
+                    <td className="px-3 py-2.5 text-white/60">{entry.description ?? '—'}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`font-mono text-[10px] font-bold ${entry.isPassing ? 'text-green-400' : 'text-red-400'}`}>
+                        {entry.isPassing ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={`font-mono text-[10px] font-bold ${entry.isActive ? 'text-green-400' : 'text-white/30'}`}>
+                        {entry.isActive ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-white/40">{entry.displayOrder}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex gap-1.5">
+                        <button onClick={() => startEdit(entry)}
+                          className="p-1 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-[#D4AF37] hover:border-[#D4AF37]/30 transition-colors">
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => handleDelete(entry.id)} disabled={deleting === entry.id}
+                          className="p-1 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-red-400 hover:border-red-500/30 transition-colors">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl flex gap-2 text-[10px] text-yellow-300">
+        <Info className="w-3.5 h-3.5 shrink-0 text-[#D4AF37] mt-0.5" />
+        <span>Grade points are used in GPA calculations across all academic records. Changes take effect on the next GPA recalculation.</span>
       </div>
     </div>
   );

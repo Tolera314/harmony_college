@@ -2,11 +2,35 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { BarChart3, RefreshCw, Download, Users, BookOpen, GraduationCap, ClipboardList } from 'lucide-react';
+import {
+  BarChart3, RefreshCw, Download, Users, BookOpen,
+  GraduationCap, ClipboardList, CalendarCheck, AlertTriangle,
+  ChevronLeft, ChevronRight,
+} from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { SkeletonPage, ErrorState } from '../ui/States';
 import { reportsApi, offeringsApi } from '@/src/lib/registrarApi';
+
+// ── Attendance API helpers ────────────────────────────────────────────────────
+async function fetchAttendanceReport(params: Record<string, string | number | undefined>) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '') qs.set(k, String(v));
+  }
+  const res = await fetch(`/api/attendance/report?${qs.toString()}`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchBelowThreshold(courseOfferingId: string, threshold = 75) {
+  const res = await fetch(
+    `/api/attendance/below-threshold?courseOfferingId=${courseOfferingId}&threshold=${threshold}`,
+    { credentials: 'include' },
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
 export const InteractiveReports: React.FC = () => {
   const [enrollData, setEnrollData]     = useState<any>(null);
@@ -14,9 +38,20 @@ export const InteractiveReports: React.FC = () => {
   const [gradData, setGradData]         = useState<any>(null);
   const [utilData, setUtilData]         = useState<any[]>([]);
   const [semesters, setSemesters]       = useState<any[]>([]);
+  const [offerings, setOfferings]       = useState<any[]>([]);
   const [semesterFilter, setSF]         = useState('');
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
+
+  // Attendance report state
+  const [attendData, setAttendData]     = useState<any>(null);
+  const [attendLoading, setAttendLoading] = useState(false);
+  const [belowData, setBelowData]       = useState<any[]>([]);
+  const [belowLoading, setBelowLoading] = useState(false);
+  const [attendCourse, setAttendCourse] = useState('');
+  const [attendSem, setAttendSem]       = useState('');
+  const [attendPage, setAttendPage]     = useState(1);
+  const ATTEND_LIMIT = 15;
 
   const load = useCallback(async (sem = semesterFilter) => {
     setLoading(true); setError(null);
@@ -34,7 +69,39 @@ export const InteractiveReports: React.FC = () => {
     finally { setLoading(false); }
   }, [semesterFilter]);
 
+  // Load offerings for attendance course filter
+  const loadOfferings = useCallback(async () => {
+    try {
+      const res = await offeringsApi.list({ limit: 200, ...(attendSem && { semesterId: attendSem }) });
+      setOfferings(res.offerings ?? []);
+    } catch { /* ignore */ }
+  }, [attendSem]);
+
   useEffect(() => { load(); }, []);
+  useEffect(() => { loadOfferings(); }, [attendSem]);
+
+  const loadAttendance = useCallback(async (page = attendPage) => {
+    setAttendLoading(true);
+    try {
+      const data = await fetchAttendanceReport({
+        page, limit: ATTEND_LIMIT,
+        ...(attendSem    && { semesterId: attendSem }),
+        ...(attendCourse && { courseOfferingId: attendCourse }),
+      });
+      setAttendData(data);
+    } catch { setAttendData(null); }
+    finally { setAttendLoading(false); }
+  }, [attendPage, attendSem, attendCourse]);
+
+  const loadBelowThreshold = useCallback(async () => {
+    if (!attendCourse) return;
+    setBelowLoading(true);
+    try {
+      const data = await fetchBelowThreshold(attendCourse, 75);
+      setBelowData(Array.isArray(data) ? data : (data.students ?? []));
+    } catch { setBelowData([]); }
+    finally { setBelowLoading(false); }
+  }, [attendCourse]);
 
   const exportCSV = (data: any[], filename: string) => {
     if (!data.length) return;
@@ -201,6 +268,188 @@ export const InteractiveReports: React.FC = () => {
             </table>
           </div>
         </div>
+      </div>
+
+      {/* ── Attendance Reports ─────────────────────────────────────────────── */}
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
+            <CalendarCheck className="w-4 h-4" style={{ color: 'var(--brand-gold)' }} />
+          </div>
+          <div>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Attendance Reports</h3>
+            <p className="text-xs text-(--text-muted)">Session-by-session records and below-threshold alerts.</p>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 p-4 ds-card rounded-2xl">
+          <select value={attendSem} onChange={e => { setAttendSem(e.target.value); setAttendPage(1); }}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+            <option value="">All Semesters</option>
+            {semesters.map(s => <option key={s.id} value={s.id}>{s.name} — {s.academicYear?.name}</option>)}
+          </select>
+          <select value={attendCourse} onChange={e => { setAttendCourse(e.target.value); setAttendPage(1); }}
+            className="px-3 py-2 rounded-xl text-xs focus:outline-none"
+            style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+            <option value="">All Courses</option>
+            {offerings.map(o => (
+              <option key={o.id} value={o.id}>
+                {o.course?.code ?? o.courseCode ?? o.id} — {o.course?.name ?? o.courseName ?? ''}
+              </option>
+            ))}
+          </select>
+          <Button variant="secondary" size="sm" onClick={() => loadAttendance(1)}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Load Report
+          </Button>
+          {attendCourse && (
+            <Button variant="secondary" size="sm" onClick={loadBelowThreshold}>
+              <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />Below 75%
+            </Button>
+          )}
+        </div>
+
+        {/* Below-threshold alert list */}
+        {belowData.length > 0 && (
+          <div className="ds-card p-5 rounded-2xl border border-(--status-danger-border) space-y-4"
+            style={{ backgroundColor: 'var(--status-danger-bg)' }}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" style={{ color: 'var(--status-danger)' }} />
+              <h4 className="font-semibold text-sm" style={{ color: 'var(--status-danger)' }}>
+                {belowData.length} Student{belowData.length !== 1 ? 's' : ''} Below 75% Attendance
+              </h4>
+              <button onClick={() => exportCSV(belowData, 'below_threshold.csv')}
+                className="ml-auto text-xs flex items-center gap-1" style={{ color: 'var(--brand-gold)' }}>
+                <Download className="w-3 h-3" /> CSV
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-default)' }}>
+                    {['Student', 'ID', 'Rate', 'Present', 'Absent', 'Total'].map(h => (
+                      <th key={h} className="pb-2 text-left font-mono text-[10px] uppercase tracking-wider"
+                        style={{ color: 'var(--text-faint)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {belowData.map((s: any, i) => (
+                    <tr key={i} style={{ borderBottom: i < belowData.length - 1 ? '1px solid var(--border-subtle)' : undefined }}>
+                      <td className="py-2 font-semibold" style={{ color: 'var(--text-primary)' }}>{s.studentName ?? s.fullName ?? '—'}</td>
+                      <td className="py-2 font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>{s.studentId ?? '—'}</td>
+                      <td className="py-2">
+                        <span className="font-mono font-bold" style={{ color: 'var(--status-danger)' }}>{s.attendanceRate ?? s.rate ?? '—'}%</span>
+                      </td>
+                      <td className="py-2 font-mono" style={{ color: 'var(--status-success)' }}>{s.present ?? '—'}</td>
+                      <td className="py-2 font-mono" style={{ color: 'var(--status-danger)' }}>{s.absent ?? '—'}</td>
+                      <td className="py-2 font-mono" style={{ color: 'var(--text-muted)' }}>{s.total ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        {belowLoading && <p className="text-xs text-(--text-faint) font-mono">Loading threshold data…</p>}
+
+        {/* Attendance session records table */}
+        {attendLoading ? (
+          <div className="ds-card p-6 rounded-2xl"><SkeletonPage /></div>
+        ) : attendData ? (
+          <div className="ds-card p-5 rounded-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                Attendance Records
+                <span className="ml-2 font-mono text-xs" style={{ color: 'var(--text-faint)' }}>
+                  ({attendData.total ?? 0} total)
+                </span>
+              </h4>
+              <button onClick={() => exportCSV(attendData?.records ?? [], 'attendance_records.csv')}
+                className="text-xs flex items-center gap-1" style={{ color: 'var(--brand-gold)' }}>
+                <Download className="w-3 h-3" /> CSV
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs min-w-[600px]">
+                <thead>
+                  <tr style={{ backgroundColor: 'var(--hover-overlay)', borderBottom: '1px solid var(--border-default)' }}>
+                    {['Date', 'Course', 'Student', 'Status', 'Method', 'Marked At'].map(h => (
+                      <th key={h} className="px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider"
+                        style={{ color: 'var(--text-faint)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(attendData.records ?? []).map((rec: any, i: number) => {
+                    const statusColors: Record<string, string> = {
+                      PRESENT: 'var(--status-success)', LATE: 'var(--status-warning)',
+                      ABSENT: 'var(--status-danger)', EXCUSED: 'var(--text-secondary)',
+                    };
+                    return (
+                      <tr key={rec.id ?? i} className="transition-colors"
+                        style={{ borderBottom: i < (attendData.records.length - 1) ? '1px solid var(--border-subtle)' : undefined }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}>
+                        <td className="px-3 py-2.5 font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                          {rec.sessionDate ? new Date(rec.sessionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono font-bold" style={{ color: 'var(--brand-gold)' }}>
+                          {rec.courseCode ?? '—'}
+                        </td>
+                        <td className="px-3 py-2.5 font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          {rec.studentName ?? rec.student?.fullName ?? '—'}
+                        </td>
+                        <td className="px-3 py-2.5 font-semibold" style={{ color: statusColors[rec.status] ?? 'var(--text-muted)' }}>
+                          {rec.status ?? '—'}
+                        </td>
+                        <td className="px-3 py-2.5" style={{ color: 'var(--text-faint)' }}>
+                          {rec.method ?? 'Manual'}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                          {rec.markedAt ? new Date(rec.markedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {(attendData.totalPages ?? 1) > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>
+                  Page {attendData.page} of {attendData.totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    disabled={attendPage <= 1}
+                    onClick={() => { setAttendPage(p => p - 1); loadAttendance(attendPage - 1); }}
+                    className="p-1.5 rounded-lg border transition-colors disabled:opacity-40"
+                    style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    disabled={attendPage >= (attendData.totalPages ?? 1)}
+                    onClick={() => { setAttendPage(p => p + 1); loadAttendance(attendPage + 1); }}
+                    className="p-1.5 rounded-lg border transition-colors disabled:opacity-40"
+                    style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="ds-card p-8 rounded-2xl text-center">
+            <CalendarCheck className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--text-faint)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Select filters above and click "Load Report" to view attendance data.
+            </p>
+          </div>
+        )}
       </div>
     </motion.div>
   );
