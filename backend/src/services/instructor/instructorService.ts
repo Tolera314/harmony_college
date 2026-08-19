@@ -18,6 +18,7 @@ import {
   SubmissionStatus,
   AttendanceStatus,
   EnrollmentStatus,
+  QuestionType,
 } from '@prisma/client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,17 +91,17 @@ const ACTIVE_STATUSES: EnrollmentStatus[] = [EnrollmentStatus.ACTIVE, Enrollment
 export async function getInstructorProfile(userId: string) {
   const record = await resolveInstructor(userId);
   return {
-    id:             record.id,
-    userId:         record.userId,
-    employeeId:     record.employeeId,
-    title:          record.title,
+    id: record.id,
+    userId: record.userId,
+    employeeId: record.employeeId,
+    title: record.title,
     specialization: record.specialization,
-    isActive:       record.isActive,
-    fullName:       record.user.fullName,
-    email:          record.user.email,
-    phone:          record.user.phone,
-    department:     record.department,
-    createdAt:      record.createdAt,
+    isActive: record.isActive,
+    fullName: record.user.fullName,
+    email: record.user.email,
+    phone: record.user.phone,
+    department: record.department,
+    createdAt: record.createdAt,
   };
 }
 
@@ -112,7 +113,7 @@ export async function updateInstructorProfile(
   return prisma.instructorRecord.update({
     where: { id: record.id },
     data: {
-      ...(data.title          !== undefined && { title: data.title }),
+      ...(data.title !== undefined && { title: data.title }),
       ...(data.specialization !== undefined && { specialization: data.specialization }),
     },
   });
@@ -129,14 +130,14 @@ export async function getDashboardStats(userId: string) {
   const offerings = await prisma.courseOffering.findMany({
     where: { instructorId: instructor.id },
     include: {
-      course:   { select: { code: true, name: true, creditHours: true } },
+      course: { select: { code: true, name: true, creditHours: true } },
       semester: { select: { id: true, name: true, isCurrent: true, academicYear: { select: { name: true } } } },
-      room:     { select: { name: true, building: true } },
+      room: { select: { name: true, building: true } },
       _count: {
         select: {
           enrollments: { where: { status: { in: ACTIVE_STATUSES } } },
-          assignments:  true,
-          quizzes:      true,
+          assignments: true,
+          quizzes: true,
         },
       },
     },
@@ -156,9 +157,9 @@ export async function getDashboardStats(userId: string) {
   }
 
   // Today's class sessions
-  const now         = new Date();
-  const startOfDay  = new Date(now); startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay    = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+  const now = new Date();
+  const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
 
   const todaySessions = await prisma.classSession.findMany({
     where: {
@@ -211,7 +212,7 @@ export async function getDashboardStats(userId: string) {
       take: 4,
     });
     for (const s of sessions) {
-      const total   = s.records.length;
+      const total = s.records.length;
       const present = s.records.filter(r => r.status === 'PRESENT' || r.status === 'LATE').length;
       if (total > 0) attendanceTrend.push(Math.round((present / total) * 100));
     }
@@ -228,44 +229,44 @@ export async function getDashboardStats(userId: string) {
 
   return {
     instructor: {
-      id:             instructor.id,
-      employeeId:     instructor.employeeId,
-      title:          instructor.title,
+      id: instructor.id,
+      employeeId: instructor.employeeId,
+      title: instructor.title,
       specialization: instructor.specialization,
-      fullName:       instructor.user.fullName,
-      email:          instructor.user.email,
-      phone:          instructor.user.phone,
-      department:     instructor.department,
+      fullName: instructor.user.fullName,
+      email: instructor.user.email,
+      phone: instructor.user.phone,
+      department: instructor.department,
     },
     kpis: {
-      classesToday:        todaySessions.length,
-      studentsTaught:      allStudentIds.size,
+      classesToday: todaySessions.length,
+      studentsTaught: allStudentIds.size,
       activeSessions,
       pendingAssignments,
       ungradedSubmissions,
-      upcomingClasses:     todaySessions.filter(s => !s.attendanceSession || s.attendanceSession.lifecycle === 'NOT_STARTED').length,
-      currentOfferings:    currentOfferings.length,
-      totalOfferings:      offerings.length,
+      upcomingClasses: todaySessions.filter(s => !s.attendanceSession || s.attendanceSession.lifecycle === 'NOT_STARTED').length,
+      currentOfferings: currentOfferings.length,
+      totalOfferings: offerings.length,
     },
     todaySessions: todaySessions.map(s => ({
-      id:           s.id,
-      courseCode:   s.courseOffering.course.code,
-      courseName:   s.courseOffering.course.name,
-      room:         s.courseOffering.room ? `${s.courseOffering.room.name}, ${s.courseOffering.room.building}` : 'TBD',
-      startTime:    s.startTime,
-      endTime:      s.endTime,
-      date:         s.date,
-      attendanceSessionId:       s.attendanceSession?.id ?? null,
+      id: s.id,
+      courseCode: s.courseOffering.course.code,
+      courseName: s.courseOffering.course.name,
+      room: s.courseOffering.room ? `${s.courseOffering.room.name}, ${s.courseOffering.room.building}` : 'TBD',
+      startTime: s.startTime,
+      endTime: s.endTime,
+      date: s.date,
+      attendanceSessionId: s.attendanceSession?.id ?? null,
       attendanceSessionLifecycle: s.attendanceSession?.lifecycle ?? null,
       courseOfferingId: s.courseOffering.id,
     })),
     attendanceTrend: attendanceTrend.slice(0, 8),
-    notifications:   notifications.slice(0, 5).map(n => ({
-      id:        n.id,
-      title:     n.title,
-      message:   n.message,
-      type:      n.type,
-      isRead:    n.isRead,
+    notifications: notifications.slice(0, 5).map(n => ({
+      id: n.id,
+      title: n.title,
+      message: n.message,
+      type: n.type,
+      isRead: n.isRead,
       createdAt: n.createdAt,
     })),
     unreadNotifications,
@@ -282,7 +283,7 @@ export async function getMyClasses(userId: string) {
   const offerings = await prisma.courseOffering.findMany({
     where: { instructorId: instructor.id },
     include: {
-      course:   { select: { id: true, code: true, name: true, description: true, creditHours: true } },
+      course: { select: { id: true, code: true, name: true, description: true, creditHours: true } },
       semester: {
         select: {
           id: true, name: true, isCurrent: true,
@@ -290,12 +291,12 @@ export async function getMyClasses(userId: string) {
           academicYear: { select: { name: true } },
         },
       },
-      room:     { select: { name: true, building: true, capacity: true } },
+      room: { select: { name: true, building: true, capacity: true } },
       _count: {
         select: {
           enrollments: { where: { status: { in: ACTIVE_STATUSES } } },
-          assignments:  true,
-          quizzes:      true,
+          assignments: true,
+          quizzes: true,
         },
       },
       timetables: {
@@ -309,37 +310,37 @@ export async function getMyClasses(userId: string) {
   const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return offerings.map(o => ({
-    id:          o.id,
-    section:     o.section,
-    status:      o.status,
-    capacity:    o.capacity,
-    enrolled:    o._count.enrollments,
+    id: o.id,
+    section: o.section,
+    status: o.status,
+    capacity: o.capacity,
+    enrolled: o._count.enrollments,
     course: {
-      id:          o.course.id,
-      code:        o.course.code,
-      name:        o.course.name,
+      id: o.course.id,
+      code: o.course.code,
+      name: o.course.name,
       description: o.course.description,
       creditHours: o.course.creditHours,
     },
     semester: {
-      id:        o.semester.id,
-      name:      o.semester.name,
+      id: o.semester.id,
+      name: o.semester.name,
       isCurrent: o.semester.isCurrent,
       startDate: o.semester.startDate,
-      endDate:   o.semester.endDate,
+      endDate: o.semester.endDate,
       academicYear: o.semester.academicYear.name,
     },
     room: o.room
       ? { name: o.room.name, building: o.room.building, capacity: o.room.capacity }
       : null,
     schedule: o.timetables.map(t => ({
-      day:       DAY_NAMES[t.dayOfWeek] ?? `Day ${t.dayOfWeek}`,
+      day: DAY_NAMES[t.dayOfWeek] ?? `Day ${t.dayOfWeek}`,
       startTime: t.startTime,
-      endTime:   t.endTime,
+      endTime: t.endTime,
     })),
     stats: {
-      assignments:  o._count.assignments,
-      quizzes:      o._count.quizzes,
+      assignments: o._count.assignments,
+      quizzes: o._count.quizzes,
     },
   }));
 }
@@ -356,9 +357,9 @@ export async function getTimetable(userId: string) {
     include: {
       courseOffering: {
         include: {
-          course:   { select: { code: true, name: true } },
+          course: { select: { code: true, name: true } },
           semester: { select: { name: true, isCurrent: true, academicYear: { select: { name: true } } } },
-          room:     { select: { name: true, building: true } },
+          room: { select: { name: true, building: true } },
         },
       },
       room: { select: { name: true, building: true } },
@@ -369,19 +370,19 @@ export async function getTimetable(userId: string) {
   const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   return slots.map(s => ({
-    id:          s.id,
-    dayOfWeek:   s.dayOfWeek,
-    dayName:     DAY_NAMES[s.dayOfWeek] ?? 'Unknown',
-    startTime:   s.startTime,
-    endTime:     s.endTime,
-    courseCode:  s.courseOffering.course.code,
-    courseName:  s.courseOffering.course.name,
-    section:     s.courseOffering.section,
-    room:        s.room?.name ?? s.courseOffering.room?.name ?? 'TBD',
-    building:    s.room?.building ?? s.courseOffering.room?.building ?? '',
-    semester:    s.courseOffering.semester.name,
+    id: s.id,
+    dayOfWeek: s.dayOfWeek,
+    dayName: DAY_NAMES[s.dayOfWeek] ?? 'Unknown',
+    startTime: s.startTime,
+    endTime: s.endTime,
+    courseCode: s.courseOffering.course.code,
+    courseName: s.courseOffering.course.name,
+    section: s.courseOffering.section,
+    room: s.room?.name ?? s.courseOffering.room?.name ?? 'TBD',
+    building: s.room?.building ?? s.courseOffering.room?.building ?? '',
+    semester: s.courseOffering.semester.name,
     academicYear: s.courseOffering.semester.academicYear.name,
-    isCurrent:   s.courseOffering.semester.isCurrent,
+    isCurrent: s.courseOffering.semester.isCurrent,
     courseOfferingId: s.courseOffering.id,
   }));
 }
@@ -398,9 +399,9 @@ export async function getRoster(
   const instructor = await resolveInstructor(userId);
   await verifyOfferingOwnership(courseOfferingId, instructor.id);
 
-  const page  = Math.max(1, params.page  ?? 1);
+  const page = Math.max(1, params.page ?? 1);
   const limit = Math.min(100, params.limit ?? 30);
-  const skip  = (page - 1) * limit;
+  const skip = (page - 1) * limit;
 
   const statusFilter: EnrollmentStatus[] = params.status
     ? [params.status as EnrollmentStatus]
@@ -412,8 +413,8 @@ export async function getRoster(
     ...(params.search && {
       studentRecord: {
         OR: [
-          { studentId:   { contains: params.search, mode: 'insensitive' } },
-          { user:        { fullName: { contains: params.search, mode: 'insensitive' } } },
+          { studentId: { contains: params.search, mode: 'insensitive' } },
+          { user: { fullName: { contains: params.search, mode: 'insensitive' } } },
         ],
       },
     }),
@@ -426,7 +427,7 @@ export async function getRoster(
       include: {
         studentRecord: {
           include: {
-            user:    { select: { fullName: true, email: true, phone: true } },
+            user: { select: { fullName: true, email: true, phone: true } },
             program: { select: { name: true, code: true } },
           },
         },
@@ -439,8 +440,8 @@ export async function getRoster(
   const studentIds = enrollments.map(e => e.studentRecordId);
 
   const attendanceCounts = await prisma.attendanceRecord.groupBy({
-    by:     ['studentRecordId', 'status'],
-    where:  {
+    by: ['studentRecordId', 'status'],
+    where: {
       studentRecordId: { in: studentIds },
       attendanceSession: { classSession: { courseOfferingId } },
     },
@@ -459,21 +460,21 @@ export async function getRoster(
   }
 
   const students = enrollments.map(e => {
-    const att    = attMap[e.studentRecordId] ?? { total: 0, present: 0 };
+    const att = attMap[e.studentRecordId] ?? { total: 0, present: 0 };
     const attRate = att.total > 0 ? Math.round((att.present / att.total) * 100) : null;
     return {
-      enrollmentId:    e.id,
+      enrollmentId: e.id,
       enrollmentStatus: e.status,
-      enrolledAt:      e.enrolledAt,
+      enrolledAt: e.enrolledAt,
       studentRecordId: e.studentRecordId,
-      studentId:       e.studentRecord.studentId,
-      fullName:        e.studentRecord.user.fullName,
-      email:           e.studentRecord.user.email,
-      phone:           e.studentRecord.user.phone,
-      program:         e.studentRecord.program,
-      gpa:             e.studentRecord.gpa,
-      yearLevel:       e.studentRecord.yearLevel,
-      attendanceRate:  attRate,
+      studentId: e.studentRecord.studentId,
+      fullName: e.studentRecord.user.fullName,
+      email: e.studentRecord.user.email,
+      phone: e.studentRecord.user.phone,
+      program: e.studentRecord.program,
+      gpa: e.studentRecord.gpa,
+      yearLevel: e.studentRecord.yearLevel,
+      attendanceRate: attRate,
       attendanceSessions: att.total,
     };
   });
@@ -505,7 +506,7 @@ export async function getStudentAcademicView(
   const student = await prisma.studentRecord.findUnique({
     where: { id: studentRecordId },
     include: {
-      user:    { select: { fullName: true, email: true } },
+      user: { select: { fullName: true, email: true } },
       program: { select: { name: true, code: true } },
     },
   });
@@ -526,7 +527,7 @@ export async function getStudentAcademicView(
     take: 20,
   });
 
-  const total   = attendanceRecords.length;
+  const total = attendanceRecords.length;
   const present = attendanceRecords.filter(r => r.status === 'PRESENT' || r.status === 'LATE').length;
 
   // Assignment submissions in this course
@@ -552,47 +553,47 @@ export async function getStudentAcademicView(
   return {
     student: {
       studentId: student.studentId,
-      fullName:  student.user.fullName,
-      email:     student.user.email,
-      program:   student.program,
+      fullName: student.user.fullName,
+      email: student.user.email,
+      program: student.program,
       yearLevel: student.yearLevel,
-      gpa:       student.gpa,
+      gpa: student.gpa,
     },
     enrollment: {
-      id:        enrollment.id,
-      status:    enrollment.status,
+      id: enrollment.id,
+      status: enrollment.status,
       enrolledAt: enrollment.enrolledAt,
     },
     attendance: {
       total,
       present,
-      absent:  attendanceRecords.filter(r => r.status === 'ABSENT').length,
-      late:    attendanceRecords.filter(r => r.status === 'LATE').length,
+      absent: attendanceRecords.filter(r => r.status === 'ABSENT').length,
+      late: attendanceRecords.filter(r => r.status === 'LATE').length,
       excused: attendanceRecords.filter(r => r.status === 'EXCUSED').length,
-      rate:    total > 0 ? Math.round((present / total) * 100) : null,
+      rate: total > 0 ? Math.round((present / total) * 100) : null,
       records: attendanceRecords.slice(0, 10).map(r => ({
-        date:    r.attendanceSession.classSession.date,
-        status:  r.status,
-        method:  r.method,
+        date: r.attendanceSession.classSession.date,
+        status: r.status,
+        method: r.method,
         markedAt: r.markedAt,
       })),
     },
     submissions: submissions.map(s => ({
       assignmentTitle: s.assignment.title,
-      totalPoints:     s.assignment.totalPoints,
-      submittedAt:     s.submittedAt,
-      status:          s.status,
-      score:           s.score,
-      feedback:        s.feedback,
+      totalPoints: s.assignment.totalPoints,
+      submittedAt: s.submittedAt,
+      status: s.status,
+      score: s.score,
+      feedback: s.feedback,
     })),
     quizAttempts: quizAttempts.map(a => ({
-      quizTitle:       a.quiz.title,
-      totalPoints:     a.quiz.totalPoints,
-      score:           a.score,
+      quizTitle: a.quiz.title,
+      totalPoints: a.quiz.totalPoints,
+      score: a.score,
       percentageScore: a.percentageScore,
-      status:          a.status,
-      startedAt:       a.startedAt,
-      submittedAt:     a.submittedAt,
+      status: a.status,
+      startedAt: a.startedAt,
+      submittedAt: a.submittedAt,
     })),
   };
 }
@@ -626,18 +627,18 @@ export async function getAssignments(userId: string, courseOfferingId?: string) 
   });
 
   return assignments.map(a => ({
-    id:              a.id,
-    title:           a.title,
-    description:     a.description,
-    instructions:    a.instructions,
-    dueDate:         a.dueDate,
-    totalPoints:     a.totalPoints,
-    status:          a.status,
+    id: a.id,
+    title: a.title,
+    description: a.description,
+    instructions: a.instructions,
+    dueDate: a.dueDate,
+    totalPoints: a.totalPoints,
+    status: a.status,
     allowLateSubmit: a.allowLateSubmit,
-    courseCode:      a.courseOffering.course.code,
-    courseName:      a.courseOffering.course.name,
+    courseCode: a.courseOffering.course.code,
+    courseName: a.courseOffering.course.name,
     courseOfferingId: a.courseOfferingId,
-    createdAt:       a.createdAt,
+    createdAt: a.createdAt,
     submissionCount: a._count.submissions,
     attachmentCount: a._count.attachments,
   }));
@@ -665,20 +666,20 @@ export async function getAssignmentDetail(userId: string, assignmentId: string) 
     ...assignment,
     attachments,
     submissions: submissions.map(s => ({
-      id:          s.id,
+      id: s.id,
       studentName: s.studentRecord.user.fullName,
-      studentId:   s.studentRecord.studentId,
-      status:      s.status,
+      studentId: s.studentRecord.studentId,
+      status: s.status,
       submittedAt: s.submittedAt,
-      score:       s.score,
-      feedback:    s.feedback,
-      gradedAt:    s.gradedAt,
-      isLate:      s.status === SubmissionStatus.LATE,
+      score: s.score,
+      feedback: s.feedback,
+      gradedAt: s.gradedAt,
+      isLate: s.status === SubmissionStatus.LATE,
     })),
     stats: {
-      total:     submissions.length,
-      ungraded:  ungradedCount,
-      graded:    submissions.filter(s => s.score !== null).length,
+      total: submissions.length,
+      ungraded: ungradedCount,
+      graded: submissions.filter(s => s.score !== null).length,
       submitted: submissions.filter(s => s.status === 'SUBMITTED').length,
     },
   };
@@ -695,6 +696,7 @@ export async function createAssignment(
     totalPoints?: number;
     allowLateSubmit?: boolean;
     maxFileSize?: number;
+    attachments?: Array<{ name: string; size: number | string; url: string; type?: string }>;
   },
 ) {
   const instructor = await resolveInstructor(userId);
@@ -703,15 +705,30 @@ export async function createAssignment(
   return prisma.assignment.create({
     data: {
       courseOfferingId,
-      createdBy:       userId,
-      title:           data.title,
-      description:     data.description,
-      instructions:    data.instructions,
-      dueDate:         new Date(data.dueDate),
-      totalPoints:     data.totalPoints    ?? 100,
+      createdBy: userId,
+      title: data.title,
+      description: data.description,
+      instructions: data.instructions,
+      dueDate: new Date(data.dueDate),
+      totalPoints: data.totalPoints ?? 100,
       allowLateSubmit: data.allowLateSubmit ?? false,
-      maxFileSize:     data.maxFileSize    ?? 250,
-      status:          AssignmentStatus.DRAFT,
+      maxFileSize: data.maxFileSize ?? 250,
+      status: AssignmentStatus.DRAFT,
+      ...(data.attachments && data.attachments.length > 0 && {
+        attachments: {
+          create: data.attachments.map(att => ({
+            fileName: att.name,
+            fileUrl: att.url,
+            fileSize: typeof att.size === 'number'
+              ? (att.size < 1024 * 1024 ? `${(att.size / 1024).toFixed(1)} KB` : `${(att.size / 1024 / 1024).toFixed(1)} MB`)
+              : String(att.size),
+            fileType: att.type ?? att.name.split('.').pop()?.toUpperCase() ?? 'FILE',
+          })),
+        },
+      }),
+    },
+    include: {
+      attachments: true,
     },
   });
 }
@@ -737,13 +754,13 @@ export async function updateAssignment(
   return prisma.assignment.update({
     where: { id: assignmentId },
     data: {
-      ...(data.title           !== undefined && { title: data.title }),
-      ...(data.description     !== undefined && { description: data.description }),
-      ...(data.instructions    !== undefined && { instructions: data.instructions }),
-      ...(data.dueDate         !== undefined && { dueDate: new Date(data.dueDate) }),
-      ...(data.totalPoints     !== undefined && { totalPoints: data.totalPoints }),
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.instructions !== undefined && { instructions: data.instructions }),
+      ...(data.dueDate !== undefined && { dueDate: new Date(data.dueDate) }),
+      ...(data.totalPoints !== undefined && { totalPoints: data.totalPoints }),
       ...(data.allowLateSubmit !== undefined && { allowLateSubmit: data.allowLateSubmit }),
-      ...(data.status          !== undefined && { status: data.status }),
+      ...(data.status !== undefined && { status: data.status }),
     },
   });
 }
@@ -783,12 +800,12 @@ export async function gradeSubmission(
   return prisma.assignmentSubmission.update({
     where: { id: submissionId },
     data: {
-      score:       data.score,
-      feedback:    data.feedback ?? null,
+      score: data.score,
+      feedback: data.feedback ?? null,
       letterGrade: data.letterGrade ?? null,
-      gradedAt:    new Date(),
-      gradedBy:    userId,
-      status:      SubmissionStatus.GRADED,
+      gradedAt: new Date(),
+      gradedBy: userId,
+      status: SubmissionStatus.GRADED,
     },
   });
 }
@@ -830,7 +847,7 @@ export async function getQuizDetail(userId: string, quizId: string) {
       orderBy: { orderIndex: 'asc' },
     }),
     prisma.quizAttempt.findMany({
-      where:   { quizId },
+      where: { quizId },
       include: { studentRecord: { include: { user: { select: { fullName: true } } } } },
       orderBy: { startedAt: 'desc' },
     }),
@@ -845,19 +862,19 @@ export async function getQuizDetail(userId: string, quizId: string) {
     ...quiz,
     questions,
     attempts: attempts.map(a => ({
-      id:          a.id,
+      id: a.id,
       studentName: a.studentRecord.user.fullName,
-      status:      a.status,
-      score:       a.score,
+      status: a.status,
+      score: a.score,
       percentageScore: a.percentageScore,
-      startedAt:   a.startedAt,
+      startedAt: a.startedAt,
       submittedAt: a.submittedAt,
     })),
     stats: {
-      totalAttempts:  attempts.length,
-      submitted:      attempts.filter(a => a.status === 'SUBMITTED').length,
-      graded:         gradedAttempts.length,
-      avgScore:       Math.round(avgScore * 10) / 10,
+      totalAttempts: attempts.length,
+      submitted: attempts.filter(a => a.status === 'SUBMITTED').length,
+      graded: gradedAttempts.length,
+      avgScore: Math.round(avgScore * 10) / 10,
     },
   };
 }
@@ -877,31 +894,68 @@ export async function createQuiz(
     totalPoints?: number;
     showResultsImmediately?: boolean;
     shuffleQuestions?: boolean;
+    questions?: Array<{
+      questionText: string;
+      type: string;
+      points?: number;
+      options?: Array<{ text: string; isCorrect?: boolean }>;
+    }>;
   },
 ) {
   const instructor = await resolveInstructor(userId);
   await verifyOfferingOwnership(courseOfferingId, instructor.id);
 
-  const from  = new Date(data.availableFrom);
+  const from = new Date(data.availableFrom);
   const until = new Date(data.availableUntil);
   if (until <= from) throw new Error('availableUntil must be after availableFrom.');
+
+  const qTypeMap = (t: string): QuestionType => {
+    const u = t.toUpperCase().replace('-', '_');
+    if (u === 'TRUEFALSE' || u === 'TRUE_FALSE') return QuestionType.TRUE_FALSE;
+    if (u === 'FILLBLANK' || u === 'FILL_BLANK') return QuestionType.FILL_BLANK;
+    if (u === 'SHORTANSWER' || u === 'SHORT_ANSWER') return QuestionType.SHORT_ANSWER;
+    if (u === 'ESSAY') return QuestionType.ESSAY;
+    return QuestionType.MCQ;
+  };
 
   return prisma.quiz.create({
     data: {
       courseOfferingId,
-      createdBy:             userId,
-      title:                 data.title,
-      description:           data.description,
-      instructions:          data.instructions,
-      durationMinutes:       data.durationMinutes       ?? 30,
-      availableFrom:         from,
-      availableUntil:        until,
-      passingScore:          data.passingScore          ?? 60,
-      maxAttempts:           data.maxAttempts           ?? 1,
-      totalPoints:           data.totalPoints           ?? 100,
+      createdBy: userId,
+      title: data.title,
+      description: data.description,
+      instructions: data.instructions,
+      durationMinutes: data.durationMinutes ?? 30,
+      availableFrom: from,
+      availableUntil: until,
+      passingScore: data.passingScore ?? 60,
+      maxAttempts: data.maxAttempts ?? 1,
+      totalPoints: data.totalPoints ?? 100,
       showResultsImmediately: data.showResultsImmediately ?? true,
-      shuffleQuestions:      data.shuffleQuestions      ?? false,
-      status:                QuizStatus.DRAFT,
+      shuffleQuestions: data.shuffleQuestions ?? false,
+      status: QuizStatus.DRAFT,
+      ...(data.questions && data.questions.length > 0 && {
+        questions: {
+          create: data.questions.map((q, idx) => ({
+            questionText: q.questionText,
+            type: qTypeMap(q.type),
+            points: q.points ?? 1,
+            orderIndex: idx,
+            ...(q.options && q.options.length > 0 && {
+              options: {
+                create: q.options.map((opt, oIdx) => ({
+                  text: opt.text,
+                  isCorrect: opt.isCorrect ?? false,
+                  orderIndex: oIdx,
+                })),
+              },
+            }),
+          })),
+        },
+      }),
+    },
+    include: {
+      questions: { include: { options: true } },
     },
   });
 }
@@ -917,9 +971,9 @@ export async function updateQuiz(
   }
 
   const allowed: (keyof typeof data)[] = [
-    'title','description','instructions','durationMinutes',
-    'availableFrom','availableUntil','passingScore','maxAttempts',
-    'totalPoints','showResultsImmediately','shuffleQuestions','status',
+    'title', 'description', 'instructions', 'durationMinutes',
+    'availableFrom', 'availableUntil', 'passingScore', 'maxAttempts',
+    'totalPoints', 'showResultsImmediately', 'shuffleQuestions', 'status',
   ];
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
@@ -956,18 +1010,18 @@ export async function getCourseGrades(userId: string, courseOfferingId: string) 
   });
 
   return enrollments.map(e => ({
-    enrollmentId:    e.id,
+    enrollmentId: e.id,
     studentRecordId: e.studentRecordId,
-    studentId:       e.studentRecord.studentId,
-    fullName:        e.studentRecord.user.fullName,
-    gpa:             e.studentRecord.gpa,
+    studentId: e.studentRecord.studentId,
+    fullName: e.studentRecord.user.fullName,
+    gpa: e.studentRecord.gpa,
     currentGrade: e.grade
       ? {
-          letterGrade: e.grade.letterGrade,
-          gradePoints: e.grade.gradePoints,
-          creditHours: e.grade.creditHours,
-          gradedAt:    e.grade.gradedAt,
-        }
+        letterGrade: e.grade.letterGrade,
+        gradePoints: e.grade.gradePoints,
+        creditHours: e.grade.creditHours,
+        gradedAt: e.grade.gradedAt,
+      }
       : null,
   }));
 }
@@ -997,36 +1051,36 @@ export async function submitCourseGrade(
 
   return prisma.$transaction(async tx => {
     const grade = await tx.courseGrade.upsert({
-      where:  { enrollmentId },
+      where: { enrollmentId },
       create: {
         enrollmentId,
         studentRecordId: enrollment.studentRecordId,
-        letterGrade:  data.letterGrade,
-        gradePoints:  scale.gradePoints,
-        creditHours:  enrollment.courseOffering.course.creditHours,
-        gradedAt:     new Date(),
+        letterGrade: data.letterGrade,
+        gradePoints: scale.gradePoints,
+        creditHours: enrollment.courseOffering.course.creditHours,
+        gradedAt: new Date(),
       },
       update: {
         letterGrade: data.letterGrade,
         gradePoints: scale.gradePoints,
-        gradedAt:    new Date(),
+        gradedAt: new Date(),
       },
     });
 
     // Notify student
     const studentUser = await tx.studentRecord.findUnique({
-      where:  { id: enrollment.studentRecordId },
+      where: { id: enrollment.studentRecordId },
       select: { userId: true },
     });
     if (studentUser) {
       await tx.notification.create({
         data: {
-          userId:     studentUser.userId,
-          title:      'Course Grade Updated',
-          message:    `Your grade has been recorded.`,
-          type:       'INFO',
+          userId: studentUser.userId,
+          title: 'Course Grade Updated',
+          message: `Your grade has been recorded.`,
+          type: 'INFO',
           entityType: 'CourseGrade',
-          entityId:   grade.id,
+          entityId: grade.id,
         },
       });
     }
@@ -1043,9 +1097,9 @@ export async function getNotifications(
   userId: string,
   params: { page?: number; limit?: number; unreadOnly?: boolean },
 ) {
-  const page  = Math.max(1, params.page  ?? 1);
+  const page = Math.max(1, params.page ?? 1);
   const limit = Math.min(100, params.limit ?? 20);
-  const skip  = (page - 1) * limit;
+  const skip = (page - 1) * limit;
 
   const where: any = {
     userId,
@@ -1064,7 +1118,7 @@ export async function getNotifications(
     total,
     page,
     limit,
-    totalPages:  Math.ceil(total / limit),
+    totalPages: Math.ceil(total / limit),
     unreadCount: await prisma.notification.count({ where: { userId, isRead: false } }),
     notifications,
   };
@@ -1080,7 +1134,7 @@ export async function markNotificationRead(userId: string, notificationId: strin
 export async function markAllNotificationsRead(userId: string) {
   const result = await prisma.notification.updateMany({
     where: { userId, isRead: false },
-    data:  { isRead: true },
+    data: { isRead: true },
   });
   return { updatedCount: result.count };
 }
@@ -1093,15 +1147,15 @@ export async function getAuditLog(
   userId: string,
   params: { search?: string; page?: number; limit?: number },
 ) {
-  const page  = Math.max(1, params.page  ?? 1);
+  const page = Math.max(1, params.page ?? 1);
   const limit = Math.min(100, params.limit ?? 20);
-  const skip  = (page - 1) * limit;
+  const skip = (page - 1) * limit;
 
   const where: any = { userId };
   if (params.search) {
     where.OR = [
-      { action:      { contains: params.search, mode: 'insensitive' } as any },
-      { entityType:  { contains: params.search, mode: 'insensitive' } as any },
+      { action: { contains: params.search, mode: 'insensitive' } as any },
+      { entityType: { contains: params.search, mode: 'insensitive' } as any },
       { description: { contains: params.search, mode: 'insensitive' } as any },
     ];
   }
@@ -1141,13 +1195,13 @@ export async function writeAuditLog(data: {
 
   return prisma.registrarAuditLog.create({
     data: {
-      userId:      data.userId,
-      action:      validAction,
-      entityType:  data.entityType,
-      entityId:    data.entityId,
+      userId: data.userId,
+      action: validAction,
+      entityType: data.entityType,
+      entityId: data.entityId,
       description: data.description,
-      metadata:    (data.metadata as any) ?? undefined,
-      ipAddress:   data.ipAddress ?? null,
+      metadata: (data.metadata as any) ?? undefined,
+      ipAddress: data.ipAddress ?? null,
     },
   });
 }
@@ -1164,16 +1218,16 @@ export async function getAttendanceReport(
   const instructor = await resolveInstructor(userId);
   await verifyOfferingOwnership(courseOfferingId, instructor.id);
 
-  const page  = Math.max(1, params.page  ?? 1);
+  const page = Math.max(1, params.page ?? 1);
   const limit = Math.min(100, params.limit ?? 30);
-  const skip  = (page - 1) * limit;
+  const skip = (page - 1) * limit;
 
   const where: any = {
     attendanceSession: { classSession: { courseOfferingId } },
     ...(params.from || params.to) && {
       markedAt: {
         ...(params.from && { gte: new Date(params.from) }),
-        ...(params.to   && { lte: new Date(params.to)   }),
+        ...(params.to && { lte: new Date(params.to) }),
       },
     },
   };
@@ -1199,9 +1253,9 @@ export async function getAttendanceReport(
     where: { attendanceSession: { classSession: { courseOfferingId } } },
     select: { status: true },
   });
-  const totalRecords  = allRecords.length;
-  const totalPresent  = allRecords.filter(r => r.status === 'PRESENT' || r.status === 'LATE').length;
-  const overallRate   = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
+  const totalRecords = allRecords.length;
+  const totalPresent = allRecords.filter(r => r.status === 'PRESENT' || r.status === 'LATE').length;
+  const overallRate = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
 
   return {
     total,
@@ -1238,17 +1292,17 @@ export async function getLowAttendanceStudents(
         },
         select: { status: true },
       });
-      const total   = records.length;
+      const total = records.length;
       const present = records.filter(r => r.status === 'PRESENT' || r.status === 'LATE').length;
-      const rate    = total > 0 ? Math.round((present / total) * 100) : 100;
+      const rate = total > 0 ? Math.round((present / total) * 100) : 100;
       return {
         studentRecordId: e.studentRecordId,
-        studentId:       e.studentRecord.studentId,
-        fullName:        e.studentRecord.user.fullName,
+        studentId: e.studentRecord.studentId,
+        fullName: e.studentRecord.user.fullName,
         rate,
         total,
         present,
-        absent:          total - present,
+        absent: total - present,
       };
     }),
   );

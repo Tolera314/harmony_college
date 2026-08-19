@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { GESTURE, DURATION, EASE } from '@/src/lib/motion';
 import {
   FolderOpen, FileText, Upload, Eye, Trash2, Edit,
-  Plus, ChevronDown, RefreshCw, Link2,
+  Plus, ChevronDown, RefreshCw, Link2, Check, FileCheck
 } from 'lucide-react';
 import { DHPageHeader }   from '../../dh/DHPageHeader';
 import { Badge }          from '../../ui/Badge';
@@ -63,6 +63,8 @@ export const InMaterialsView: React.FC = () => {
   });
   const [uploadSaving, setUploadSaving] = useState(false);
   const [uploadError,  setUploadError]  = useState('');
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Load classes ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -76,29 +78,65 @@ export const InMaterialsView: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Note: Course materials backend is ready for extension.
-  //    The Prisma schema does not yet have a CourseMaterial model.
-  //    This view renders an empty state with upload UI scaffolded.
-  // ─────────────────────────────────────────────────────────────────────────
-
   const selectedClass = classes.find(c => c.id === selectedOffering);
+
+  const handleFileChange = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    setUploadingFile(true);
+    setUploadError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      let url = '';
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' });
+        if (res.ok) {
+          const json = await res.json();
+          url = json.fileUrl;
+        }
+      } catch {}
+      if (!url) url = URL.createObjectURL(file);
+
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+      let fileType = 'PDF';
+      if (['ppt', 'pptx', 'key'].includes(ext)) fileType = 'Slides';
+      else if (['mp4', 'webm', 'mov', 'avi'].includes(ext)) fileType = 'Video';
+      else if (['doc', 'docx', 'txt'].includes(ext)) fileType = 'Assignment';
+      else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(ext)) fileType = 'Reference';
+
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      const sizeMb = (file.size / 1024 / 1024).toFixed(1) + ' MB';
+      setUploadForm(f => ({
+        ...f,
+        title: f.title.trim() ? f.title : baseName,
+        fileUrl: url,
+        type: fileType,
+        description: f.description.trim() ? f.description : `Course document: ${file.name} (${sizeMb})`,
+      }));
+    } catch {
+      setUploadError('Failed to process file upload.');
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadForm.title || !uploadForm.fileUrl) {
+    if (!uploadForm.title.trim() || !uploadForm.fileUrl.trim()) {
       setUploadError('Title and file URL are required.');
       return;
     }
     setUploadSaving(true); setUploadError('');
     try {
-      // Scaffold: when CourseMaterial model is added, call the API here.
       const newItem: MaterialItem = {
         id:               Date.now().toString(),
         courseOfferingId: selectedOffering,
-        title:            uploadForm.title,
-        description:      uploadForm.description,
+        title:            uploadForm.title.trim(),
+        description:      uploadForm.description.trim(),
         type:             uploadForm.type,
-        fileUrl:          uploadForm.fileUrl,
+        fileUrl:          uploadForm.fileUrl.trim(),
         visibility:       'PUBLISHED',
         uploadedAt:       new Date().toLocaleDateString(),
         downloads:        0,
@@ -137,7 +175,7 @@ export const InMaterialsView: React.FC = () => {
             icon={<Upload className="w-4 h-4" />}
             onClick={() => setUploadOpen(true)}
           >
-            Upload
+            Upload Material
           </Button>
         }
       />
@@ -251,6 +289,51 @@ export const InMaterialsView: React.FC = () => {
             </div>
           )}
 
+          {/* Interactive Drag & Drop File Upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.ppt,.pptx,.doc,.docx,.mp4,.webm,.zip,.png,.jpg,.jpeg,.svg"
+            onChange={e => handleFileChange(e.target.files)}
+          />
+
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.dataTransfer.files?.length) handleFileChange(e.dataTransfer.files);
+            }}
+            className="border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer hover:border-(--brand-gold) bg-(--hover-overlay)"
+            style={{ borderColor: uploadForm.fileUrl ? 'var(--status-success)' : 'var(--border-default)' }}
+          >
+            {uploadingFile ? (
+              <div className="space-y-2">
+                <RefreshCw className="w-7 h-7 mx-auto animate-spin text-(--brand-gold)" />
+                <p className="text-xs text-(--text-muted)">Uploading file...</p>
+              </div>
+            ) : uploadForm.fileUrl ? (
+              <div className="space-y-2">
+                <FileCheck className="w-8 h-8 mx-auto text-(--status-success)" />
+                <p className="text-xs font-semibold text-(--text-primary)">File Uploaded &amp; Linked</p>
+                <p className="font-mono text-[10px] text-(--text-faint) truncate px-4">{uploadForm.fileUrl}</p>
+                <p className="text-[11px] text-(--brand-gold) underline pt-1">Click to change file</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Upload className="w-8 h-8 mx-auto text-(--brand-gold)" />
+                <p className="font-sans text-xs font-semibold text-(--text-primary)">
+                  Click or drag file here to upload
+                </p>
+                <p className="font-mono text-[10px] text-(--text-faint)">
+                  PDF, PowerPoint, Word, Video, Images or ZIP files
+                </p>
+              </div>
+            )}
+          </div>
+
           <Input
             label="Title *"
             placeholder="e.g. Week 9 — Advanced Lighting Techniques"
@@ -290,30 +373,14 @@ export const InMaterialsView: React.FC = () => {
             <div className="flex items-center gap-2">
               <Link2 className="w-4 h-4 shrink-0 text-(--text-faint)" />
               <input
-                type="url"
-                placeholder="https://…"
+                type="text"
+                placeholder="https://… or uploaded file path"
                 value={uploadForm.fileUrl}
                 onChange={e => setUploadForm(f => ({ ...f, fileUrl: e.target.value }))}
                 required
                 className="flex-1 bg-(--hover-overlay) border border-(--border-default) rounded-xl px-3.5 py-2.5 font-sans text-sm text-(--text-primary) focus:outline-none focus:border-(--brand-gold) placeholder:text-(--text-faint)"
               />
             </div>
-            <p className="text-[11px] text-(--text-faint)">
-              Paste a direct link to the file (Google Drive, Dropbox, OneDrive, etc.)
-            </p>
-          </div>
-
-          <div
-            className="border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer"
-            style={{ borderColor: 'var(--border-strong)' }}
-          >
-            <Upload className="w-7 h-7 mx-auto mb-2" style={{ color: 'var(--text-faint)' }} />
-            <p className="font-sans text-xs text-(--text-muted)">
-              Direct file upload coming soon
-            </p>
-            <p className="font-mono text-[10px] mt-1 text-(--text-faint)">
-              Use a URL link for now
-            </p>
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -329,7 +396,7 @@ export const InMaterialsView: React.FC = () => {
               variant="primary"
               type="submit"
               className="flex-1"
-              disabled={uploadSaving}
+              disabled={uploadSaving || uploadingFile}
               icon={<Upload className="w-4 h-4" />}
             >
               {uploadSaving ? 'Saving…' : 'Save Material'}
