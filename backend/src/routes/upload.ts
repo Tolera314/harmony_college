@@ -21,8 +21,20 @@ import { Role } from '../types/auth';
 
 const router = Router();
 
-const MAX_SIZE          = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+const MAX_SIZE          = 50 * 1024 * 1024; // 50 MB for assignment attachments
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg', 'image/png', 'image/jpg',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/zip', 'application/x-zip-compressed',
+  'text/plain',
+  'video/mp4',
+];
 
 const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -91,7 +103,7 @@ router.use((err: Error, _req: Request, res: Response, _next: unknown): void => {
   if (err.message.startsWith('Invalid file type')) {
     res.status(400).json({ error: err.message });
   } else if (err.message.includes('File too large')) {
-    res.status(400).json({ error: 'File is too large. Maximum size is 10 MB.' });
+    res.status(400).json({ error: 'File is too large. Maximum size is 50 MB.' });
   } else {
     console.error('Upload error:', err);
     res.status(500).json({ error: 'An unexpected error occurred during file upload.' });

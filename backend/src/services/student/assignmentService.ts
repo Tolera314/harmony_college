@@ -114,17 +114,17 @@ export async function listAssignments(
       status: derivedStatus,
       submission: submission
         ? {
-            id: submission.id,
-            status: submission.status,
-            submittedAt: submission.submittedAt,
-            score: submission.score,
-            letterGrade: submission.letterGrade,
-            feedback: submission.feedback,
-            fileName: submission.fileName,
-            fileUrl: submission.fileUrl,
-            textContent: submission.textContent,
-            gradedAt: submission.gradedAt,
-          }
+          id: submission.id,
+          status: submission.status,
+          submittedAt: submission.submittedAt,
+          score: submission.score,
+          letterGrade: submission.letterGrade,
+          feedback: submission.feedback,
+          fileName: submission.fileName,
+          fileUrl: submission.fileUrl,
+          textContent: submission.textContent,
+          gradedAt: submission.gradedAt,
+        }
         : null,
     };
   }).filter(Boolean);

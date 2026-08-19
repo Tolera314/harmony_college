@@ -213,10 +213,16 @@ router.post('/assignments', requireRole(INSTRUCTOR_ROLES), async (req: AuthReque
       title:            z.string().min(1).max(255),
       description:      z.string().min(1),
       instructions:     z.string().min(1),
-      dueDate:          z.string().datetime(),
+      dueDate:          z.string().min(1).refine(val => !isNaN(Date.parse(val)), { message: 'Invalid datetime format' }),
       totalPoints:      z.number().int().min(1).max(1000).optional(),
       allowLateSubmit:  z.boolean().optional(),
       maxFileSize:      z.number().int().min(1).max(500).optional(),
+      attachments:      z.array(z.object({
+        name: z.string(),
+        size: z.union([z.number(), z.string()]),
+        url:  z.string(),
+        type: z.string().optional(),
+      })).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
@@ -303,6 +309,15 @@ router.post('/quizzes', requireRole(INSTRUCTOR_ROLES), async (req: AuthRequest, 
       totalPoints:            z.number().int().min(1).max(1000).optional(),
       showResultsImmediately: z.boolean().optional(),
       shuffleQuestions:       z.boolean().optional(),
+      questions:              z.array(z.object({
+        questionText: z.string().min(1),
+        type:         z.string(),
+        points:       z.number().optional(),
+        options:      z.array(z.object({
+          text:      z.string(),
+          isCorrect: z.boolean().optional(),
+        })).optional(),
+      })).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {

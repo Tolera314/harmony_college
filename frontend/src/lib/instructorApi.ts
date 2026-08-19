@@ -421,6 +421,7 @@ export const instructorAssignmentsApi = {
     dueDate: string;
     totalPoints?: number;
     allowLateSubmit?: boolean;
+    attachments?: Array<{ name: string; size: number | string; url: string; type?: string }>;
   }) =>
     apiFetch<AssignmentSummary>(`${BASE}/assignments`, { method: 'POST', body: JSON.stringify(data) }),
 
@@ -443,7 +444,26 @@ export const instructorQuizzesApi = {
   get: (id: string) =>
     apiFetch<unknown>(`${BASE}/quizzes/${id}`),
 
-  create: (data: Record<string, unknown>) =>
+  create: (data: {
+    courseOfferingId: string;
+    title: string;
+    description?: string;
+    instructions?: string;
+    availableFrom: string;
+    availableUntil: string;
+    durationMinutes?: number;
+    passingScore?: number;
+    maxAttempts?: number;
+    totalPoints?: number;
+    showResultsImmediately?: boolean;
+    shuffleQuestions?: boolean;
+    questions?: Array<{
+      questionText: string;
+      type: string;
+      points?: number;
+      options?: Array<{ text: string; isCorrect?: boolean }>;
+    }>;
+  }) =>
     apiFetch<QuizSummary>(`${BASE}/quizzes`, { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id: string, data: Record<string, unknown>) =>
