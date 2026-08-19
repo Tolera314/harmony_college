@@ -1,17 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React from 'react';
+import { motion } from 'motion/react';
 import {
-  ArrowRight, User, BookOpen, FileText, Image as ImageIcon,
-  Newspaper, Calendar, Phone, HelpCircle, Lock,
-  GraduationCap, CreditCard, BarChart3, ClipboardList, Award,
-  Star, Quote, ChevronLeft, ChevronRight as ChevronRightIcon
+  ArrowRight, BookOpen, FileText, Image as ImageIcon,
+  Newspaper, Calendar, Phone, HelpCircle,
+  GraduationCap, CreditCard,
+  Star, Quote,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
-import { Modal } from '@/src/components/ui/Modal';
-import { CircularProgress } from '@/src/components/onboarding/OnboardingProgress';
 import type { OnboardingState } from '@/src/lib/onboardingStore';
 import type { PortalTab } from './WelcomePortalLayout';
 import { newsData } from '@/src/data/news';
@@ -25,23 +23,15 @@ const QUICK_ACTIONS: {
   description: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   color: string;
+  href?: string;
 }[] = [
-  { id: 'profile',       label: 'Complete Profile',      description: 'Finish your admission application',   icon: User,          color: '#e9c349' },
-  { id: 'programs',      label: 'Explore Programs',       description: 'Browse 16+ programs & departments',   icon: BookOpen,      color: '#a78bfa' },
-  { id: 'admission',     label: 'Admission Guide',        description: 'Requirements, process & timelines',   icon: FileText,      color: '#34d399' },
-  { id: 'gallery',       label: 'Campus Gallery',         description: 'See life at Harmony College',         icon: ImageIcon,     color: '#60a5fa' },
-  { id: 'news',          label: 'Latest News',            description: 'Stay updated with campus news',       icon: Newspaper,     color: '#f87171' },
-  { id: 'events',        label: 'Events & Activities',    description: 'Upcoming events & important dates',   icon: Calendar,      color: '#fb923c' },
-  { id: 'announcements', label: 'Announcements',          description: 'Official notices from admissions',    icon: HelpCircle,    color: '#38bdf8' },
-  { id: 'admission',     label: 'Contact Admissions',     description: 'Get help from our admissions team',   icon: Phone,         color: '#4ade80' },
-];// ── Locked feature cards ──────────────────────────────────────────────────────
-const LOCKED_FEATURES = [
-  { label: 'Course Registration', description: 'Register for your program courses', icon: ClipboardList },
-  { label: 'Grades & Transcript', description: 'View academic performance & GPA',   icon: GraduationCap },
-  { label: 'Payments & Tuition',  description: 'Pay fees and view invoices',        icon: CreditCard     },
-  { label: 'Degree Progress',     description: 'Track completion towards your degree', icon: BarChart3   },
-  { label: 'Certificates',        description: 'Request official documents',        icon: Award          },
-  { label: 'Digital Student ID',  description: 'Your Harmony College ID card',      icon: User           },
+  { id: 'programs',      label: 'Explore Programs',       description: 'Browse 16+ programs & departments',   icon: BookOpen,   color: '#a78bfa' },
+  { id: 'admission',     label: 'Admission Guide',        description: 'Requirements, process & timelines',   icon: FileText,   color: '#34d399' },
+  { id: 'gallery',       label: 'Campus Gallery',         description: 'See life at Harmony College',         icon: ImageIcon,  color: '#60a5fa' },
+  { id: 'news',          label: 'Latest News',            description: 'Stay updated with campus news',       icon: Newspaper,  color: '#f87171' },
+  { id: 'events',        label: 'Events & Activities',    description: 'Upcoming events & important dates',   icon: Calendar,   color: '#fb923c' },
+  { id: 'announcements', label: 'Announcements',          description: 'Official notices from admissions',    icon: HelpCircle, color: '#38bdf8' },
+  { id: 'admission',     label: 'Contact Admissions',     description: 'Get help from our admissions team',   icon: Phone,      color: '#4ade80' },
 ];
 
 interface HomeTabProps {
@@ -50,9 +40,7 @@ interface HomeTabProps {
 }
 
 export function HomeTab({ state, onNavigate }: HomeTabProps) {
-  const [lockedModal, setLockedModal] = useState<string | null>(null);
   const name = state.account.fullName.split(' ')[0] || 'Student';
-  const completion = state.profileCompletionPct;
 
   const latestNews = newsData.slice(0, 3);
   const featuredPrograms = schoolsData.slice(0, 4);
@@ -98,41 +86,48 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
                     className="text-sm font-sans mt-2 max-w-md"
                     style={{ color: 'var(--text-muted)' }}
                   >
-                    {completion < 100
-                      ? 'Your account has been created successfully. Complete your admission profile to unlock all student services and begin your journey at Harmony College.'
-                      : 'Your application has been submitted. Our admissions team will review it within 2–5 business days. You can now access your student dashboard.'
-                    }
+                    Your account is ready. Complete your registration — pay the fee and select your department — to unlock your Student Dashboard.
                   </motion.p>
                 </div>
 
-                {/* Completion bar */}
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  className="max-w-sm space-y-2"
+              {/* ── Mandatory Action Card: Payment + Department ── */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="max-w-sm"
+              >
+                <div
+                  className="p-4 rounded-2xl space-y-3 cursor-pointer group transition-all hover:scale-[1.02]"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(233,195,73,0.14) 0%, rgba(233,195,73,0.04) 100%)',
+                    border: '1px solid var(--accent-gold-border)',
+                  }}
+                  onClick={() => window.location.href = '/onboarding/about'}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => e.key === 'Enter' && (window.location.href = '/onboarding/about')}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>Profile Completion</span>
-                    <span className="font-mono text-sm font-bold" style={{ color: 'var(--brand-gold)' }}>{completion}%</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold font-sans" style={{ color: 'var(--text-primary)' }}>
+                        Complete Registration
+                      </p>
+                      <p className="text-[10px] font-sans" style={{ color: 'var(--text-muted)' }}>
+                        Pay registration fee · Select department
+                      </p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 ml-auto shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: 'var(--brand-gold)' }} />
                   </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-default)' }}>
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ background: 'linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold))' }}
-                      initial={{ width: '0%' }}
-                      animate={{ width: `${completion}%` }}
-                      transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
-                    />
-                  </div>
-                  <p className="text-[11px] font-sans" style={{ color: 'var(--text-faint)' }}>
-                    {completion < 40
-                      ? "Let's get started — only a few steps to go!"
-                      : completion < 80
-                      ? "You're doing great! A few more details needed."
-                      : "Almost there — submit your application to unlock everything."}
+                  <p className="text-[11px] font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                    These two steps unlock your Student Dashboard — messaging, courses, grades, and more.
                   </p>
-                </motion.div>
+                </div>
+              </motion.div>
 
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
@@ -140,72 +135,38 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
                   transition={{ duration: 0.5, delay: 0.3 }}
                   className="flex flex-wrap gap-3 pt-1"
                 >
-                  {completion < 100 ? (
-                    <>
-                      <Button
-                        variant="gold"
-                        size="lg"
-                        onClick={() => {
-                          // Go directly to the wizard at the first incomplete step
-                          // instead of showing the ProfileTab overview first
-                          const stepMap = [
-                            { done: !!(state.profile.nationality && state.profile.dob && state.profile.gender && state.profile.city && state.profile.address), step: 1 },
-                            { done: !!(state.profile.program && state.profile.academicYear), step: 2 },
-                            { done: !!(state.profile.profilePictureName && state.profile.faydaIdName), step: 3 },
-                            { done: !!(state.profile.emergencyName && state.profile.emergencyPhone), step: 4 },
-                          ];
-                          const next = stepMap.find(s => !s.done)?.step ?? 5;
-                          window.location.href = `/onboarding?step=${next}`;
-                        }}
-                        icon={<ArrowRight className="w-4 h-4" />}
-                      >
-                        Continue Profile
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="lg"
-                        onClick={() => onNavigate('programs')}
-                      >
-                        Explore Programs
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        variant="gold"
-                        size="lg"
-                        onClick={() => window.location.href = '/dashboard/student'}
-                        icon={<ArrowRight className="w-4 h-4" />}
-                      >
-                        Go to Student Dashboard
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="lg"
-                        onClick={() => onNavigate('programs')}
-                      >
-                        Browse Programs
-                      </Button>
-                    </>
-                  )}
+                  <Button
+                    variant="gold"
+                    size="lg"
+                    onClick={() => window.location.href = '/onboarding/about'}
+                    icon={<ArrowRight className="w-4 h-4" />}
+                  >
+                    Start Registration
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => onNavigate('programs')}
+                  >
+                    Explore Programs
+                  </Button>
                 </motion.div>
               </div>
 
-              {/* Right: circular progress */}
+              {/* Right: registration status badge */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.2, type: 'spring' }}
                 className="hidden sm:flex flex-col items-center gap-3"
               >
-                <div className="relative">
-                  <CircularProgress value={completion} size={120} strokeWidth={8} />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="font-mono text-2xl font-black" style={{ color: 'var(--brand-gold)' }}>{completion}%</span>
-                    <span className="text-[10px] font-sans" style={{ color: 'var(--text-faint)' }}>Complete</span>
-                  </div>
+                <div className="p-4 rounded-2xl text-center space-y-2"
+                  style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)', minWidth: 120 }}>
+                  <CreditCard className="w-8 h-8 mx-auto" style={{ color: 'var(--brand-gold)' }} />
+                  <p className="text-[10px] font-mono uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>Next Step</p>
+                  <p className="text-xs font-bold font-sans" style={{ color: 'var(--brand-gold)' }}>Pay & Select</p>
                 </div>
-                <Badge variant="gold" className="text-[10px]">Application #{state.applicationNumber}</Badge>
+                <Badge variant="gold" className="text-[10px]">#{state.applicationNumber}</Badge>
               </motion.div>
             </div>
           </div>
@@ -350,8 +311,7 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
         </div>
       </section>
 
-      {/* ── Student Success Stories ── */}
-      <section>
+      {/* ── Student Success Stories ── */}      <section>
         <div className="mb-4">
           <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: 'var(--brand-gold)' }}>
             Success Stories
@@ -396,101 +356,6 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
         </div>
       </section>
 
-      {/* ── Locked Student Features — only shown while profile incomplete ── */}
-      {completion < 100 && (
-        <section>
-          <div className="mb-4">
-            <h2 className="font-serif text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Student Services</h2>
-            <p className="text-xs font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
-              Complete your profile to unlock these features.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {LOCKED_FEATURES.map((feat) => {
-              const Icon = feat.icon;
-              return (
-                <motion.button
-                  key={feat.label}
-                  onClick={() => setLockedModal(feat.label)}
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="group relative p-4 rounded-2xl text-left transition-all overflow-hidden"
-                  style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)', opacity: 0.75 }}
-                >
-                  <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10" style={{ backgroundColor: 'var(--overlay-dark-bg)', backdropFilter: 'blur(3px)' }}>
-                    <Lock className="w-4 h-4" style={{ color: 'var(--brand-gold)' }} />
-                    <span className="text-[11px] font-semibold font-sans" style={{ color: 'var(--brand-gold)' }}>Complete Profile</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)' }}>
-                      <Icon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>{feat.label}</p>
-                      <p className="text-[10px] font-sans mt-0.5" style={{ color: 'var(--text-muted)' }}>{feat.description}</p>
-                    </div>
-                  </div>
-                  <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--status-warning-bg)', border: '1px solid var(--status-warning-border)' }}>
-                    <Lock className="w-2.5 h-2.5" style={{ color: 'var(--status-warning)' }} />
-                  </div>
-                </motion.button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ── Locked Feature Modal ── */}
-      <Modal
-        isOpen={!!lockedModal}
-        onClose={() => setLockedModal(null)}
-        title="Feature Locked"
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-5 text-center">
-          <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center" style={{ backgroundColor: 'var(--status-warning-bg)', border: '1px solid var(--status-warning-border)' }}>
-            <Lock className="w-8 h-8" style={{ color: 'var(--status-warning)' }} />
-          </div>
-          <div>
-            <h3 className="font-serif text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{lockedModal} is Locked</h3>
-            <p className="text-sm font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              This feature is only available to enrolled students with a complete admission profile. Finish your application to unlock it.
-            </p>
-          </div>
-          <div className="space-y-2 text-left">
-            {['Complete your personal information', 'Add academic details & program', 'Upload required documents', 'Submit your application'].map((step, i) => {
-              const done = i < Math.floor((completion / 100) * 4);
-              return (
-                <div key={step} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ backgroundColor: done ? 'var(--status-success-bg)' : 'var(--hover-overlay)' }}>
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold font-mono" style={{ backgroundColor: done ? 'var(--status-success)' : 'var(--border-default)', color: done ? '#fff' : 'var(--text-faint)' }}>
-                    {done ? '✓' : i + 1}
-                  </div>
-                  <span className="text-xs font-sans" style={{ color: done ? 'var(--status-success)' : 'var(--text-secondary)' }}>{step}</span>
-                </div>
-              );
-            })}
-          </div>
-          <Button
-            variant="gold"
-            size="lg"
-            className="w-full"
-            icon={<ArrowRight className="w-4 h-4" />}
-            onClick={() => {
-              setLockedModal(null);
-              const stepMap = [
-                { done: !!(state.profile.nationality && state.profile.dob && state.profile.gender && state.profile.city && state.profile.address), step: 1 },
-                { done: !!(state.profile.program && state.profile.academicYear), step: 2 },
-                { done: !!(state.profile.profilePictureName && state.profile.faydaIdName), step: 3 },
-                { done: !!(state.profile.emergencyName && state.profile.emergencyPhone), step: 4 },
-              ];
-              const next = stepMap.find(s => !s.done)?.step ?? 5;
-              window.location.href = `/onboarding?step=${next}`;
-            }}
-          >
-            Continue Profile — {completion}% complete
-          </Button>
-        </div>
-      </Modal>
     </div>
   );
 }

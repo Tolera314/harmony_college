@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'motion/react';
+import { CheckCircle2, ArrowRight, GraduationCap } from 'lucide-react';
 import { WelcomePortalLayout, type PortalTab } from '@/src/components/welcome/WelcomePortalLayout';
 import { HomeTab } from '@/src/components/welcome/HomeTab';
 import { ProfileTab } from '@/src/components/welcome/ProfileTab';
@@ -74,6 +76,9 @@ export default function WelcomePage() {
   const [activeTab, setActiveTab] = useState<PortalTab>('home');
   const [state, setState]   = useState<OnboardingState>(DEFAULT_STATE);
   const [mounted, setMounted] = useState(false);
+  // Show congrats screen for brand-new students (0% completion).
+  // Stored in sessionStorage so it only shows once per browser session.
+  const [showCongrats, setShowCongrats] = useState(false);
 
   // ── Load from backend (source of truth) ────────────────────────────────────
   useEffect(() => {
@@ -122,6 +127,15 @@ export default function WelcomePage() {
         // Write to sessionStorage so onboarding wizard can pick it up
         saveOnboardingState(syntheticState);
         setState(syntheticState);
+
+        // Show congratulations screen for brand-new students who haven't
+        // been greeted yet this session.
+        const greetedKey = `congrats_shown_${user.id}`;
+        const alreadyShown = sessionStorage.getItem(greetedKey);
+        if (!alreadyShown && user.profileCompletion === 0 && !user.profileCompleted) {
+          setShowCongrats(true);
+        }
+
         setMounted(true);
       } catch {
         // Network failure — fall back to sessionStorage if available
@@ -170,6 +184,32 @@ export default function WelcomePage() {
 
   if (!mounted) return null;
 
+  // ── Congratulations overlay for brand-new students ────────────────────────
+  const handleCongratsClose = () => {
+    // Mark as shown for this session so it won't appear again on refresh
+    const userId = state.account.userId;
+    if (userId) sessionStorage.setItem(`congrats_shown_${userId}`, '1');
+    // Play applause sound
+    try {
+      const audio = new Audio('/sounds/pwlpl-applause-sound-effect-521104.mp3');
+      audio.volume = 0.55;
+      audio.play().catch(() => {});
+    } catch { /* ignore */ }
+    setShowCongrats(false);
+  };
+
+  if (showCongrats) {
+    return (
+      <CongratsScreen
+        state={state}
+        onClose={handleCongratsClose}
+      />
+    );
+  }
+
+  const renderTab = () => {
+                  {i + 1}
+                </div>
   const renderTab = () => {
     switch (activeTab) {
       case 'home':          return <HomeTab state={state} onNavigate={setActiveTab} />;
@@ -189,5 +229,36 @@ export default function WelcomePage() {
     <WelcomePortalLayout activeTab={activeTab} setActiveTab={setActiveTab} state={state}>
       {renderTab()}
     </WelcomePortalLayout>
+  );
+}
+
+// ── Inline confetti for the congratulations screen ───────────────────────────
+const CONFETTI_COLOURS = ['#E9C349','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#ffffff'];
+
+function CongratsConfetti() {
+  const particles = React.useMemo(() =>
+    Array.from({ length: 52 }, (_, i) => ({
+      id: i,
+      x:  Math.random() * 100,
+      vx: (Math.random() - 0.5) * 30,
+      vy: -(50 + Math.random() * 45),
+      size: 6 + Math.random() * 9,
+      colour: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
+      delay: Math.random() * 0.4,
+      rotate: Math.random() * 720,
+      dur: 1.5 + Math.random() * 0.9,
+    })), []);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
+      {particles.map(p => (
+        <motion.div key={p.id}
+          initial={{ left: `${p.x}vw`, top: '100vh', opacity: 1, rotate: 0, scale: 1 }}
+          animate={{ left: `calc(${p.x}vw + ${p.vx}vw)`, top: `calc(100vh + ${p.vy}vh)`, opacity: [1, 1, 0], rotate: p.rotate, scale: [1, 1.2, 0.5] }}
+          transition={{ duration: p.dur, delay: p.delay, ease: 'easeOut' }}
+          style={{ position: 'fixed', width: p.size, height: p.size * 0.5, backgroundColor: p.colour, borderRadius: p.size < 10 ? '50%' : 2 }}
+        />
+      ))}
+    </div>
   );
 }

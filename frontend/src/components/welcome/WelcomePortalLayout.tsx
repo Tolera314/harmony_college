@@ -5,11 +5,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, BookOpen, Bell, Newspaper, Calendar,
   Image as ImageIcon, GraduationCap, User, Settings, LogOut,
-  ChevronRight, X, Menu, ShoppingBag
+  ChevronRight, X, Menu, ShoppingBag, CreditCard
 } from 'lucide-react';
 import ThemeToggle from '@/src/components/ThemeToggle';
 import { MobileNav } from '@/src/components/layout/MobileNav';
-import { CircularProgress } from '@/src/components/onboarding/OnboardingProgress';
 import { Button } from '@/src/components/ui/Button';
 import { useRouter } from 'next/navigation';
 import type { OnboardingState } from '@/src/lib/onboardingStore';
@@ -79,45 +78,30 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
           </div>
         </button>
 
-        {/* Profile completion card — sidebar */}
+        {/* Registration action card — sidebar */}
         <div
-          className="hidden xl:block mb-5 rounded-2xl p-4 cursor-pointer transition-all"
-          onClick={() => setActiveTab('profile')}
+          className="hidden xl:block mb-5 rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.02]"
+          onClick={() => window.location.href = '/onboarding/about'}
           style={{
             background: 'linear-gradient(135deg, var(--accent-gold-subtle) 0%, rgba(233,195,73,0.03) 100%)',
             border: '1px solid var(--accent-gold-border)',
           }}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && setActiveTab('profile')}
+          onKeyDown={(e) => e.key === 'Enter' && (window.location.href = '/onboarding/about')}
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="relative shrink-0">
-              <CircularProgress value={completion} size={40} strokeWidth={4} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="font-mono text-[9px] font-bold" style={{ color: 'var(--brand-gold)' }}>{completion}%</span>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>
+              <CreditCard className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold font-sans truncate" style={{ color: 'var(--text-primary)' }}>Profile Completion</p>
+              <p className="text-[11px] font-semibold font-sans truncate" style={{ color: 'var(--text-primary)' }}>Complete Registration</p>
               <p className="text-[10px] font-sans" style={{ color: 'var(--text-muted)' }}>
-                {completion < 100 ? 'Continue to unlock' : 'All complete!'}
+                Pay fee · Select department
               </p>
             </div>
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-default)' }}>
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: 'linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold))' }}
-              animate={{ width: `${completion}%` }}
-              transition={{ duration: 0.8 }}
-            />
-          </div>
-          {completion < 100 && (
-            <p className="text-[10px] font-mono mt-2 text-center" style={{ color: 'var(--brand-gold)' }}>
-              Tap to continue →
-            </p>
-          )}
         </div>
 
         {/* Nav items */}
@@ -202,10 +186,10 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
             <Button
               variant="gold"
               size="sm"
-              onClick={() => setActiveTab('profile')}
+              onClick={() => window.location.href = '/onboarding/about'}
               className="hidden sm:flex"
             >
-              Complete Profile · {completion}%
+              Complete Registration
             </Button>
           ) : (
             <Button
@@ -315,62 +299,41 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
         )}
       </AnimatePresence>
 
-      {/* ── Floating CTA — desktop only, when profile incomplete ── */}
-      {completion < 100 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ delay: 1.2, duration: 0.4, type: 'spring' }}
-          className="hidden lg:flex fixed bottom-6 right-6 z-40 items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl cursor-pointer"
-          style={{ background: 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))', boxShadow: '0 8px 32px rgba(233,195,73,0.35)' }}
-          onClick={() => setActiveTab('profile')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && setActiveTab('profile')}
-          aria-label="Continue profile completion"
-        >
-          <div className="relative">
-            <CircularProgress value={completion} size={32} strokeWidth={3} />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="font-mono text-[8px] font-black text-black">{completion}%</span>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-bold text-black leading-none">Continue Profile</p>
-            <p className="text-[10px] text-black/70 mt-0.5">{100 - completion}% remaining</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-black" />
-        </motion.div>
-      )}
+      {/* ── Floating CTA — desktop only ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 1.2, duration: 0.4, type: 'spring' }}
+        className="hidden lg:flex fixed bottom-6 right-6 z-40 items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl cursor-pointer"
+        style={{ background: 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))', boxShadow: '0 8px 32px rgba(233,195,73,0.35)' }}
+        onClick={() => window.location.href = '/onboarding/about'}
+        role="button" tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && (window.location.href = '/onboarding/about')}
+        aria-label="Complete registration"
+      >
+        <CreditCard className="w-4 h-4 text-black" />
+        <div>
+          <p className="text-xs font-bold text-black leading-none">Complete Registration</p>
+          <p className="text-[10px] text-black/70 mt-0.5">Pay fee · Select department</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-black" />
+      </motion.div>
 
-      {/* ── Floating "Go to Dashboard" — when profile is 100% complete ── */}
-      {completion >= 100 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.4, type: 'spring' }}
-          className="hidden lg:flex fixed bottom-6 right-6 z-40 items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl cursor-pointer"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--accent-gold-border)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-          }}
-          onClick={() => router.push('/dashboard/student')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && router.push('/dashboard/student')}
-          aria-label="Go to student dashboard"
+      {/* ── Mobile sticky CTA ── */}
+      <div className="md:hidden fixed bottom-18 left-3 right-3 z-40 pointer-events-none">
+        <motion.button
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
+          onClick={() => window.location.href = '/onboarding/about'}
+          className="pointer-events-auto w-full flex items-center justify-between px-5 py-3 rounded-2xl shadow-2xl"
+          style={{ background: 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))', boxShadow: '0 4px 20px rgba(233,195,73,0.4)' }}
         >
-          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--status-success-bg)', border: '1px solid var(--status-success-border)' }}>
-            <LayoutDashboard className="w-4 h-4" style={{ color: 'var(--status-success)' }} />
-          </div>
           <div>
-            <p className="text-xs font-bold leading-none" style={{ color: 'var(--text-primary)' }}>Student Dashboard</p>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Profile complete — enter portal</p>
+            <p className="text-xs font-bold text-black">Complete Registration</p>
+            <p className="text-[10px] text-black/70 mt-0.5">Pay fee · Select department</p>
           </div>
-          <ChevronRight className="w-4 h-4" style={{ color: 'var(--brand-gold)' }} />
-        </motion.div>
-      )}
+          <ChevronRight className="w-5 h-5 text-black" />
+        </motion.button>
+      </div>
 
       {/* ── Mobile sticky CTA ── */}
       {completion < 100 && (
@@ -393,24 +356,6 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
       )}
 
       {/* ── Mobile "Go to Dashboard" when complete ── */}
-      {completion >= 100 && (
-        <div className="md:hidden fixed bottom-18 left-3 right-3 z-40 pointer-events-none">
-          <motion.button
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            onClick={() => router.push('/dashboard/student')}
-            className="pointer-events-auto w-full flex items-center justify-between px-5 py-3 rounded-2xl shadow-2xl"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--accent-gold-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
-          >
-            <div>
-              <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Go to Student Dashboard</p>
-              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Your profile is complete</p>
-            </div>
-            <ChevronRight className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
-          </motion.button>
-        </div>
-      )}
     </div>
   );
 }
