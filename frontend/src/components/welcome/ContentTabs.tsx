@@ -7,8 +7,7 @@ import {
   MapPin, Mail, Phone as PhoneIcon, Clock,
   ChevronDown, ChevronUp,
   Calendar, Megaphone
-} from 'lucide-react';
-import { Badge } from '@/src/components/ui/Badge';
+} from 'lucide-react';import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { newsData } from '@/src/data/news';
 import { schoolsData } from '@/src/data/schools';
@@ -310,6 +309,7 @@ export function AdmissionTab({ onNavigate }: { onNavigate: (t: PortalTab) => voi
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
 export function SettingsTab({ state }: { state: OnboardingState }) {
+  const [section, setSection] = React.useState<'profile' | 'verify' | 'appearance'>('profile');
   const [emailVerified, setEmailVerified]   = React.useState<boolean | null>(null);
   const [phoneVerified, setPhoneVerified]   = React.useState<boolean | null>(null);
   const [sending, setSending]               = React.useState(false);
@@ -319,7 +319,6 @@ export function SettingsTab({ state }: { state: OnboardingState }) {
   const [verifyMsg, setVerifyMsg]           = React.useState('');
   const [verifyError, setVerifyError]       = React.useState('');
 
-  // Load verification status on mount
   React.useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
       .then(r => r.json())
@@ -367,117 +366,219 @@ export function SettingsTab({ state }: { state: OnboardingState }) {
     finally { setVerifying(false); }
   };
 
+  // Profile step definitions (mirrors wizard steps)
+  const STEPS = [
+    { step: 1, label: 'Personal Information', fields: ['Nationality', 'Date of Birth', 'Gender', 'City', 'Address'],
+      done: !!(state.profile.nationality && state.profile.dob && state.profile.gender && state.profile.city && state.profile.address) },
+    { step: 2, label: 'Academic Information', fields: ['Program', 'Academic Year', 'Semester', 'Matric Result'],
+      done: !!(state.profile.program && state.profile.academicYear) },
+    { step: 3, label: 'Document Uploads', fields: ['Profile Picture', 'Fayda / National ID', 'Transcript'],
+      done: !!(state.profile.profilePictureName && state.profile.faydaIdName) },
+    { step: 4, label: 'Emergency Contact', fields: ['Contact Name', 'Relationship', 'Phone Number'],
+      done: !!(state.profile.emergencyName && state.profile.emergencyPhone) },
+    { step: 5, label: 'Review & Submit', fields: ['Review all sections', 'Submit application'],
+      done: state.profileCompletionPct >= 100 },
+  ];
+  const completion = state.profileCompletionPct;
+  const completedCount = STEPS.filter(s => s.done).length;
+
+  const NAV = [
+    { id: 'profile'    as const, label: 'Complete Profile' },
+    { id: 'verify'     as const, label: 'Verify Contact' },
+    { id: 'appearance' as const, label: 'Appearance' },
+  ];
+
   return (
-    <Section title="Settings" subtitle="Manage your account preferences and verification.">
-      <div className="space-y-4 max-w-lg">
-        {/* Account info */}
-        <div className="p-5 rounded-2xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
-          <h3 className="text-sm font-semibold font-sans mb-3" style={{ color: 'var(--text-primary)' }}>Account Information</h3>
-          <div className="space-y-3">
-            {[
-              { label: 'Full Name',       value: state.account.fullName || '—' },
-              { label: 'Phone',           value: state.account.phone || '—' },
-              { label: 'Email',           value: state.account.email || 'Not provided' },
-              { label: 'Application No.', value: state.applicationNumber || '—' },
-            ].map(item => (
-              <div key={item.label} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
-                <span className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
-                <span className="text-xs font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>{item.value}</span>
+    <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-12 max-w-3xl">
+      <div className="mb-6">
+        <h1 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Settings</h1>
+        <p className="text-sm font-sans mt-1" style={{ color: 'var(--text-muted)' }}>Manage your profile, verification, and preferences.</p>
+      </div>
+
+      {/* Section nav */}
+      <div className="flex gap-1.5 mb-7 flex-wrap">
+        {NAV.map(n => (
+          <button key={n.id} onClick={() => setSection(n.id)}
+            className="px-4 py-2 rounded-xl font-sans text-xs font-semibold border transition-all"
+            style={{
+              backgroundColor: section === n.id ? 'var(--accent-gold-subtle)' : 'var(--hover-overlay)',
+              borderColor:     section === n.id ? 'var(--accent-gold-border)' : 'var(--border-default)',
+              color:           section === n.id ? 'var(--brand-gold)'         : 'var(--text-secondary)',
+            }}>
+            {n.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SECTION: Complete Profile ── */}
+      {section === 'profile' && (
+        <div className="space-y-5">
+          {/* Progress summary */}
+          <div className="p-5 rounded-2xl"
+            style={{ background: 'linear-gradient(135deg, rgba(233,195,73,0.1) 0%, rgba(233,195,73,0.03) 100%)', border: '1px solid var(--accent-gold-border)' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm font-bold font-serif" style={{ color: 'var(--text-primary)' }}>
+                  {completion >= 100 ? 'Profile Complete 🎉' : 'Complete Your Profile'}
+                </p>
+                <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  {completedCount} of {STEPS.length} sections done
+                </p>
+              </div>
+              <span className="font-mono text-2xl font-black" style={{ color: 'var(--brand-gold)' }}>{completion}%</span>
+            </div>
+            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-default)' }}>
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${completion}%`, background: 'linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold))' }} />
+            </div>
+            <p className="text-xs font-sans mt-2" style={{ color: 'var(--text-faint)' }}>
+              Application No. <span className="font-mono" style={{ color: 'var(--brand-gold)' }}>{state.applicationNumber}</span>
+            </p>
+          </div>
+
+          {/* Step cards — each deep-links directly into the wizard at that step */}
+          <div className="space-y-2">
+            {STEPS.map((s) => (
+              <div key={s.step}
+                className="flex items-center gap-4 p-4 rounded-2xl transition-all"
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: s.done
+                    ? '1px solid var(--status-success-border)'
+                    : '1px solid var(--border-card)',
+                }}>
+                {/* Status dot */}
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    backgroundColor: s.done ? 'var(--status-success-bg)' : 'var(--hover-overlay)',
+                    border: `1px solid ${s.done ? 'var(--status-success-border)' : 'var(--border-default)'}`,
+                  }}>
+                  {s.done
+                    ? <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--status-success)' }} />
+                    : <span className="font-mono text-xs font-bold" style={{ color: 'var(--text-faint)' }}>{s.step}</span>
+                  }
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>{s.label}</p>
+                  <p className="text-[10px] font-mono mt-0.5 truncate" style={{ color: 'var(--text-faint)' }}>
+                    {s.fields.join(' · ')}
+                  </p>
+                </div>
+
+                {!s.done && (
+                  <button
+                    onClick={() => window.location.href = `/onboarding?step=${s.step}`}
+                    className="shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold font-sans transition-all"
+                    style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>
+                    {s.step === 5 ? 'Submit' : 'Fill In →'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
+
+          {/* Account info */}
+          <div className="p-5 rounded-2xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
+            <h3 className="text-sm font-semibold font-sans mb-3" style={{ color: 'var(--text-primary)' }}>Account Information</h3>
+            <div className="space-y-2.5">
+              {[
+                { label: 'Full Name',       value: state.account.fullName || '—' },
+                { label: 'Phone',           value: state.account.phone    || '—' },
+                { label: 'Email',           value: state.account.email    || 'Not provided' },
+                { label: 'Application No.', value: state.applicationNumber || '—' },
+              ].map(item => (
+                <div key={item.label} className="flex items-center justify-between py-2 border-b last:border-0"
+                  style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                  <span className="text-xs font-semibold font-mono" style={{ color: 'var(--text-primary)' }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+      )}
 
-        {/* Contact verification */}
-        <div className="p-5 rounded-2xl space-y-4" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
-          <h3 className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Verify Your Contact</h3>
-          <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>
-            Verifying your phone or email helps secure your account and enables password recovery.
-          </p>
-
-          {/* Phone row */}
-          {state.account.phone && (
-            <div className="flex items-center justify-between gap-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div>
-                <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Phone</p>
-                <p className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>{state.account.phone}</p>
-              </div>
-              {phoneVerified ? (
-                <span className="text-[10px] font-mono font-bold" style={{ color: 'var(--status-success)' }}>✓ Verified</span>
-              ) : (
-                <button
-                  onClick={() => sendOtp('phone')}
-                  disabled={sending || otpSent === 'phone'}
-                  className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all"
-                  style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)', opacity: sending ? 0.6 : 1 }}
-                >
-                  {sending && otpSent === null ? 'Sending…' : 'Send Code'}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Email row */}
-          {state.account.email && (
-            <div className="flex items-center justify-between gap-3 py-2" >
-              <div>
-                <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Email</p>
-                <p className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>{state.account.email}</p>
-              </div>
-              {emailVerified ? (
-                <span className="text-[10px] font-mono font-bold" style={{ color: 'var(--status-success)' }}>✓ Verified</span>
-              ) : (
-                <button
-                  onClick={() => sendOtp('email')}
-                  disabled={sending || otpSent === 'email'}
-                  className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all"
-                  style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)', opacity: sending ? 0.6 : 1 }}
-                >
-                  {sending && otpSent === null ? 'Sending…' : 'Send Code'}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* OTP input */}
-          {otpSent && (
-            <div className="space-y-2 pt-2">
-              <p className="text-xs font-sans" style={{ color: 'var(--text-secondary)' }}>
-                Enter the 6-digit code sent to your {otpSent}:
+      {/* ── SECTION: Verify Contact ── */}
+      {section === 'verify' && (
+        <div className="space-y-4 max-w-lg">
+          <div className="p-5 rounded-2xl space-y-4" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
+            <div>
+              <h3 className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Verify Your Contact</h3>
+              <p className="text-xs font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
+                Verifying your phone or email secures your account and enables password recovery.
               </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-mono text-center tracking-widest focus:outline-none"
-                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
-                />
-                <button
-                  onClick={verifyOtp}
-                  disabled={verifying || otp.length < 4}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                  style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)', opacity: verifying ? 0.7 : 1 }}
-                >
-                  {verifying ? '…' : 'Verify'}
-                </button>
-              </div>
             </div>
-          )}
 
-          {verifyMsg   && <p className="text-xs font-sans" style={{ color: 'var(--status-success)' }}>{verifyMsg}</p>}
-          {verifyError && <p className="text-xs font-sans" style={{ color: 'var(--status-danger)'  }}>{verifyError}</p>}
-        </div>
+            {state.account.phone && (
+              <div className="flex items-center justify-between gap-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div>
+                  <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Phone</p>
+                  <p className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>{state.account.phone}</p>
+                </div>
+                {phoneVerified
+                  ? <span className="text-[10px] font-mono font-bold" style={{ color: 'var(--status-success)' }}>✓ Verified</span>
+                  : <button onClick={() => sendOtp('phone')} disabled={sending || otpSent === 'phone'}
+                      className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all"
+                      style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)', opacity: sending ? 0.6 : 1 }}>
+                      {sending && otpSent === null ? 'Sending…' : 'Send Code'}
+                    </button>
+                }
+              </div>
+            )}
 
-        {/* Appearance */}
-        <div className="p-5 rounded-2xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
-          <h3 className="text-sm font-semibold font-sans mb-2" style={{ color: 'var(--text-primary)' }}>Appearance</h3>
-          <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>Theme preference is managed by the toggle in the header.</p>
+            {state.account.email && (
+              <div className="flex items-center justify-between gap-3 py-2">
+                <div>
+                  <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>Email</p>
+                  <p className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>{state.account.email}</p>
+                </div>
+                {emailVerified
+                  ? <span className="text-[10px] font-mono font-bold" style={{ color: 'var(--status-success)' }}>✓ Verified</span>
+                  : <button onClick={() => sendOtp('email')} disabled={sending || otpSent === 'email'}
+                      className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all"
+                      style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)', opacity: sending ? 0.6 : 1 }}>
+                      {sending && otpSent === null ? 'Sending…' : 'Send Code'}
+                    </button>
+                }
+              </div>
+            )}
+
+            {otpSent && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-sans" style={{ color: 'var(--text-secondary)' }}>
+                  Enter the 6-digit code sent to your {otpSent}:
+                </p>
+                <div className="flex gap-2">
+                  <input type="text" inputMode="numeric" maxLength={6} value={otp}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-mono text-center tracking-widest focus:outline-none"
+                    style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }} />
+                  <button onClick={verifyOtp} disabled={verifying || otp.length < 4}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                    style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)', opacity: verifying ? 0.7 : 1 }}>
+                    {verifying ? '…' : 'Verify'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {verifyMsg   && <p className="text-xs font-sans" style={{ color: 'var(--status-success)' }}>{verifyMsg}</p>}
+            {verifyError && <p className="text-xs font-sans" style={{ color: 'var(--status-danger)' }}>{verifyError}</p>}
+          </div>
         </div>
-      </div>
-    </Section>
+      )}
+
+      {/* ── SECTION: Appearance ── */}
+      {section === 'appearance' && (
+        <div className="max-w-lg">
+          <div className="p-5 rounded-2xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
+            <h3 className="text-sm font-semibold font-sans mb-2" style={{ color: 'var(--text-primary)' }}>Appearance</h3>
+            <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>Theme preference is managed by the toggle in the header.</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

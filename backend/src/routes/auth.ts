@@ -294,23 +294,22 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (user.status === AccountStatus.PENDING_VERIFICATION) {
-      // Still verify password so we don't inadvertently confirm the account exists to an attacker
+      // Verification is now a soft reminder in Settings — not a hard login gate.
+      // Verify password then fall through to normal session creation below.
       const pwOk = await bcrypt.compare(password, user.passwordHash);
       if (!pwOk) {
         res.status(401).json({ error: 'Invalid credentials.' });
         return;
       }
-      await writeAudit(AuditAction.LOGIN_FAILED, req, user.id, { reason: 'pending_verification' });
-      res.status(403).json({
-        error:  'Please verify your contact information before signing in.',
-        code:   'PENDING_VERIFICATION',
-        userId: user.id,   // Phase 4: frontend uses this to deep-link back to verification
-      });
-      return;
+      // Fall through — session will be created below with PENDING_VERIFICATION status.
     }
 
     // ── 4. Verify password ───────────────────────────────────────────────────
-    const passwordValid = await bcrypt.compare(password, user.passwordHash);
+    // (Already verified above for PENDING_VERIFICATION — skip double-check)
+    const passwordValid =
+      user.status === AccountStatus.PENDING_VERIFICATION
+        ? true
+        : await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordValid) {
       const newFailCount = user.failedLoginAttempts + 1;
