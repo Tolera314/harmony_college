@@ -74,18 +74,32 @@ async function main(): Promise<void> {
   const users: Record<string, string> = {};
   for (const s of userSeeds) {
     const isNew = s.email === 'newstudent@test.local';
-    const u = await prisma.user.upsert({
-      where: { email: s.email },
-      update: { fullName: s.fullName, passwordHash, failedLoginAttempts: 0 },
-      create: {
-        fullName: s.fullName, email: s.email, phone: s.phone,
-        passwordHash, role: s.role,
-        status: isNew ? AccountStatus.ACTIVE : AccountStatus.ACTIVE,
-        emailVerified: !isNew, phoneVerified: !isNew,
-        profileCompleted: !isNew, profileCompletion: isNew ? 0 : 100,
-        failedLoginAttempts: 0,
-      },
-    });
+    // First try to find existing user by email
+    const existing = await prisma.user.findUnique({ where: { email: s.email } });
+    let u;
+    if (existing) {
+      // Update existing — skip phone update to avoid unique constraint conflicts
+      u = await prisma.user.update({
+        where: { id: existing.id },
+        data: { fullName: s.fullName, passwordHash, failedLoginAttempts: 0 },
+      });
+    } else {
+      // Check if phone is already taken by another record
+      const phoneConflict = s.phone
+        ? await prisma.user.findUnique({ where: { phone: s.phone } })
+        : null;
+      u = await prisma.user.create({
+        data: {
+          fullName: s.fullName, email: s.email,
+          phone: phoneConflict ? null : s.phone,
+          passwordHash, role: s.role,
+          status: AccountStatus.ACTIVE,
+          emailVerified: !isNew, phoneVerified: !isNew,
+          profileCompleted: !isNew, profileCompletion: isNew ? 0 : 100,
+          failedLoginAttempts: 0,
+        },
+      });
+    }
     users[s.email] = u.id;
     console.log(`✅  [${s.role.padEnd(16)}]  ${s.email}`);
   }
@@ -618,6 +632,126 @@ async function main(): Promise<void> {
 
   // ── 19. Student Dashboard Data (assignments, quizzes, attendance, financials) ──
   await seedStudentDashboardData();
+
+  // ── 20. Grade Scale ─────────────────────────────────────────────────────
+  console.log('📊  Seeding grade scale...');
+  const GRADE_SCALE_DATA = [
+    { letterGrade: 'A+', gradePoints: 4.0, description: 'Outstanding',       isPassing: true,  displayOrder: 1  },
+    { letterGrade: 'A',  gradePoints: 4.0, description: 'Excellent',          isPassing: true,  displayOrder: 2  },
+    { letterGrade: 'A-', gradePoints: 3.7, description: 'Very Good',          isPassing: true,  displayOrder: 3  },
+    { letterGrade: 'B+', gradePoints: 3.5, description: 'Good Plus',          isPassing: true,  displayOrder: 4  },
+    { letterGrade: 'B',  gradePoints: 3.0, description: 'Good',               isPassing: true,  displayOrder: 5  },
+    { letterGrade: 'B-', gradePoints: 2.7, description: 'Good Minus',         isPassing: true,  displayOrder: 6  },
+    { letterGrade: 'C+', gradePoints: 2.5, description: 'Satisfactory Plus',  isPassing: true,  displayOrder: 7  },
+    { letterGrade: 'C',  gradePoints: 2.0, description: 'Satisfactory',       isPassing: true,  displayOrder: 8  },
+    { letterGrade: 'C-', gradePoints: 1.7, description: 'Satisfactory Minus', isPassing: true,  displayOrder: 9  },
+    { letterGrade: 'D+', gradePoints: 1.5, description: 'Passing Plus',       isPassing: true,  displayOrder: 10 },
+    { letterGrade: 'D',  gradePoints: 1.0, description: 'Passing',            isPassing: true,  displayOrder: 11 },
+    { letterGrade: 'F',  gradePoints: 0.0, description: 'Failing',            isPassing: false, displayOrder: 12 },
+    { letterGrade: 'I',  gradePoints: 0.0, description: 'Incomplete',         isPassing: false, displayOrder: 13 },
+    { letterGrade: 'W',  gradePoints: 0.0, description: 'Withdrawn',          isPassing: false, displayOrder: 14 },
+    { letterGrade: 'NG', gradePoints: 0.0, description: 'No Grade',           isPassing: false, displayOrder: 15 },
+  ];
+  for (const row of GRADE_SCALE_DATA) {
+    await prisma.gradeScale.upsert({
+      where:  { letterGrade: row.letterGrade },
+      update: { gradePoints: row.gradePoints, description: row.description, isPassing: row.isPassing, displayOrder: row.displayOrder },
+      create: row,
+    });
+  }
+  console.log(`   ✓ ${GRADE_SCALE_DATA.length} grade scale entries`);
+
+  // ── 21. Instructor Notifications ────────────────────────────────────────
+  console.log('🔔  Seeding instructor notifications...');
+  const instructorUsers = [
+    users['instructor@test.local'],
+    users['instructor2@test.local'],
+    users['instructor3@test.local'],
+    users['instructor4@test.local'],
+    users['instructor5@test.local'],
+  ].filter(Boolean);
+
+  for (const instrUserId of instructorUsers) {
+    const existingNotifs = await prisma.notification.count({ where: { userId: instrUserId } });
+    if (existingNotifs > 0) continue;
+    await prisma.notification.createMany({
+      data: [
+        {
+          userId:     instrUserId,
+          title:      'Grade Submission Deadline',
+          message:    'Final grades for Semester I must be submitted by January 31, 2027.',
+          type:       'WARNING',
+          entityType: 'GradeDeadline',
+          entityId:   instrUserId,
+        },
+        {
+          userId:     instrUserId,
+          title:      'Low Attendance Alert',
+          message:    '2 students in your class are below the 75% attendance threshold.',
+          type:       'WARNING',
+          entityType: 'AttendanceAlert',
+          entityId:   instrUserId,
+        },
+        {
+          userId:     instrUserId,
+          title:      'New Enrollment',
+          message:    'A student has been enrolled in your course via force-add by the Registrar.',
+          type:       'INFO',
+          entityType: 'Enrollment',
+          entityId:   instrUserId,
+        },
+        {
+          userId:     instrUserId,
+          title:      'Ungraded Submissions',
+          message:    'You have ungraded assignment submissions awaiting review.',
+          type:       'INFO',
+          entityType: 'Assignment',
+          entityId:   instrUserId,
+        },
+        {
+          userId:     instrUserId,
+          title:      'Schedule Confirmed',
+          message:    'Your timetable for Semester I 2026-2027 has been confirmed by the Registrar.',
+          type:       'SUCCESS',
+          entityType: 'Timetable',
+          entityId:   instrUserId,
+        },
+      ],
+      skipDuplicates: true,
+    });
+  }
+  console.log('   ✓ instructor notifications');
+
+  // ── 22. Today's Class Sessions (for live attendance testing) ─────────────
+  console.log('📆  Seeding today\'s class sessions...');
+  const todayOfferingKeys = ['CS101-A', 'CS201-A', 'CS302-A'];
+  const now = new Date();
+  const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  for (const key of todayOfferingKeys) {
+    const offeringId = offeringMap[key];
+    if (!offeringId) continue;
+    const startTime = '09:00';
+    const endTime   = '10:30';
+    await prisma.classSession.upsert({
+      where: {
+        courseOfferingId_date_startTime: {
+          courseOfferingId: offeringId,
+          date:             todayDate,
+          startTime,
+        },
+      },
+      update: {},
+      create: {
+        courseOfferingId: offeringId,
+        date:             todayDate,
+        startTime,
+        endTime,
+        topic:            'Today\'s Live Session',
+      },
+    });
+  }
+  console.log('   ✓ today\'s class sessions');
 
   // ── Summary ──────────────────────────────────────────────────────────────
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

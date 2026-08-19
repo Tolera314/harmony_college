@@ -88,7 +88,7 @@ export async function changePassword(
   });
   if (!user) throw new Error('User not found');
 
-  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash ?? '');
   if (!valid) throw new Error('Current password is incorrect');
 
   const hash = await bcrypt.hash(newPassword, PASSWORD_BCRYPT_ROUNDS);

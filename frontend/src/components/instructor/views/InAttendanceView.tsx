@@ -5,18 +5,18 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
   CalendarCheck, QrCode, RefreshCw, Clock, Users, CheckCircle2,
-  XCircle, AlertCircle, FileDown, ChevronDown, Lock, Unlock,
+  XCircle, AlertCircle, FileDown, ChevronDown, Lock,
   PlayCircle, StopCircle, Copy, Check,
 } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
-import { Card } from '../../ui/Card';
-import { Badge } from '../../ui/Badge';
-import { Button } from '../../ui/Button';
+import { Card }         from '../../ui/Card';
+import { Badge }        from '../../ui/Badge';
+import { Button }       from '../../ui/Button';
 import { SkeletonPage, ErrorState, EmptyState } from '../../ui/States';
 import { AttendanceStatus } from '../../../types/instructor';
 import { useSocket } from '@/src/context/SocketContext';
 
-// ── API helper ────────────────────────────────────────────────────────────────
+// ── Typed API helper ──────────────────────────────────────────────────────────
 const API = '/api/attendance';
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -28,41 +28,63 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-// ── Status config ─────────────────────────────────────────────────────────────
-const STATUS_CFG: Record<AttendanceStatus, {
-  label: string; bg: string; border: string; text: string;
-  icon: React.ReactNode;
-}> = {
-  Present: {
-    label: 'Present', bg: 'var(--status-success-bg)', border: 'var(--status-success-border)', text: 'var(--status-success)',
-    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
-  },
-  Late: {
-    label: 'Late', bg: 'var(--status-warning-bg)', border: 'var(--status-warning-border)', text: 'var(--status-warning)',
-    icon: <Clock className="w-3.5 h-3.5" />,
-  },
-  Absent: {
-    label: 'Absent', bg: 'var(--status-danger-bg)', border: 'var(--status-danger-border)', text: 'var(--status-danger)',
-    icon: <XCircle className="w-3.5 h-3.5" />,
-  },
-  Excused: {
-    label: 'Excused', bg: 'var(--hover-overlay)', border: 'var(--border-default)', text: 'var(--text-secondary)',
-    icon: <AlertCircle className="w-3.5 h-3.5" />,
-  },
+// ── Response shapes ───────────────────────────────────────────────────────────
+interface TodayClassSession {
+  id:          string;           // ClassSession.id
+  date:        string;
+  startTime:   string;
+  endTime:     string;
+  courseOffering: {
+    id:      string;
+    course:  { code: string; name: string };
+    _count:  { enrollments: number };
+  };
+  room: { name: string; building: string } | null;
+  attendanceSession: {
+    id:        string;           // AttendanceSession.id ← used for open/close/roster
+    lifecycle: string;           // NOT_STARTED | OPEN | CLOSED | FINALIZED
+    openedAt:  string | null;
+    closedAt:  string | null;
+    _count:    { records: number };
+  } | null;
+}
+
+interface RosterStudent {
+  studentRecordId: string;
+  studentId:       string;
+  fullName:        string;
+  status:          string;   // PRESENT | ABSENT | LATE | EXCUSED
+  method:          string;
+  markedAt:        string | null;
+  recordId:        string | null;
+}
+
+interface RosterResponse {
+  session: {
+    id:        string;
+    lifecycle: string;
+    openedAt:  string | null;
+    closedAt:  string | null;
+    classDate: string;
+    startTime: string;
+    endTime:   string;
+  };
+  students: RosterStudent[];
+}
+
+// ── Status display map ────────────────────────────────────────────────────────
+const STATUS_CFG: Record<AttendanceStatus, { label: string; bg: string; border: string; text: string; icon: React.ReactNode }> = {
+  Present: { label: 'Present', bg: 'var(--status-success-bg)', border: 'var(--status-success-border)', text: 'var(--status-success)', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+  Late:    { label: 'Late',    bg: 'var(--status-warning-bg)', border: 'var(--status-warning-border)', text: 'var(--status-warning)', icon: <Clock className="w-3.5 h-3.5" />         },
+  Absent:  { label: 'Absent',  bg: 'var(--status-danger-bg)',  border: 'var(--status-danger-border)',  text: 'var(--status-danger)',  icon: <XCircle className="w-3.5 h-3.5" />        },
+  Excused: { label: 'Excused', bg: 'var(--hover-overlay)',     border: 'var(--border-default)',         text: 'var(--text-secondary)', icon: <AlertCircle className="w-3.5 h-3.5" />   },
 };
 
-// DB status → frontend AttendanceStatus
-function toFrontend(s: string): AttendanceStatus {
-  const map: Record<string, AttendanceStatus> = {
-    PRESENT: 'Present', LATE: 'Late', ABSENT: 'Absent', EXCUSED: 'Excused',
-  };
-  return map[s] ?? 'Absent';
-}
-function toBackend(s: AttendanceStatus): string {
-  return s.toUpperCase();
-}
+// DB → frontend
+const toFront  = (s: string): AttendanceStatus => ({ PRESENT: 'Present', LATE: 'Late', ABSENT: 'Absent', EXCUSED: 'Excused' }[s] ?? 'Absent') as AttendanceStatus;
+const toBack   = (s: AttendanceStatus): string  => s.toUpperCase();
 
-// ── QR visual pattern ─────────────────────────────────────────────────────────
+// ── Fake QR visual (decorative — real token shown as text) ────────────────────
 function QRPattern({ seed }: { seed: number }) {
   const size = 11;
   const cells = Array.from({ length: size * size }, (_, i) => {
@@ -79,155 +101,155 @@ function QRPattern({ seed }: { seed: number }) {
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 export const InAttendanceView: React.FC = () => {
   const { onAttendanceRecord, onAttendanceClosed, joinAttendanceRoom, leaveAttendanceRoom } = useSocket();
 
-  // ── State ─────────────────────────────────────────────────────────────────
-  const [view, setView] = useState<'qr' | 'manual' | 'history'>('qr');
+  const [view,             setView]            = useState<'qr' | 'manual' | 'history'>('qr');
+  const [classSessions,    setClassSessions]   = useState<TodayClassSession[]>([]);
+  const [selectedIdx,      setSelectedIdx]     = useState(0);        // index into classSessions
+  const [sessionsLoading,  setSessionsLoading] = useState(true);
+  const [sessionsError,    setSessionsError]   = useState<string | null>(null);
 
-  // Courses / session selection
-  const [sessions, setSessions]             = useState<any[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
-  const [sessionsLoading, setSessionsLoading] = useState(true);
-  const [sessionsError, setSessionsError]   = useState<string | null>(null);
+  // Attendance session state
+  const [attSession,       setAttSession]      = useState<RosterResponse['session'] | null>(null);
+  const [roster,           setRoster]          = useState<RosterStudent[]>([]);
+  const [rosterLoading,    setRosterLoading]   = useState(false);
 
-  // Current session details
-  const [roster, setRoster]                 = useState<any[]>([]);
-  const [rosterLoading, setRosterLoading]   = useState(false);
-  const [sessionOpen, setSessionOpen]       = useState(false);
-  const [sessionFinalized, setSessionFinalized] = useState(false);
-
-  // QR token
-  const [qrToken, setQrToken]               = useState<string | null>(null);
-  const [qrSeed, setQrSeed]                 = useState(Date.now());
-  const [countdown, setCountdown]           = useState(30);
-  const [tokenLoading, setTokenLoading]     = useState(false);
-  const [copied, setCopied]                 = useState(false);
+  // QR state
+  const [qrToken,          setQrToken]         = useState<string | null>(null);
+  const [qrSeed,           setQrSeed]          = useState(Date.now());
+  const [countdown,        setCountdown]       = useState(30);
+  const [tokenLoading,     setTokenLoading]    = useState(false);
+  const [copied,           setCopied]          = useState(false);
 
   // Manual entry
-  const [statuses, setStatuses]             = useState<Record<string, AttendanceStatus>>({});
-  const [notes, setNotes]                   = useState<Record<string, string>>({});
-  const [saving, setSaving]                 = useState(false);
-  const [saved, setSaved]                   = useState(false);
+  const [statuses,         setStatuses]        = useState<Record<string, AttendanceStatus>>({});
+  const [notes,            setNotes]           = useState<Record<string, string>>({});
+  const [saving,           setSaving]          = useState(false);
+  const [saved,            setSaved]           = useState(false);
 
   // History
-  const [history, setHistory]               = useState<any[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history,          setHistory]         = useState<any[]>([]);
+  const [historyLoading,   setHistoryLoading]  = useState(false);
 
-  // Operation in-progress flags
-  const [opening, setOpening] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
+  // Lifecycle button states
+  const [opening,          setOpening]         = useState(false);
+  const [closing,          setClosing]         = useState(false);
+  const [finalizing,       setFinalizing]      = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Load today's sessions ─────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const selectedClassSession = classSessions[selectedIdx] ?? null;
+  // The AttendanceSession.id (used for mark/qr endpoints)
+  const attSessionId  = selectedClassSession?.attendanceSession?.id ?? attSession?.id ?? null;
+  const attLifecycle  = attSession?.lifecycle ?? selectedClassSession?.attendanceSession?.lifecycle ?? 'NOT_STARTED';
+  const sessionOpen   = attLifecycle === 'OPEN';
+  const sessionClosed = attLifecycle === 'CLOSED';
+  const sessionFinal  = attLifecycle === 'FINALIZED';
+
+  // ── 1. Load today's class sessions ───────────────────────────────────────
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true); setSessionsError(null);
     try {
-      const data = await apiFetch<any[]>(`${API}/sessions/today`);
-      setSessions(data);
-      if (data.length > 0 && !selectedSessionId) {
-        setSelectedSessionId(data[0].id);
-      }
-    } catch (e: unknown) {
+      const data = await apiFetch<TodayClassSession[]>(`${API}/sessions/today`);
+      setClassSessions(data);
+      setSelectedIdx(0);
+    } catch (e) {
       setSessionsError(e instanceof Error ? e.message : 'Failed to load sessions');
     } finally { setSessionsLoading(false); }
-  }, [selectedSessionId]);
+  }, []);
 
   useEffect(() => { loadSessions(); }, []);
 
-  // ── Load roster when session changes ─────────────────────────────────────
+  // ── 2. Load roster whenever we have an AttendanceSession ─────────────────
   const loadRoster = useCallback(async (sessionId: string) => {
-    if (!sessionId) return;
     setRosterLoading(true);
     try {
-      const data = await apiFetch<any>(`${API}/sessions/${sessionId}/roster`);
-      setRoster(data.records ?? []);
-      setSessionOpen(data.session?.status === 'OPEN');
-      setSessionFinalized(data.session?.status === 'FINALIZED');
+      const data = await apiFetch<RosterResponse>(`${API}/sessions/${sessionId}/roster`);
+      setAttSession(data.session);
+      setRoster(data.students);
 
-      // Initialise statuses from DB
       const s: Record<string, AttendanceStatus> = {};
       const n: Record<string, string> = {};
-      for (const r of (data.records ?? [])) {
-        s[r.studentRecordId] = toFrontend(r.status);
-        n[r.studentRecordId] = r.note ?? '';
+      for (const r of data.students) {
+        s[r.studentRecordId] = toFront(r.status);
+        n[r.studentRecordId] = '';
       }
       setStatuses(s); setNotes(n);
-    } catch { /* keep empty roster */ }
+    } catch { /* keep empty */ }
     finally { setRosterLoading(false); }
   }, []);
 
   useEffect(() => {
-    if (selectedSessionId) loadRoster(selectedSessionId);
-  }, [selectedSessionId, loadRoster]);
+    if (attSessionId) { loadRoster(attSessionId); }
+    else              { setRoster([]); setAttSession(null); setStatuses({}); }
+  }, [attSessionId, loadRoster]);
 
-  // ── Load history for a specific offering ─────────────────────────────────
+  // ── 3. History for the selected offering ─────────────────────────────────
   const loadHistory = useCallback(async () => {
-    const session = sessions.find(s => s.id === selectedSessionId);
-    if (!session?.courseOfferingId) return;
+    if (!selectedClassSession) return;
     setHistoryLoading(true);
     try {
-      const data = await apiFetch<any>(`${API}/sessions/offering/${session.courseOfferingId}`);
-      setHistory(Array.isArray(data) ? data : (data.sessions ?? []));
+      const data = await apiFetch<any>(`${API}/sessions/offering/${selectedClassSession.courseOffering.id}`);
+      setHistory(Array.isArray(data) ? data : []);
     } catch { setHistory([]); }
     finally { setHistoryLoading(false); }
-  }, [sessions, selectedSessionId]);
+  }, [selectedClassSession]);
 
   useEffect(() => {
-    if (view === 'history' && selectedSessionId) loadHistory();
-  }, [view, selectedSessionId, loadHistory]);
+    if (view === 'history') loadHistory();
+  }, [view, loadHistory]);
 
-  // ── QR countdown ──────────────────────────────────────────────────────────
+  // ── 4. QR countdown timer ────────────────────────────────────────────────
   useEffect(() => {
-    if (!sessionOpen || !qrToken) { if (timerRef.current) clearInterval(timerRef.current); return; }
+    if (!sessionOpen || !qrToken) { clearInterval(timerRef.current!); return; }
     timerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
-          // Auto-refresh token
-          if (selectedSessionId) generateQrToken(selectedSessionId);
+          if (attSessionId) generateQrToken(attSessionId);
           return 30;
         }
         return prev - 1;
       });
     }, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [sessionOpen, qrToken, selectedSessionId]);
+    return () => clearInterval(timerRef.current!);
+  }, [sessionOpen, qrToken, attSessionId]);
 
-  // ── Realtime: new check-in via QR ─────────────────────────────────────────
+  // ── 5. Realtime: student QR check-in ────────────────────────────────────
   useEffect(() => {
-    const unsub = onAttendanceRecord((ev) => {
-      if (ev.sessionId !== selectedSessionId) return;
+    const unsub = onAttendanceRecord(ev => {
+      if (ev.sessionId !== attSessionId) return;
       setRoster(prev => prev.map(r =>
         r.studentRecordId === ev.studentRecordId
           ? { ...r, status: ev.status, markedAt: ev.markedAt, method: ev.method }
           : r,
       ));
-      setStatuses(prev => ({ ...prev, [ev.studentRecordId]: toFrontend(ev.status) }));
+      setStatuses(prev => ({ ...prev, [ev.studentRecordId]: toFront(ev.status) }));
     });
     return unsub;
-  }, [selectedSessionId, onAttendanceRecord]);
+  }, [attSessionId, onAttendanceRecord]);
 
-  // ── Realtime: session closed/finalized by server ───────────────────────────
+  // ── 6. Realtime: session closed/finalized ────────────────────────────────
   useEffect(() => {
-    const unsub = onAttendanceClosed((ev) => {
-      if (ev.sessionId !== selectedSessionId) return;
-      if (ev.status === 'FINALIZED') { setSessionFinalized(true); setSessionOpen(false); }
-      else { setSessionOpen(false); }
+    const unsub = onAttendanceClosed(ev => {
+      if (ev.sessionId !== attSessionId) return;
+      setAttSession(prev => prev ? {
+        ...prev,
+        lifecycle: ev.status === 'FINALIZED' ? 'FINALIZED' : 'CLOSED',
+      } : prev);
       setQrToken(null);
     });
     return unsub;
-  }, [selectedSessionId, onAttendanceClosed]);
+  }, [attSessionId, onAttendanceClosed]);
 
-  // ── Join / leave the course attendance room for realtime events ────────────
+  // ── 7. Join/leave Socket.IO attendance room ──────────────────────────────
   useEffect(() => {
-    const session = sessions.find(s => s.id === selectedSessionId);
-    if (!session?.courseOfferingId) return;
-    joinAttendanceRoom(session.courseOfferingId);
-    return () => { leaveAttendanceRoom(session.courseOfferingId); };
-  }, [selectedSessionId, sessions, joinAttendanceRoom, leaveAttendanceRoom]);
+    if (!selectedClassSession) return;
+    joinAttendanceRoom(selectedClassSession.courseOffering.id);
+    return () => leaveAttendanceRoom(selectedClassSession.courseOffering.id);
+  }, [selectedClassSession, joinAttendanceRoom, leaveAttendanceRoom]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const generateQrToken = async (sessionId: string) => {
@@ -237,74 +259,73 @@ export const InAttendanceView: React.FC = () => {
       setQrToken(res.rawToken);
       setQrSeed(Date.now());
       setCountdown(30);
-    } catch { /* keep old token */ }
+    } catch { /* keep old */ }
     finally { setTokenLoading(false); }
   };
 
   const handleOpenSession = async () => {
-    if (!selectedSessionId) return;
+    // ClassSession.id is used to open (creates AttendanceSession)
+    if (!selectedClassSession) return;
     setOpening(true);
     try {
-      await apiFetch(`${API}/sessions/${selectedSessionId}/open`, { method: 'POST' });
-      setSessionOpen(true);
-      await generateQrToken(selectedSessionId);
-      await loadRoster(selectedSessionId);
-    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Open failed'); }
+      const sess = await apiFetch<{ id: string }>(`${API}/sessions/${selectedClassSession.id}/open`, { method: 'POST' });
+      // Update local state immediately — roster will be loaded via attSessionId effect
+      setAttSession({ id: sess.id, lifecycle: 'OPEN', openedAt: new Date().toISOString(), closedAt: null, classDate: selectedClassSession.date, startTime: selectedClassSession.startTime, endTime: selectedClassSession.endTime });
+      await generateQrToken(sess.id);
+    } catch (e) { alert(e instanceof Error ? e.message : 'Open failed'); }
     finally { setOpening(false); }
   };
 
   const handleCloseSession = async () => {
-    if (!selectedSessionId) return;
+    if (!attSessionId) return;
     setClosing(true);
     try {
-      await apiFetch(`${API}/sessions/${selectedSessionId}/close`, { method: 'POST' });
-      setSessionOpen(false);
+      await apiFetch(`${API}/sessions/${attSessionId}/close`, { method: 'POST' });
+      setAttSession(prev => prev ? { ...prev, lifecycle: 'CLOSED' } : prev);
       setQrToken(null);
-      await loadRoster(selectedSessionId);
-    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Close failed'); }
+    } catch (e) { alert(e instanceof Error ? e.message : 'Close failed'); }
     finally { setClosing(false); }
   };
 
   const handleFinalize = async () => {
-    if (!selectedSessionId || !confirm('Finalize this session? This permanently locks attendance records.')) return;
+    if (!attSessionId || !confirm('Finalize? This permanently locks all attendance records.')) return;
     setFinalizing(true);
     try {
-      await apiFetch(`${API}/sessions/${selectedSessionId}/finalize`, { method: 'POST' });
-      setSessionFinalized(true); setSessionOpen(false);
-      await loadRoster(selectedSessionId);
-    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Finalize failed'); }
+      await apiFetch(`${API}/sessions/${attSessionId}/finalize`, { method: 'POST' });
+      setAttSession(prev => prev ? { ...prev, lifecycle: 'FINALIZED' } : prev);
+    } catch (e) { alert(e instanceof Error ? e.message : 'Finalize failed'); }
     finally { setFinalizing(false); }
   };
 
   const handleMarkOne = async (studentRecordId: string, status: AttendanceStatus) => {
-    if (!selectedSessionId) return;
-    const record = roster.find(r => r.studentRecordId === studentRecordId);
-    if (!record) return;
+    if (!attSessionId || sessionFinal) return;
     setStatuses(prev => ({ ...prev, [studentRecordId]: status }));
     try {
-      await apiFetch(`${API}/sessions/${selectedSessionId}/mark`, {
+      await apiFetch(`${API}/sessions/${attSessionId}/mark`, {
         method: 'PATCH',
-        body: JSON.stringify({ studentRecordId: record.attendanceRecordId ?? record.id, status: toBackend(status), note: notes[studentRecordId] }),
+        body: JSON.stringify({ studentRecordId, status: toBack(status), note: notes[studentRecordId] }),
       });
-    } catch { /* revert optimistic */
-      setStatuses(prev => ({ ...prev, [studentRecordId]: toFrontend(record.status) }));
+    } catch {
+      // revert optimistic update
+      const orig = roster.find(r => r.studentRecordId === studentRecordId);
+      if (orig) setStatuses(prev => ({ ...prev, [studentRecordId]: toFront(orig.status) }));
     }
   };
 
   const handleBulkSave = async () => {
-    if (!selectedSessionId) return;
+    if (!attSessionId) return;
     setSaving(true);
     try {
       const marks = roster.map(r => ({
-        studentRecordId: r.attendanceRecordId ?? r.id,
-        status: toBackend(statuses[r.studentRecordId] ?? 'Absent'),
+        studentRecordId: r.studentRecordId,
+        status: toBack(statuses[r.studentRecordId] ?? 'Absent'),
       }));
-      await apiFetch(`${API}/sessions/${selectedSessionId}/bulk-mark`, {
+      await apiFetch(`${API}/sessions/${attSessionId}/bulk-mark`, {
         method: 'POST', body: JSON.stringify({ marks }),
       });
       setSaved(true); setTimeout(() => setSaved(false), 2500);
-      await loadRoster(selectedSessionId);
-    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Save failed'); }
+      if (attSessionId) loadRoster(attSessionId);
+    } catch (e) { alert(e instanceof Error ? e.message : 'Save failed'); }
     finally { setSaving(false); }
   };
 
@@ -315,27 +336,22 @@ export const InAttendanceView: React.FC = () => {
   };
 
   const exportCSV = () => {
-    if (!roster.length) return;
     const headers = ['Name', 'Student ID', 'Status', 'Method', 'Time'];
     const rows = roster.map(r => [
-      r.student?.fullName ?? 'Unknown',
-      r.student?.studentId ?? '',
+      r.fullName,
+      r.studentId,
       statuses[r.studentRecordId] ?? 'Absent',
-      r.method ?? 'Manual',
+      r.method,
       r.markedAt ? new Date(r.markedAt).toLocaleTimeString() : '—',
     ]);
     const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `attendance-${selectedSessionId}.csv`; a.click();
+    a.download = `attendance-${selectedClassSession?.courseOffering.course.code ?? 'report'}.csv`;
+    a.click();
   };
 
-  const copyToken = () => {
-    if (!qrToken) return;
-    navigator.clipboard.writeText(qrToken).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
-  };
-
-  // ── Derived counts ────────────────────────────────────────────────────────
+  // ── Counts ────────────────────────────────────────────────────────────────
   const counts = {
     Present: Object.values(statuses).filter(s => s === 'Present').length,
     Late:    Object.values(statuses).filter(s => s === 'Late').length,
@@ -345,8 +361,6 @@ export const InAttendanceView: React.FC = () => {
   const rate = roster.length
     ? Math.round(((counts.Present + counts.Late) / roster.length) * 100)
     : 0;
-
-  const selectedSession = sessions.find(s => s.id === selectedSessionId);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (sessionsLoading) return <SkeletonPage />;
@@ -358,36 +372,38 @@ export const InAttendanceView: React.FC = () => {
 
       <DHPageHeader
         title="Attendance"
-        subtitle={sessionOpen ? '● Live session active' : selectedSession ? `${selectedSession.courseCode ?? ''} — ${new Date(selectedSession.date ?? Date.now()).toLocaleDateString()}` : 'Select a session'}
+        subtitle={
+          sessionOpen
+            ? `● Live — ${selectedClassSession?.courseOffering.course.code ?? ''}`
+            : selectedClassSession
+              ? `${selectedClassSession.courseOffering.course.code} · ${new Date(selectedClassSession.date).toLocaleDateString()}`
+              : 'Select a class'
+        }
         icon={<CalendarCheck className="w-5 h-5" />}
         actions={
           <div className="flex gap-2 items-center flex-wrap">
-            {/* Session picker */}
-            {sessions.length > 0 && (
+            {/* Class picker */}
+            {classSessions.length > 1 && (
               <div className="relative">
                 <select
-                  value={selectedSessionId}
-                  onChange={e => setSelectedSessionId(e.target.value)}
+                  value={selectedIdx}
+                  onChange={e => setSelectedIdx(Number(e.target.value))}
                   className="appearance-none pl-3 pr-7 py-2 rounded-xl font-sans text-xs focus:outline-none"
-                  style={{
-                    backgroundColor: 'var(--hover-overlay)',
-                    border: '1px solid var(--border-default)',
-                    color: 'var(--text-primary)',
-                  }}
+                  style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
                 >
-                  {sessions.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.courseCode ?? s.course?.code ?? 'Session'} · {new Date(s.date ?? Date.now()).toLocaleDateString()}
+                  {classSessions.map((s, i) => (
+                    <option key={s.id} value={i}>
+                      {s.courseOffering.course.code} · {s.startTime}–{s.endTime}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
-                  style={{ color: 'var(--text-faint)' }} />
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: 'var(--text-faint)' }} />
               </div>
             )}
-            {/* Session lifecycle buttons */}
-            {!sessionFinalized && !sessionOpen && (
-              <Button variant="primary" size="sm" disabled={opening || !selectedSessionId}
+
+            {/* Lifecycle buttons */}
+            {!sessionFinal && !sessionOpen && !sessionClosed && (
+              <Button variant="primary" size="sm" disabled={opening || !selectedClassSession}
                 icon={<PlayCircle className="w-4 h-4" />} onClick={handleOpenSession}>
                 {opening ? 'Opening…' : 'Open Session'}
               </Button>
@@ -396,14 +412,14 @@ export const InAttendanceView: React.FC = () => {
               <>
                 <Button variant="secondary" size="sm" disabled={closing}
                   icon={<StopCircle className="w-4 h-4" />} onClick={handleCloseSession}>
-                  {closing ? 'Closing…' : 'Close Session'}
+                  {closing ? 'Closing…' : 'Close'}
                 </Button>
                 <Button variant="danger" size="sm" disabled={finalizing} onClick={handleFinalize}>
-                  {finalizing ? 'Finalizing…' : 'Finalize'}
+                  Finalize
                 </Button>
               </>
             )}
-            {!sessionOpen && !sessionFinalized && selectedSessionId && (
+            {sessionClosed && (
               <Button variant="danger" size="sm" disabled={finalizing} onClick={handleFinalize}>
                 {finalizing ? 'Finalizing…' : 'Finalize'}
               </Button>
@@ -412,14 +428,13 @@ export const InAttendanceView: React.FC = () => {
         }
       />
 
-      {/* Empty state — no sessions today */}
-      {sessions.length === 0 && (
-        <EmptyState variant="timetable"
-          title="No sessions today"
+      {/* No classes today */}
+      {classSessions.length === 0 && (
+        <EmptyState variant="timetable" title="No sessions today"
           description="You have no scheduled classes for today. Sessions are auto-generated from your timetable." />
       )}
 
-      {sessions.length > 0 && (
+      {classSessions.length > 0 && (
         <>
           {/* View toggle */}
           <div className="flex gap-2 flex-wrap">
@@ -434,25 +449,26 @@ export const InAttendanceView: React.FC = () => {
             ))}
           </div>
 
-          {/* ── QR View ─────────────────────────────────────────────────── */}
+          {/* ── QR Tab ──────────────────────────────────────────────────── */}
           {view === 'qr' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* QR Panel */}
               <Card hoverable={false} className="lg:col-span-2 space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-serif text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                      {sessionOpen ? 'Live QR Code' : sessionFinalized ? 'Session Finalized' : 'Session Closed'}
+                      {sessionOpen ? 'Live QR Code' : sessionFinal ? 'Session Finalized' : sessionClosed ? 'Session Closed' : 'Session Not Started'}
                     </h3>
                     <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                      {selectedSession?.courseCode ?? '—'} · {selectedSession?.courseName ?? ''} · {selectedSession?.date ? new Date(selectedSession.date).toLocaleDateString() : ''}
+                      {selectedClassSession?.courseOffering.course.code} · {selectedClassSession?.courseOffering.course.name} · {selectedClassSession?.date ? new Date(selectedClassSession.date).toLocaleDateString() : ''}
                     </p>
                   </div>
-                  {sessionFinalized
+                  {sessionFinal
                     ? <Badge variant="glass"><Lock className="w-3 h-3 mr-1 inline" />Finalized</Badge>
                     : sessionOpen
                       ? <Badge variant="emerald" className="animate-pulse">● Live</Badge>
-                      : <Badge variant="rose">Closed</Badge>}
+                      : sessionClosed
+                        ? <Badge variant="amber">Closed</Badge>
+                        : <Badge variant="glass">Not Started</Badge>}
                 </div>
 
                 <div className="flex flex-col items-center gap-5">
@@ -464,8 +480,7 @@ export const InAttendanceView: React.FC = () => {
                     {sessionOpen && qrToken && (
                       <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full shadow-lg"
                         style={{ backgroundColor: 'var(--bg-card-solid)', border: '1px solid var(--border-strong)' }}>
-                        <motion.div className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: 'var(--brand-gold)' }}
+                        <motion.div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--brand-gold)' }}
                           animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1, repeat: Infinity }} />
                         <span className="font-mono text-[11px] font-bold" style={{ color: 'var(--brand-gold)' }}>
                           Refreshes in {countdown}s
@@ -474,14 +489,11 @@ export const InAttendanceView: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Token display */}
                   {qrToken && sessionOpen && (
                     <div className="w-full max-w-sm flex items-center gap-2 px-3 py-2 rounded-xl"
                       style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)' }}>
-                      <p className="font-mono text-[11px] flex-1 truncate" style={{ color: 'var(--text-faint)' }}>
-                        {qrToken}
-                      </p>
-                      <button onClick={copyToken} className="shrink-0 transition-colors"
+                      <p className="font-mono text-[11px] flex-1 truncate" style={{ color: 'var(--text-faint)' }}>{qrToken}</p>
+                      <button onClick={() => { navigator.clipboard.writeText(qrToken); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                         style={{ color: copied ? 'var(--status-success)' : 'var(--text-muted)' }}>
                         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </button>
@@ -490,7 +502,7 @@ export const InAttendanceView: React.FC = () => {
 
                   <div className="flex gap-2 flex-wrap justify-center">
                     <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />}
-                      onClick={() => selectedSessionId && generateQrToken(selectedSessionId)}
+                      onClick={() => attSessionId && generateQrToken(attSessionId)}
                       disabled={!sessionOpen || tokenLoading}>
                       {tokenLoading ? 'Generating…' : 'New QR Token'}
                     </Button>
@@ -502,14 +514,13 @@ export const InAttendanceView: React.FC = () => {
                 </div>
               </Card>
 
-              {/* Stats + Live feed */}
+              {/* Stats + live feed */}
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => {
                     const cfg = STATUS_CFG[s];
                     return (
-                      <div key={s} className="p-3.5 border rounded-xl"
-                        style={{ backgroundColor: cfg.bg, borderColor: cfg.border }}>
+                      <div key={s} className="p-3.5 border rounded-xl" style={{ backgroundColor: cfg.bg, borderColor: cfg.border }}>
                         <p className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>{s}</p>
                         <p className="font-mono text-2xl font-bold mt-0.5" style={{ color: cfg.text }}>{counts[s]}</p>
                       </div>
@@ -529,11 +540,11 @@ export const InAttendanceView: React.FC = () => {
                       transition={{ duration: 0.8, ease: 'easeOut' }} />
                   </div>
                   <p className="font-sans text-[10px] mt-2" style={{ color: 'var(--text-faint)' }}>
-                    {roster.length} enrolled · {selectedSession?.startTime ?? ''}–{selectedSession?.endTime ?? ''}
+                    {roster.length} enrolled · {selectedClassSession?.startTime ?? ''}–{selectedClassSession?.endTime ?? ''}
                   </p>
                 </div>
 
-                {/* Live check-in feed */}
+                {/* Live check-ins */}
                 <Card hoverable={false} className="p-4 space-y-3">
                   <p className="font-mono text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
                     Live Check-ins
@@ -547,24 +558,20 @@ export const InAttendanceView: React.FC = () => {
                     ) : (
                       roster
                         .filter(r => r.markedAt && r.status !== 'ABSENT')
-                        .sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime())
+                        .sort((a, b) => new Date(b.markedAt!).getTime() - new Date(a.markedAt!).getTime())
                         .map((rec, i) => {
-                          const cfg = STATUS_CFG[toFrontend(rec.status)];
+                          const cfg = STATUS_CFG[toFront(rec.status)];
                           return (
-                            <motion.div key={rec.id ?? i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: i * 0.04 }}
-                              className="flex items-center justify-between gap-2">
+                            <motion.div key={rec.studentRecordId} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.04 }} className="flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                                  {rec.student?.fullName ?? 'Unknown'}
-                                </p>
+                                <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{rec.fullName}</p>
                                 <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                                  {new Date(rec.markedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                  {new Date(rec.markedAt!).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                                   {rec.method === 'QR' && ' · QR'}
                                 </p>
                               </div>
-                              <span className="flex items-center gap-1 font-mono text-[10px] font-semibold shrink-0"
-                                style={{ color: cfg.text }}>
+                              <span className="flex items-center gap-1 font-mono text-[10px] font-semibold shrink-0" style={{ color: cfg.text }}>
                                 {cfg.icon} {cfg.label}
                               </span>
                             </motion.div>
@@ -577,10 +584,10 @@ export const InAttendanceView: React.FC = () => {
             </div>
           )}
 
-          {/* ── Manual Entry View ────────────────────────────────────────── */}
+          {/* ── Manual Entry Tab ─────────────────────────────────────────── */}
           {view === 'manual' && (
             <Card hoverable={false} className="space-y-5">
-              {sessionFinalized && (
+              {sessionFinal && (
                 <div className="flex items-center gap-2 p-3 rounded-xl text-xs font-semibold"
                   style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>
                   <Lock className="w-4 h-4" /> This session is finalized. Records are locked.
@@ -590,82 +597,133 @@ export const InAttendanceView: React.FC = () => {
                 <div>
                   <h3 className="font-serif text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Manual Attendance</h3>
                   <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {selectedSession?.courseCode ?? ''} · {roster.length} students enrolled
+                    {selectedClassSession?.courseOffering.course.code} · {roster.length} students
                   </p>
                 </div>
-                {!sessionFinalized && (
+                {!sessionFinal && (
                   <div className="flex gap-2 flex-wrap">
                     <Button variant="secondary" size="sm" onClick={() => handleMarkAll('Present')}>All Present</Button>
                     <Button variant="secondary" size="sm" onClick={() => handleMarkAll('Absent')}>Reset All</Button>
                     {saved && (
-                      <span className="flex items-center gap-1.5 text-xs font-semibold"
-                        style={{ color: 'var(--status-success)' }}>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--status-success)' }}>
                         <CheckCircle2 className="w-4 h-4" /> Saved
                       </span>
                     )}
-                    <Button variant="primary" size="sm" disabled={saving}
-                      icon={<CheckCircle2 className="w-4 h-4" />} onClick={handleBulkSave}>
+                    <Button variant="primary" size="sm" disabled={saving || !attSessionId} onClick={handleBulkSave}>
                       {saving ? 'Saving…' : 'Save All'}
                     </Button>
                   </div>
                 )}
               </div>
 
-              {rosterLoading ? <SkeletonPage /> : roster.length === 0 ? (
-                <EmptyState variant="default" title="No students enrolled" description="No enrollment records found for this session." />
+              {rosterLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-12 bg-(--hover-overlay) rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : roster.length === 0 ? (
+                <EmptyState variant="students" compact
+                  description={attSessionId ? 'No enrolled students found.' : 'Open a session first to take attendance.'} />
+              ) : (
+                <div className="space-y-2">
+                  {roster.map(student => {
+                    const status = statuses[student.studentRecordId] ?? 'Absent';
+                    return (
+                      <div key={student.studentRecordId}
+                        className="flex items-center gap-3 p-3 rounded-xl border transition-all"
+                        style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-subtle)' }}>
+
+                        {/* Avatar initial */}
+                        <div className="w-8 h-8 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) flex items-center justify-center font-serif font-bold text-sm text-(--brand-gold) shrink-0">
+                          {student.fullName.charAt(0).toUpperCase()}
+                        </div>
+
+                        {/* Name + ID */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{student.fullName}</p>
+                          <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>{student.studentId}</p>
+                        </div>
+
+                        {/* Status buttons */}
+                        <div className="flex gap-1 shrink-0">
+                          {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => {
+                            const cfg = STATUS_CFG[s];
+                            const isActive = status === s;
+                            return (
+                              <button
+                                key={s}
+                                onClick={() => !sessionFinal && handleMarkOne(student.studentRecordId, s)}
+                                disabled={sessionFinal}
+                                className="px-2 py-1 rounded-lg font-mono text-[10px] font-semibold transition-all focus:outline-none"
+                                style={{
+                                  backgroundColor: isActive ? cfg.bg : 'transparent',
+                                  border: `1px solid ${isActive ? cfg.border : 'var(--border-subtle)'}`,
+                                  color: isActive ? cfg.text : 'var(--text-faint)',
+                                  opacity: sessionFinal ? 0.5 : 1,
+                                  cursor: sessionFinal ? 'not-allowed' : 'pointer',
+                                }}
+                                aria-label={`Mark ${student.fullName} as ${s}`}
+                                aria-pressed={isActive}
+                              >
+                                {s.slice(0, 1)}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Method indicator */}
+                        {student.method === 'QR' && student.markedAt && (
+                          <span className="font-mono text-[10px] text-(--status-success) shrink-0">QR</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* ── History Tab ─────────────────────────────────────────────── */}
+          {view === 'history' && (
+            <Card hoverable={false} className="space-y-4">
+              <h3 className="font-serif text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Session History</h3>
+              {historyLoading ? (
+                <SkeletonPage />
+              ) : history.length === 0 ? (
+                <EmptyState variant="attendance" compact description="No past sessions found for this course." />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs font-sans min-w-[600px]">
-                    <thead style={{ backgroundColor: 'var(--hover-overlay)', borderBottom: '1px solid var(--border-default)' }}>
+                  <table className="w-full text-xs font-sans min-w-[500px]">
+                    <thead className="border-b border-(--border-default)">
                       <tr>
-                        {['Student', 'Student ID', 'Status', 'Note'].map(h => (
-                          <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-left"
-                            style={{ color: 'var(--text-muted)' }}>{h}</th>
+                        {['Date', 'Time', 'Status', 'Records'].map(h => (
+                          <th key={h} className="px-4 py-3 font-mono text-[10px] uppercase tracking-wider text-(--text-muted) text-left">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody>
-                      {roster.map((r, i) => (
-                        <tr key={r.studentRecordId} className="transition-colors"
-                          style={{ borderBottom: i < roster.length - 1 ? '1px solid var(--border-subtle)' : undefined }}
-                          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--hover-overlay)')}
-                          onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}>
-                          <td className="px-4 py-3">
-                            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                              {r.student?.fullName ?? 'Unknown'}
-                            </span>
+                    <tbody className="divide-y divide-(--border-subtle)">
+                      {history.map((sess: any, i) => (
+                        <tr key={i} className="hover:bg-(--hover-overlay) transition-colors">
+                          <td className="px-4 py-3 font-mono text-xs text-(--text-secondary)">
+                            {new Date(sess.date).toLocaleDateString()}
                           </td>
-                          <td className="px-4 py-3 font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>
-                            {r.student?.studentId ?? '—'}
+                          <td className="px-4 py-3 font-mono text-xs text-(--text-secondary)">
+                            {sess.startTime}–{sess.endTime}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex gap-1 flex-wrap">
-                              {(['Present', 'Late', 'Absent', 'Excused'] as AttendanceStatus[]).map(s => {
-                                const cfg = STATUS_CFG[s];
-                                const active = statuses[r.studentRecordId] === s;
-                                return (
-                                  <button key={s} disabled={sessionFinalized}
-                                    onClick={() => handleMarkOne(r.studentRecordId, s)}
-                                    className="px-2 py-1 rounded-lg font-sans text-[10px] font-semibold border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                    style={active
-                                      ? { backgroundColor: cfg.bg, borderColor: cfg.border, color: cfg.text }
-                                      : { backgroundColor: 'transparent', borderColor: 'var(--border-default)', color: 'var(--text-faint)' }}>
-                                    {s}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            <Badge variant={
+                              !sess.attendanceSession                             ? 'glass'   :
+                              sess.attendanceSession.lifecycle === 'FINALIZED'   ? 'emerald' :
+                              sess.attendanceSession.lifecycle === 'CLOSED'      ? 'amber'   :
+                              sess.attendanceSession.lifecycle === 'OPEN'        ? 'rose'    :
+                              'glass'
+                            } className="text-[10px]">
+                              {sess.attendanceSession?.lifecycle ?? 'No Session'}
+                            </Badge>
                           </td>
-                          <td className="px-4 py-3">
-                            <input type="text" disabled={sessionFinalized}
-                              value={notes[r.studentRecordId] ?? ''}
-                              onChange={e => setNotes(prev => ({ ...prev, [r.studentRecordId]: e.target.value }))}
-                              placeholder="Optional note…"
-                              className="w-full bg-transparent border-b outline-none font-sans text-xs py-0.5 transition-colors placeholder:opacity-30 disabled:cursor-not-allowed"
-                              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
-                              onFocus={e => (e.target.style.borderColor = 'var(--brand-gold)')}
-                              onBlur={e => (e.target.style.borderColor = 'var(--border-default)')}
-                            />
+                          <td className="px-4 py-3 font-mono text-xs text-(--brand-gold)">
+                            {sess.attendanceSession?._count?.records ?? 0}
                           </td>
                         </tr>
                       ))}
@@ -674,59 +732,6 @@ export const InAttendanceView: React.FC = () => {
                 </div>
               )}
             </Card>
-          )}
-
-          {/* ── Session History ──────────────────────────────────────────── */}
-          {view === 'history' && (
-            <div className="space-y-4">
-              {historyLoading ? <SkeletonPage /> : history.length === 0 ? (
-                <EmptyState variant="timetable" title="No session history" description="No previous sessions found for this course." />
-              ) : (
-                history.map(s => {
-                  const pres = (s.records ?? []).filter((r: any) => r.status === 'PRESENT' || r.status === 'LATE').length;
-                  const total = (s.records ?? []).length || s._count?.records || 0;
-                  const pct = total ? Math.round((pres / total) * 100) : 0;
-                  const isFinalized = s.status === 'FINALIZED';
-                  return (
-                    <Card key={s.id} hoverable className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-mono text-xs font-bold" style={{ color: 'var(--brand-gold)' }}>
-                            {s.courseCode ?? s.course?.code ?? '—'}
-                          </span>
-                          <p className="font-sans text-sm font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                            {s.date ? new Date(s.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}
-                            {s.startTime ? ` · ${s.startTime}–${s.endTime}` : ''}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={pct >= 80 ? 'emerald' : 'rose'}>{pct}%</Badge>
-                          {isFinalized
-                            ? <Badge variant="glass"><Lock className="w-3 h-3 mr-1 inline" />Finalized</Badge>
-                            : s.status === 'OPEN'
-                              ? <Badge variant="emerald" className="animate-pulse">● Open</Badge>
-                              : <Badge variant="glass">Closed</Badge>}
-                        </div>
-                      </div>
-                      <div className="flex gap-4 text-xs font-mono flex-wrap">
-                        <span style={{ color: 'var(--status-success)' }}>
-                          {(s.records ?? []).filter((r: any) => r.status === 'PRESENT').length} Present
-                        </span>
-                        <span style={{ color: 'var(--status-warning)' }}>
-                          {(s.records ?? []).filter((r: any) => r.status === 'LATE').length} Late
-                        </span>
-                        <span style={{ color: 'var(--status-danger)' }}>
-                          {(s.records ?? []).filter((r: any) => r.status === 'ABSENT').length} Absent
-                        </span>
-                        <span style={{ color: 'var(--text-faint)' }}>
-                          {(s.records ?? []).filter((r: any) => r.status === 'EXCUSED').length} Excused
-                        </span>
-                      </div>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
           )}
         </>
       )}

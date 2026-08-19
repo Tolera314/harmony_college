@@ -1,176 +1,283 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { BarChart3, Download, TrendingUp, Users, CalendarCheck, ClipboardList } from 'lucide-react';
-import { DHPageHeader } from '../../dh/DHPageHeader';
-import { LineChart, BarChart, DonutChart, HorizontalBarChart } from '../../dh/DHCharts';
-import { Card } from '../../ui/Card';
-import { Badge } from '../../ui/Badge';
-import { Button } from '../../ui/Button';
-import { EmptyState } from '../../ui/States';
+import { BarChart3, Download, RefreshCw, AlertTriangle, ChevronDown, Users, CalendarCheck } from 'lucide-react';
+import { DHPageHeader }   from '../../dh/DHPageHeader';
+import { LineChart, BarChart } from '../../dh/DHCharts';
+import { Card }           from '../../ui/Card';
+import { Badge }          from '../../ui/Badge';
+import { Button }         from '../../ui/Button';
+import { SkeletonPage, EmptyState, ErrorState } from '../../ui/States';
 import {
-  attendanceSparkline, assessments, gradeEntries,
-  film402StudentIds, film301StudentIds,
-} from '../../../data/instructorData';
-import { students } from '../../../data/departmentData';
+  instructorClassesApi,
+  type ClassOffering,
+  type LowAttendanceStudent,
+  type AttendanceReportResponse,
+} from '../../../lib/instructorApi';
 
 export const InReportsView: React.FC = () => {
-  const attendLine = attendanceSparkline.map((v, i) => ({ label: `Wk${i + 1}`, value: v }));
+  const [classes,          setClasses]         = useState<ClassOffering[]>([]);
+  const [selectedOffering, setSelectedOffering] = useState('');
+  const [attReport,        setAttReport]       = useState<AttendanceReportResponse | null>(null);
+  const [lowAtt,           setLowAtt]          = useState<LowAttendanceStudent[]>([]);
+  const [loading,          setLoading]         = useState(true);
+  const [error,            setError]           = useState<string | null>(null);
+  const [threshold,        setThreshold]       = useState(75);
 
-  const film402Published = assessments.filter(a => a.courseId === 'c01' && a.status === 'Published');
-  const gradeBar = film402Published.map(a => {
-    const entries = gradeEntries.filter(g => g.assessmentId === a.id && g.score != null);
-    const avg = entries.length
-      ? Math.round(entries.reduce((s, g) => s + (g.score ?? 0), 0) / entries.length)
-      : 0;
-    return { label: a.type.slice(0, 5), value: avg, color: avg >= 80 ? '#34d399' : avg >= 60 ? '#E9C349' : '#f87171' };
-  });
+  // ── Load classes ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    instructorClassesApi.list()
+      .then(data => {
+        const current = data.filter(o => o.semester.isCurrent);
+        const list = current.length ? current : data;
+        setClasses(list);
+        if (list.length > 0) setSelectedOffering(list[0].id);
+      })
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load classes'))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const myStudentIds = [...new Set([...film402StudentIds, ...film301StudentIds])];
-  const myStudents = students.filter(s => myStudentIds.includes(s.id));
+  // ── Load reports ──────────────────────────────────────────────────────────
+  const loadReports = useCallback(async () => {
+    if (!selectedOffering) return;
+    setLoading(true); setError(null);
+    try {
+      const [report, low] = await Promise.all([
+        instructorClassesApi.getAttendanceReport(selectedOffering, { limit: 100 }),
+        instructorClassesApi.getLowAttendance(selectedOffering, threshold),
+      ]);
+      setAttReport(report);
+      setLowAtt(low);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedOffering, threshold]);
 
-  const standingSegs = [
-    { label: 'Excellent', value: myStudents.filter(s => s.standing === 'Excellent').length, color: 'var(--status-success)' },
-    { label: 'Good',      value: myStudents.filter(s => s.standing === 'Good').length,      color: 'var(--brand-gold)' },
-    { label: 'Warning',   value: myStudents.filter(s => s.standing === 'Warning').length,   color: 'var(--status-warning)' },
-    { label: 'Probation', value: myStudents.filter(s => s.standing === 'Probation').length, color: 'var(--status-danger)' },
-  ].filter(s => s.value > 0);
+  useEffect(() => { loadReports(); }, [loadReports]);
 
-  const published  = gradeEntries.filter(g => g.status === 'Published').length;
-  const pending    = gradeEntries.filter(g => g.status === 'Pending').length;
-  const total      = gradeEntries.length;
-  const subSegs    = [
-    { label: 'Published', value: published, color: 'var(--status-success)' },
-    { label: 'Pending',   value: pending,   color: 'var(--brand-gold)' },
-  ];
+  const selectedClass = classes.find(c => c.id === selectedOffering);
 
-  const workload = assessments.filter(a => a.courseId === 'c01').map(a => ({
-    label: a.type.slice(0, 6),
-    value: gradeEntries.filter(g => g.assessmentId === a.id && g.score != null).length,
-    max: film402StudentIds.length,
-  }));
+  // Build attendance trend from records
+  const attTrend = React.useMemo(() => {
+    if (!attReport) return [];
+    // Group by session date
+    const byDate: Record<string, { present: number; total: number }> = {};
+    for (const r of attReport.records) {
+      const date = new Date(r.attendanceSession.classSession.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (!byDate[date]) byDate[date] = { present: 0, total: 0 };
+      byDate[date].total++;
+      if (r.status === 'PRESENT' || r.status === 'LATE') byDate[date].present++;
+    }
+    return Object.entries(byDate)
+      .slice(-8)
+      .map(([date, v]) => ({ label: date, value: v.total > 0 ? Math.round((v.present / v.total) * 100) : 0 }));
+  }, [attReport]);
 
-  const avgAttendance = Math.round(myStudents.reduce((s, x) => s + x.attendanceRate, 0) / myStudents.length);
-  const avgGpa = (myStudents.reduce((s, x) => s + x.cgpa, 0) / myStudents.length).toFixed(2);
-  const atRisk = myStudents.filter(s => s.riskLevel === 'High' || s.riskLevel === 'Critical').length;
-  const lastAtt = attendanceSparkline[attendanceSparkline.length - 1];
+  // Attendance status distribution
+  const statusDist = React.useMemo(() => {
+    if (!attReport) return [];
+    const counts = { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 };
+    for (const r of attReport.records) {
+      counts[r.status as keyof typeof counts] = (counts[r.status as keyof typeof counts] ?? 0) + 1;
+    }
+    return [
+      { label: 'Present', value: counts.PRESENT, color: 'var(--status-success)' },
+      { label: 'Absent',  value: counts.ABSENT,  color: 'var(--status-danger)'  },
+      { label: 'Late',    value: counts.LATE,    color: 'var(--status-warning)' },
+      { label: 'Excused', value: counts.EXCUSED, color: 'var(--text-secondary)' },
+    ].filter(s => s.value > 0);
+  }, [attReport]);
+
+  const exportCSV = () => {
+    if (!attReport) return;
+    const headers = ['Date', 'Student', 'Status', 'Method'];
+    const rows = attReport.records.map(r => [
+      new Date(r.attendanceSession.classSession.date).toLocaleDateString(),
+      r.studentRecord.user.fullName,
+      r.status,
+      r.method,
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `attendance-report-${selectedClass?.course.code ?? 'course'}.csv`;
+    a.click();
+  };
+
+  if (loading && !selectedOffering) return <SkeletonPage />;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...DURATION.medium, ...EASE.out }}
+      className="space-y-6 pb-16"
+    >
       <DHPageHeader
         title="Reports"
-        subtitle="Academic analytics · Fall 2024 · Dr. Marcus Vance"
+        subtitle={selectedClass ? `${selectedClass.course.code} · Attendance & Analytics` : 'Class Reports'}
         icon={<BarChart3 className="w-5 h-5" />}
-        actions={<Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />}>Save as PDF</Button>}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={loadReports}>
+              Refresh
+            </Button>
+            {attReport && attReport.records.length > 0 && (
+              <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={exportCSV}>
+                Export CSV
+              </Button>
+            )}
+          </div>
+        }
       />
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: 'My Students',    value: myStudents.length, icon: <Users className="w-4 h-4" />,           color: 'text-(--text-primary)' },
-          { label: 'Avg Attendance', value: `${avgAttendance}%`, icon: <CalendarCheck className="w-4 h-4" />, color: avgAttendance >= 80 ? 'text-(--status-success)' : 'text-(--status-danger)' },
-          { label: 'Avg GPA',        value: avgGpa,            icon: <TrendingUp className="w-4 h-4" />,      color: 'text-(--brand-gold)' },
-          { label: 'At Risk',        value: atRisk,            icon: <ClipboardList className="w-4 h-4" />,   color: atRisk > 0 ? 'text-(--status-danger)' : 'text-(--status-success)' },
-        ].map(item => (
-          <div key={item.label} className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-(--text-faint)">{item.icon}</span>
-              <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{item.label}</p>
-            </div>
-            <p className={`font-mono text-2xl font-bold mt-1 ${item.color}`}>{item.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card hoverable={false} className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Attendance Trend</h3>
-              <p className="font-sans text-xs text-(--text-faint) mt-0.5">Dept-wide · Weeks 1–8</p>
-            </div>
-            <Badge variant={lastAtt >= 90 ? 'emerald' : 'amber'}>{lastAtt}% wk 8</Badge>
-          </div>
-          <LineChart data={attendLine} color="#34d399" height={140} />
-        </Card>
-
-        <Card hoverable={false} className="space-y-4">
-          <div>
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">FILM402 — Avg Scores</h3>
-            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Published assessments</p>
-          </div>
-          {gradeBar.length > 0
-            ? <BarChart data={gradeBar} height={140} />
-            : <EmptyState variant="grades" compact description="No published grades yet." />
-          }
-        </Card>
-      </div>
-
-      {/* Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Student Standing</h3>
-          <DonutChart segments={standingSegs} total={myStudents.length} centerLabel={String(myStudents.length)} />
-        </Card>
-
-        <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Submission Status</h3>
-          <DonutChart segments={subSegs} total={total} centerLabel={`${Math.round((published / total) * 100)}%`} />
-        </Card>
-
-        <Card hoverable={false} className="space-y-4">
-          <h3 className="font-serif text-lg font-bold text-(--text-primary)">Grading Progress</h3>
-          <p className="font-sans text-xs text-(--text-faint)">Graded vs enrolled · FILM402</p>
-          <HorizontalBarChart data={workload} />
-        </Card>
-      </div>
-
-      {/* Row 3: student table */}
-      <Card hoverable={false} className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-(--text-primary)">Student Performance Summary</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs font-sans min-w-[560px]">
-            <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-              <tr>
-                {['Student', 'CGPA', 'Attendance', 'Risk', 'Standing'].map(h => (
-                  <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
-              {myStudents.map(s => (
-                <tr key={s.id} className="hover:bg-(--hover-overlay) transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <img src={s.avatar} alt="" className="w-7 h-7 rounded-full border border-(--border-default) shrink-0" />
-                      <span className="font-semibold text-(--text-primary)">{s.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-sm font-bold text-(--text-primary)">{s.cgpa.toFixed(2)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`font-mono text-xs font-semibold ${s.attendanceRate >= 90 ? 'text-(--status-success)' : s.attendanceRate >= 80 ? 'text-(--brand-gold)' : 'text-(--status-danger)'}`}>
-                      {s.attendanceRate}%
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={s.riskLevel === 'Low' ? 'emerald' : s.riskLevel === 'Medium' ? 'amber' : 'rose'} className="text-[10px]">
-                      {s.riskLevel}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={s.standing === 'Excellent' ? 'emerald' : s.standing === 'Good' ? 'gold' : s.standing === 'Warning' ? 'amber' : 'rose'} className="text-[10px]">
-                      {s.standing}
-                    </Badge>
-                  </td>
-                </tr>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        {classes.length > 1 && (
+          <div className="relative">
+            <select
+              value={selectedOffering}
+              onChange={e => setSelectedOffering(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 rounded-xl font-sans text-xs focus:outline-none"
+              style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+            >
+              {classes.map(c => (
+                <option key={c.id} value={c.id}>{c.course.code} — Section {c.section}</option>
               ))}
-            </tbody>
-          </table>
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: 'var(--text-faint)' }} />
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 text-xs text-(--text-secondary)">
+          <span className="font-mono">Low-att threshold:</span>
+          <input
+            type="number"
+            min={50}
+            max={100}
+            value={threshold}
+            onChange={e => setThreshold(parseInt(e.target.value, 10))}
+            className="w-16 bg-(--hover-overlay) border border-(--border-default) rounded-lg px-2 py-1.5 font-mono text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+            aria-label="Low attendance threshold"
+          />
+          <span className="font-mono">%</span>
         </div>
-      </Card>
+      </div>
+
+      {error && <ErrorState variant="network" onRetry={loadReports} description={error} />}
+
+      {loading ? (
+        <SkeletonPage />
+      ) : (
+        <>
+          {/* KPI row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: 'Overall Rate',     value: `${attReport?.overallRate ?? 0}%`, color: (attReport?.overallRate ?? 0) >= 75 ? 'var(--status-success)' : 'var(--status-danger)' },
+              { label: 'Total Records',    value: attReport?.total ?? 0,             color: 'var(--text-primary)'  },
+              { label: 'Below Threshold',  value: lowAtt.length,                     color: lowAtt.length > 0 ? 'var(--status-warning)' : 'var(--status-success)' },
+              { label: 'Enrolled',         value: selectedClass?.enrolled ?? 0,      color: 'var(--brand-gold)'   },
+            ].map(item => (
+              <div key={item.label} className="p-4 bg-(--hover-overlay) rounded-2xl border border-(--border-default) text-center">
+                <p className="font-mono text-2xl font-bold" style={{ color: item.color }}>{item.value}</p>
+                <p className="font-mono text-[11px] text-(--text-faint) mt-0.5 uppercase tracking-wider">{item.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Charts row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card hoverable={false} className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-(--text-primary)">Attendance Trend</h3>
+                  <p className="font-sans text-xs text-(--text-faint) mt-0.5">Session-by-session attendance rate</p>
+                </div>
+              </div>
+              {attTrend.length > 0 ? (
+                <LineChart data={attTrend} color="#34d399" height={130} />
+              ) : (
+                <EmptyState variant="timetable" compact description="No attendance sessions recorded yet." />
+              )}
+            </Card>
+
+            <Card hoverable={false} className="space-y-4">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-(--text-primary)">Status Distribution</h3>
+                <p className="font-sans text-xs text-(--text-faint) mt-0.5">Breakdown of attendance statuses</p>
+              </div>
+              {statusDist.length > 0 ? (
+                <BarChart data={statusDist} height={130} showValues />
+              ) : (
+                <EmptyState variant="timetable" compact description="No attendance data." />
+              )}
+            </Card>
+          </div>
+
+          {/* Low-attendance students */}
+          {lowAtt.length > 0 && (
+            <Card hoverable={false} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-(--status-warning)" />
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-(--text-primary)">Low Attendance Students</h3>
+                  <p className="font-sans text-xs text-(--text-faint) mt-0.5">
+                    Students below {threshold}% attendance threshold
+                  </p>
+                </div>
+                <Badge variant="amber" className="ml-auto">{lowAtt.length} at risk</Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-sans min-w-[500px]">
+                  <thead className="border-b border-(--border-default)">
+                    <tr>
+                      {['Student', 'Student ID', 'Attendance', 'Present', 'Absent', 'Sessions'].map(h => (
+                        <th key={h} className="px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-(--text-muted) text-left">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border-subtle)">
+                    {lowAtt.map(s => (
+                      <tr key={s.studentRecordId} className="hover:bg-(--hover-overlay) transition-colors">
+                        <td className="px-3 py-2.5 font-sans font-semibold text-(--text-primary)">{s.fullName}</td>
+                        <td className="px-3 py-2.5 font-mono text-[11px] text-(--text-faint)">{s.studentId}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-(--hover-overlay) rounded-full overflow-hidden max-w-[60px]">
+                              <div
+                                className="h-full rounded-full"
+                                style={{ width: `${s.rate}%`, backgroundColor: 'var(--status-danger)' }}
+                              />
+                            </div>
+                            <span className="font-mono text-xs font-bold text-(--status-danger)">{s.rate}%</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-xs text-(--status-success)">{s.present}</td>
+                        <td className="px-3 py-2.5 font-mono text-xs text-(--status-danger)">{s.absent}</td>
+                        <td className="px-3 py-2.5 font-mono text-xs text-(--text-secondary)">{s.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {!attReport || attReport.total === 0 ? (
+            <EmptyState
+              variant="timetable"
+              title="No attendance data"
+              description="No attendance sessions have been recorded for this course yet."
+            />
+          ) : null}
+        </>
+      )}
     </motion.div>
   );
 };

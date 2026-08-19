@@ -1,306 +1,349 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { ClipboardList, CheckCircle2, Clock, TrendingUp, Save, AlertTriangle, BarChart3 } from 'lucide-react';
-import { DHPageHeader } from '../../dh/DHPageHeader';
-import { Card } from '../../ui/Card';
-import { Badge } from '../../ui/Badge';
-import { Button } from '../../ui/Button';
-import { Modal } from '../../ui/Modal';
-import { SlidePanel } from '../../ui/SlidePanel';
-import { BarChart } from '../../dh/DHCharts';
-import { assessments, gradeEntries, film402StudentIds, film301StudentIds } from '../../../data/instructorData';
-import { courses, students } from '../../../data/departmentData';
-import { Assessment } from '../../../types/instructor';
+import { ClipboardList, CheckCircle2, AlertTriangle, ChevronDown, RefreshCw } from 'lucide-react';
+import { DHPageHeader }   from '../../dh/DHPageHeader';
+import { Card }           from '../../ui/Card';
+import { Badge }          from '../../ui/Badge';
+import { Button }         from '../../ui/Button';
+import { Modal }          from '../../ui/Modal';
+import { SkeletonPage, ErrorState, EmptyState } from '../../ui/States';
+import {
+  instructorClassesApi,
+  type ClassOffering,
+  type CourseGradeEntry,
+} from '../../../lib/instructorApi';
 
-const typeColor: Record<string, string> = {
-  Assignment:   'text-(--status-info)',
-  Quiz:         'text-purple-400',
-  Midterm:      'text-(--status-warning)',
-  Final:        'text-(--status-danger)',
-  Participation:'text-(--status-success)',
-  Project:      'text-(--brand-gold)',
+// Grade scale (matches the seeded GradeScale table)
+const GRADE_SCALE = [
+  { letter: 'A',  points: 4.0 },
+  { letter: 'A-', points: 3.7 },
+  { letter: 'B+', points: 3.5 },
+  { letter: 'B',  points: 3.0 },
+  { letter: 'B-', points: 2.7 },
+  { letter: 'C+', points: 2.5 },
+  { letter: 'C',  points: 2.0 },
+  { letter: 'C-', points: 1.7 },
+  { letter: 'D',  points: 1.0 },
+  { letter: 'F',  points: 0.0 },
+];
+
+const gradeColor = (letter: string | undefined) => {
+  if (!letter) return 'text-(--text-faint)';
+  if (letter.startsWith('A')) return 'text-(--status-success)';
+  if (letter.startsWith('B')) return 'text-(--brand-gold)';
+  if (letter.startsWith('C')) return 'text-(--status-warning)';
+  return 'text-(--status-danger)';
 };
 
-function letterGrade(pct: number): string {
-  if (pct >= 90) return 'A';
-  if (pct >= 85) return 'A−';
-  if (pct >= 80) return 'B+';
-  if (pct >= 75) return 'B';
-  if (pct >= 70) return 'B−';
-  if (pct >= 65) return 'C+';
-  if (pct >= 60) return 'C';
-  return 'F';
-}
-
 export const InGradesView: React.FC = () => {
-  const [selected, setSelected] = useState<Assessment>(assessments[0]);
-  const [localGrades, setLocalGrades] = useState<Record<string, string>>({});
-  const [localRemarks, setLocalRemarks] = useState<Record<string, string>>({});
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [confirmModal, setConfirmModal] = useState(false);
-  const [showChart, setShowChart] = useState(false);
-  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [classes,           setClasses]          = useState<ClassOffering[]>([]);
+  const [selectedOffering,  setSelectedOffering] = useState<string>('');
+  const [grades,            setGrades]           = useState<CourseGradeEntry[]>([]);
+  const [localGrades,       setLocalGrades]      = useState<Record<string, string>>({});
+  const [classesLoading,    setClassesLoading]   = useState(true);
+  const [gradesLoading,     setGradesLoading]    = useState(false);
+  const [saving,            setSaving]           = useState<string | null>(null);
+  const [saveSuccess,       setSaveSuccess]      = useState<string | null>(null);
+  const [error,             setError]            = useState<string | null>(null);
+  const [confirmModal,      setConfirmModal]     = useState(false);
+  const [bulkEntry,         setBulkEntry]        = useState('');
 
-  const courseStudentIds = selected.courseId === 'c01' ? film402StudentIds : film301StudentIds;
-  const courseStudents   = students.filter(s => courseStudentIds.includes(s.id));
-
-  // Get current grade value for a student
-  const getScore = useCallback((studentId: string): string => {
-    if (localGrades[studentId] !== undefined) return localGrades[studentId];
-    const entry = gradeEntries.find(g => g.assessmentId === selected.id && g.studentId === studentId);
-    return entry?.score != null ? String(entry.score) : '';
-  }, [localGrades, selected.id]);
-
-  const getRemark = useCallback((studentId: string): string => {
-    if (localRemarks[studentId] !== undefined) return localRemarks[studentId];
-    return gradeEntries.find(g => g.assessmentId === selected.id && g.studentId === studentId)?.remarks ?? '';
-  }, [localRemarks, selected.id]);
-
-  // Autosave: fire 1.5s after last keystroke
-  const triggerAutosave = useCallback(() => {
-    setSaveState('saving');
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(() => { setSaveState('saved'); setTimeout(() => setSaveState('idle'), 2000); }, 1500);
+  // ── Load classes ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    instructorClassesApi.list()
+      .then(data => {
+        const current = data.filter(o => o.semester.isCurrent);
+        const list    = current.length ? current : data;
+        setClasses(list);
+        if (list.length > 0) setSelectedOffering(list[0].id);
+      })
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load classes'))
+      .finally(() => setClassesLoading(false));
   }, []);
 
-  const handleScoreChange = (studentId: string, value: string) => {
-    setLocalGrades(prev => ({ ...prev, [studentId]: value }));
-    triggerAutosave();
+  // ── Load course grades ────────────────────────────────────────────────────
+  const loadGrades = useCallback(async () => {
+    if (!selectedOffering) return;
+    setGradesLoading(true); setError(null);
+    try {
+      const data = await instructorClassesApi.getCourseGrades(selectedOffering);
+      setGrades(data);
+      // Pre-fill local grades from existing DB values
+      const map: Record<string, string> = {};
+      data.forEach(g => {
+        if (g.currentGrade?.letterGrade) {
+          map[g.enrollmentId] = g.currentGrade.letterGrade;
+        }
+      });
+      setLocalGrades(map);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load grades');
+    } finally {
+      setGradesLoading(false);
+    }
+  }, [selectedOffering]);
+
+  useEffect(() => { loadGrades(); }, [loadGrades]);
+
+  // ── Submit single grade ───────────────────────────────────────────────────
+  const submitGrade = async (enrollmentId: string, letterGrade: string) => {
+    const scale = GRADE_SCALE.find(g => g.letter === letterGrade);
+    if (!scale) return;
+
+    setSaving(enrollmentId);
+    try {
+      await instructorClassesApi.submitCourseGrade(selectedOffering, enrollmentId, {
+        letterGrade: scale.letter,
+        gradePoints: scale.points,
+      });
+      setSaveSuccess(enrollmentId);
+      setTimeout(() => setSaveSuccess(null), 2000);
+      // Refresh grades
+      loadGrades();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save grade');
+    } finally {
+      setSaving(null);
+    }
   };
 
-  const handleRemarkChange = (studentId: string, value: string) => {
-    setLocalRemarks(prev => ({ ...prev, [studentId]: value }));
-    triggerAutosave();
+  // ── Bulk submit all local changes ─────────────────────────────────────────
+  const handleBulkSubmit = async () => {
+    setConfirmModal(false);
+    const entries = Object.entries(localGrades);
+    for (const [enrollmentId, letter] of entries) {
+      if (!letter) continue;
+      await submitGrade(enrollmentId, letter);
+    }
   };
 
-  // Reset local overrides when switching assessments
-  const handleSelectAssessment = (a: Assessment) => {
-    setSelected(a);
-    setLocalGrades({});
-    setLocalRemarks({});
-    setSaveState('idle');
-  };
+  const ungradedCount = grades.filter(g => !g.currentGrade).length;
+  const selectedClass = classes.find(c => c.id === selectedOffering);
 
-  const handleSubmit = () => { setConfirmModal(false); setSaveState('saved'); setTimeout(() => setSaveState('idle'), 2500); };
-
-  // Grade distribution for chart
-  const gradeDistribution = courseStudents.map(s => {
-    const scoreStr = getScore(s.id);
-    const score = scoreStr !== '' ? Number(scoreStr) : null;
-    const pct = score != null ? Math.round((score / selected.maxScore) * 100) : 0;
-    return { label: s.name.split(' ')[0], value: pct, color: pct >= 80 ? '#34d399' : pct >= 60 ? '#E9C349' : '#f87171' };
-  }).filter(d => d.value > 0);
-
-  const pendingCount = gradeEntries.filter(g => g.status === 'Pending').length;
-  const totalScore = courseStudents.reduce((sum, s) => {
-    const v = getScore(s.id);
-    return v !== '' ? sum + Number(v) : sum;
-  }, 0);
-  const gradedCount = courseStudents.filter(s => getScore(s.id) !== '').length;
-  const classAvg = gradedCount ? Math.round(totalScore / gradedCount) : 0;
+  if (classesLoading) return <SkeletonPage />;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...DURATION.medium, ...EASE.out }}
+      className="space-y-6 pb-16"
+    >
       <DHPageHeader
         title="Grades"
-        subtitle={`${pendingCount} pending · autosave enabled`}
+        subtitle={selectedClass
+          ? `${selectedClass.course.code} · ${ungradedCount} ungraded of ${grades.length}`
+          : 'Course grades'}
         icon={<ClipboardList className="w-5 h-5" />}
         actions={
           <div className="flex items-center gap-2">
-            {/* Autosave indicator */}
-            <AnimatePresence mode="wait">
-              {saveState === 'saving' && (
-                <motion.span key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="flex items-center gap-1.5 font-sans text-xs text-(--text-faint)">
-                  <motion.div className="w-3 h-3 border-2 border-(--border-strong) border-t-[#E9C349] rounded-full" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
-                  Saving…
-                </motion.span>
-              )}
-              {saveState === 'saved' && (
-                <motion.span key="saved" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  className="flex items-center gap-1.5 font-sans text-xs text-(--status-success)">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Saved
-                </motion.span>
-              )}
-            </AnimatePresence>
-            <Button variant="secondary" size="sm" icon={<BarChart3 className="w-4 h-4" />} onClick={() => setShowChart(p => !p)}>
-              {showChart ? 'Hide' : 'Chart'}
+            <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={loadGrades}>
+              Refresh
             </Button>
-            <Button variant="primary" size="sm" icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => setConfirmModal(true)}>
-              Submit Grades
-            </Button>
+            {grades.length > 0 && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<CheckCircle2 className="w-4 h-4" />}
+                onClick={() => setConfirmModal(true)}
+              >
+                Submit All Grades
+              </Button>
+            )}
           </div>
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Assessment sidebar */}
-        <div className="space-y-1.5">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-(--text-faint) px-1 mb-3">Assessments</p>
-          {assessments.map(a => {
-            const isActive = selected.id === a.id;
-            const c = courses.find(x => x.id === a.courseId);
-            const entries = gradeEntries.filter(g => g.assessmentId === a.id);
-            const hasPending = entries.some(g => g.status === 'Pending');
-            return (
-              <button key={a.id} onClick={() => handleSelectAssessment(a)}
-                className={`w-full text-left p-3 rounded-xl border transition-all ${isActive ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border)' : 'bg-(--hover-overlay) border-(--border-subtle) hover:bg-(--hover-overlay) hover:border-(--border-strong)'}`}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-mono text-[10px] text-(--text-faint)">{c?.code}</span>
-                  {hasPending && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: 'var(--brand-gold)' }} />}
-                </div>
-                <p className={`font-sans text-xs font-semibold truncate leading-snug ${isActive ? 'text-(--brand-gold)' : 'text-(--text-secondary)'}`}>{a.title}</p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className={`font-mono text-[10px] font-medium ${typeColor[a.type]}`}>{a.type}</span>
-                  <span className="font-mono text-[10px] text-(--text-faint)">{a.weight}%</span>
-                </div>
-              </button>
-            );
-          })}
+      {/* Class selector */}
+      {classes.length > 1 && (
+        <div className="relative inline-block">
+          <select
+            value={selectedOffering}
+            onChange={e => { setSelectedOffering(e.target.value); setLocalGrades({}); }}
+            className="appearance-none pl-3 pr-8 py-2 rounded-xl font-sans text-xs focus:outline-none"
+            style={{
+              backgroundColor: 'var(--hover-overlay)',
+              border:          '1px solid var(--border-default)',
+              color:           'var(--text-primary)',
+            }}
+          >
+            {classes.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.course.code} — Section {c.section} · {c.semester.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: 'var(--text-faint)' }} />
         </div>
+      )}
 
-        {/* Main grade editor */}
-        <div className="lg:col-span-3 space-y-4">
+      {error && <div className="p-3 text-xs text-(--status-danger) bg-(--status-danger-bg) border border-(--status-danger-border) rounded-xl">{error}</div>}
 
-          {/* Assessment header card */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl">
-            <div>
-              <h3 className="font-serif text-lg font-bold text-(--text-primary)">{selected.title}</h3>
-              <div className="flex items-center gap-3 mt-1.5 text-xs text-(--text-muted) font-sans flex-wrap">
-                <span className={typeColor[selected.type]}>{selected.type}</span>
-                <span>Max: <span className="text-(--text-primary) font-mono">{selected.maxScore}</span> pts</span>
-                <span>Weight: <span className="text-(--text-primary) font-mono">{selected.weight}%</span></span>
-                <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{selected.dueDate}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              {gradedCount > 0 && (
-                <div className="text-right">
-                  <p className="font-mono text-xs text-(--text-faint)">Class avg</p>
-                  <p className={`font-mono text-lg font-bold ${classAvg >= 80 ? 'text-(--status-success)' : classAvg >= 60 ? 'text-(--brand-gold)' : 'text-(--status-danger)'}`}>{classAvg}</p>
-                </div>
-              )}
-              <Badge variant={selected.status === 'Published' ? 'emerald' : selected.status === 'Pending' ? 'amber' : 'glass'}>
-                {selected.status}
-              </Badge>
-            </div>
-          </div>
+      {gradesLoading ? (
+        <SkeletonPage />
+      ) : grades.length === 0 ? (
+        <EmptyState
+          variant="grades"
+          title="No students enrolled"
+          description="No active enrollments found for this course offering."
+        />
+      ) : (
+        <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+          <table className="w-full text-xs font-sans min-w-[640px]">
+            <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
+              <tr>
+                {['Student', 'Student ID', 'GPA', 'Current Grade', 'Grade Points', 'Enter Grade', 'Action'].map(h => (
+                  <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) text-left">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-(--border-subtle)">
+              {grades.map(entry => {
+                const localGrade   = localGrades[entry.enrollmentId] ?? '';
+                const currentGrade = entry.currentGrade?.letterGrade;
+                const isSaving     = saving      === entry.enrollmentId;
+                const isSaved      = saveSuccess === entry.enrollmentId;
 
-          {/* Grade distribution chart (toggle) */}
-          <AnimatePresence>
-            {showChart && gradeDistribution.length > 0 && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
-                <Card hoverable={false} className="space-y-2">
-                  <p className="font-mono text-[11px] uppercase tracking-wider text-(--text-faint)">Score Distribution</p>
-                  <BarChart data={gradeDistribution} height={130} showValues />
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Grade table */}
-          <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
-            <table className="w-full text-xs font-sans min-w-[640px]">
-              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-                <tr>
-                  {['Student', 'Score / Max', 'Percentage', 'Grade', 'Remarks', 'Status'].map(h => (
-                    <th key={h} className="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle)">
-                {courseStudents.map(student => {
-                  const scoreStr = getScore(student.id);
-                  const score    = scoreStr !== '' ? Number(scoreStr) : null;
-                  const pct      = score != null ? Math.round((score / selected.maxScore) * 100) : null;
-                  const letter   = pct != null ? letterGrade(pct) : '—';
-                  const entry    = gradeEntries.find(g => g.assessmentId === selected.id && g.studentId === student.id);
-                  const pctColor = pct == null ? '' : pct >= 80 ? 'text-(--status-success)' : pct >= 60 ? 'text-(--brand-gold)' : 'text-(--status-danger)';
-                  return (
-                    <tr key={student.id} className="hover:bg-(--hover-overlay) transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <img src={student.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-(--border-default) shrink-0" />
-                          <div>
-                            <p className="font-semibold text-(--text-primary)">{student.name}</p>
-                            <p className="font-mono text-[10px] text-(--text-faint)">{student.studentId}</p>
-                          </div>
+                return (
+                  <tr key={entry.enrollmentId} className="hover:bg-(--hover-overlay) transition-colors">
+                    {/* Name */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) flex items-center justify-center font-serif font-bold text-xs text-(--brand-gold) shrink-0">
+                          {entry.fullName.charAt(0).toUpperCase()}
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number" min={0} max={selected.maxScore}
-                            value={scoreStr}
-                            onChange={e => handleScoreChange(student.id, e.target.value)}
-                            placeholder="—"
-                            aria-label={`Score for ${student.name}`}
-                            className="w-16 bg-(--hover-overlay) border border-(--border-default) rounded-lg px-2.5 py-1.5 font-mono text-sm text-(--text-primary) text-center focus:outline-none focus:border-(--brand-gold) transition-colors"
-                          />
-                          <span className="font-mono text-xs text-(--text-faint)">/ {selected.maxScore}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-sm">
-                        {pct != null ? <span className={pctColor}>{pct}%</span> : <span className="text-(--text-faint)">—</span>}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-sm font-bold">
-                        {pct != null ? <span className={pctColor}>{letter}</span> : <span className="text-(--text-faint)">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="text"
-                          value={getRemark(student.id)}
-                          onChange={e => handleRemarkChange(student.id, e.target.value)}
-                          placeholder="Add remark…"
-                          aria-label={`Remark for ${student.name}`}
-                          className="w-full bg-transparent border-b border-(--border-default) focus:border-(--brand-gold) outline-none font-sans text-xs text-(--text-secondary) py-0.5 transition-colors placeholder:text-(--text-faint)"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={entry?.status === 'Published' ? 'emerald' : entry?.status === 'Pending' ? 'amber' : 'glass'} className="text-[10px]">
-                          {entry?.status ?? 'New'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <p className="font-semibold text-(--text-primary)">{entry.fullName}</p>
+                      </div>
+                    </td>
 
-          {/* Footer summary */}
-          {gradedCount > 0 && (
-            <div className="flex items-center gap-4 px-1 text-xs font-mono text-(--text-faint)">
-              <span>{gradedCount}/{courseStudents.length} graded</span>
-              <span>·</span>
-              <span className={classAvg >= 80 ? 'text-(--status-success)' : classAvg >= 60 ? 'text-(--brand-gold)' : 'text-(--status-danger)'}>
-                Class avg: {classAvg}/{selected.maxScore} ({Math.round((classAvg / selected.maxScore) * 100)}%)
-              </span>
-            </div>
+                    {/* Student ID */}
+                    <td className="px-4 py-3.5 font-mono text-[11px] text-(--text-faint)">
+                      {entry.studentId}
+                    </td>
+
+                    {/* GPA */}
+                    <td className="px-4 py-3.5 font-mono text-sm font-bold text-(--brand-gold)">
+                      {entry.gpa.toFixed(2)}
+                    </td>
+
+                    {/* Current grade */}
+                    <td className="px-4 py-3.5">
+                      {currentGrade ? (
+                        <span className={`font-mono text-sm font-bold ${gradeColor(currentGrade)}`}>
+                          {currentGrade}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-(--text-faint)">Not graded</span>
+                      )}
+                    </td>
+
+                    {/* Grade points */}
+                    <td className="px-4 py-3.5 font-mono text-xs text-(--text-secondary)">
+                      {entry.currentGrade?.gradePoints?.toFixed(1) ?? '—'}
+                    </td>
+
+                    {/* Grade input */}
+                    <td className="px-4 py-3.5">
+                      <div className="relative">
+                        <select
+                          value={localGrade}
+                          onChange={e => setLocalGrades(prev => ({ ...prev, [entry.enrollmentId]: e.target.value }))}
+                          className="appearance-none pl-3 pr-7 py-1.5 rounded-lg font-mono text-xs focus:outline-none"
+                          style={{
+                            backgroundColor: 'var(--hover-overlay)',
+                            border:          `1px solid ${localGrade ? 'var(--accent-gold-border)' : 'var(--border-default)'}`,
+                            color:           localGrade ? 'var(--brand-gold)' : 'var(--text-secondary)',
+                          }}
+                          aria-label={`Grade for ${entry.fullName}`}
+                        >
+                          <option value="">Select grade</option>
+                          {GRADE_SCALE.map(g => (
+                            <option key={g.letter} value={g.letter}>
+                              {g.letter} ({g.points.toFixed(1)})
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: 'var(--text-faint)' }} />
+                      </div>
+                    </td>
+
+                    {/* Action */}
+                    <td className="px-4 py-3.5">
+                      <AnimatePresence mode="wait">
+                        {isSaved ? (
+                          <motion.span
+                            key="saved"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="flex items-center gap-1 text-xs font-semibold text-(--status-success)"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Saved
+                          </motion.span>
+                        ) : (
+                          <Button
+                            key="save"
+                            variant="secondary"
+                            size="sm"
+                            disabled={!localGrade || isSaving}
+                            onClick={() => submitGrade(entry.enrollmentId, localGrade)}
+                          >
+                            {isSaving ? 'Saving…' : 'Save'}
+                          </Button>
+                        )}
+                      </AnimatePresence>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Footer summary */}
+      {grades.length > 0 && (
+        <div className="flex items-center gap-4 px-1 text-xs font-mono text-(--text-faint)">
+          <span>{grades.filter(g => g.currentGrade).length}/{grades.length} graded</span>
+          {ungradedCount > 0 && (
+            <span className="text-(--status-warning) flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" /> {ungradedCount} awaiting grades
+            </span>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Submit confirmation modal */}
-      <Modal isOpen={confirmModal} onClose={() => setConfirmModal(false)} title="Submit Grades to Registrar" maxWidth="max-w-md">
+      {/* Bulk Submit Modal */}
+      <Modal
+        isOpen={confirmModal}
+        onClose={() => setConfirmModal(false)}
+        title="Submit All Grades"
+        maxWidth="max-w-md"
+      >
         <div className="space-y-5 font-sans text-sm">
           <div className="p-4 bg-(--status-warning-bg) border border-(--status-warning-border) rounded-xl flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-(--status-warning) shrink-0 mt-0.5" />
             <p className="text-amber-200/80 text-xs leading-relaxed">
-              Once submitted, grades are recorded in the registrar system and students will be notified. You can still edit and resubmit if needed.
+              This will save all grades you have entered above. Only students with a grade selected will be updated.
             </p>
           </div>
           <p className="text-(--text-secondary)">
-            Submit <span className="font-semibold text-(--text-primary)">{selected.title}</span> grades for{' '}
-            <span className="text-(--brand-gold) font-mono">{courses.find(c => c.id === selected.courseId)?.code}</span>?
-            ({gradedCount} of {courseStudents.length} graded)
+            Submit grades for <span className="text-(--brand-gold) font-mono">{selectedClass?.course.code}</span>?
+            ({Object.values(localGrades).filter(Boolean).length} students selected)
           </p>
           <div className="flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={() => setConfirmModal(false)}>Cancel</Button>
-            <Button variant="primary" className="flex-1" onClick={handleSubmit} icon={<CheckCircle2 className="w-4 h-4" />}>
+            <Button
+              variant="primary"
+              className="flex-1"
+              onClick={handleBulkSubmit}
+              icon={<CheckCircle2 className="w-4 h-4" />}
+            >
               Confirm Submit
             </Button>
           </div>
