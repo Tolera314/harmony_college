@@ -50,6 +50,7 @@ export type NavTab =
   | 'registration'
   | 'assignments'
   | 'quizzes'
+  | 'attendance'
   | 'grades'
   | 'financials'
   | 'degree_audit'

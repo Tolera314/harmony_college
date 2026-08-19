@@ -36,6 +36,8 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
   const [appointmentTime, setAppointmentTime] = useState('14:00');
   const [appointmentTopic, setAppointmentTopic] = useState('Spring 2025 Graduation Audit & Capstone');
   const [appointmentSuccess, setAppointmentSuccess] = useState(false);
+  const [appointmentError, setAppointmentError]   = useState('');
+  const [appointmentLoading, setAppointmentLoading] = useState(false);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
@@ -99,10 +101,20 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
     }
   };
 
-  const handleBookAppointment = (e: React.FormEvent) => {
+  const handleBookAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAppointmentSuccess(true);
-    setTimeout(() => setAppointmentSuccess(false), 4000);
+    setAppointmentLoading(true); setAppointmentError('');
+    try {
+      await (await import('@/src/lib/studentApi')).studentDashApi.bookAppointment({
+        topic: appointmentTopic,
+        requestedDate: new Date(appointmentDate).toISOString(),
+        requestedTime: appointmentTime,
+      });
+      setAppointmentSuccess(true);
+      setTimeout(() => setAppointmentSuccess(false), 5000);
+    } catch (err: unknown) {
+      setAppointmentError(err instanceof Error ? err.message : 'Booking failed. Please try again.');
+    } finally { setAppointmentLoading(false); }
   };
 
   const quickPrompts = [
@@ -247,7 +259,10 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
                   <CheckCircle2 className="w-5 h-5" style={{ color: "var(--status-success)" }} />
                   Appointment Confirmed!
                 </p>
-                <p>Scheduled with Dr. Marcus Vance on {appointmentDate} at {appointmentTime}. Confirmation sent to {profile.email}.</p>
+                <p>
+                  Scheduled for {new Date(appointmentDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at {appointmentTime}.
+                  Confirmation sent to {profile.email}.
+                </p>
               </div>
             ) : (
               <form onSubmit={handleBookAppointment} className="space-y-4 text-xs font-sans">
@@ -294,9 +309,12 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
                   </div>
                 </div>
 
-                <Button variant="primary" type="submit" className="w-full">
-                  Confirm Appointment Booking
+                <Button variant="primary" type="submit" disabled={appointmentLoading} className="w-full">
+                  {appointmentLoading ? 'Booking…' : 'Confirm Appointment Booking'}
                 </Button>
+                {appointmentError && (
+                  <p className="text-xs text-center font-mono" style={{ color: 'var(--status-danger)' }}>{appointmentError}</p>
+                )}
               </form>
             )}
           </Card>

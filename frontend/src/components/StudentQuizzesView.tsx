@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
-  HelpCircle, ChevronLeft, ChevronRight, CheckCircle2, Clock, 
+  HelpCircle, ChevronLeft, ChevronRight, CheckCircle2, Clock,
   AlertTriangle, BookOpen, Send, X, Star
 } from 'lucide-react';
 import { Badge } from './ui/Badge';
@@ -14,6 +14,7 @@ import { Card } from './ui/Card';
 import { EmptyState } from './ui/States';
 import { initialActiveCourses } from '../data/studentData';
 import type { StudentQuiz, Course, QuizQuestion } from '../types';
+import { studentDashApi } from '@/src/lib/studentApi';
 
 export const StudentQuizzesView: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>(initialActiveCourses);
@@ -46,19 +47,50 @@ export const StudentQuizzesView: React.FC = () => {
     }
   }, [isTakingQuiz, timeLeft]);
 
-  const handleStartQuiz = (quiz: StudentQuiz) => {
+  const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
+
+  const handleStartQuiz = async (quiz: StudentQuiz) => {
+    // Try to start/resume via real API; fall back to local if no attempt ID available
+    try {
+      const result = await studentDashApi.startQuiz(quiz.id);
+      setActiveAttemptId(result.attemptId);
+      setTimeLeft(result.durationMinutes * 60);
+    } catch {
+      // Network failure or quiz not in DB — use duration from local data
+      setActiveAttemptId(null);
+      setTimeLeft(quiz.durationMinutes * 60);
+    }
     setSelectedQuiz(quiz);
     setIsTakingQuiz(true);
     setCurrentQuestionIdx(0);
     setAnswers(quiz.attempt?.answers || {});
-    setTimeLeft(quiz.durationMinutes * 60);
     setIsReviewing(false);
   };
 
-  const handleSubmitQuiz = () => {
-    // In a real app, send answers to backend. Here we update mock state optimistically.
+  const handleSelectAnswer = (qId: string, answer: string) => {
+    setAnswers(prev => {
+      const updated = { ...prev, [qId]: answer };
+      // Auto-save each answer to the backend
+      if (activeAttemptId) {
+        studentDashApi.saveAnswer(activeAttemptId, qId, answer).catch(() => {});
+      }
+      return updated;
+    });
+  };
+
+  const handleSubmitQuiz = async () => {
     if (!selectedQuiz) return;
-    
+
+    // Submit via real API if we have an attempt ID
+    if (activeAttemptId) {
+      try {
+        await studentDashApi.submitQuiz(activeAttemptId);
+      } catch {
+        // Already submitted or network failure — proceed with local update
+      }
+    }
+
+    // Optimistic local state update so the UI reflects the submission
     const updatedCourses = courses.map(c => {
       if (c.id !== selectedCourseId) return c;
       const updatedQuizzes = (c.quizzes || []).map(q => {
@@ -69,20 +101,17 @@ export const StudentQuizzesView: React.FC = () => {
             status: 'submitted' as const,
             answers,
             startedAt: new Date().toISOString(),
-            submittedAt: new Date().toISOString()
-          }
+            submittedAt: new Date().toISOString(),
+          },
         };
       });
       return { ...c, quizzes: updatedQuizzes };
     });
-    
+
     setCourses(updatedCourses);
     setIsTakingQuiz(false);
     setSelectedQuiz(null);
-  };
-
-  const handleSelectAnswer = (qId: string, answer: string) => {
-    setAnswers(prev => ({ ...prev, [qId]: answer }));
+    setActiveAttemptId(null);
   };
 
   const formatTime = (seconds: number) => {
