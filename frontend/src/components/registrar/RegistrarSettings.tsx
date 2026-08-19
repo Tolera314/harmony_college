@@ -254,9 +254,9 @@ function PasswordTab() {
         </div>
         <ul className="text-[10px] text-white/30 space-y-0.5 pl-3 font-mono">
           <li className={form.newPassword.length >= 8 ? 'text-green-400' : ''}>• Min 8 characters</li>
-          <li className={/[A-Z]/.test(form.newPassword) ? 'text-green-400' : ''}>• Uppercase letter</li>
-          <li className={/[0-9]/.test(form.newPassword) ? 'text-green-400' : ''}>• Digit</li>
-          <li className={/[^A-Za-z0-9]/.test(form.newPassword) ? 'text-green-400' : ''}>• Special character</li>
+          <li className={/[A-Za-z]/.test(form.newPassword) ? 'text-green-400' : ''}>• At least one letter</li>
+          <li className={/[0-9]/.test(form.newPassword) ? 'text-green-400' : ''}>• At least one number</li>
+          <li className={/^[A-Za-z0-9]+$/.test(form.newPassword) ? 'text-green-400' : ''}>• Letters and numbers only</li>
         </ul>
         <div className="flex justify-end items-center gap-3 pt-1">
           <SavedBadge visible={saved} />

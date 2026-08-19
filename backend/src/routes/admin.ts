@@ -71,11 +71,12 @@ router.post('/users', async (req: AuthRequest, res) => {
       fullName: z.string().min(2).max(100),
       email:    z.string().email().optional().or(z.literal('')),
       phone:    z.string().min(10).max(13).optional().or(z.literal('')),
-      password: z.string().min(8)
-        .regex(/[A-Z]/, 'Must contain uppercase')
-        .regex(/[a-z]/, 'Must contain lowercase')
-        .regex(/[0-9]/, 'Must contain digit')
-        .regex(/[^A-Za-z0-9]/, 'Must contain special character'),
+      password: z.string()
+        .min(8, 'Password must be at least 8 characters long')
+        .max(128, 'Password must be at most 128 characters long')
+        .regex(/^[A-Za-z0-9]+$/, 'Password must contain only letters and numbers')
+        .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
       role: z.nativeEnum(Role),
     });
     const parsed = schema.safeParse(req.body);
@@ -348,11 +349,12 @@ router.post('/settings/password', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       currentPassword: z.string().min(1),
-      newPassword:     z.string().min(8)
-        .regex(/[A-Z]/, 'Must contain uppercase letter')
-        .regex(/[a-z]/, 'Must contain lowercase letter')
-        .regex(/[0-9]/, 'Must contain a digit')
-        .regex(/[^A-Za-z0-9]/, 'Must contain a special character'),
+      newPassword:     z.string()
+        .min(8, 'Password must be at least 8 characters long')
+        .max(128, 'Password must be at most 128 characters long')
+        .regex(/^[A-Za-z0-9]+$/, 'Password must contain only letters and numbers')
+        .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
       confirmPassword: z.string(),
     }).refine(d => d.newPassword === d.confirmPassword, {
       message: 'Passwords do not match', path: ['confirmPassword'],
