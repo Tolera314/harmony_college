@@ -5,6 +5,7 @@ import { NavTab } from '../../types';
 import {
   LayoutDashboard,
   BookOpen,
+  CalendarDays,
   GraduationCap,
   CreditCard,
   BarChart3,
@@ -28,12 +29,11 @@ interface MobileNavProps<T extends string = NavTab> {
 }
 
 const defaultStudentItems: GenericMobileNavItem<NavTab>[] = [
-  { id: 'dashboard', label: 'Dash', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { id: 'my_courses', label: 'My Courses', icon: <BookOpen className="w-5 h-5" /> },
-  { id: 'grades', label: 'Grades', icon: <GraduationCap className="w-5 h-5" /> },
-  { id: 'financials', label: 'Tuition', icon: <CreditCard className="w-5 h-5" /> },
-  { id: 'degree_audit', label: 'Degree', icon: <BarChart3 className="w-5 h-5" /> },
-  { id: 'support', label: 'Advisor', icon: <HelpCircle className="w-5 h-5" /> }
+  { id: 'dashboard',  label: 'Dash',      icon: <LayoutDashboard className="w-5 h-5" /> },
+  { id: 'my_courses', label: 'Courses',   icon: <BookOpen className="w-5 h-5" /> },
+  { id: 'timetable',  label: 'Timetable', icon: <CalendarDays className="w-5 h-5" /> },
+  { id: 'grades',     label: 'Grades',    icon: <GraduationCap className="w-5 h-5" /> },
+  { id: 'support',    label: 'Advisor',   icon: <HelpCircle className="w-5 h-5" /> },
 ];
 
 export const MobileNav = <T extends string = NavTab>({ activeTab, setActiveTab, items }: MobileNavProps<T>) => {

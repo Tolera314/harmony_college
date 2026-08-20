@@ -13,6 +13,7 @@ import {
   FileText,
   GraduationCap,
   CreditCard,
+  CalendarDays,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
@@ -107,6 +108,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </p>
               <div className="pt-2 flex flex-wrap gap-3">
                 <Button variant="primary" onClick={() => setActiveTab('my_courses')} icon={<BookOpen className="w-4 h-4" />}>My Courses</Button>
+                <Button variant="secondary" onClick={() => setActiveTab('timetable')} icon={<CalendarDays className="w-4 h-4" />}>My Timetable</Button>
                 <Button variant="secondary" onClick={() => setActiveTab('assignments')} icon={<ClipboardList className="w-4 h-4" />}>Assignments</Button>
                 <Button variant="secondary" onClick={() => setActiveTab('grades')} icon={<GraduationCap className="w-4 h-4" />}>View Transcript</Button>
               </div>
@@ -292,7 +294,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <hr style={{ borderColor: 'var(--border-default)' }} />
 
           <section className="space-y-4">
-            <h3 className="font-sans text-base font-bold" style={{ color: 'var(--text-primary)' }}>Today's Timetable</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-sans text-base font-bold" style={{ color: 'var(--text-primary)' }}>Today's Timetable</h3>
+              <button
+                onClick={() => setActiveTab('timetable')}
+                className="font-sans text-xs font-semibold hover:underline flex items-center gap-1"
+                style={{ color: 'var(--brand-gold)' }}
+              >
+                Full Timetable <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <div className="relative pl-6 space-y-5">
               <div className="absolute left-[9px] top-2 bottom-2 w-0.5" style={{ backgroundColor: 'var(--border-default)' }} />
               {timetable.map((event) => (
@@ -314,6 +325,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </p>
                 </div>
               ))}
+              {timetable.length === 0 && (
+                <p className="text-xs font-sans italic" style={{ color: 'var(--text-faint)' }}>No classes scheduled today.</p>
+              )}
             </div>
           </section>
         </div>

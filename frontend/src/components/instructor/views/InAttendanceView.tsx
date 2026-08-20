@@ -15,6 +15,7 @@ import { Button }       from '../../ui/Button';
 import { SkeletonPage, ErrorState, EmptyState } from '../../ui/States';
 import { AttendanceStatus } from '../../../types/instructor';
 import { useSocket } from '@/src/context/SocketContext';
+import { toEthiopianTimeRange, dateToEthiopianTime } from '@/src/lib/utils';
 
 // ── Typed API helper ──────────────────────────────────────────────────────────
 const API = '/api/attendance';
@@ -341,8 +342,8 @@ export const InAttendanceView: React.FC = () => {
       r.fullName,
       r.studentId,
       statuses[r.studentRecordId] ?? 'Absent',
-      r.method,
-      r.markedAt ? new Date(r.markedAt).toLocaleTimeString() : '—',
+      r.method ?? 'Manual',
+      r.markedAt ? dateToEthiopianTime(new Date(r.markedAt)) : '—',
     ]);
     const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
     const a = document.createElement('a');
@@ -540,7 +541,7 @@ export const InAttendanceView: React.FC = () => {
                       transition={{ duration: 0.8, ease: 'easeOut' }} />
                   </div>
                   <p className="font-sans text-[10px] mt-2" style={{ color: 'var(--text-faint)' }}>
-                    {roster.length} enrolled · {selectedClassSession?.startTime ?? ''}–{selectedClassSession?.endTime ?? ''}
+                    {roster.length} enrolled · {selectedSession?.startTime ? toEthiopianTimeRange(selectedSession.startTime, selectedSession.endTime ?? selectedSession.startTime) : ''}
                   </p>
                 </div>
 
@@ -567,7 +568,7 @@ export const InAttendanceView: React.FC = () => {
                               <div className="min-w-0">
                                 <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{rec.fullName}</p>
                                 <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                                  {new Date(rec.markedAt!).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                  {dateToEthiopianTime(new Date(rec.markedAt))}
                                   {rec.method === 'QR' && ' · QR'}
                                 </p>
                               </div>
@@ -732,6 +733,59 @@ export const InAttendanceView: React.FC = () => {
                 </div>
               )}
             </Card>
+          )}
+
+          {/* ── Session History ──────────────────────────────────────────── */}
+          {view === 'history' && (
+            <div className="space-y-4">
+              {historyLoading ? <SkeletonPage /> : history.length === 0 ? (
+                <EmptyState variant="timetable" title="No session history" description="No previous sessions found for this course." />
+              ) : (
+                history.map(s => {
+                  const pres = (s.records ?? []).filter((r: any) => r.status === 'PRESENT' || r.status === 'LATE').length;
+                  const total = (s.records ?? []).length || s._count?.records || 0;
+                  const pct = total ? Math.round((pres / total) * 100) : 0;
+                  const isFinalized = s.status === 'FINALIZED';
+                  return (
+                    <Card key={s.id} hoverable className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-mono text-xs font-bold" style={{ color: 'var(--brand-gold)' }}>
+                            {s.courseCode ?? s.course?.code ?? '—'}
+                          </span>
+                          <p className="font-sans text-sm font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                            {s.date ? new Date(s.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}
+                            {s.startTime ? ` · ${toEthiopianTimeRange(s.startTime, s.endTime ?? s.startTime)}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={pct >= 80 ? 'emerald' : 'rose'}>{pct}%</Badge>
+                          {isFinalized
+                            ? <Badge variant="glass"><Lock className="w-3 h-3 mr-1 inline" />Finalized</Badge>
+                            : s.status === 'OPEN'
+                              ? <Badge variant="emerald" className="animate-pulse">● Open</Badge>
+                              : <Badge variant="glass">Closed</Badge>}
+                        </div>
+                      </div>
+                      <div className="flex gap-4 text-xs font-mono flex-wrap">
+                        <span style={{ color: 'var(--status-success)' }}>
+                          {(s.records ?? []).filter((r: any) => r.status === 'PRESENT').length} Present
+                        </span>
+                        <span style={{ color: 'var(--status-warning)' }}>
+                          {(s.records ?? []).filter((r: any) => r.status === 'LATE').length} Late
+                        </span>
+                        <span style={{ color: 'var(--status-danger)' }}>
+                          {(s.records ?? []).filter((r: any) => r.status === 'ABSENT').length} Absent
+                        </span>
+                        <span style={{ color: 'var(--text-faint)' }}>
+                          {(s.records ?? []).filter((r: any) => r.status === 'EXCUSED').length} Excused
+                        </span>
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
           )}
         </>
       )}

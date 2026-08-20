@@ -85,7 +85,7 @@ router.post('/sessions/generate', requireRole(INSTRUCTOR_ROLES), async (req: Aut
 
 router.post('/sessions/:id/open', requireRole(INSTRUCTOR_ROLES), async (req: AuthRequest, res) => {
   try {
-    const opts = req.body as { lateAfterMinutes?: number; closeAfterMinutes?: number };
+    const opts = req.body as { lateAfterMinutes?: number; closeAfterMinutes?: number; openBeforeMinutes?: number };
     ok(res, await svc.openAttendanceSession(pid(req), req.user!.userId, opts), 201);
   } catch (e) { fail(res, e, 400); }
 });

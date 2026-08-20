@@ -617,11 +617,12 @@ model ProgramRequirement {
 }
 
 model Room {
-  id       String  @id @default(uuid())
+  id       String   @id @default(uuid())
   name     String
   building String
   capacity Int
-  isActive Boolean @default(true)
+  roomType RoomType @default(CLASSROOM)
+  isActive Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -633,6 +634,7 @@ model Room {
   @@unique([building, name])
   @@index([building])
   @@index([isActive])
+  @@index([roomType])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -748,9 +750,10 @@ model TimetableSlot {
   courseOfferingId String
   courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
 
-  dayOfWeek  Int      // 0=Mon, 1=Tue, ..., 4=Fri
-  startTime  String   // "09:00"
-  endTime    String   // "10:30"
+  dayOfWeek  Int                 // 0=Mon, 1=Tue, ..., 4=Fri
+  startTime  String              // "09:00"
+  endTime    String              // "10:30"
+  status     TimetableSlotStatus @default(PUBLISHED)
 
   roomId       String?
   room         Room?         @relation(fields: [roomId], references: [id])
@@ -763,6 +766,7 @@ model TimetableSlot {
   @@index([courseOfferingId])
   @@index([roomId])
   @@index([dayOfWeek])
+  @@index([status])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1064,6 +1068,21 @@ enum AttendanceMethod {
   QR
 }
 
+enum RoomType {
+  CLASSROOM
+  LAB
+  LECTURE_HALL
+  EXAM_HALL
+  SEMINAR_ROOM
+}
+
+enum TimetableSlotStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
 enum TransactionType {
   TUITION
   FEE
@@ -1309,6 +1328,7 @@ model AttendanceSession {
   qrTokenExpiry DateTime?
 
   // Policy overrides for this session
+  openBeforeMinutes Int @default(15)   // how early attendance can open before class start
   lateAfterMinutes  Int @default(10)
   closeAfterMinutes Int @default(30)
 

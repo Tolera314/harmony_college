@@ -44,8 +44,8 @@ export interface AttendanceRecordEvent {
   courseOfferingId: string;
   studentRecordId: string;
   studentName: string;
-  status: string;   // 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
-  method: string;   // 'QR' | 'MANUAL'
+  status: string;
+  method: string;
   markedAt: string;
 }
 
@@ -66,6 +66,43 @@ export interface GradePostedEvent {
   term: string;
 }
 
+// ── Timetable types (spec §8 / §28) ──────────────────────────────────────────
+export interface TimetableSlotPayload {
+  id: string;
+  courseOfferingId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  roomId: string | null;
+  instructorId: string | null;
+  status: string;
+}
+
+export interface TimetableDeletedPayload {
+  slotId: string;
+  courseOfferingId: string;
+}
+
+export interface TimetableConflictPayload {
+  conflicts: string[];
+  context: {
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    roomId?: string | null;
+    instructorId?: string | null;
+  };
+}
+
+/** Personal notification sent to a student or instructor when their schedule changes */
+export interface MyScheduleChangedEvent {
+  offeringId: string;
+  courseCode: string;
+  changeType: 'CREATED' | 'UPDATED' | 'DELETED';
+  summary: string;
+  receivedAt: string;
+}
+
 // ── Context shape ─────────────────────────────────────────────────────────────
 interface SocketContextValue {
   socket: Socket | null;
@@ -84,6 +121,10 @@ interface SocketContextValue {
   joinAttendanceRoom:  (courseOfferingId: string) => void;
   leaveAttendanceRoom: (courseOfferingId: string) => void;
 
+  // ── Timetable emit helpers ─────────────────────────────────────────────────
+  joinTimetableRoom:  (semesterId: string) => void;
+  leaveTimetableRoom: (semesterId: string) => void;
+
   // ── Chat event subscriptions ───────────────────────────────────────────────
   onNewMessage:  (cb: (msg: ChatMessage) => void) => () => void;
   onTyping:      (cb: (e: TypingEvent) => void) => () => void;
@@ -97,19 +138,33 @@ interface SocketContextValue {
 
   // ── Grade notification subscription ───────────────────────────────────────
   onGradePosted: (cb: (e: GradePostedEvent) => void) => () => void;
+
+  // ── Timetable event subscriptions (spec §8) ────────────────────────────────
+  /** Slot created — broadcast to timetable:${semesterId} room */
+  onTimetableCreated:  (cb: (e: TimetableSlotPayload) => void) => () => void;
+  /** Slot rescheduled/updated — broadcast to timetable:${semesterId} room */
+  onTimetableUpdated:  (cb: (e: TimetableSlotPayload) => void) => () => void;
+  /** Slot cancelled/deleted — broadcast to timetable:${semesterId} room */
+  onTimetableDeleted:  (cb: (e: TimetableDeletedPayload) => void) => () => void;
+  /** Conflict detected during a create/update — broadcast to timetable:${semesterId} room */
+  onTimetableConflict: (cb: (e: TimetableConflictPayload) => void) => () => void;
+  /** Personal: sent to user:${userId} when their own schedule changes */
+  onMyScheduleChanged: (cb: (e: MyScheduleChangedEvent) => void) => () => void;
 }
 
 // ── Default (no-op) context ───────────────────────────────────────────────────
 const SocketContext = createContext<SocketContextValue>({
   socket: null, connected: false, onlineUsers: new Set(),
-  joinConversation:  () => {},
-  leaveConversation: () => {},
-  sendMessage:       () => {},
-  sendTyping:        () => {},
-  sendStopTyping:    () => {},
-  markRead:          () => {},
+  joinConversation:    () => {},
+  leaveConversation:   () => {},
+  sendMessage:         () => {},
+  sendTyping:          () => {},
+  sendStopTyping:      () => {},
+  markRead:            () => {},
   joinAttendanceRoom:  () => {},
   leaveAttendanceRoom: () => {},
+  joinTimetableRoom:   () => {},
+  leaveTimetableRoom:  () => {},
   onNewMessage:        () => () => {},
   onTyping:            () => () => {},
   onStopTyping:        () => () => {},
@@ -118,6 +173,11 @@ const SocketContext = createContext<SocketContextValue>({
   onAttendanceRecord:  () => () => {},
   onAttendanceClosed:  () => () => {},
   onGradePosted:       () => () => {},
+  onTimetableCreated:  () => () => {},
+  onTimetableUpdated:  () => () => {},
+  onTimetableDeleted:  () => () => {},
+  onTimetableConflict: () => () => {},
+  onMyScheduleChanged: () => () => {},
 });
 
 export function useSocket() { return useContext(SocketContext); }
@@ -173,7 +233,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const leaveAttendanceRoom = useCallback((courseOfferingId: string) =>
     socketRef.current?.emit('attendance:leave', courseOfferingId), []);
 
-  // ── Generic subscribe factory — memoised ──────────────────────────────────
+  // ── Timetable emit helpers ────────────────────────────────────────────────
+  const joinTimetableRoom  = useCallback((semesterId: string) =>
+    socketRef.current?.emit('timetable:join', semesterId), []);
+  const leaveTimetableRoom = useCallback((semesterId: string) =>
+    socketRef.current?.emit('timetable:leave', semesterId), []);
+
+  // ── Generic subscribe factory ─────────────────────────────────────────────
   function makeSub<T>(event: string) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useCallback((cb: (e: T) => void) => {
@@ -197,6 +263,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   // ── Grade notification subscription ──────────────────────────────────────
   const onGradePosted = makeSub<GradePostedEvent>('grade:posted');
 
+  // ── Timetable event subscriptions ─────────────────────────────────────────
+  const onTimetableCreated  = makeSub<TimetableSlotPayload>('timetable:created');
+  const onTimetableUpdated  = makeSub<TimetableSlotPayload>('timetable:updated');
+  const onTimetableDeleted  = makeSub<TimetableDeletedPayload>('timetable:deleted');
+  const onTimetableConflict = makeSub<TimetableConflictPayload>('timetable:conflict');
+  const onMyScheduleChanged = makeSub<MyScheduleChangedEvent>('timetable:my_schedule_changed');
+
   return (
     <SocketContext.Provider value={{
       socket: socketRef.current, connected, onlineUsers,
@@ -205,12 +278,17 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       sendTyping, sendStopTyping, markRead,
       // attendance emits
       joinAttendanceRoom, leaveAttendanceRoom,
+      // timetable emits
+      joinTimetableRoom, leaveTimetableRoom,
       // chat subs
       onNewMessage, onTyping, onStopTyping, onPresence,
       // attendance subs
       onAttendanceOpened, onAttendanceRecord, onAttendanceClosed,
       // grade subs
       onGradePosted,
+      // timetable subs
+      onTimetableCreated, onTimetableUpdated, onTimetableDeleted,
+      onTimetableConflict, onMyScheduleChanged,
     }}>
       {children}
     </SocketContext.Provider>

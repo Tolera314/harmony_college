@@ -200,16 +200,28 @@ export default function WelcomePage() {
 
   if (showCongrats) {
     return (
-      <CongratsScreen
-        state={state}
-        onClose={handleCongratsClose}
-      />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-8"
+        style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          className="flex flex-col items-center gap-4 text-center max-w-md">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '2px solid var(--brand-gold)' }}>
+            <GraduationCap className="w-10 h-10" style={{ color: 'var(--brand-gold)' }} />
+          </div>
+          <h1 className="font-serif text-3xl font-bold">Welcome to Harmony College</h1>
+          <p className="font-sans text-sm" style={{ color: 'var(--text-muted)' }}>
+            Your account has been created. Let's complete your profile to get started.
+          </p>
+          <button onClick={handleCongratsClose}
+            className="mt-2 flex items-center gap-2 px-6 py-3 rounded-2xl font-sans font-semibold text-sm"
+            style={{ backgroundColor: 'var(--brand-gold)', color: '#000' }}>
+            Get Started <ArrowRight className="w-4 h-4" />
+          </button>
+        </motion.div>
+      </div>
     );
   }
 
-  const renderTab = () => {
-                  {i + 1}
-                </div>
   const renderTab = () => {
     switch (activeTab) {
       case 'home':          return <HomeTab state={state} onNavigate={setActiveTab} />;

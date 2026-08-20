@@ -102,6 +102,13 @@ app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
 const httpServer = http.createServer(app);
 const io = initSocket(httpServer, FRONTEND_URL);
 
+// ── Restore auto-close timers for any OPEN attendance sessions after restart ──
+import('./services/attendance/attendanceService').then(svc => {
+  svc.restoreAutoCloseTimers().catch((err: unknown) => {
+    console.error('[startup] Failed to restore attendance auto-close timers:', err);
+  });
+});
+
 httpServer.listen(PORT, () => {
   console.log(`🚀  Harmony College API  →  http://localhost:${PORT}`);
   console.log(`🔌  Socket.io ready      →  ws://localhost:${PORT}`);

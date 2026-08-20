@@ -1,5 +1,64 @@
 import { prisma } from '../../lib/prisma';
 import { EnrollmentStatus } from '@prisma/client';
+import { broadcastTimetableUpdated } from '../../lib/socket';
+
+// ── Time-overlap helper ────────────────────────────────────────────────────────
+function toMinutes(t: string) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+function timesOverlap(aS: string, aE: string, bS: string, bE: string) {
+  return toMinutes(aS) < toMinutes(bE) && toMinutes(aE) > toMinutes(bS);
+}
+
+/**
+ * Check whether a student already has a timetable clash with the given offering.
+ * Returns an array of conflict description strings (empty = no conflicts).
+ */
+export async function checkStudentTimetableConflict(
+  studentRecordId: string,
+  newOfferingId: string,
+): Promise<string[]> {
+  // Fetch the proposed offering's timetable slots
+  const newSlots = await prisma.timetableSlot.findMany({
+    where: { courseOfferingId: newOfferingId, status: { in: ['PUBLISHED', 'DRAFT'] } },
+    select: { dayOfWeek: true, startTime: true, endTime: true,
+              courseOffering: { select: { course: { select: { code: true } } } } },
+  });
+  if (!newSlots.length) return [];
+
+  // Fetch all slots for courses the student is currently enrolled in
+  const activeEnrollments = await prisma.enrollment.findMany({
+    where: {
+      studentRecordId,
+      status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] },
+      courseOfferingId: { not: newOfferingId },
+    },
+    select: { courseOfferingId: true },
+  });
+  if (!activeEnrollments.length) return [];
+
+  const enrolledSlots = await prisma.timetableSlot.findMany({
+    where: {
+      courseOfferingId: { in: activeEnrollments.map(e => e.courseOfferingId) },
+      status: { in: ['PUBLISHED', 'DRAFT'] },
+    },
+    select: { dayOfWeek: true, startTime: true, endTime: true,
+              courseOffering: { select: { course: { select: { code: true } } } } },
+  });
+
+  const DAY = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const conflicts: string[] = [];
+
+  for (const ns of newSlots) {
+    for (const es of enrolledSlots) {
+      if (ns.dayOfWeek === es.dayOfWeek && timesOverlap(ns.startTime, ns.endTime, es.startTime, es.endTime)) {
+        conflicts.push(
+          `Schedule conflict: ${ns.courseOffering.course.code} (${DAY[ns.dayOfWeek]} ${ns.startTime}–${ns.endTime}) ` +
+          `overlaps with ${es.courseOffering.course.code} (${DAY[es.dayOfWeek]} ${es.startTime}–${es.endTime})`,
+        );
+      }
+    }
+  }
+  return conflicts;
+}
 
 export interface EnrollmentListQuery {
   page: number; limit: number;
@@ -211,6 +270,12 @@ export async function addEnrollment(data: {
   });
   if (existing && (existing.status === EnrollmentStatus.ACTIVE || existing.status === EnrollmentStatus.FORCE_ADDED)) {
     throw new Error(`Student is already enrolled in ${offering.course.code}`);
+  }
+
+  // Student schedule conflict check (spec §21)
+  const conflicts = await checkStudentTimetableConflict(studentRecordId, courseOfferingId);
+  if (conflicts.length) {
+    throw new Error(`Cannot enroll: ${conflicts.join('; ')}`);
   }
 
   return prisma.$transaction(async (tx) => {
