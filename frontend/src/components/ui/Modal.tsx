@@ -84,20 +84,14 @@ export const Modal: React.FC<ModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  /* ── Make background inert while open ── */
+  /* ── Prevent background scroll while open ── */
   useEffect(() => {
     if (!isOpen) return;
     const body = document.body;
     const prev = body.style.overflow;
     body.style.overflow = 'hidden';
-    /* Mark non-modal content as inert where supported */
-    const roots = Array.from(document.body.children).filter(
-      c => c !== dialogRef.current?.closest('[data-modal-root]')
-    );
-    roots.forEach(r => { if (r !== dialogRef.current?.parentElement) (r as HTMLElement).setAttribute('inert', ''); });
     return () => {
       body.style.overflow = prev;
-      roots.forEach(r => (r as HTMLElement).removeAttribute('inert'));
     };
   }, [isOpen]);
 

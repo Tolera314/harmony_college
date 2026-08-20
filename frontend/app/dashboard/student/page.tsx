@@ -50,10 +50,11 @@ import { toEthiopianTimeRange } from '@/src/lib/utils';
 
 // ── Tabs that require a complete profile ──────────────────────────────────────
 const LOCKED_TABS: NavTab[] = [
-  'my_courses', 'registration', 'assignments', 'quizzes',
-  'grades', 'financials', 'degree_audit',
+  'registration', 'financials', 'degree_audit',
 ];
-// 'attendance' is NOT locked — students can always view their attendance
+// 'assignments', 'quizzes', 'attendance', 'my_courses' are accessible so student can interact with courses & quizzes
+
+  const isProfileIncomplete = false;
 
 // ── DAY names for timetable ───────────────────────────────────────────────────
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -406,7 +407,7 @@ export default function StudentDashboardPage() {
       case 'assignments':
         return <StudentAssignmentsView enrolledCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses} setActiveTab={handleTabChange} />;
       case 'quizzes':
-        return <StudentQuizzesView />;
+        return <StudentQuizzesView enrolledCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses} />;
       case 'attendance':
         return <StudentAttendanceView />;
       case 'grades':

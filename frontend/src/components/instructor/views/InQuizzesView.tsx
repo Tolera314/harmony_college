@@ -1,379 +1,1019 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
-  HelpCircle, Plus, ChevronLeft, Search, FileText, CheckCircle2,
-  Clock, AlertTriangle, Users, Settings2, Trash2, Edit3, Send, X
+  HelpCircle, Plus, RefreshCw, ChevronDown, Clock,
+  CheckCircle2, AlertTriangle, Eye, Trash2, Users, BarChart2,
+  FileText, Sparkles, Upload, X, Check, FileQuestion
 } from 'lucide-react';
-import { DHPageHeader } from '../../dh/DHPageHeader';
-import { Badge } from '../../ui/Badge';
-import { Button } from '../../ui/Button';
-import { SlidePanel } from '../../ui/SlidePanel';
-import { instructorQuizzes } from '../../../data/instructorData';
-import { courses } from '../../../data/departmentData';
-import type { InstructorQuiz, InstructorQuizQuestion, InstructorQuizQuestionType } from '../../../types/instructor';
+import { DHPageHeader }   from '../../dh/DHPageHeader';
+import { Badge }          from '../../ui/Badge';
+import { Button }         from '../../ui/Button';
+import { Card }           from '../../ui/Card';
+import { Modal }          from '../../ui/Modal';
+import { SlidePanel }     from '../../ui/SlidePanel';
+import { SkeletonPage, EmptyState } from '../../ui/States';
+import {
+  instructorClassesApi,
+  instructorQuizzesApi,
+  type ClassOffering,
+  type QuizSummary,
+} from '../../../lib/instructorApi';
 
-type QuizViewMode = 'list' | 'create' | 'monitor' | 'grade';
+// ── Shared input style ────────────────────────────────────────────────────────
+const inp: React.CSSProperties = {
+  backgroundColor: 'var(--bg-input)',
+  border:          '1px solid var(--border-default)',
+  borderRadius:    '0.75rem',
+  color:           'var(--text-primary)',
+  padding:         '0.625rem 0.875rem',
+  fontFamily:      'inherit',
+  fontSize:        '0.875rem',
+  width:           '100%',
+  outline:         'none',
+  transition:      'border-color 0.15s',
+};
 
-export const InQuizzesView: React.FC = () => {
-  const [quizzes, setQuizzes] = useState<InstructorQuiz[]>(instructorQuizzes);
-  const [mode, setMode] = useState<QuizViewMode>('list');
-  const [selectedCourse, setSelectedCourse] = useState<string>('c01');
-  const [activeQuiz, setActiveQuiz] = useState<InstructorQuiz | null>(null);
-
-  // Form states for Create/Edit
-  const [form, setForm] = useState<Partial<InstructorQuiz>>({});
-  const [questions, setQuestions] = useState<InstructorQuizQuestion[]>([]);
-
-  const filteredQuizzes = quizzes.filter(q => q.courseId === selectedCourse);
-
-  const handleCreateNew = () => {
-    setForm({
-      title: '', description: '', instructions: '',
-      durationMinutes: 30, passingScore: 60, maxAttempts: 1,
-      shuffleQuestions: false, shuffleAnswers: false, showResultsImmediately: true
-    });
-    setQuestions([]);
-    setMode('create');
-  };
-
-  const handleAddQuestion = (type: InstructorQuizQuestionType) => {
-    const newQ: InstructorQuizQuestion = {
-      id: `q_new_${Date.now()}`,
-      type,
-      questionText: '',
-      points: 10,
-      options: type === 'MCQ' || type === 'TrueFalse' ? ['', ''] : undefined
-    };
-    if (type === 'TrueFalse') newQ.options = ['True', 'False'];
-    setQuestions([...questions, newQ]);
-  };
-
+function InpField({
+  label, required, children, hint,
+}: { label: string; required?: boolean; children: React.ReactNode; hint?: string }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-1.5">
+      <label className="block font-sans text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+        {label}{required && <span className="ml-1 text-red-400">*</span>}
+      </label>
+      {children}
+      {hint && <p className="font-sans text-[11px]" style={{ color: 'var(--text-faint)' }}>{hint}</p>}
+    </div>
+  );
+}
+
+// ── Status helpers ────────────────────────────────────────────────────────────
+const statusBadge = (s: string) => {
+  if (s === 'ACTIVE')     return { variant: 'emerald' as const, label: 'Live'      };
+  if (s === 'PUBLISHED')  return { variant: 'emerald' as const, label: 'Published' };
+  if (s === 'DRAFT')      return { variant: 'glass'   as const, label: 'Draft'     };
+  if (s === 'CLOSED')     return { variant: 'amber'   as const, label: 'Closed'    };
+  return { variant: 'glass' as const, label: s };
+};
+
+// ── Question / Option interfaces ──────────────────────────────────────────────
+export interface FormOption {
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface FormQuestion {
+  id: string;
+  questionText: string;
+  type: 'MCQ' | 'TRUE_FALSE' | 'FILL_BLANK' | 'SHORT_ANSWER' | 'ESSAY';
+  points: number;
+  options: FormOption[];
+}
+
+interface CreateForm {
+  title:                  string;
+  description:            string;
+  instructions:           string;
+  availableFrom:          string;
+  availableUntil:         string;
+  durationMinutes:        string;
+  passingScore:           string;
+  maxAttempts:            string;
+  totalPoints:            string;
+  shuffleQuestions:       boolean;
+  showResultsImmediately: boolean;
+  questions:              FormQuestion[];
+}
+
+const SAMPLE_QUESTIONS: FormQuestion[] = [
+  {
+    id: 'sample-1',
+    questionText: 'Which data structure operates on a First-In, First-Out (FIFO) basis?',
+    type: 'MCQ',
+    points: 10,
+    options: [
+      { text: 'Queue', isCorrect: true },
+      { text: 'Stack', isCorrect: false },
+      { text: 'Binary Tree', isCorrect: false },
+      { text: 'Hash Table', isCorrect: false },
+    ],
+  },
+  {
+    id: 'sample-2',
+    questionText: 'The time complexity of binary search on a sorted array is O(log n).',
+    type: 'TRUE_FALSE',
+    points: 10,
+    options: [
+      { text: 'True', isCorrect: true },
+      { text: 'False', isCorrect: false },
+    ],
+  },
+  {
+    id: 'sample-3',
+    questionText: 'Explain the difference between process and thread execution.',
+    type: 'ESSAY',
+    points: 20,
+    options: [],
+  },
+];
+
+const EMPTY_FORM: CreateForm = {
+  title:                  '',
+  description:            '',
+  instructions:           '',
+  availableFrom:          '',
+  availableUntil:         '',
+  durationMinutes:        '30',
+  passingScore:           '60',
+  maxAttempts:            '1',
+  totalPoints:            '40',
+  shuffleQuestions:       false,
+  showResultsImmediately: true,
+  questions:              SAMPLE_QUESTIONS,
+};
+
+// ── Toggle switch ─────────────────────────────────────────────────────────────
+function Toggle({
+  checked, onChange, label, hint,
+}: { checked: boolean; onChange: () => void; label: string; hint?: string }) {
+  return (
+    <label className="flex items-center gap-3 cursor-pointer select-none">
+      <div
+        onClick={onChange}
+        className="relative w-10 h-5 rounded-full transition-colors shrink-0"
+        style={{ backgroundColor: checked ? 'var(--brand-gold)' : 'var(--border-strong)', cursor: 'pointer' }}
+        role="switch"
+        aria-checked={checked}
+        tabIndex={0}
+        onKeyDown={e => e.key === ' ' && onChange()}
+      >
+        <div
+          className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+          style={{ transform: checked ? 'translateX(20px)' : 'translateX(2px)' }}
+        />
+      </div>
+      <div>
+        <p className="font-sans text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{label}</p>
+        {hint && <p className="font-sans text-xs" style={{ color: 'var(--text-faint)' }}>{hint}</p>}
+      </div>
+    </label>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+export const InQuizzesView: React.FC = () => {
+  const [classes,          setClasses]          = useState<ClassOffering[]>([]);
+  const [selectedOffering, setSelectedOffering] = useState('');
+  const [quizzes,          setQuizzes]          = useState<QuizSummary[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [listError,        setListError]        = useState<string | null>(null);
+
+  // Create form
+  const [createOpen,  setCreateOpen]  = useState(false);
+  const [form,        setForm]        = useState<CreateForm>(EMPTY_FORM);
+  const [formSaving,  setFormSaving]  = useState(false);
+  const [formError,   setFormError]   = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Detail panel
+  const [detailId,      setDetailId]      = useState<string | null>(null);
+  const [detail,        setDetail]        = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // ── Load classes ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    setLoading(true);
+    instructorClassesApi.list()
+      .then(data => {
+        const curr = data.filter(o => o.semester.isCurrent);
+        const list = curr.length ? curr : data;
+        setClasses(list);
+        if (list.length > 0) setSelectedOffering(list[0].id);
+      })
+      .catch(e => setListError(e instanceof Error ? e.message : 'Failed to load classes'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // ── Load quizzes ──────────────────────────────────────────────────────────
+  const load = useCallback(async () => {
+    setLoading(true); setListError(null);
+    try {
+      setQuizzes(await instructorQuizzesApi.list(selectedOffering || undefined));
+    } catch (e) {
+      setListError(e instanceof Error ? e.message : 'Failed to load quizzes');
+    } finally { setLoading(false); }
+  }, [selectedOffering]);
+
+  useEffect(() => { if (selectedOffering) load(); }, [selectedOffering, load]);
+
+  // ── Load quiz detail ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!detailId) { setDetail(null); return; }
+    setDetailLoading(true);
+    instructorQuizzesApi.get(detailId)
+      .then(setDetail).catch(() => setDetail(null))
+      .finally(() => setDetailLoading(false));
+  }, [detailId]);
+
+  // ── Question handlers ─────────────────────────────────────────────────────
+  const addQuestion = () => {
+    const newQ: FormQuestion = {
+      id: 'q-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      questionText: '',
+      type: 'MCQ',
+      points: 10,
+      options: [
+        { text: 'Option 1', isCorrect: true },
+        { text: 'Option 2', isCorrect: false },
+      ],
+    };
+    setForm(f => {
+      const updated = [...f.questions, newQ];
+      const totalPts = updated.reduce((sum, q) => sum + (q.points || 0), 0);
+      return { ...f, questions: updated, totalPoints: String(totalPts || 100) };
+    });
+  };
+
+  const removeQuestion = (id: string) => {
+    setForm(f => {
+      const updated = f.questions.filter(q => q.id !== id);
+      const totalPts = updated.reduce((sum, q) => sum + (q.points || 0), 0);
+      return { ...f, questions: updated, totalPoints: String(totalPts || 100) };
+    });
+  };
+
+  const updateQuestion = (id: string, updates: Partial<FormQuestion>) => {
+    setForm(f => {
+      const updated = f.questions.map(q => {
+        if (q.id !== id) return q;
+        const next = { ...q, ...updates };
+        if (updates.type === 'TRUE_FALSE' && q.type !== 'TRUE_FALSE') {
+          next.options = [
+            { text: 'True', isCorrect: true },
+            { text: 'False', isCorrect: false },
+          ];
+        } else if (updates.type === 'MCQ' && (q.type !== 'MCQ' || !next.options.length)) {
+          next.options = [
+            { text: 'Option 1', isCorrect: true },
+            { text: 'Option 2', isCorrect: false },
+          ];
+        }
+        return next;
+      });
+      const totalPts = updated.reduce((sum, q) => sum + (q.points || 0), 0);
+      return { ...f, questions: updated, totalPoints: String(totalPts || 100) };
+    });
+  };
+
+  const addOption = (qId: string) => {
+    setForm(f => ({
+      ...f,
+      questions: f.questions.map(q => {
+        if (q.id !== qId) return q;
+        return {
+          ...q,
+          options: [...q.options, { text: `Option ${q.options.length + 1}`, isCorrect: false }],
+        };
+      }),
+    }));
+  };
+
+  const removeOption = (qId: string, optIdx: number) => {
+    setForm(f => ({
+      ...f,
+      questions: f.questions.map(q => {
+        if (q.id !== qId) return q;
+        return {
+          ...q,
+          options: q.options.filter((_, idx) => idx !== optIdx),
+        };
+      }),
+    }));
+  };
+
+  const updateOption = (qId: string, optIdx: number, text: string, isCorrect?: boolean) => {
+    setForm(f => ({
+      ...f,
+      questions: f.questions.map(q => {
+        if (q.id !== qId) return q;
+        const updatedOpts = q.options.map((opt, idx) => {
+          if (idx !== optIdx) {
+            return isCorrect ? { ...opt, isCorrect: false } : opt;
+          }
+          return {
+            ...opt,
+            text: text !== undefined ? text : opt.text,
+            isCorrect: isCorrect !== undefined ? isCorrect : opt.isCorrect,
+          };
+        });
+        return { ...q, options: updatedOpts };
+      }),
+    }));
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target?.result as string;
+      if (!content) return;
+      try {
+        // Try parsing JSON array of questions
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+          const imported: FormQuestion[] = parsed.map((item, idx) => ({
+            id: 'imp-' + idx + '-' + Date.now(),
+            questionText: item.questionText || item.question || 'Imported Question',
+            type: item.type ?? 'MCQ',
+            points: item.points ?? 10,
+            options: Array.isArray(item.options) ? item.options.map((o: any) => ({
+              text: typeof o === 'string' ? o : o.text ?? '',
+              isCorrect: !!o.isCorrect,
+            })) : [{ text: 'Option 1', isCorrect: true }, { text: 'Option 2', isCorrect: false }],
+          }));
+          setForm(f => {
+            const updated = [...f.questions, ...imported];
+            const totalPts = updated.reduce((sum, q) => sum + (q.points || 0), 0);
+            return {
+              ...f,
+              title: f.title || file.name.replace(/\.[^/.]+$/, ''),
+              questions: updated,
+              totalPoints: String(totalPts || 100),
+            };
+          });
+        }
+      } catch {
+        // Simple plain text lines format (each non-empty line = question)
+        const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+        const imported: FormQuestion[] = lines.map((line, idx) => ({
+          id: 'imp-line-' + idx,
+          questionText: line,
+          type: 'SHORT_ANSWER',
+          points: 10,
+          options: [],
+        }));
+        setForm(f => {
+          const updated = [...f.questions, ...imported];
+          const totalPts = updated.reduce((sum, q) => sum + (q.points || 0), 0);
+          return {
+            ...f,
+            title: f.title || file.name.replace(/\.[^/.]+$/, ''),
+            questions: updated,
+            totalPoints: String(totalPts || 100),
+          };
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // ── Validate form ─────────────────────────────────────────────────────────
+  const validate = (): string | null => {
+    if (!form.title.trim())         return 'Title is required.';
+    if (!form.availableFrom)        return 'Available from date is required.';
+    if (!form.availableUntil)       return 'Available until date is required.';
+    const from  = new Date(form.availableFrom);
+    const until = new Date(form.availableUntil);
+    if (until <= from)              return 'Available until must be after available from.';
+    const dur = parseInt(form.durationMinutes, 10);
+    if (isNaN(dur) || dur < 1)      return 'Duration must be at least 1 minute.';
+    const pts = parseInt(form.totalPoints, 10);
+    if (isNaN(pts) || pts < 1)      return 'Total points must be at least 1.';
+    const pass = parseInt(form.passingScore, 10);
+    if (isNaN(pass) || pass < 0 || pass > 100) return 'Passing score must be between 0 and 100.';
+    return null;
+  };
+
+  // ── Create quiz ───────────────────────────────────────────────────────────
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const err = validate();
+    if (err) { setFormError(err); return; }
+    if (!selectedOffering) return;
+
+    setFormSaving(true); setFormError('');
+    try {
+      await instructorQuizzesApi.create({
+        courseOfferingId:       selectedOffering,
+        title:                  form.title.trim(),
+        description:            form.description.trim() || undefined,
+        instructions:           form.instructions.trim() || undefined,
+        availableFrom:          new Date(form.availableFrom).toISOString(),
+        availableUntil:         new Date(form.availableUntil).toISOString(),
+        durationMinutes:        parseInt(form.durationMinutes, 10),
+        passingScore:           parseInt(form.passingScore, 10),
+        maxAttempts:            parseInt(form.maxAttempts, 10),
+        totalPoints:            parseInt(form.totalPoints, 10),
+        shuffleQuestions:       form.shuffleQuestions,
+        showResultsImmediately: form.showResultsImmediately,
+        questions:              form.questions.map(q => ({
+          questionText: q.questionText.trim() || 'Untitled Question',
+          type:         q.type,
+          points:       q.points || 10,
+          options:      (q.type === 'MCQ' || q.type === 'TRUE_FALSE') ? q.options : [],
+        })),
+      });
+      setCreateOpen(false);
+      setForm(EMPTY_FORM);
+      load();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Failed to create quiz');
+    } finally { setFormSaving(false); }
+  };
+
+  // ── Toggle publish ────────────────────────────────────────────────────────
+  const toggleStatus = async (q: QuizSummary) => {
+    const next = q.status === 'DRAFT' ? 'PUBLISHED' : 'DRAFT';
+    try { await instructorQuizzesApi.update(q.id, { status: next }); load(); }
+    catch (e) { setListError(e instanceof Error ? e.message : 'Update failed'); }
+  };
+
+  const selectedClass = classes.find(c => c.id === selectedOffering);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...DURATION.medium, ...EASE.out }}
+      className="space-y-6 pb-16"
+    >
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <DHPageHeader
-        title="Quizzes & Assessments"
-        subtitle="Manage live quizzes, auto-grading, and student attempts"
-        actions={<Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={handleCreateNew}>Create Quiz</Button>}
-      />
-
-      {mode === 'list' && (
-        <div className="space-y-5">
-          {/* Course filter */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2">
-            {['c01', 'c02'].map(cId => {
-              const c = courses.find(x => x.id === cId);
-              if (!c) return null;
-              const isSel = selectedCourse === cId;
-              return (
-                <button
-                  key={cId} onClick={() => setSelectedCourse(cId)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${isSel ? 'bg-(--brand-gold) text-(--text-inverse) border-transparent shadow' : 'bg-(--hover-overlay) text-(--text-primary) border-(--border-subtle) hover:border-(--border-default)'}`}
-                >
-                  {c.code} — {c.title}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredQuizzes.map(quiz => (
-              <div key={quiz.id} className="p-5 rounded-2xl border bg-(--bg-card-solid) border-(--border-default) flex flex-col justify-between group">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-start gap-4">
-                    <div>
-                      <Badge variant={quiz.status === 'Published' ? 'emerald' : 'glass'}>{quiz.status}</Badge>
-                      <h3 className="font-semibold mt-2 text-(--text-primary)">{quiz.title}</h3>
-                      <p className="text-xs text-(--text-secondary) mt-1 line-clamp-2">{quiz.description}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 text-xs font-mono text-(--text-muted)">
-                    <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{quiz.durationMinutes}m</div>
-                    <div className="flex items-center gap-1.5"><HelpCircle className="w-3.5 h-3.5" />{quiz.questions.length} Qs</div>
-                    <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" />{quiz.attempts.length} Attempts</div>
-                  </div>
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-(--border-subtle) flex gap-2">
-                  <Button variant="secondary" className="flex-1 text-xs" onClick={() => { setActiveQuiz(quiz); setMode('monitor'); }}>
-                    Live Monitor
-                  </Button>
-                  <Button variant="secondary" className="flex-1 text-xs" onClick={() => { setActiveQuiz(quiz); setMode('grade'); }}>
-                    Grade Submissions
-                  </Button>
-                </div>
-              </div>
-            ))}
-            {filteredQuizzes.length === 0 && (
-              <div className="col-span-full py-10 text-center border rounded-2xl border-dashed">
-                <p className="text-sm text-(--text-muted)">No quizzes found for this course.</p>
-              </div>
+        title="Quizzes & Exams"
+        subtitle={
+          selectedClass
+            ? `${selectedClass.course.code} · ${quizzes.length} quiz${quizzes.length !== 1 ? 'zes' : ''}`
+            : `${quizzes.length} quizzes`
+        }
+        icon={<HelpCircle className="w-5 h-5" />}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={load}>
+              Refresh
+            </Button>
+            {selectedOffering && (
+              <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => { setForm(EMPTY_FORM); setFormError(''); setCreateOpen(true); }}>
+                New Quiz
+              </Button>
             )}
           </div>
+        }
+      />
+
+      {/* ── Class filter ───────────────────────────────────────────────── */}
+      {classes.length > 1 && (
+        <div className="relative inline-block">
+          <select
+            value={selectedOffering}
+            onChange={e => setSelectedOffering(e.target.value)}
+            style={{ ...inp, paddingRight: '2rem', width: 'auto' }}
+          >
+            <option value="">All Courses</option>
+            {classes.map(c => (
+              <option key={c.id} value={c.id}>{c.course.code} — Section {c.section}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--text-faint)' }} />
         </div>
       )}
 
-      {/* CREATE QUIZ SLIDEPANEL */}
+      {listError && (
+        <div className="flex items-center gap-2 p-3 rounded-xl text-xs font-sans" style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)', color: 'var(--status-danger)' }}>
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {listError}
+          <button className="ml-auto underline" onClick={load}>Retry</button>
+        </div>
+      )}
+
+      {/* ── Quiz Cards ─────────────────────────────────────────────────── */}
+      {loading ? (
+        <SkeletonPage />
+      ) : quizzes.length === 0 ? (
+        <EmptyState
+          variant="default"
+          title="No quizzes yet"
+          description="Create your first quiz or exam for this class."
+          action={selectedOffering ? { label: 'Create Quiz', onClick: () => { setForm(EMPTY_FORM); setCreateOpen(true); }, icon: <Plus className="w-4 h-4" /> } : undefined}
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {quizzes.map(q => {
+            const now     = new Date();
+            const from    = new Date(q.availableFrom);
+            const until   = new Date(q.availableUntil);
+            const isLive  = now >= from && now <= until && q.status !== 'DRAFT';
+            const isPast  = now > until;
+            const sb      = statusBadge(isLive ? 'ACTIVE' : q.status);
+
+            return (
+              <Card key={q.id} hoverable className="space-y-4 flex flex-col">
+                {/* Header */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="font-mono text-[10px] font-bold" style={{ color: 'var(--brand-gold)' }}>
+                      {q.courseOffering?.course?.code}
+                    </span>
+                    <Badge variant={isLive ? 'emerald' : sb.variant} className="text-[10px]">
+                      {isLive ? '● Live' : sb.label}
+                    </Badge>
+                    {isPast && q.status === 'PUBLISHED' && (
+                      <Badge variant="amber" className="text-[10px]">Expired</Badge>
+                    )}
+                  </div>
+                  <h3 className="font-sans text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>{q.title}</h3>
+                  {q.description && (
+                    <p className="font-sans text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{q.description}</p>
+                  )}
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Questions', value: q._count?.questions ?? 0, color: 'var(--text-primary)'  },
+                    { label: 'Attempts',  value: q._count?.attempts ?? 0,  color: 'var(--brand-gold)'    },
+                    { label: 'Duration',  value: `${q.durationMinutes}m`, color: 'var(--status-info)' },
+                  ].map(s => (
+                    <div key={s.label} className="p-2 rounded-xl text-center" style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
+                      <p className="font-mono text-sm font-bold" style={{ color: s.color }}>{s.value}</p>
+                      <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Time window */}
+                <div className="space-y-1 font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>Opens: {from.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>Closes: {until.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <span>Pass: {q.passingScore}% · {q.totalPoints} pts · max {q.maxAttempts} attempt{q.maxAttempts !== 1 ? 's' : ''}</span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 flex-wrap pt-1 mt-auto">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Eye className="w-3.5 h-3.5" />}
+                    onClick={() => setDetailId(q.id)}
+                  >
+                    Details
+                  </Button>
+                  {q.status === 'DRAFT' && (
+                    <Button variant="primary" size="sm" onClick={() => toggleStatus(q)}>Publish</Button>
+                  )}
+                  {q.status === 'PUBLISHED' && !isLive && (
+                    <Button variant="secondary" size="sm" onClick={() => toggleStatus(q)}>Unpublish</Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Quiz Detail Panel ───────────────────────────────────────────── */}
       <SlidePanel
-        isOpen={mode === 'create'}
-        onClose={() => setMode('list')}
-        title="Create New Quiz"
-        width="max-w-3xl"
+        isOpen={!!detailId}
+        onClose={() => setDetailId(null)}
+        title={detail?.title ?? 'Quiz Details'}
+        subtitle={detail ? `${detail.stats?.totalAttempts ?? 0} attempts · ${detail.questions?.length ?? detail._count?.questions ?? 0} questions` : ''}
+        width="max-w-2xl"
       >
-        <div className="p-6 space-y-8">
-          <div className="space-y-4">
-            <h3 className="font-serif font-bold text-lg text-(--brand-gold)">1. Quiz Settings</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5 sm:col-span-2">
-                <label className="text-xs font-semibold text-(--text-secondary)">Quiz Title</label>
-                <input type="text" className="w-full p-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-sm" value={form.title || ''} onChange={e => setForm({ ...form, title: e.target.value })} />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <label className="text-xs font-semibold text-(--text-secondary)">Description</label>
-                <textarea rows={2} className="w-full p-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-sm" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-(--text-secondary)">Duration (Minutes)</label>
-                <input type="number" className="w-full p-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-sm" value={form.durationMinutes || ''} onChange={e => setForm({ ...form, durationMinutes: Number(e.target.value) })} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-(--text-secondary)">Passing Score (%)</label>
-                <input type="number" className="w-full p-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-sm" value={form.passingScore || ''} onChange={e => setForm({ ...form, passingScore: Number(e.target.value) })} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-(--text-secondary)">Available Date</label>
-                <input type="date" className="w-full p-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-sm" value={form.availableDate || ''} onChange={e => setForm({ ...form, availableDate: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-(--text-secondary)">Closing Date</label>
-                <input type="date" className="w-full p-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-sm" value={form.closingDate || ''} onChange={e => setForm({ ...form, closingDate: e.target.value })} />
-              </div>
-            </div>
-            
-            {/* Toggles */}
-            <div className="flex flex-wrap gap-4 pt-2">
-              <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={form.shuffleQuestions || false} onChange={e => setForm({ ...form, shuffleQuestions: e.target.checked })} />
-                Shuffle Questions
-              </label>
-              <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={form.shuffleAnswers || false} onChange={e => setForm({ ...form, shuffleAnswers: e.target.checked })} />
-                Shuffle Answers
-              </label>
-              <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={form.showResultsImmediately || false} onChange={e => setForm({ ...form, showResultsImmediately: e.target.checked })} />
-                Show Results Immediately
-              </label>
-            </div>
-          </div>
-
-          <div className="h-px bg-(--border-default)" />
-
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-serif font-bold text-lg text-(--brand-gold)">2. Build Questions</h3>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" className="text-[10px] px-2 py-1" onClick={() => handleAddQuestion('MCQ')}>+ MCQ</Button>
-                <Button variant="secondary" className="text-[10px] px-2 py-1" onClick={() => handleAddQuestion('TrueFalse')}>+ True/False</Button>
-                <Button variant="secondary" className="text-[10px] px-2 py-1" onClick={() => handleAddQuestion('ShortAnswer')}>+ Short Answer</Button>
-                <Button variant="secondary" className="text-[10px] px-2 py-1" onClick={() => handleAddQuestion('FillBlank')}>+ Fill in Blank</Button>
-                <Button variant="secondary" className="text-[10px] px-2 py-1" onClick={() => handleAddQuestion('Essay')}>+ Essay</Button>
-              </div>
+        {detailLoading ? (
+          <SkeletonPage />
+        ) : detail ? (
+          <div className="space-y-6 font-sans text-sm">
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { label: 'Questions', value: detail.questions?.length ?? detail._count?.questions ?? 0, color: 'var(--text-primary)'   },
+                { label: 'Attempts',  value: detail.stats?.totalAttempts ?? 0,   color: 'var(--brand-gold)'     },
+                { label: 'Submitted', value: detail.stats?.submitted ?? 0,       color: 'var(--status-info)'    },
+                { label: 'Avg Score', value: detail.stats?.avgScore ? `${detail.stats.avgScore}` : '—', color: 'var(--status-success)' },
+              ].map(s => (
+                <div key={s.label} className="p-3 rounded-xl text-center" style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="font-mono text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
+                  <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>{s.label}</p>
+                </div>
+              ))}
             </div>
 
-            <div className="space-y-4">
-              {questions.map((q, idx) => (
-                <div key={q.id} className="p-4 border border-(--border-subtle) bg-(--hover-overlay) rounded-xl relative group">
-                  <button className="absolute top-2 right-2 p-1.5 text-(--text-faint) hover:text-(--status-danger)" onClick={() => setQuestions(questions.filter(x => x.id !== q.id))}>
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-lg bg-(--border-default) flex items-center justify-center font-mono font-bold text-xs shrink-0">{idx + 1}</div>
-                    <div className="flex-1 space-y-3">
-                      <div className="flex gap-3">
-                        <Badge variant="glass">{q.type}</Badge>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-(--text-muted)">Pts:</span>
-                          <input type="number" className="w-16 p-1 text-xs border rounded bg-(--bg-input)" value={q.points} onChange={e => { const n = [...questions]; n[idx].points = Number(e.target.value); setQuestions(n); }} />
-                        </div>
+            {/* Config */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-mono">
+              {[
+                { label: 'Duration',     value: `${detail.durationMinutes}m`          },
+                { label: 'Total Points', value: String(detail.totalPoints)             },
+                { label: 'Passing Score',value: `${detail.passingScore}%`              },
+                { label: 'Max Attempts', value: String(detail.maxAttempts)             },
+                { label: 'Shuffle',      value: detail.shuffleQuestions ? 'Yes' : 'No' },
+                { label: 'Show Results', value: detail.showResultsImmediately ? 'Immediately' : 'After close' },
+              ].map(s => (
+                <div key={s.label} className="p-2.5 rounded-xl" style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
+                  <p style={{ color: 'var(--text-faint)' }}>{s.label}</p>
+                  <p className="font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Questions list if available */}
+            {detail.questions?.length > 0 && (
+              <div className="space-y-3">
+                <p className="font-mono text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+                  Quiz Questions ({detail.questions.length})
+                </p>
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {detail.questions.map((q: any, i: number) => (
+                    <div key={q.id ?? i} className="p-3.5 rounded-xl border space-y-2" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-subtle)' }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-xs text-(--text-primary)">
+                          <span className="font-mono text-(--brand-gold) mr-1.5">Q{i + 1}.</span>
+                          {q.questionText}
+                        </p>
+                        <Badge variant="glass" className="text-[10px] shrink-0">{q.points ?? 10} pts</Badge>
                       </div>
-                      <textarea
-                        placeholder="Enter question text..."
-                        className="w-full p-2 text-sm border rounded-lg bg-(--bg-input)"
-                        value={q.questionText}
-                        onChange={e => { const n = [...questions]; n[idx].questionText = e.target.value; setQuestions(n); }}
-                      />
-                      {(q.type === 'MCQ' || q.type === 'TrueFalse') && (
-                        <div className="space-y-2 pl-4 border-l-2 border-(--brand-gold)">
-                          {q.options?.map((opt, oIdx) => (
-                            <div key={oIdx} className="flex gap-2 items-center">
-                              <input type="radio" name={`correct_${q.id}`} checked={q.correctAnswer === opt} onChange={() => { const n = [...questions]; n[idx].correctAnswer = opt; setQuestions(n); }} />
-                              <input type="text" className="flex-1 p-1.5 text-xs border rounded bg-(--bg-input)" value={opt} onChange={e => { const n = [...questions]; n[idx].options![oIdx] = e.target.value; setQuestions(n); }} />
+                      {q.options?.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 pl-4 border-l-2 border-(--border-default)">
+                          {q.options.map((opt: any, oIdx: number) => (
+                            <div key={oIdx} className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg ${opt.isCorrect ? 'bg-(--status-success-bg) text-(--status-success) font-semibold' : 'text-(--text-muted)'}`}>
+                              {opt.isCorrect ? <Check className="w-3 h-3 text-(--status-success)" /> : <span className="w-3 h-3 text-center font-mono text-[10px]">•</span>}
+                              <span>{opt.text}</span>
                             </div>
                           ))}
-                          {q.type === 'MCQ' && (
-                            <button className="text-[10px] text-(--brand-gold) font-bold" onClick={() => { const n = [...questions]; n[idx].options!.push(''); setQuestions(n); }}>+ Add Option</button>
-                          )}
                         </div>
                       )}
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-              {questions.length === 0 && (
-                <div className="py-8 text-center text-sm text-(--text-muted) border border-dashed rounded-xl">
-                  No questions added yet.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-6 border-t border-(--border-default)">
-            <Button variant="secondary" onClick={() => setMode('list')}>Cancel</Button>
-            <Button variant="primary" icon={<Send className="w-4 h-4" />} onClick={() => setMode('list')}>Publish Quiz</Button>
-          </div>
-        </div>
-      </SlidePanel>
-
-      {/* MONITOR LIVE ATTEMPTS */}
-      <SlidePanel
-        isOpen={mode === 'monitor'}
-        onClose={() => setMode('list')}
-        title={`Live Monitor: ${activeQuiz?.title}`}
-        width="max-w-4xl"
-      >
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="p-4 border rounded-xl bg-(--hover-overlay)">
-              <p className="text-xs text-(--text-muted) uppercase tracking-widest font-mono">In Progress</p>
-              <p className="text-2xl font-bold text-(--text-primary) mt-1">{activeQuiz?.attempts.filter(a => a.status === 'in_progress').length}</p>
-            </div>
-            <div className="p-4 border rounded-xl bg-(--hover-overlay)">
-              <p className="text-xs text-(--text-muted) uppercase tracking-widest font-mono">Submitted</p>
-              <p className="text-2xl font-bold text-(--status-success) mt-1">{activeQuiz?.attempts.filter(a => a.status === 'submitted').length}</p>
-            </div>
-            <div className="p-4 border rounded-xl bg-(--hover-overlay)">
-              <p className="text-xs text-(--text-muted) uppercase tracking-widest font-mono">Graded</p>
-              <p className="text-2xl font-bold text-(--text-primary) mt-1">{activeQuiz?.attempts.filter(a => a.status === 'graded').length}</p>
-            </div>
-          </div>
-
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead>
-              <tr className="border-b border-(--border-default) text-(--text-muted) font-mono text-xs uppercase">
-                <th className="pb-3 font-semibold">Student</th>
-                <th className="pb-3 font-semibold">Status</th>
-                <th className="pb-3 font-semibold">Started At</th>
-                <th className="pb-3 font-semibold">Progress</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-(--border-subtle)">
-              {activeQuiz?.attempts.map(att => (
-                <tr key={att.id}>
-                  <td className="py-4 font-semibold text-(--brand-gold)">{att.studentId}</td>
-                  <td className="py-4">
-                    {att.status === 'in_progress' && <Badge variant="amber"><span className="flex items-center gap-1"><Clock className="w-3 h-3" /> In Progress</span></Badge>}
-                    {att.status === 'submitted' && <Badge variant="emerald"><span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Submitted</span></Badge>}
-                    {att.status === 'graded' && <Badge variant="glass">Graded</Badge>}
-                  </td>
-                  <td className="py-4 font-mono text-xs">{att.startedAt}</td>
-                  <td className="py-4">
-                    {(() => {
-                      const total = activeQuiz!.questions.length;
-                      const answered = Object.keys(att.answers).length;
-                      const pct = total > 0 ? Math.round((answered / total) * 100) : (att.status !== 'in_progress' ? 100 : 0);
-                      return (
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 h-1.5 bg-(--border-default) rounded-full overflow-hidden">
-                            <div className={`h-full transition-all ${att.status === 'in_progress' ? 'bg-(--brand-gold)' : 'bg-(--status-success)'}`} style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className="text-[10px] font-mono text-(--text-muted)">{answered}/{total} Qs</span>
-                        </div>
-                      );
-                    })()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SlidePanel>
-
-      {/* GRADE SUBMISSIONS */}
-      <SlidePanel
-        isOpen={mode === 'grade'}
-        onClose={() => setMode('list')}
-        title={`Grade Submissions: ${activeQuiz?.title}`}
-        width="max-w-4xl"
-      >
-        <div className="p-6">
-          <p className="text-sm text-(--text-secondary) mb-6">Review student submissions and assign grades to manual questions (Essays/Short Answers).</p>
-          <div className="space-y-4">
-            {activeQuiz?.attempts.filter(a => a.status === 'submitted' || a.status === 'graded').map(att => (
-              <div key={att.id} className="p-5 border rounded-2xl bg-(--bg-card-solid)">
-                <div className="flex justify-between items-center mb-4 pb-3 border-b border-(--border-subtle)">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-(--hover-overlay) flex items-center justify-center font-bold text-xs">{att.studentId.substring(0,3)}</div>
-                    <div>
-                      <h4 className="font-semibold text-sm">Student {att.studentId}</h4>
-                      <p className="text-[10px] text-(--text-muted) font-mono">Submitted: {att.submittedAt}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-(--brand-gold)">{att.score ?? '-'} / {activeQuiz.questions.reduce((sum, q) => sum + q.points, 0)} pts</span>
-                    {att.needsManualGrading && <p className="text-[10px] text-(--status-warning) font-bold flex items-center gap-1 mt-0.5"><AlertTriangle className="w-3 h-3" /> Needs Manual Grading</p>}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {activeQuiz.questions.map((q, idx) => {
-                    const ans = att.answers[q.id];
-                    const isManual = q.type === 'Essay' || q.type === 'ShortAnswer';
-                    const isCorrect = ans === q.correctAnswer;
-                    
-                    return (
-                      <div key={q.id} className="p-3 bg-(--bg-input) rounded-xl border border-(--border-subtle) text-sm">
-                        <p className="font-semibold mb-1"><span className="text-(--brand-gold) font-mono mr-2">{idx+1}.</span>{q.questionText}</p>
-                        <div className="pl-6 space-y-2 mt-2">
-                          <p className="text-(--text-secondary) italic border-l-2 border-(--border-default) pl-3 py-1">"{ans || 'No answer provided'}"</p>
-                          
-                          {!isManual && (
-                            <div className="flex items-center gap-2 text-xs font-semibold mt-2">
-                              {isCorrect ? <span className="text-(--status-success) flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Correct (+{q.points} pts)</span> : <span className="text-(--status-danger) flex items-center gap-1"><X className="w-3.5 h-3.5" /> Incorrect (0 pts)</span>}
-                            </div>
-                          )}
-                          
-                          {isManual && att.status === 'submitted' && (
-                            <div className="mt-3 p-3 bg-(--hover-overlay) rounded-lg flex items-center gap-3">
-                              <label className="text-xs font-semibold">Award Points:</label>
-                              <input type="number" className="w-20 p-1.5 text-xs border rounded bg-(--bg-input)" placeholder={`Max ${q.points}`} />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {att.status === 'submitted' && (
-                  <div className="mt-5 flex justify-end">
-                    <Button variant="primary" className="text-xs" onClick={() => setMode('list')}>Save Grades & Release</Button>
-                  </div>
-                )}
               </div>
-            ))}
-            {activeQuiz?.attempts.filter(a => a.status === 'submitted' || a.status === 'graded').length === 0 && (
-              <div className="py-10 text-center text-sm text-(--text-muted) border border-dashed rounded-2xl">
-                No submissions to grade yet.
+            )}
+
+            {/* Recent attempts */}
+            {detail.attempts?.length > 0 && (
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-faint)' }}>Recent Attempts</p>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {detail.attempts.slice(0, 20).map((a: any) => (
+                    <div key={a.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
+                      <div>
+                        <p className="font-sans text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{a.studentName}</p>
+                        <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                          {a.submittedAt ? new Date(a.submittedAt).toLocaleDateString() : 'In progress'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        {a.score !== null && a.score !== undefined ? (
+                          <span className="font-mono text-sm font-bold" style={{ color: 'var(--brand-gold)' }}>
+                            {a.percentageScore?.toFixed(0) ?? 0}%
+                          </span>
+                        ) : (
+                          <Badge variant="glass" className="text-[10px]">{a.status}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-        </div>
+        ) : (
+          <p className="font-sans text-sm py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+            Could not load quiz details.
+          </p>
+        )}
       </SlidePanel>
-    </div>
+
+      {/* ── Create Quiz Modal ───────────────────────────────────────────── */}
+      <Modal
+        isOpen={createOpen}
+        onClose={() => { setCreateOpen(false); setFormError(''); }}
+        title="New Quiz / Exam"
+        maxWidth="max-w-3xl"
+      >
+        <form onSubmit={handleCreate} className="space-y-6 font-sans text-sm max-h-[80vh] overflow-y-auto pr-1">
+          {formError && (
+            <div className="flex items-center gap-2 p-3 rounded-xl text-xs" style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)', color: 'var(--status-danger)' }}>
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {formError}
+            </div>
+          )}
+
+          {/* Course badge */}
+          {selectedClass && (
+            <div className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}>
+              <span className="font-mono text-xs font-bold" style={{ color: 'var(--brand-gold)' }}>{selectedClass.course.code}</span>
+              <span className="font-sans text-xs" style={{ color: 'var(--text-secondary)' }}>{selectedClass.course.name} · Section {selectedClass.section}</span>
+            </div>
+          )}
+
+          {/* Basic Settings */}
+          <div className="space-y-4">
+            <InpField label="Title" required>
+              <input
+                required
+                type="text"
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. Midterm Examination — Data Structures & Algorithms"
+                style={inp}
+              />
+            </InpField>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InpField label="Description" hint="Brief overview displayed to students before starting.">
+                <textarea
+                  rows={2}
+                  value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Brief description of quiz scope…"
+                  style={{ ...inp, resize: 'vertical', minHeight: '60px' }}
+                />
+              </InpField>
+
+              <InpField label="Instructions" hint="Rules and guidance shown during the exam.">
+                <textarea
+                  rows={2}
+                  value={form.instructions}
+                  onChange={e => setForm(f => ({ ...f, instructions: e.target.value }))}
+                  placeholder="You have 30 minutes. All questions are mandatory."
+                  style={{ ...inp, resize: 'vertical', minHeight: '60px' }}
+                />
+              </InpField>
+            </div>
+          </div>
+
+          {/* Availability window */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <InpField label="Available From" required>
+              <input
+                required
+                type="datetime-local"
+                value={form.availableFrom}
+                onChange={e => setForm(f => ({ ...f, availableFrom: e.target.value }))}
+                style={{ ...inp, colorScheme: 'dark' }}
+              />
+            </InpField>
+            <InpField label="Available Until" required>
+              <input
+                required
+                type="datetime-local"
+                value={form.availableUntil}
+                onChange={e => setForm(f => ({ ...f, availableUntil: e.target.value }))}
+                style={{ ...inp, colorScheme: 'dark' }}
+              />
+            </InpField>
+          </div>
+
+          {/* Numeric settings */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <InpField label="Duration (min)" required>
+              <input
+                required
+                type="number"
+                min={1}
+                max={300}
+                value={form.durationMinutes}
+                onChange={e => setForm(f => ({ ...f, durationMinutes: e.target.value }))}
+                style={inp}
+              />
+            </InpField>
+            <InpField label="Total Points">
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={form.totalPoints}
+                onChange={e => setForm(f => ({ ...f, totalPoints: e.target.value }))}
+                style={inp}
+              />
+            </InpField>
+            <InpField label="Passing Score (%)" hint="0–100">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={form.passingScore}
+                onChange={e => setForm(f => ({ ...f, passingScore: e.target.value }))}
+                style={inp}
+              />
+            </InpField>
+            <InpField label="Max Attempts">
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={form.maxAttempts}
+                onChange={e => setForm(f => ({ ...f, maxAttempts: e.target.value }))}
+                style={inp}
+              />
+            </InpField>
+          </div>
+
+          {/* Toggles */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <Toggle
+              checked={form.shuffleQuestions}
+              onChange={() => setForm(f => ({ ...f, shuffleQuestions: !f.shuffleQuestions }))}
+              label="Shuffle questions"
+              hint="Randomize question sequence for each student."
+            />
+            <Toggle
+              checked={form.showResultsImmediately}
+              onChange={() => setForm(f => ({ ...f, showResultsImmediately: !f.showResultsImmediately }))}
+              label="Show results immediately"
+              hint="Display score right after completion."
+            />
+          </div>
+
+          {/* ── Questions Builder Section ───────────────────────────────────── */}
+          <div className="space-y-4 pt-4 border-t border-(--border-subtle)">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="font-serif font-bold text-base text-(--text-primary) flex items-center gap-2">
+                  <FileQuestion className="w-4 h-4 text-(--brand-gold)" />
+                  Quiz Questions &amp; Answers
+                </h4>
+                <p className="font-sans text-xs text-(--text-faint)">
+                  Configure questions, options, and correct answers ({form.questions.length} questions added)
+                </p>
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,.txt,.csv"
+                  className="hidden"
+                  onChange={handleImportFile}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={<Upload className="w-3.5 h-3.5 text-(--brand-gold)" />}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Import File
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  icon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={addQuestion}
+                >
+                  Add Question
+                </Button>
+              </div>
+            </div>
+
+            {/* Question cards list */}
+            {form.questions.length === 0 ? (
+              <div className="p-6 text-center rounded-2xl border border-dashed border-(--border-default) space-y-3">
+                <HelpCircle className="w-8 h-8 mx-auto text-(--text-faint)" />
+                <p className="text-xs text-(--text-muted)">No questions added yet.</p>
+                <div className="flex justify-center gap-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setForm(f => ({ ...f, questions: SAMPLE_QUESTIONS, totalPoints: '40' }))}>
+                    Load Sample Questions
+                  </Button>
+                  <Button type="button" variant="primary" size="sm" onClick={addQuestion}>
+                    + Create First Question
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {form.questions.map((q, qIdx) => (
+                  <div key={q.id} className="p-4 rounded-2xl border border-(--border-default) bg-(--hover-overlay) space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-xs font-bold text-(--brand-gold)">
+                        Question {qIdx + 1}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-xs text-(--text-faint) font-mono">Pts:</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={q.points}
+                            onChange={e => updateQuestion(q.id, { points: parseInt(e.target.value, 10) || 1 })}
+                            className="w-16 px-2 py-1 rounded-lg text-xs font-mono text-center bg-(--bg-base) border border-(--border-default) text-(--text-primary)"
+                          />
+                        </div>
+                        <select
+                          value={q.type}
+                          onChange={e => updateQuestion(q.id, { type: e.target.value as any })}
+                          className="px-2.5 py-1 rounded-lg text-xs font-sans bg-(--bg-base) border border-(--border-default) text-(--text-primary)"
+                        >
+                          <option value="MCQ">Multiple Choice</option>
+                          <option value="TRUE_FALSE">True / False</option>
+                          <option value="FILL_BLANK">Fill in Blank</option>
+                          <option value="SHORT_ANSWER">Short Answer</option>
+                          <option value="ESSAY">Essay</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeQuestion(q.id)}
+                          className="p-1 rounded-lg text-(--text-muted) hover:text-(--status-danger) transition-colors"
+                          title="Remove question"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Question text */}
+                    <input
+                      type="text"
+                      required
+                      value={q.questionText}
+                      onChange={e => updateQuestion(q.id, { questionText: e.target.value })}
+                      placeholder="Type your question statement here…"
+                      className="w-full px-3.5 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs font-sans text-(--text-primary) focus:border-(--brand-gold) outline-none"
+                    />
+
+                    {/* Options area for MCQ and True/False */}
+                    {(q.type === 'MCQ' || q.type === 'TRUE_FALSE') && (
+                      <div className="space-y-2 pt-1 pl-2 border-l-2 border-(--border-subtle)">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[10px] uppercase text-(--text-faint)">
+                            Options (Check green for correct answer)
+                          </span>
+                          {q.type === 'MCQ' && (
+                            <button
+                              type="button"
+                              onClick={() => addOption(q.id)}
+                              className="text-[11px] font-sans font-semibold text-(--brand-gold) hover:underline"
+                            >
+                              + Add Option
+                            </button>
+                          )}
+                        </div>
+
+                        {q.options.map((opt, oIdx) => (
+                          <div key={oIdx} className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateOption(q.id, oIdx, opt.text, true)}
+                              className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${opt.isCorrect ? 'bg-(--status-success) border-transparent text-white' : 'border-(--border-default) bg-(--bg-base) text-transparent hover:border-(--brand-gold)'}`}
+                              title={opt.isCorrect ? 'Correct Answer' : 'Mark as Correct'}
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <input
+                              type="text"
+                              required
+                              value={opt.text}
+                              onChange={e => updateOption(q.id, oIdx, e.target.value)}
+                              placeholder={`Option ${oIdx + 1}`}
+                              className="flex-1 px-3 py-1.5 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:border-(--brand-gold) outline-none"
+                            />
+                            {q.type === 'MCQ' && q.options.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => removeOption(q.id, oIdx)}
+                                className="text-(--text-muted) hover:text-(--status-danger) p-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Submit */}
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" type="button" className="flex-1" onClick={() => { setCreateOpen(false); setFormError(''); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              type="submit"
+              className="flex-1"
+              disabled={formSaving}
+              icon={<CheckCircle2 className="w-4 h-4" />}
+            >
+              {formSaving ? 'Creating…' : 'Create Quiz'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </motion.div>
   );
 };
