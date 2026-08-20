@@ -93,6 +93,45 @@ router.get('/', async (req: AuthRequest, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TIMETABLE (spec §12 — read-only for students, shows only enrolled courses)
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/timetable', async (req: AuthRequest, res) => {
+  try {
+    const srId = await resolveStudentRecord(req.user!.userId);
+
+    // Active enrollments for this student
+    const enrollments = await prisma.enrollment.findMany({
+      where: { studentRecordId: srId, status: { in: ['ACTIVE', 'FORCE_ADDED'] } },
+      select: { courseOfferingId: true },
+    });
+    const offeringIds = enrollments.map(e => e.courseOfferingId);
+
+    if (!offeringIds.length) { ok(res, { slots: [], offeringIds: [] }); return; }
+
+    const slots = await prisma.timetableSlot.findMany({
+      where: {
+        courseOfferingId: { in: offeringIds },
+        status: { in: ['PUBLISHED'] },
+      },
+      include: {
+        courseOffering: {
+          include: {
+            course: { select: { code: true, name: true, creditHours: true } },
+            instructor: { include: { user: { select: { fullName: true } } } },
+            room: { select: { name: true, building: true, roomType: true } },
+            semester: { include: { academicYear: { select: { name: true } } } },
+          },
+        },
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+
+    ok(res, { slots, offeringIds });
+  } catch (e) { fail(res, e); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // COURSES
 // ═══════════════════════════════════════════════════════════════════════════
 

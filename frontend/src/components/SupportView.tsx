@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
+import { dateToEthiopianTime } from '@/src/lib/utils';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -53,7 +54,7 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
       id: Date.now().toString(),
       role: 'user',
       content: prompt,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: dateToEthiopianTime(new Date())
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -83,7 +84,7 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: data.response,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: dateToEthiopianTime(new Date())
       };
 
       setMessages((prev) => [...prev, botMsg]);
@@ -93,7 +94,7 @@ export const SupportView: React.FC<SupportViewProps> = ({ profile }) => {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: `I'm having trouble connecting to the advising server right now. (${err.message}). You can also schedule an in-person appointment using the booking panel on the right.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: dateToEthiopianTime(new Date())
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {

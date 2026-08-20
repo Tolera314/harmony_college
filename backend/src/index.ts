@@ -14,6 +14,7 @@ import studentRouter     from './routes/student';
 import registrarRouter   from './routes/registrar';
 import studentDashRouter from './routes/studentDashboard';
 import attendanceRouter  from './routes/attendance';
+import instructorRouter  from './routes/instructor';
 import { initSocket } from './lib/socket';
 import {
   loginLimiter, registerLimiter, refreshLimiter,
@@ -76,6 +77,7 @@ app.use('/api/student',          studentRouter);
 app.use('/api/student/dashboard', studentDashRouter);
 app.use('/api/registrar',         registrarRouter);
 app.use('/api/attendance',        attendanceRouter);
+app.use('/api/instructor',        instructorRouter);
 
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
@@ -99,6 +101,13 @@ app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
 // ── HTTP + Socket.io server ───────────────────────────────────────────────────
 const httpServer = http.createServer(app);
 const io = initSocket(httpServer, FRONTEND_URL);
+
+// ── Restore auto-close timers for any OPEN attendance sessions after restart ──
+import('./services/attendance/attendanceService').then(svc => {
+  svc.restoreAutoCloseTimers().catch((err: unknown) => {
+    console.error('[startup] Failed to restore attendance auto-close timers:', err);
+  });
+});
 
 httpServer.listen(PORT, () => {
   console.log(`🚀  Harmony College API  →  http://localhost:${PORT}`);

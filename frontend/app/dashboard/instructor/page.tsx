@@ -11,6 +11,7 @@ import { InSearchModal }       from '@/src/components/instructor/InSearchModal';
 import { DHLogoutModal }       from '@/src/components/dh/DHLogoutModal';
 import { InOverviewView }      from '@/src/components/instructor/views/InOverviewView';
 import { InMyClassesView }     from '@/src/components/instructor/views/InMyClassesView';
+import { InScheduleView }      from '@/src/components/instructor/views/InScheduleView';
 import { InAttendanceView }    from '@/src/components/instructor/views/InAttendanceView';
 import { InStudentsView }      from '@/src/components/instructor/views/InStudentsView';
 import { InGradesView }        from '@/src/components/instructor/views/InGradesView';
@@ -67,19 +68,20 @@ export default function InstructorDashboardPage() {
   };
 
   const navItemsList: { id: InstructorNavTab; label: string }[] = [
-    { id: 'overview', label: 'Dashboard' },
-    { id: 'my_classes', label: 'My Classes' },
-    { id: 'attendance', label: 'Attendance' },
-    { id: 'students', label: 'Students' },
-    { id: 'grades', label: 'Grades' },
-    { id: 'assignments', label: 'Assignments' },
-    { id: 'quizzes', label: 'Quizzes & Exams' },
-    { id: 'materials', label: 'Course Materials' },
-    { id: 'announcements', label: 'Announcements' },
-    { id: 'reports', label: 'Reports' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'audit_log', label: 'Audit Log' },
-    { id: 'settings', label: 'Settings' },
+    { id: 'overview',       label: 'Dashboard' },
+    { id: 'my_classes',     label: 'My Classes' },
+    { id: 'schedule',       label: 'My Schedule' },
+    { id: 'attendance',     label: 'Attendance' },
+    { id: 'students',       label: 'Students' },
+    { id: 'grades',         label: 'Grades' },
+    { id: 'assignments',    label: 'Assignments' },
+    { id: 'quizzes',        label: 'Quizzes & Exams' },
+    { id: 'materials',      label: 'Course Materials' },
+    { id: 'announcements',  label: 'Announcements' },
+    { id: 'reports',        label: 'Reports' },
+    { id: 'notifications',  label: 'Notifications' },
+    { id: 'audit_log',      label: 'Audit Log' },
+    { id: 'settings',       label: 'Settings' },
   ];
 
   const renderView = () => {
@@ -87,6 +89,7 @@ export default function InstructorDashboardPage() {
     switch (activeTab) {
       case 'overview':       return <InOverviewView profile={instructorProfile} setActiveTab={setActiveTab} />;
       case 'my_classes':     return <InMyClassesView setActiveTab={setActiveTab} />;
+      case 'schedule':       return <InScheduleView setActiveTab={setActiveTab} />;
       case 'attendance':     return <InAttendanceView />;
       case 'students':       return <InStudentsView />;
       case 'grades':         return <InGradesView />;

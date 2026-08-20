@@ -201,6 +201,25 @@ export const studentDashApi = {
   // Degree audit
   getDegreeAudit: () => apiFetch<DegreeAudit>('/degree-audit'),
 
+  // Timetable — full weekly schedule (spec §12)
+  getTimetable: () => apiFetch<{
+    slots: {
+      id: string;
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      status: string;
+      courseOffering: {
+        id: string;
+        course: { code: string; name: string; creditHours: number };
+        instructor: { user: { fullName: string } } | null;
+        room: { name: string; building: string; roomType: string } | null;
+        semester: { name: string; academicYear: { name: string } };
+      };
+    }[];
+    offeringIds: string[];
+  }>('/timetable'),
+
   // Support / Appointments
   getAppointments: ()      => apiFetch<any[]>('/support/appointments'),
   bookAppointment: (data: { topic: string; requestedDate: string; requestedTime: string; advisorUserId?: string }) =>

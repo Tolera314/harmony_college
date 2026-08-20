@@ -15,6 +15,7 @@ import { Button } from '../../ui/Button';
 import { SkeletonPage, ErrorState, EmptyState } from '../../ui/States';
 import { AttendanceStatus } from '../../../types/instructor';
 import { useSocket } from '@/src/context/SocketContext';
+import { toEthiopianTimeRange, dateToEthiopianTime } from '@/src/lib/utils';
 
 // ── API helper ────────────────────────────────────────────────────────────────
 const API = '/api/attendance';
@@ -322,7 +323,7 @@ export const InAttendanceView: React.FC = () => {
       r.student?.studentId ?? '',
       statuses[r.studentRecordId] ?? 'Absent',
       r.method ?? 'Manual',
-      r.markedAt ? new Date(r.markedAt).toLocaleTimeString() : '—',
+      r.markedAt ? dateToEthiopianTime(new Date(r.markedAt)) : '—',
     ]);
     const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
     const a = document.createElement('a');
@@ -529,7 +530,7 @@ export const InAttendanceView: React.FC = () => {
                       transition={{ duration: 0.8, ease: 'easeOut' }} />
                   </div>
                   <p className="font-sans text-[10px] mt-2" style={{ color: 'var(--text-faint)' }}>
-                    {roster.length} enrolled · {selectedSession?.startTime ?? ''}–{selectedSession?.endTime ?? ''}
+                    {roster.length} enrolled · {selectedSession?.startTime ? toEthiopianTimeRange(selectedSession.startTime, selectedSession.endTime ?? selectedSession.startTime) : ''}
                   </p>
                 </div>
 
@@ -559,7 +560,7 @@ export const InAttendanceView: React.FC = () => {
                                   {rec.student?.fullName ?? 'Unknown'}
                                 </p>
                                 <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                                  {new Date(rec.markedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                  {dateToEthiopianTime(new Date(rec.markedAt))}
                                   {rec.method === 'QR' && ' · QR'}
                                 </p>
                               </div>
@@ -696,7 +697,7 @@ export const InAttendanceView: React.FC = () => {
                           </span>
                           <p className="font-sans text-sm font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>
                             {s.date ? new Date(s.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}
-                            {s.startTime ? ` · ${s.startTime}–${s.endTime}` : ''}
+                            {s.startTime ? ` · ${toEthiopianTimeRange(s.startTime, s.endTime ?? s.startTime)}` : ''}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

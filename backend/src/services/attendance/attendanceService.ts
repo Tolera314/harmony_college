@@ -9,6 +9,9 @@
  * 5. QR tokens are short-lived and server-validated.
  * 6. Corrections are audited.
  * 7. Finalized sessions cannot be silently edited.
+ * 8. Real-time day-of-week: instructor can only open a session on its scheduled date.
+ * 9. openBeforeMinutes: session cannot be opened too early.
+ * 10. closeAfterMinutes: auto-close timer fires when the attendance window expires.
  */
 
 import { prisma } from '../../lib/prisma';
@@ -21,45 +24,163 @@ import {
 } from '../../lib/socket';
 
 // ── Policy defaults (configurable per session) ────────────────────────────
-const DEFAULT_LATE_AFTER_MINUTES  = 10;
-const DEFAULT_CLOSE_AFTER_MINUTES = 30;
-const QR_TOKEN_VALIDITY_MINUTES   = 15;
+const DEFAULT_OPEN_BEFORE_MINUTES  = 15;   // how early before class start the session can open
+const DEFAULT_LATE_AFTER_MINUTES   = 10;
+const DEFAULT_CLOSE_AFTER_MINUTES  = 30;
+const QR_TOKEN_VALIDITY_MINUTES    = 15;
+
+// ── Auto-close timer registry ─────────────────────────────────────────────
+// Node.js timer handles keyed by attendanceSessionId so we can cancel them
+// if the instructor manually closes before the window expires.
+const autoCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Schedule an automatic close for an attendance session after closeAfterMinutes.
+ * Clears any existing timer first (idempotent).
+ */
+function scheduleAutoClose(sessionId: string, closeAfterMs: number) {
+  // Cancel any existing timer for this session
+  const existing = autoCloseTimers.get(sessionId);
+  if (existing) clearTimeout(existing);
+
+  const handle = setTimeout(async () => {
+    autoCloseTimers.delete(sessionId);
+    try {
+      const session = await prisma.attendanceSession.findUnique({
+        where: { id: sessionId },
+        include: {
+          classSession: { include: { courseOffering: { include: { instructor: true } } } },
+        },
+      });
+      if (!session || session.lifecycle !== AttendanceSessionLifecycle.OPEN) return;
+
+      await prisma.attendanceSession.update({
+        where: { id: sessionId },
+        data: {
+          lifecycle: AttendanceSessionLifecycle.CLOSED,
+          closedAt: new Date(),
+          qrTokenHash: null,
+        },
+      });
+
+      broadcastAttendanceClosed({
+        sessionId,
+        courseOfferingId: session.classSession.courseOfferingId,
+        status: 'CLOSED',
+        closedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error('[attendance:autoClose] Failed to auto-close session', sessionId, err);
+    }
+  }, closeAfterMs);
+
+  autoCloseTimers.set(sessionId, handle);
+}
+
+/**
+ * Cancel a pending auto-close timer (called when instructor manually closes/finalizes).
+ */
+function cancelAutoClose(sessionId: string) {
+  const existing = autoCloseTimers.get(sessionId);
+  if (existing) {
+    clearTimeout(existing);
+    autoCloseTimers.delete(sessionId);
+  }
+}
+
+/**
+ * On server startup, re-schedule auto-close timers for any sessions still OPEN in the DB.
+ * This handles server restarts gracefully — OPEN sessions don't stay open forever.
+ */
+export async function restoreAutoCloseTimers() {
+  const openSessions = await prisma.attendanceSession.findMany({
+    where: { lifecycle: AttendanceSessionLifecycle.OPEN },
+    include: {
+      classSession: { select: { startTime: true, date: true, courseOfferingId: true } },
+    },
+  });
+
+  let restored = 0;
+  for (const session of openSessions) {
+    const [h, m] = session.classSession.startTime.split(':').map(Number);
+    const sessionDate = new Date(session.classSession.date);
+    sessionDate.setHours(h, m, 0, 0);
+    const windowCloseAt = new Date(sessionDate.getTime() + session.closeAfterMinutes * 60 * 1000);
+    const msRemaining = windowCloseAt.getTime() - Date.now();
+
+    // Auto-close immediately (0 ms) if window already passed, else at the remaining time
+    scheduleAutoClose(session.id, Math.max(0, msRemaining));
+    restored++;
+  }
+
+  if (restored > 0) {
+    console.log(`[attendance] Restored ${restored} auto-close timer(s) for OPEN sessions.`);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLASS SESSION MANAGEMENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Create class sessions from timetable slots for a date range. */
+/** Create class sessions from timetable slots for a date range.
+ *  Skips dates that fall on a published HOLIDAY in the academic calendar.
+ */
 export async function generateClassSessions(
   courseOfferingId: string,
   fromDate: Date,
   toDate: Date,
 ) {
   const slots = await prisma.timetableSlot.findMany({
-    where: { courseOfferingId },
+    where: { courseOfferingId, status: { in: ['PUBLISHED'] } },
     select: { dayOfWeek: true, startTime: true, endTime: true, roomId: true },
   });
 
+  // Fetch all published HOLIDAY events that overlap the requested date range
+  const holidays = await prisma.academicCalendarEvent.findMany({
+    where: {
+      eventType: 'HOLIDAY',
+      isPublished: true,
+      startDate: { lte: toDate },
+      endDate:   { gte: fromDate },
+    },
+    select: { startDate: true, endDate: true, title: true },
+  });
+
+  /** Returns true if a given calendar date falls within any holiday range */
+  function isHoliday(date: Date): boolean {
+    const d = date.getTime();
+    return holidays.some(h => {
+      const start = new Date(h.startDate); start.setHours(0, 0, 0, 0);
+      const end   = new Date(h.endDate);   end.setHours(23, 59, 59, 999);
+      return d >= start.getTime() && d <= end.getTime();
+    });
+  }
+
   const sessions: { courseOfferingId: string; date: Date; startTime: string; endTime: string; roomId: string | null }[] = [];
+  const skipped: string[] = [];
   const current = new Date(fromDate);
 
   while (current <= toDate) {
     const dow = current.getDay() === 0 ? 6 : current.getDay() - 1; // Convert to Mon=0
     for (const slot of slots) {
       if (slot.dayOfWeek === dow) {
-        sessions.push({
-          courseOfferingId,
-          date: new Date(current),
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          roomId: slot.roomId,
-        });
+        if (isHoliday(current)) {
+          skipped.push(current.toISOString().slice(0, 10));
+        } else {
+          sessions.push({
+            courseOfferingId,
+            date: new Date(current),
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            roomId: slot.roomId,
+          });
+        }
       }
     }
     current.setDate(current.getDate() + 1);
   }
 
-  // Upsert sessions
+  // Upsert sessions (holidays are simply not created)
   for (const s of sessions) {
     await prisma.classSession.upsert({
       where: {
@@ -74,7 +195,7 @@ export async function generateClassSessions(
     });
   }
 
-  return sessions.length;
+  return { generated: sessions.length, skippedHolidays: [...new Set(skipped)] };
 }
 
 /** Get today's class sessions for an instructor. */
@@ -139,7 +260,7 @@ export async function getSessionsForOffering(courseOfferingId: string) {
 export async function openAttendanceSession(
   classSessionId: string,
   instructorUserId: string,
-  options?: { lateAfterMinutes?: number; closeAfterMinutes?: number },
+  options?: { lateAfterMinutes?: number; closeAfterMinutes?: number; openBeforeMinutes?: number },
 ) {
   const classSession = await prisma.classSession.findUnique({
     where: { id: classSessionId },
@@ -156,6 +277,39 @@ export async function openAttendanceSession(
     throw new Error('You are not authorized to manage attendance for this course');
   }
 
+  // ── Real-time day-of-week guard (server time) ─────────────────────────────
+  // The ClassSession must be scheduled for today's calendar date.
+  const nowServer = new Date();
+  const sessionDate = new Date(classSession.date);
+  const todayMidnight = new Date(nowServer);
+  todayMidnight.setHours(0, 0, 0, 0);
+  const sessionMidnight = new Date(sessionDate);
+  sessionMidnight.setHours(0, 0, 0, 0);
+
+  if (sessionMidnight.getTime() !== todayMidnight.getTime()) {
+    const sessionDateStr = sessionMidnight.toISOString().slice(0, 10);
+    const todayStr = todayMidnight.toISOString().slice(0, 10);
+    throw new Error(
+      `This class session is scheduled for ${sessionDateStr}, but today is ${todayStr}. ` +
+      `Attendance can only be opened on the day of the class.`,
+    );
+  }
+
+  // ── openBeforeMinutes guard (server time) ─────────────────────────────────
+  // Attendance cannot open more than openBeforeMinutes before the class start.
+  const openBefore = options?.openBeforeMinutes ?? DEFAULT_OPEN_BEFORE_MINUTES;
+  const [startH, startM] = classSession.startTime.split(':').map(Number);
+  const classStartMs = new Date(sessionDate).setHours(startH, startM, 0, 0);
+  const earliestOpenMs = classStartMs - openBefore * 60 * 1000;
+
+  if (nowServer.getTime() < earliestOpenMs) {
+    const earliestStr = new Date(earliestOpenMs).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    throw new Error(
+      `Attendance for this session cannot be opened before ${earliestStr}. ` +
+      `(${openBefore} minutes before class start at ${classSession.startTime})`,
+    );
+  }
+
   // Cannot open an already open or finalized session
   if (classSession.attendanceSession) {
     const lifecycle = classSession.attendanceSession.lifecycle;
@@ -167,7 +321,10 @@ export async function openAttendanceSession(
     }
   }
 
-  return prisma.$transaction(async tx => {
+  const lateAfter  = options?.lateAfterMinutes  ?? DEFAULT_LATE_AFTER_MINUTES;
+  const closeAfter = options?.closeAfterMinutes ?? DEFAULT_CLOSE_AFTER_MINUTES;
+
+  const result = await prisma.$transaction(async tx => {
     // Pre-populate attendance records for all enrolled students as ABSENT
     const enrollments = await tx.enrollment.findMany({
       where: {
@@ -184,12 +341,16 @@ export async function openAttendanceSession(
         openedBy: instructorUserId,
         lifecycle: AttendanceSessionLifecycle.OPEN,
         openedAt: new Date(),
-        lateAfterMinutes: options?.lateAfterMinutes ?? DEFAULT_LATE_AFTER_MINUTES,
-        closeAfterMinutes: options?.closeAfterMinutes ?? DEFAULT_CLOSE_AFTER_MINUTES,
+        openBeforeMinutes: openBefore,
+        lateAfterMinutes:  lateAfter,
+        closeAfterMinutes: closeAfter,
       },
       update: {
         lifecycle: AttendanceSessionLifecycle.OPEN,
         openedAt: new Date(),
+        openBeforeMinutes: openBefore,
+        lateAfterMinutes:  lateAfter,
+        closeAfterMinutes: closeAfter,
       },
     });
 
@@ -220,6 +381,21 @@ export async function openAttendanceSession(
 
     return session;
   });
+
+  // Schedule auto-close after the attendance window expires (server-side timer)
+  const classStartDate = new Date(sessionDate);
+  classStartDate.setHours(startH, startM, 0, 0);
+  const windowCloseAt = new Date(classStartDate.getTime() + closeAfter * 60 * 1000);
+  const msUntilClose = windowCloseAt.getTime() - Date.now();
+
+  if (msUntilClose > 0) {
+    scheduleAutoClose(result.id, msUntilClose);
+  } else {
+    // Window already expired — close immediately
+    scheduleAutoClose(result.id, 0);
+  }
+
+  return result;
 }
 
 /** Close an attendance session (stops new marks but not yet finalized). */
@@ -242,6 +418,9 @@ export async function closeAttendanceSession(
   if (session.lifecycle === AttendanceSessionLifecycle.CLOSED) {
     return session; // idempotent
   }
+
+  // Cancel the auto-close timer — instructor is manually closing
+  cancelAutoClose(attendanceSessionId);
 
   const updated = await prisma.attendanceSession.update({
     where: { id: attendanceSessionId },
@@ -276,6 +455,9 @@ export async function finalizeAttendanceSession(
   if (session.lifecycle === AttendanceSessionLifecycle.OPEN) {
     throw new Error('Close the session before finalizing');
   }
+
+  // Cancel any residual auto-close timer
+  cancelAutoClose(attendanceSessionId);
 
   const finalized = await prisma.attendanceSession.update({
     where: { id: attendanceSessionId },

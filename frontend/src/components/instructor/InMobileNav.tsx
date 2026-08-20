@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { InstructorNavTab } from '../../types/instructor';
-import { LayoutDashboard, BookOpen, CalendarCheck, ClipboardList, ClipboardCheck, Bell, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, BookOpen, CalendarCheck, CalendarDays, ClipboardList, ClipboardCheck, Bell, HelpCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 
@@ -18,13 +18,12 @@ export const InMobileNav: React.FC<InMobileNavProps> = ({
   activeTab, setActiveTab, unreadCount, pendingGrades, activeSession,
 }) => {
   const items: { id: InstructorNavTab; label: string; icon: React.ReactNode; dot?: boolean }[] = [
-    { id: 'overview',   label: 'Dash',    icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'my_classes', label: 'Classes', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'attendance', label: 'Attend.', icon: <CalendarCheck className="w-5 h-5" />, dot: activeSession },
-    { id: 'grades',     label: 'Grades',  icon: <ClipboardList className="w-5 h-5" />, dot: pendingGrades > 0 },
-    { id: 'assignments',label: 'Assign.', icon: <ClipboardCheck className="w-5 h-5" /> },
-    { id: 'quizzes',    label: 'Quizzes', icon: <HelpCircle className="w-5 h-5" /> },
-    { id: 'notifications', label: 'Alerts', icon: <Bell className="w-5 h-5" />, dot: unreadCount > 0 },
+    { id: 'overview',      label: 'Dash',     icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'my_classes',    label: 'Classes',  icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'schedule',      label: 'Schedule', icon: <CalendarDays className="w-5 h-5" /> },
+    { id: 'attendance',    label: 'Attend.',  icon: <CalendarCheck className="w-5 h-5" />, dot: activeSession },
+    { id: 'grades',        label: 'Grades',   icon: <ClipboardList className="w-5 h-5" />, dot: pendingGrades > 0 },
+    { id: 'notifications', label: 'Alerts',   icon: <Bell className="w-5 h-5" />, dot: unreadCount > 0 },
   ];
 
   return (
