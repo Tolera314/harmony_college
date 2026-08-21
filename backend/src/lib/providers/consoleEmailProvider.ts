@@ -38,4 +38,18 @@ export class ConsoleEmailProvider implements EmailProvider {
     console.log(`────────────────────────────────────────────────\n`);
     return { success: true };
   }
+
+  async sendHrNotificationEmail(
+    to: string,
+    params: { recipientName: string; subject: string; heading: string; body: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    console.log(`\n🏢 [HR EMAIL] ───────────────────────────────────`);
+    console.log(`   To:      ${to}`);
+    console.log(`   Subject: ${params.subject}`);
+    console.log(`   Name:    ${params.recipientName}`);
+    console.log(`   Heading: ${params.heading}`);
+    console.log(`   Body:    ${params.body}`);
+    console.log(`────────────────────────────────────────────────\n`);
+    return { success: true };
+  }
 }

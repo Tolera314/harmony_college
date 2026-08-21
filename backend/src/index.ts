@@ -15,6 +15,8 @@ import registrarRouter   from './routes/registrar';
 import studentDashRouter from './routes/studentDashboard';
 import attendanceRouter  from './routes/attendance';
 import instructorRouter  from './routes/instructor';
+import hrRouter          from './routes/hr';
+import { startContractExpiryJob } from './services/hr/hrContractExpiryJob';
 import { initSocket } from './lib/socket';
 import {
   loginLimiter, registerLimiter, refreshLimiter,
@@ -78,6 +80,7 @@ app.use('/api/student/dashboard', studentDashRouter);
 app.use('/api/registrar',         registrarRouter);
 app.use('/api/attendance',        attendanceRouter);
 app.use('/api/instructor',        instructorRouter);
+app.use('/api/hr',                hrRouter);
 
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
@@ -108,6 +111,9 @@ import('./services/attendance/attendanceService').then(svc => {
     console.error('[startup] Failed to restore attendance auto-close timers:', err);
   });
 });
+
+// ── HR: start daily contract expiry check ────────────────────────────────────
+startContractExpiryJob();
 
 httpServer.listen(PORT, () => {
   console.log(`🚀  Harmony College API  →  http://localhost:${PORT}`);

@@ -188,7 +188,7 @@ export default function InstructorDashboardPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':       return <InOverviewView profile={instructorProfile} setActiveTab={setActiveTab} />;
+      case 'overview':       return <InOverviewView profile={profile} dashData={dashData} setActiveTab={setActiveTab} />;
       case 'my_classes':     return <InMyClassesView setActiveTab={setActiveTab} />;
       case 'schedule':       return <InScheduleView setActiveTab={setActiveTab} />;
       case 'attendance':     return <InAttendanceView />;
@@ -199,9 +199,9 @@ export default function InstructorDashboardPage() {
       case 'materials':      return <InMaterialsView />;
       case 'announcements':  return <InAnnouncementsView />;
       case 'reports':        return <InReportsView />;
-      case 'notifications':  return <InNotificationsView notifications={notifications} onMarkRead={handleMarkRead} onMarkAllRead={handleMarkAllRead} setActiveTab={setActiveTab} />;
+      case 'notifications':  return <InNotificationsView notifications={headerNotifications} onMarkRead={handleMarkRead} onMarkAllRead={handleMarkAllRead} setActiveTab={setActiveTab} />;
       case 'audit_log':      return <InAuditLogView />;
-      case 'settings':       return <InSettingsView profile={instructorProfile} />;
+      case 'settings':       return <InSettingsView profile={profile} />;
       case 'messages':       return <ChatView />;
       default:               return null;
     }

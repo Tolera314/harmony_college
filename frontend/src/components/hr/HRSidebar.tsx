@@ -3,8 +3,8 @@
 import React from 'react';
 import { HRNavTab, HROfficerProfile } from '../../types/hr';
 import {
-  LayoutDashboard, Users, UserPlus, CalendarCheck, Banknote,
-  TrendingUp, FolderOpen, BarChart3, Bell, ClipboardList, Settings, LogOut,
+  LayoutDashboard, Users, UserPlus, UserMinus, CalendarCheck, Banknote,
+  TrendingUp, FolderOpen, BarChart3, Bell, ClipboardList, Settings, LogOut, History,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ChatSidebarButton } from '../chat/ChatSidebarButton';
@@ -28,15 +28,17 @@ export const HRSidebar: React.FC<HRSidebarProps> = ({
   const navItems: NavItem[] = [
     { id: 'overview',    label: 'Dashboard',         icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'employees',   label: 'Employees',         icon: <Users className="w-5 h-5" /> },
-    { id: 'onboarding',  label: 'Onboarding',        icon: <UserPlus className="w-5 h-5" /> },
+    { id: 'onboarding',     label: 'Onboarding',         icon: <UserPlus className="w-5 h-5" /> },
+    { id: 'offboarding',    label: 'Offboarding',         icon: <UserMinus className="w-5 h-5" /> },
     {
       id: 'leave',       label: 'Leave Management',  icon: <CalendarCheck className="w-5 h-5" />,
       badge: pendingLeave > 0 ? String(pendingLeave) : undefined, badgeVariant: 'amber',
     },
     { id: 'payroll',     label: 'Payroll',           icon: <Banknote className="w-5 h-5" /> },
     { id: 'performance', label: 'Performance',       icon: <TrendingUp className="w-5 h-5" /> },
-    { id: 'documents',   label: 'Documents',         icon: <FolderOpen className="w-5 h-5" /> },
-    { id: 'reports',     label: 'Reports',           icon: <BarChart3 className="w-5 h-5" /> },
+    { id: 'documents',      label: 'Documents',         icon: <FolderOpen className="w-5 h-5" /> },
+    { id: 'salary_history', label: 'Salary & Contracts', icon: <History className="w-5 h-5" /> },
+    { id: 'reports',        label: 'Reports',            icon: <BarChart3 className="w-5 h-5" /> },
     {
       id: 'notifications', label: 'Notifications',  icon: <Bell className="w-5 h-5" />,
       badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeVariant: 'rose',

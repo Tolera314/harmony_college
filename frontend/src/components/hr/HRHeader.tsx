@@ -19,10 +19,10 @@ interface HRHeaderProps {
 }
 
 const TAB_LABELS: Record<HRNavTab, string> = {
-  overview: 'Dashboard', employees: 'Employees', onboarding: 'Onboarding',
+  overview: 'Dashboard', employees: 'Employees', onboarding: 'Onboarding', offboarding: 'Offboarding',
   leave: 'Leave Management', payroll: 'Payroll', performance: 'Performance',
-  documents: 'Documents', reports: 'Reports', notifications: 'Notifications',
-  audit_log: 'Audit Logs', settings: 'Settings', messages: 'Messages',
+  documents: 'Documents', salary_history: 'Salary & Contracts', reports: 'Reports',
+  notifications: 'Notifications', audit_log: 'Audit Logs', settings: 'Settings', messages: 'Messages',
 };
 
 const NOTIF_DOT: Record<string, string> = {
