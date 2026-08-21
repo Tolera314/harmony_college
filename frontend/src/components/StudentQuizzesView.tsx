@@ -16,9 +16,22 @@ import { initialActiveCourses } from '../data/studentData';
 import type { StudentQuiz, Course, QuizQuestion } from '../types';
 import { studentDashApi } from '@/src/lib/studentApi';
 
-export const StudentQuizzesView: React.FC = () => {
-  const [courses, setCourses] = useState<Course[]>(initialActiveCourses);
+interface StudentQuizzesViewProps {
+  enrolledCourses?: Course[];
+}
+
+export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolledCourses }) => {
+  const [courses, setCourses] = useState<Course[]>(enrolledCourses && enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses);
   const [selectedCourseId, setSelectedCourseId] = useState<string>(courses[0]?.id || '');
+
+  useEffect(() => {
+    if (enrolledCourses && enrolledCourses.length > 0) {
+      setCourses(enrolledCourses);
+      if (!selectedCourseId || !enrolledCourses.find(c => c.id === selectedCourseId)) {
+        setSelectedCourseId(enrolledCourses[0].id);
+      }
+    }
+  }, [enrolledCourses, selectedCourseId]);
   
   // Slide panel state (for instructions / details before taking quiz, or viewing results)
   const [selectedQuiz, setSelectedQuiz] = useState<StudentQuiz | null>(null);
@@ -30,7 +43,7 @@ export const StudentQuizzesView: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isReviewing, setIsReviewing] = useState(false);
 
-  const activeCourse = courses.find(c => c.id === selectedCourseId);
+  const activeCourse = courses.find(c => c.id === selectedCourseId) || courses[0];
   const quizzes = activeCourse?.quizzes || [];
 
   const pendingQuizzes = quizzes.filter(q => !q.attempt || q.attempt.status === 'in_progress');
@@ -124,6 +137,10 @@ export const StudentQuizzesView: React.FC = () => {
   if (isTakingQuiz && selectedQuiz) {
     const currentQuestion = selectedQuiz.questions[currentQuestionIdx];
     const isLastQuestion = currentQuestionIdx === selectedQuiz.questions.length - 1;
+    const qType = String(currentQuestion.type || '').toUpperCase().replace('-', '_');
+    const isChoice = qType === 'MCQ' || qType === 'TRUE_FALSE' || qType === 'TRUEFALSE';
+    const isFill = qType === 'FILL_BLANK' || qType === 'FILLBLANK';
+    const isEssay = qType === 'SHORT_ANSWER' || qType === 'SHORTANSWER' || qType === 'ESSAY';
     
     return (
       <div className="fixed inset-0 z-[100] bg-(--bg-app) flex flex-col">
@@ -163,24 +180,28 @@ export const StudentQuizzesView: React.FC = () => {
                 </div>
 
                 <div className="space-y-4 mt-8">
-                  {currentQuestion.type === 'MCQ' || currentQuestion.type === 'TrueFalse' ? (
-                    currentQuestion.options?.map((opt, i) => (
-                      <button
-                        key={i}
-                        onClick={() => handleSelectAnswer(currentQuestion.id, opt)}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
-                          answers[currentQuestion.id] === opt 
-                            ? 'border-(--brand-gold) bg-(--accent-gold-subtle)' 
-                            : 'border-(--border-subtle) bg-(--hover-overlay) hover:border-(--border-default)'
-                        }`}
-                      >
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${answers[currentQuestion.id] === opt ? 'border-(--brand-gold)' : 'border-(--text-muted)'}`}>
-                          {answers[currentQuestion.id] === opt && <div className="w-2.5 h-2.5 rounded-full bg-(--brand-gold)" />}
-                        </div>
-                        <span className="text-sm font-semibold">{opt}</span>
-                      </button>
-                    ))
-                  ) : currentQuestion.type === 'FillBlank' ? (
+                  {isChoice ? (
+                    (currentQuestion.options || []).map((opt, i) => {
+                      const optText = typeof opt === 'string' ? opt : (opt as any)?.text ?? String(opt);
+                      const isSelected = answers[currentQuestion.id] === optText;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => handleSelectAnswer(currentQuestion.id, optText)}
+                          className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
+                            isSelected 
+                              ? 'border-(--brand-gold) bg-(--accent-gold-subtle)' 
+                              : 'border-(--border-subtle) bg-(--hover-overlay) hover:border-(--border-default)'
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-(--brand-gold)' : 'border-(--text-muted)'}`}>
+                            {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-(--brand-gold)" />}
+                          </div>
+                          <span className="text-sm font-semibold">{optText}</span>
+                        </button>
+                      );
+                    })
+                  ) : isFill ? (
                     <div className="space-y-2">
                       <p className="text-xs text-(--text-muted) font-mono uppercase tracking-widest">Fill in the blank:</p>
                       <input
@@ -191,15 +212,15 @@ export const StudentQuizzesView: React.FC = () => {
                         onChange={e => handleSelectAnswer(currentQuestion.id, e.target.value)}
                       />
                     </div>
-                  ) : currentQuestion.type === 'ShortAnswer' || currentQuestion.type === 'Essay' ? (
+                  ) : (
                     <textarea
-                      rows={currentQuestion.type === 'Essay' ? 8 : 4}
+                      rows={qType === 'ESSAY' ? 8 : 4}
                       placeholder="Type your answer here..."
                       className="w-full p-4 rounded-xl border border-(--border-default) bg-(--bg-input) text-sm focus:border-(--brand-gold) focus:ring-1 focus:ring-(--brand-gold) outline-none transition-all"
                       value={answers[currentQuestion.id] || ''}
                       onChange={e => handleSelectAnswer(currentQuestion.id, e.target.value)}
                     />
-                  ) : null}
+                  )}
                 </div>
               </motion.div>
             ) : (

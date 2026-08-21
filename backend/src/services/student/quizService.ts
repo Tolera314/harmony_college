@@ -66,19 +66,19 @@ export async function listQuizzesForCourse(
     questions: qz.questions,
     attempt: qz.attempts[0]
       ? {
-          id: qz.attempts[0].id,
-          status: qz.attempts[0].status,
-          startedAt: qz.attempts[0].startedAt,
-          submittedAt: qz.attempts[0].submittedAt,
-          score: qz.attempts[0].score,
-          percentageScore: qz.attempts[0].percentageScore,
-          isPassing: qz.attempts[0].isPassing,
-          feedback: qz.attempts[0].feedback,
-          answers: qz.attempts[0].answers.reduce<Record<string, string>>((acc, ans) => {
-            acc[ans.questionId] = ans.answerText ?? ans.selectedOptionId ?? '';
-            return acc;
-          }, {}),
-        }
+        id: qz.attempts[0].id,
+        status: qz.attempts[0].status,
+        startedAt: qz.attempts[0].startedAt,
+        submittedAt: qz.attempts[0].submittedAt,
+        score: qz.attempts[0].score,
+        percentageScore: qz.attempts[0].percentageScore,
+        isPassing: qz.attempts[0].isPassing,
+        feedback: qz.attempts[0].feedback,
+        answers: qz.attempts[0].answers.reduce<Record<string, string>>((acc, ans) => {
+          acc[ans.questionId] = ans.answerText ?? ans.selectedOptionId ?? '';
+          return acc;
+        }, {}),
+      }
       : null,
   }));
 }

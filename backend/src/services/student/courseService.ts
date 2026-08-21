@@ -126,11 +126,11 @@ export async function getEnrolledCourses(studentRecordId: string) {
         },
         instructor: offering.instructor
           ? {
-              name: offering.instructor.user.fullName,
-              email: offering.instructor.user.email,
-              title: offering.instructor.title,
-              specialization: offering.instructor.specialization,
-            }
+            name: offering.instructor.user.fullName,
+            email: offering.instructor.user.email,
+            title: offering.instructor.title,
+            specialization: offering.instructor.specialization,
+          }
           : null,
         room: offering.room
           ? { name: offering.room.name, building: offering.room.building }
@@ -148,10 +148,10 @@ export async function getEnrolledCourses(studentRecordId: string) {
         },
         grade: enroll.grade
           ? {
-              letterGrade: enroll.grade.letterGrade,
-              gradePoints: enroll.grade.gradePoints,
-              gradedAt: enroll.grade.gradedAt,
-            }
+            letterGrade: enroll.grade.letterGrade,
+            gradePoints: enroll.grade.gradePoints,
+            gradedAt: enroll.grade.gradedAt,
+          }
           : null,
         attendanceRate,
         attendanceSummary: {
@@ -178,15 +178,15 @@ export async function getEnrolledCourses(studentRecordId: string) {
             })),
             submission: submission
               ? {
-                  id: submission.id,
-                  status: submission.status,
-                  submittedAt: submission.submittedAt,
-                  score: submission.score,
-                  letterGrade: submission.letterGrade,
-                  feedback: submission.feedback,
-                  fileName: submission.fileName,
-                  textContent: submission.textContent,
-                }
+                id: submission.id,
+                status: submission.status,
+                submittedAt: submission.submittedAt,
+                score: submission.score,
+                letterGrade: submission.letterGrade,
+                feedback: submission.feedback,
+                fileName: submission.fileName,
+                textContent: submission.textContent,
+              }
               : null,
           };
         }),
@@ -214,19 +214,19 @@ export async function getEnrolledCourses(studentRecordId: string) {
             })),
             attempt: attempt
               ? {
-                  id: attempt.id,
-                  status: attempt.status,
-                  startedAt: attempt.startedAt,
-                  submittedAt: attempt.submittedAt,
-                  score: attempt.score,
-                  percentageScore: attempt.percentageScore,
-                  isPassing: attempt.isPassing,
-                  feedback: attempt.feedback,
-                  answers: attempt.answers.reduce<Record<string, string>>((acc, ans) => {
-                    acc[ans.questionId] = ans.answerText ?? ans.selectedOptionId ?? '';
-                    return acc;
-                  }, {}),
-                }
+                id: attempt.id,
+                status: attempt.status,
+                startedAt: attempt.startedAt,
+                submittedAt: attempt.submittedAt,
+                score: attempt.score,
+                percentageScore: attempt.percentageScore,
+                isPassing: attempt.isPassing,
+                feedback: attempt.feedback,
+                answers: attempt.answers.reduce<Record<string, string>>((acc, ans) => {
+                  acc[ans.questionId] = ans.answerText ?? ans.selectedOptionId ?? '';
+                  return acc;
+                }, {}),
+              }
               : null,
           };
         }),

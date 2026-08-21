@@ -19,7 +19,7 @@ interface InHeaderProps {
 }
 
 const TAB_LABELS: Record<InstructorNavTab, string> = {
-  overview: 'Dashboard', my_classes: 'My Classes', attendance: 'Attendance',
+  overview: 'Dashboard', my_classes: 'My Classes', schedule: 'My Schedule', attendance: 'Attendance',
   students: 'Students', grades: 'Grades', assignments: 'Assignments', quizzes: 'Quizzes & Exams', materials: 'Course Materials',
   announcements: 'Announcements', reports: 'Reports', notifications: 'Notifications',
   audit_log: 'Audit Log', settings: 'Settings', messages: 'Messages',

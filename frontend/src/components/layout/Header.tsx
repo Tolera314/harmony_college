@@ -43,18 +43,19 @@ export interface HeaderProps<T extends string = NavTab> {
 }
 
 const defaultStudentTabLabels: Record<NavTab, string> = {
-  dashboard: 'Dashboard',
-  my_courses: 'My Courses',
+  dashboard:    'Dashboard',
+  my_courses:   'My Courses',
+  timetable:    'My Timetable',
   registration: 'Course Registration',
-  assignments: 'Assignments',
-  quizzes: 'Quizzes & Exams',
-  attendance: 'My Attendance',
-  grades: 'Grades & Transcript',
-  financials: 'Financials & Tuition',
+  assignments:  'Assignments',
+  quizzes:      'Quizzes & Exams',
+  attendance:   'My Attendance',
+  grades:       'Grades & Transcript',
+  financials:   'Financials & Tuition',
   degree_audit: 'Degree Audit',
-  support: 'Support & Advising',
-  settings: 'Settings & Preferences',
-  messages: 'Messages',
+  support:      'Support & Advising',
+  settings:     'Settings & Preferences',
+  messages:     'Messages',
 };
 
 export const Header = <T extends string = NavTab>({

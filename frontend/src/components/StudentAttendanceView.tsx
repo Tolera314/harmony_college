@@ -21,6 +21,7 @@ import { Button } from './ui/Button';
 import { SkeletonPage, ErrorState, EmptyState } from './ui/States';
 import { DHPageHeader } from './dh/DHPageHeader';
 import { useSocket } from '@/src/context/SocketContext';
+import { dateToEthiopianTime } from '@/src/lib/utils';
 
 const API = '/api/attendance';
 
@@ -330,7 +331,7 @@ export const StudentAttendanceView: React.FC = () => {
                       {rec.method === 'QR' ? '📱 QR' : '✏️ Manual'}
                     </td>
                     <td className="px-4 py-3 font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                      {new Date(rec.markedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      {dateToEthiopianTime(new Date(rec.markedAt))}
                     </td>
                   </motion.tr>
                 ))}

@@ -10,6 +10,7 @@ import { Header } from '@/src/components/layout/Header';
 import { MobileNav } from '@/src/components/layout/MobileNav';
 import { DashboardView } from '@/src/components/DashboardView';
 import { MyCoursesView } from '@/src/components/MyCoursesView';
+import { MyTimetableView } from '@/src/components/MyTimetableView';
 import { GradesView } from '@/src/components/GradesView';
 import { FinancialsView } from '@/src/components/FinancialsView';
 import { DegreeAuditView } from '@/src/components/DegreeAuditView';
@@ -25,7 +26,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, BookOpen, ClipboardList, GraduationCap,
   CreditCard, BarChart3, HelpCircle, X, ChevronRight,
-  Settings, LogOut, CalendarCheck,
+  Settings, LogOut, CalendarCheck, CalendarDays,
 } from 'lucide-react';
 import {
   initialStudentProfile,
@@ -45,13 +46,15 @@ import {
   type DegreeAudit,
 } from '@/src/lib/studentApi';
 import { useSocket } from '@/src/context/SocketContext';
+import { toEthiopianTimeRange } from '@/src/lib/utils';
 
 // ── Tabs that require a complete profile ──────────────────────────────────────
 const LOCKED_TABS: NavTab[] = [
-  'my_courses', 'registration', 'assignments', 'quizzes',
-  'grades', 'financials', 'degree_audit',
+  'registration', 'financials', 'degree_audit',
 ];
-// 'attendance' is NOT locked — students can always view their attendance
+// 'assignments', 'quizzes', 'attendance', 'my_courses' are accessible so student can interact with courses & quizzes
+
+  const isProfileIncomplete = false;
 
 // ── DAY names for timetable ───────────────────────────────────────────────────
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -72,7 +75,7 @@ function mapApiCourse(c: CourseDetail, assignments: any[]): Course {
     progress: c.progress,
     assignmentsDueText: pendingCount > 0 ? `${pendingCount} Assignment${pendingCount > 1 ? 's' : ''} Due` : undefined,
     schedule: c.timetables?.length
-      ? c.timetables.map(t => `${DAY_NAMES[t.dayOfWeek]} ${t.startTime}–${t.endTime}`).join(', ')
+      ? c.timetables.map(t => `${DAY_NAMES[t.dayOfWeek]} ${toEthiopianTimeRange(t.startTime, t.endTime)}`).join(', ')
       : 'TBA',
     room: typeof c.room === 'string' ? c.room : (c.room ? `${(c.room as any).building} ${(c.room as any).name}` : 'TBA'),
     description: c.course?.description ?? '',
@@ -346,6 +349,7 @@ export default function StudentDashboardPage() {
   const studentNavItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
     { id: 'dashboard',    label: 'Dashboard',            icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'my_courses',   label: 'My Courses',           icon: <BookOpen className="w-4 h-4" /> },
+    { id: 'timetable',    label: 'My Timetable',         icon: <CalendarDays className="w-4 h-4" /> },
     { id: 'assignments',  label: 'Assignments',          icon: <ClipboardList className="w-4 h-4" /> },
     { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-4 h-4" /> },
     { id: 'attendance',   label: 'My Attendance',        icon: <CalendarCheck className="w-4 h-4" /> },
@@ -398,10 +402,12 @@ export default function StudentDashboardPage() {
       case 'my_courses':
       case 'registration':
         return <MyCoursesView enrolledCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses} setActiveTab={handleTabChange} />;
+      case 'timetable':
+        return <MyTimetableView />;
       case 'assignments':
         return <StudentAssignmentsView enrolledCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses} setActiveTab={handleTabChange} />;
       case 'quizzes':
-        return <StudentQuizzesView />;
+        return <StudentQuizzesView enrolledCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses} />;
       case 'attendance':
         return <StudentAttendanceView />;
       case 'grades':

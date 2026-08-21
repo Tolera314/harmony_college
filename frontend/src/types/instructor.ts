@@ -6,6 +6,7 @@
 export type InstructorNavTab =
   | 'overview'
   | 'my_classes'
+  | 'schedule'
   | 'attendance'
   | 'students'
   | 'grades'

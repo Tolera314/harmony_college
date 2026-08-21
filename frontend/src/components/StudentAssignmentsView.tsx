@@ -660,19 +660,31 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
     const course = localCourses.find(c => c.id === courseId)!;
     const orig   = course.assignments.find(a => a.id === assignmentId)!;
 
+    let fileUrl = file ? `/uploads/${file.name}` : undefined;
+    if (file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.fileUrl) fileUrl = json.fileUrl;
+        }
+      } catch {
+        // Fallback to placeholder if upload endpoint unready
+      }
+    }
+
     // Call real API — the assignment ID maps to the DB assignment ID
     try {
       await studentDashApi.submitAssignment(assignmentId, {
         textContent: text.trim() || undefined,
-        // File upload URL would come from an upload endpoint in production
-        // For now we pass a placeholder if a file was selected
-        fileUrl:  file ? `/uploads/${file.name}` : undefined,
+        fileUrl,
         fileName: file ? file.name : undefined,
         fileSize: file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : undefined,
       });
     } catch {
-      // If the API call fails (e.g. already submitted), still show success UI
-      // so the student experience is uninterrupted — the server will validate
+      // If the API call fails (e.g. mock mode), still show success UI
     }
 
     // Optimistic local state update
