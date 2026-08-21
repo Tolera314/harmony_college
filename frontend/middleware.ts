@@ -3,10 +3,6 @@ import { verifyJWT } from '@/src/lib/auth';
 
 export const runtime = 'nodejs';
 
-/**
- * Routes that require an authenticated session.
- * Unauthenticated visitors are redirected to /signin?from=<pathname>.
- */
 const PROTECTED_ROUTES = [
   '/dashboard',
   '/welcome',
@@ -15,18 +11,43 @@ const PROTECTED_ROUTES = [
   '/profile',
 ];
 
-/**
- * Routes only accessible when NOT authenticated.
- * Authenticated users are redirected to their role dashboard.
- */
 const AUTH_ONLY_ROUTES = ['/signin', '/apply'];
 
-/**
- * Routes that are always public — skip all redirect logic.
- * /verify-email must be reachable by unauthenticated users who click
- * an email verification link.
- */
 const ALWAYS_PUBLIC = ['/verify-email', '/forgot-password', '/reset-password', '/link-account'];
+
+// ── Silent token refresh ──────────────────────────────────────────────────────
+// When the accessToken is missing/expired but a refreshToken cookie exists,
+// call the backend refresh endpoint from the middleware before deciding whether
+// to redirect. This prevents the "click sidebar → /signin" loop entirely.
+async function silentRefresh(req: NextRequest): Promise<{
+  newAccessToken: string | null;
+  response: NextResponse | null;
+}> {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
+
+  try {
+    const refreshToken = req.cookies.get('refreshToken')?.value;
+    if (!refreshToken) return { newAccessToken: null, response: null };
+
+    const refreshRes = await fetch(`${backendUrl}/api/auth/refresh`, {
+      method:  'POST',
+      headers: {
+        cookie: `refreshToken=${refreshToken}`,
+      },
+    });
+
+    if (!refreshRes.ok) return { newAccessToken: null, response: null };
+
+    // Extract new accessToken from the Set-Cookie header
+    const setCookie = refreshRes.headers.get('set-cookie') ?? '';
+    const match = setCookie.match(/accessToken=([^;]+)/);
+    const newAccessToken = match?.[1] ?? null;
+
+    return { newAccessToken, response: null };
+  } catch {
+    return { newAccessToken: null, response: null };
+  }
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -36,17 +57,32 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Accept new accessToken cookie; fall back to legacy session cookie
-  const token =
+  // Read existing access token
+  let token =
     req.cookies.get('accessToken')?.value ??
     req.cookies.get('session')?.value ??
     null;
 
-  const session = token ? await verifyJWT(token) : null;
+  let session = token ? await verifyJWT(token) : null;
+
+  // ── Silent refresh when token is missing/expired ──────────────────────────
+  // Only attempt if the route actually needs auth (avoids unnecessary calls
+  // on every public page load).
+  const needsAuth = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
+  const isAuthOnly = AUTH_ONLY_ROUTES.some((r) => pathname.startsWith(r));
+
+  if (!session && (needsAuth || isAuthOnly)) {
+    const { newAccessToken } = await silentRefresh(req);
+    if (newAccessToken) {
+      token   = newAccessToken;
+      session = await verifyJWT(newAccessToken);
+    }
+  }
+
   const isAuthenticated = session !== null;
 
   // ── Redirect authenticated users away from auth-only routes ──────────────
-  if (isAuthenticated && AUTH_ONLY_ROUTES.some((r) => pathname.startsWith(r))) {
+  if (isAuthenticated && session && isAuthOnly) {
     const role             = session.role             as string  | undefined;
     const profileCompleted = session.profileCompleted as boolean | undefined;
 
@@ -68,7 +104,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // ── Redirect unauthenticated users away from protected routes ─────────────
-  if (!isAuthenticated && PROTECTED_ROUTES.some((r) => pathname.startsWith(r))) {
+  if (!isAuthenticated && needsAuth) {
     const loginUrl = new URL('/signin', req.url);
     loginUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(loginUrl);
@@ -76,7 +112,7 @@ export async function middleware(req: NextRequest) {
 
   // ── Student profile-completion gate ──────────────────────────────────────
   if (
-    isAuthenticated &&
+    isAuthenticated && session &&
     pathname.startsWith('/dashboard/student') &&
     (session.role as string) === 'STUDENT' &&
     (session.profileCompleted as boolean | undefined) === false
@@ -84,7 +120,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/welcome', req.url));
   }
 
-  return NextResponse.next();
+  // ── If we got a fresh token from silent refresh, set it on the response ───
+  // This refreshes the browser's cookie so subsequent requests work too.
+  const res = NextResponse.next();
+  if (session && token && token !== (req.cookies.get('accessToken')?.value ?? req.cookies.get('session')?.value)) {
+    res.cookies.set('accessToken', token, {
+      httpOnly: true,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path:     '/',
+      maxAge:   3600, // 1 hour — matches backend ACCESS_TOKEN_EXPIRES_IN=1h
+    });
+  }
+
+  return res;
 }
 
 export const config = {

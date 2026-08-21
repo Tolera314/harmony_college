@@ -15,7 +15,9 @@ import registrarRouter   from './routes/registrar';
 import studentDashRouter from './routes/studentDashboard';
 import attendanceRouter  from './routes/attendance';
 import instructorRouter  from './routes/instructor';
-import { initSocket } from './lib/socket';
+import aiRouter          from './routes/ai';
+import adminRouter       from './routes/admin';
+import { initSocket }    from './lib/socket';
 import {
   loginLimiter, registerLimiter, refreshLimiter,
   verifyLimiter, resendLimiter, verifyStatusLimiter,
@@ -49,18 +51,18 @@ app.use(express.urlencoded({ extended: true }));
 // Files are served through POST /api/uploads/:filename (authenticated below).
 
 // ── Auth-specific rate limiters (must be before route handlers) ───────────────
-app.use('/api/auth/login',               loginLimiter);
-app.use('/api/auth/signin',              loginLimiter);        // legacy alias
-app.use('/api/auth/register',            registerLimiter);
-app.use('/api/auth/refresh',             refreshLimiter);
-app.use('/api/auth/verify/phone',        verifyLimiter);
-app.use('/api/auth/verify/email',        verifyLimiter);
-app.use('/api/auth/verify/resend',       resendLimiter);
-app.use('/api/auth/verification-status', verifyStatusLimiter);
+app.use('/api/auth/login',                    loginLimiter);
+app.use('/api/auth/signin',                   loginLimiter);        // legacy alias
+app.use('/api/auth/register',                 registerLimiter);
+app.use('/api/auth/refresh',                  refreshLimiter);
+app.use('/api/auth/verify/phone',             verifyLimiter);
+app.use('/api/auth/verify/email',             verifyLimiter);
+app.use('/api/auth/verify/resend',            resendLimiter);
+app.use('/api/auth/verification-status',      verifyStatusLimiter);
 app.use('/api/auth/forgot-password',          forgotPasswordLimiter);
 app.use('/api/auth/forgot-password/phone-otp', resetPasswordLimiter);
-app.use('/api/auth/reset-password',            resetPasswordLimiter);
-app.use('/api/auth/reset-password/validate',   verifyStatusLimiter);
+app.use('/api/auth/reset-password',           resetPasswordLimiter);
+app.use('/api/auth/reset-password/validate',  verifyStatusLimiter);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth',      authRouter);
@@ -73,11 +75,13 @@ app.use('/api/upload',    authenticate, uploadRouter);
 app.use('/api/advisor',   authenticate, advisorRouter);
 
 app.use('/api/chat',              chatRouter);
-app.use('/api/student',          studentRouter);
+app.use('/api/student',           studentRouter);
 app.use('/api/student/dashboard', studentDashRouter);
 app.use('/api/registrar',         registrarRouter);
-app.use('/api/attendance',        attendanceRouter);
 app.use('/api/instructor',        instructorRouter);
+app.use('/api/admin',             adminRouter);
+app.use('/api/attendance',        attendanceRouter);
+app.use('/api/ai',                aiRouter);
 
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {

@@ -69,13 +69,24 @@ function getPostAuthDestination(role: string, profileCompleted: boolean): string
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-/** Short-lived access token cookie (15 min, readable on every request path). */
+/** Parses a duration string like "15m", "1h", "7d" into seconds. */
+function parseDurationSeconds(val: string, fallback: number): number {
+  const n = parseInt(val, 10);
+  if (isNaN(n)) return fallback;
+  if (val.endsWith('h')) return n * 3600;
+  if (val.endsWith('d')) return n * 86400;
+  if (val.endsWith('m')) return n * 60;
+  return n; // treat bare number as seconds
+}
+
+/** Short-lived access token cookie — lifetime driven by ACCESS_TOKEN_EXPIRES_IN. */
 function setAccessTokenCookie(res: Response, token: string): void {
+  const seconds = parseDurationSeconds(process.env.ACCESS_TOKEN_EXPIRES_IN ?? '1h', 3600);
   res.cookie('accessToken', token, {
     httpOnly: true,
     secure:   IS_PROD,
     sameSite: 'lax',
-    maxAge:   (parseInt(process.env.ACCESS_TOKEN_EXPIRES_IN ?? '900', 10) || 900) * 1000,
+    maxAge:   seconds * 1000,
     path:     '/',
   });
 }

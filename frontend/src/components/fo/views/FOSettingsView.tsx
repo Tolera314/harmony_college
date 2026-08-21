@@ -167,7 +167,7 @@ export const FOSettingsView: React.FC = () => {
                 ))}
                 <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-default) space-y-1">
                   <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Requirements</p>
-                  {['At least 8 characters','One uppercase letter','One number','One special character'].map((r) => (
+                  {['At least 8 characters','At least one letter','At least one number','Letters and numbers only'].map((r) => (
                     <div key={r} className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-(--active-overlay)" />
                       <span className="font-sans text-xs text-(--text-muted)">{r}</span>

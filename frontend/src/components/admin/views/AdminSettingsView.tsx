@@ -165,7 +165,7 @@ export const AdminSettingsView: React.FC = () => {
                 <Input label="Current Password" type="password" required value={pw.currentPassword} onChange={e => setPw({ ...pw, currentPassword: e.target.value })} />
                 <Input label="New Password" type="password" required value={pw.newPassword} onChange={e => setPw({ ...pw, newPassword: e.target.value })} />
                 <Input label="Confirm New Password" type="password" required value={pw.confirmPassword} onChange={e => setPw({ ...pw, confirmPassword: e.target.value })} />
-                <p className="text-[11px] text-(--text-faint)">Must be 8+ chars with uppercase, lowercase, digit, and special character. All other sessions will be revoked.</p>
+                <p className="text-[11px] text-(--text-faint)">Must be 8+ characters using only letters and numbers. All other sessions will be revoked.</p>
                 <div className="flex justify-end">
                   <Button variant="primary" type="submit" icon={<Save className="w-4 h-4" />} disabled={pwSaving}>
                     {pwSaving ? 'Updating...' : 'Update Password'}
