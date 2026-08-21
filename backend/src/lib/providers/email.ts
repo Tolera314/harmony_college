@@ -20,4 +20,18 @@ export interface EmailProvider {
       expiresInMinutes: number;
     }
   ): Promise<{ success: boolean; error?: string }>;
+
+  /**
+   * General-purpose HR notification email.
+   * Used for leave approval/rejection, payroll approval, contract expiry alerts.
+   */
+  sendHrNotificationEmail(
+    to: string,
+    params: {
+      recipientName: string;
+      subject:       string;
+      heading:       string;
+      body:          string;  // plain-text body, will be rendered as simple HTML
+    }
+  ): Promise<{ success: boolean; error?: string }>;
 }

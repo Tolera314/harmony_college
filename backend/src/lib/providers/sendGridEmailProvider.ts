@@ -45,4 +45,15 @@ export class SendGridEmailProvider implements EmailProvider {
     return this.send(to, 'Reset your Harmony College password',
       `Hello ${params.fullName}, reset your password: ${params.resetLink} (expires in ${params.expiresInMinutes} min). If you did not request this, ignore this email.`);
   }
+
+  async sendHrNotificationEmail(
+    to: string,
+    params: { recipientName: string; subject: string; heading: string; body: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    return this.send(
+      to,
+      params.subject,
+      `Dear ${params.recipientName},\n\n${params.body}\n\n— Harmony College HR System`,
+    );
+  }
 }

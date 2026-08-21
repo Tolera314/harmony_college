@@ -1,94 +1,145 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { Bell, CheckCheck } from 'lucide-react';
-import { HRNavTab, HRNotification } from '../../../types/hr';
+import { HRNavTab } from '../../../types/hr';
+import { hrNotificationsApi, type HRNotificationApi, type HRNotifType } from '../../../lib/hrApi';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { EmptyState } from '../../ui/States';
 import { Button } from '../../ui/Button';
+import { SkeletonPage, ErrorState } from '../../ui/States';
 
 interface HRNotificationsViewProps {
-  notifications: HRNotification[];
-  onMarkRead: (id: string) => void;
-  onMarkAllRead: () => void;
   setActiveTab: (tab: HRNavTab) => void;
+  onUnreadCountChange?: (count: number) => void;
 }
 
-const typeConfig: Record<HRNotification['type'], { dot: string; badge: 'gold'|'amber'|'rose'|'emerald'|'glass' }> = {
-  leave:       { dot: 'bg-(--status-warning)',   badge: 'amber' },
-  payroll:     { dot: 'bg-[#E9C349]',   badge: 'gold' },
-  performance: { dot: 'bg-(--status-info)',     badge: 'glass' },
-  contract:    { dot: 'bg-(--status-danger)',    badge: 'rose' },
-  onboarding:  { dot: 'bg-(--status-success)', badge: 'emerald' },
-  system:      { dot: 'bg-(--text-faint)',    badge: 'glass' },
+const typeConfig: Record<HRNotifType, { dot: string; badge: 'gold'|'amber'|'rose'|'emerald'|'glass' }> = {
+  LEAVE:       { dot: 'bg-(--brand-gold)',       badge: 'gold'    },
+  PAYROLL:     { dot: 'bg-(--status-success)',    badge: 'emerald' },
+  PERFORMANCE: { dot: 'bg-(--status-info)',       badge: 'glass'   },
+  CONTRACT:    { dot: 'bg-(--status-warning)',    badge: 'amber'   },
+  ONBOARDING:  { dot: 'bg-purple-500',            badge: 'glass'   },
+  SYSTEM:      { dot: 'bg-(--text-faint)',        badge: 'glass'   },
 };
 
-export const HRNotificationsView: React.FC<HRNotificationsViewProps> = ({
-  notifications, onMarkRead, onMarkAllRead, setActiveTab,
-}) => {
-  const [filter, setFilter] = useState<'all'|'unread'>('all');
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const displayed = filter === 'unread' ? notifications.filter(n => !n.read) : notifications;
+const typeLabel: Record<HRNotifType, string> = {
+  LEAVE: 'Leave', PAYROLL: 'Payroll', PERFORMANCE: 'Performance',
+  CONTRACT: 'Contract', ONBOARDING: 'Onboarding', SYSTEM: 'System',
+};
+
+export const HRNotificationsView: React.FC<HRNotificationsViewProps> = ({ setActiveTab, onUnreadCountChange }) => {
+  const [notifications, setNotifications] = useState<HRNotificationApi[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const list = await hrNotificationsApi.list();
+      setNotifications(list);
+      onUnreadCountChange?.(list.filter(n => !n.isRead).length);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load notifications'); }
+    finally { setLoading(false); }
+  }, [onUnreadCountChange]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await hrNotificationsApi.markRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      onUnreadCountChange?.(notifications.filter(n => !n.isRead && n.id !== id).length);
+    } catch { /* fail silently */ }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await hrNotificationsApi.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      onUnreadCountChange?.(0);
+    } catch { /* fail silently */ }
+  };
+
+  const unread = notifications.filter(n => !n.isRead);
+
+  if (loading) return <SkeletonPage />;
+  if (error)   return <ErrorState variant="network" onRetry={load} description={error} />;
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
         title="Notifications"
-        subtitle={`${unreadCount} unread`}
+        subtitle={`${unread.length} unread · ${notifications.length} total`}
         icon={<Bell className="w-5 h-5" />}
         actions={
-          unreadCount > 0
-            ? <Button variant="secondary" size="sm" icon={<CheckCheck className="w-4 h-4" />} onClick={onMarkAllRead}>Mark all read</Button>
-            : undefined
+          unread.length > 0
+            ? <Button variant="secondary" size="sm" icon={<CheckCheck className="w-4 h-4" />} onClick={handleMarkAllRead}>
+                Mark All Read
+              </Button>
+            : null
         }
       />
 
-      <div className="flex gap-2">
-        {(['all', 'unread'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all capitalize ${filter === f ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
-            {f === 'unread' ? `Unread (${unreadCount})` : 'All'}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        {displayed.length === 0 ? (
-          <EmptyState
-            variant="notifications"
-            description={filter === 'unread' ? 'All caught up — no unread notifications.' : 'No notifications yet.'}
-            compact
-          />
-        ) : displayed.map(n => {
-          const cfg = typeConfig[n.type];
-          return (
-            <motion.div
-              key={n.id}
-              layout
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              onClick={() => { onMarkRead(n.id); setActiveTab(n.tab); }}
-              className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all ${
-                !n.read ? 'bg-(--hover-overlay) border-(--border-strong) hover:bg-(--hover-overlay)' : 'bg-transparent border-(--border-subtle) hover:bg-(--hover-overlay)'
-              }`}
-            >
-              <div className={`mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ${n.read ? 'bg-(--active-overlay)' : cfg.dot}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className={`font-sans text-sm font-semibold ${n.read ? 'text-(--text-secondary)' : 'text-(--text-primary)'}`}>{n.title}</p>
-                  <Badge variant={cfg.badge} className="text-[10px]">{n.type}</Badge>
-                  {!n.read && <span className="font-mono text-[10px] text-(--brand-gold)">NEW</span>}
+      {notifications.length === 0 ? (
+        <EmptyState variant="notifications" description="No notifications at this time." />
+      ) : (
+        <div className="space-y-2">
+          {notifications.map(notif => {
+            const cfg = typeConfig[notif.type] ?? typeConfig.SYSTEM;
+            return (
+              <motion.div key={notif.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                className={`flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer ${
+                  !notif.isRead
+                    ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border)'
+                    : 'bg-(--hover-overlay) border-(--border-subtle) opacity-70'
+                }`}
+                onClick={() => {
+                  if (!notif.isRead) handleMarkRead(notif.id);
+                  setActiveTab(notif.tab as HRNavTab);
+                }}>
+                {/* Dot */}
+                <div className="mt-1.5 shrink-0">
+                  <span className={`block w-2.5 h-2.5 rounded-full ${!notif.isRead ? cfg.dot : 'bg-(--border-default)'}`} />
                 </div>
-                <p className="font-sans text-xs text-(--text-muted) leading-relaxed mt-1">{n.message}</p>
-                <p className="font-mono text-[10px] text-(--text-faint) mt-2">{n.timestamp}</p>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+
+                {/* Employee avatar */}
+                {notif.employee && (
+                  <img src={notif.employee.avatarUrl ?? '/tigist.png'} alt="" className="w-9 h-9 rounded-full border border-(--border-default) shrink-0 object-cover" />
+                )}
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <p className={`font-sans text-sm font-semibold leading-snug ${!notif.isRead ? 'text-(--text-primary)' : 'text-(--text-secondary)'}`}>
+                      {notif.title}
+                    </p>
+                    <Badge variant={cfg.badge} className="text-[10px] shrink-0">{typeLabel[notif.type]}</Badge>
+                    {!notif.isRead && <Badge variant="gold" className="text-[9px] shrink-0">New</Badge>}
+                  </div>
+                  <p className="font-sans text-xs leading-relaxed text-(--text-muted) line-clamp-2">{notif.message}</p>
+                  <p className="font-mono text-[10px] text-(--text-faint) mt-1.5">
+                    {new Date(notif.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+
+                {/* Mark read button */}
+                {!notif.isRead && (
+                  <button
+                    onClick={e => { e.stopPropagation(); handleMarkRead(notif.id); }}
+                    className="shrink-0 p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-faint) hover:text-(--text-primary) transition-colors"
+                    title="Mark as read">
+                    <CheckCheck className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </motion.div>
   );
 };

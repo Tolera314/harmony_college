@@ -541,7 +541,7 @@ export const InAttendanceView: React.FC = () => {
                       transition={{ duration: 0.8, ease: 'easeOut' }} />
                   </div>
                   <p className="font-sans text-[10px] mt-2" style={{ color: 'var(--text-faint)' }}>
-                    {roster.length} enrolled · {selectedSession?.startTime ? toEthiopianTimeRange(selectedSession.startTime, selectedSession.endTime ?? selectedSession.startTime) : ''}
+                    {roster.length} enrolled · {selectedClassSession?.startTime ? toEthiopianTimeRange(selectedClassSession.startTime, selectedClassSession.endTime ?? selectedClassSession.startTime) : ''}
                   </p>
                 </div>
 
@@ -568,7 +568,7 @@ export const InAttendanceView: React.FC = () => {
                               <div className="min-w-0">
                                 <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{rec.fullName}</p>
                                 <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                                  {dateToEthiopianTime(new Date(rec.markedAt))}
+                                  {rec.markedAt ? dateToEthiopianTime(new Date(rec.markedAt)) : '—'}
                                   {rec.method === 'QR' && ' · QR'}
                                 </p>
                               </div>
