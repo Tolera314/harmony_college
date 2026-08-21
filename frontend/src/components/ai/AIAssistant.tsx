@@ -156,6 +156,7 @@ export function AIAssistant() {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ messages: history }),
         signal: abortRef.current.signal,
       });

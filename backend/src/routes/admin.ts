@@ -7,7 +7,7 @@ import { Router, Response, Request } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
-import { Role, AccountStatus } from '@prisma/client';
+import { Role, AccountStatus, StudentStatus, CourseStatus, ApplicationStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { PASSWORD_BCRYPT_ROUNDS } from '../types/auth';
 import * as svc from '../services/admin/userManagementService';
@@ -71,11 +71,12 @@ router.post('/users', async (req: AuthRequest, res) => {
       fullName: z.string().min(2).max(100),
       email:    z.string().email().optional().or(z.literal('')),
       phone:    z.string().min(10).max(13).optional().or(z.literal('')),
-      password: z.string().min(8)
-        .regex(/[A-Z]/, 'Must contain uppercase')
-        .regex(/[a-z]/, 'Must contain lowercase')
-        .regex(/[0-9]/, 'Must contain digit')
-        .regex(/[^A-Za-z0-9]/, 'Must contain special character'),
+      password: z.string()
+        .min(8, 'Password must be at least 8 characters long')
+        .max(128, 'Password must be at most 128 characters long')
+        .regex(/^[A-Za-z0-9]+$/, 'Password must contain only letters and numbers')
+        .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
       role: z.nativeEnum(Role),
     });
     const parsed = schema.safeParse(req.body);
@@ -227,11 +228,162 @@ router.patch('/notifications/:id/read', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// STUDENT MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/admin/students
+router.get('/students', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await svc.listStudents({
+      page, limit,
+      search:       qp.search,
+      programId:    qp.programId,
+      departmentId: qp.departmentId,
+      status:       qp.status as StudentStatus | undefined,
+      yearLevel:    qp.yearLevel ? parseInt(qp.yearLevel, 10) : undefined,
+      sortBy:       qp.sortBy,
+      sortOrder:    qp.sortOrder as 'asc' | 'desc' | undefined,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/students/:id
+router.get('/students/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getStudentById(pid(req))); } catch (e) { fail(res, e); }
+});
+
+// POST /api/admin/students
+router.post('/students', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      fullName:     z.string().min(2).max(100),
+      email:        z.string().email().optional().or(z.literal('')),
+      phone:        z.string().min(10).max(13).optional().or(z.literal('')),
+      password:     z.string().min(8, 'Password must be at least 8 characters long'),
+      programId:    z.string().uuid(),
+      departmentId: z.string().uuid(),
+      studentId:    z.string().optional(),
+      yearLevel:    z.number().int().min(1).max(7).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    const { email, phone, ...rest } = parsed.data;
+    ok(res, await svc.createStudent(
+      { ...rest, email: email || undefined, phone: phone || undefined },
+      req.user!.userId, ip(req)
+    ), 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/admin/students/:id
+router.patch('/students/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      fullName:     z.string().min(2).max(100).optional(),
+      email:        z.string().email().optional(),
+      phone:        z.string().optional(),
+      programId:    z.string().uuid().optional(),
+      departmentId: z.string().uuid().optional(),
+      status:       z.nativeEnum(StudentStatus).optional(),
+      yearLevel:    z.number().int().min(1).max(7).optional(),
+      gpa:          z.number().min(0).max(4.0).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.updateStudent(pid(req), parsed.data, req.user!.userId, ip(req)));
+  } catch (e) { fail(res, e, 400); }
+});
+
+// DELETE /api/admin/students/:id
+router.delete('/students/:id', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await svc.deleteStudent(pid(req), req.user!.userId, ip(req)));
+  } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LECTURER & STAFF MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/admin/instructors
+router.get('/instructors', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await svc.listInstructors({
+      page, limit,
+      search:       qp.search,
+      departmentId: qp.departmentId,
+      isActive:     qp.isActive === 'true' ? true : qp.isActive === 'false' ? false : undefined,
+      sortBy:       qp.sortBy,
+      sortOrder:    qp.sortOrder as 'asc' | 'desc' | undefined,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/instructors/:id
+router.get('/instructors/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getInstructorById(pid(req))); } catch (e) { fail(res, e); }
+});
+
+// POST /api/admin/instructors
+router.post('/instructors', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      fullName:       z.string().min(2).max(100),
+      email:          z.string().email().optional().or(z.literal('')),
+      phone:          z.string().min(10).max(13).optional().or(z.literal('')),
+      password:       z.string().min(8, 'Password must be at least 8 characters long'),
+      employeeId:     z.string().optional(),
+      title:          z.string().optional(),
+      specialization: z.string().optional(),
+      departmentId:   z.string().uuid(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    const { email, phone, ...rest } = parsed.data;
+    ok(res, await svc.createInstructor(
+      { ...rest, email: email || undefined, phone: phone || undefined },
+      req.user!.userId, ip(req)
+    ), 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/admin/instructors/:id
+router.patch('/instructors/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      fullName:       z.string().min(2).max(100).optional(),
+      email:          z.string().email().optional(),
+      phone:          z.string().optional(),
+      title:          z.string().optional(),
+      specialization: z.string().optional(),
+      departmentId:   z.string().uuid().optional(),
+      isActive:       z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.updateInstructor(pid(req), parsed.data, req.user!.userId, ip(req)));
+  } catch (e) { fail(res, e, 400); }
+});
+
+// DELETE /api/admin/instructors/:id
+router.delete('/instructors/:id', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await svc.deleteInstructor(pid(req), req.user!.userId, ip(req)));
+  } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // DEPARTMENTS
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/departments', async (_req, res) => {
   try { ok(res, await svc.listDepartments()); } catch (e) { fail(res, e); }
+});
+
+router.get('/departments/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getDepartmentById(pid(req))); } catch (e) { fail(res, e); }
 });
 
 router.post('/departments', async (req: AuthRequest, res) => {
@@ -260,12 +412,20 @@ router.patch('/departments/:id', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e, 400); }
 });
 
+router.delete('/departments/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.deleteDepartment(pid(req))); } catch (e) { fail(res, e, 400); }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // PROGRAMS
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/programs', async (req: AuthRequest, res) => {
   try { ok(res, await svc.listPrograms(q(req).departmentId)); } catch (e) { fail(res, e); }
+});
+
+router.get('/programs/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getProgramById(pid(req))); } catch (e) { fail(res, e); }
 });
 
 router.post('/programs', async (req: AuthRequest, res) => {
@@ -296,6 +456,235 @@ router.patch('/programs/:id', async (req: AuthRequest, res) => {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
     ok(res, await svc.updateProgram(pid(req), parsed.data));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.delete('/programs/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.deleteProgram(pid(req))); } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COURSES
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/courses', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await svc.listCourses({
+      page, limit,
+      search:       qp.search,
+      departmentId: qp.departmentId,
+      status:       qp.status as CourseStatus | undefined,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/courses/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getCourseById(pid(req))); } catch (e) { fail(res, e); }
+});
+
+router.post('/courses', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      code:            z.string().min(2).max(20),
+      name:            z.string().min(3).max(200),
+      description:     z.string().optional(),
+      creditHours:     z.number().int().min(1).max(10).optional(),
+      departmentId:    z.string().uuid(),
+      status:          z.nativeEnum(CourseStatus).optional(),
+      prerequisiteIds: z.array(z.string().uuid()).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.createCourse(parsed.data), 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.patch('/courses/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name:            z.string().min(3).optional(),
+      description:     z.string().optional(),
+      creditHours:     z.number().int().min(1).max(10).optional(),
+      departmentId:    z.string().uuid().optional(),
+      status:          z.nativeEnum(CourseStatus).optional(),
+      prerequisiteIds: z.array(z.string().uuid()).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.updateCourse(pid(req), parsed.data));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.delete('/courses/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.deleteCourse(pid(req))); } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ACADEMIC YEARS
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/academic-years', async (_req, res) => {
+  try { ok(res, await svc.listAcademicYears()); } catch (e) { fail(res, e); }
+});
+
+router.get('/academic-years/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getAcademicYearById(pid(req))); } catch (e) { fail(res, e); }
+});
+
+router.post('/academic-years', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name:      z.string().min(4),
+      startDate: z.string(),
+      endDate:   z.string(),
+      isCurrent: z.boolean().optional(),
+      isActive:  z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.createAcademicYear({
+      ...parsed.data,
+      startDate: new Date(parsed.data.startDate),
+      endDate:   new Date(parsed.data.endDate),
+    }), 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.patch('/academic-years/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name:      z.string().min(4).optional(),
+      startDate: z.string().optional(),
+      endDate:   z.string().optional(),
+      isCurrent: z.boolean().optional(),
+      isActive:  z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    const { startDate, endDate, ...rest } = parsed.data;
+    ok(res, await svc.updateAcademicYear(pid(req), {
+      ...rest,
+      ...(startDate && { startDate: new Date(startDate) }),
+      ...(endDate   && { endDate:   new Date(endDate) }),
+    }));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.delete('/academic-years/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.deleteAcademicYear(pid(req))); } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SEMESTERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/semesters', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.listSemesters(q(req).academicYearId)); } catch (e) { fail(res, e); }
+});
+
+router.get('/semesters/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getSemesterById(pid(req))); } catch (e) { fail(res, e); }
+});
+
+router.post('/semesters', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name:              z.string().min(2),
+      academicYearId:    z.string().uuid(),
+      startDate:         z.string(),
+      endDate:           z.string(),
+      registrationStart: z.string(),
+      registrationEnd:   z.string(),
+      addDropDeadline:   z.string(),
+      isCurrent:         z.boolean().optional(),
+      isActive:          z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.createSemester({
+      ...parsed.data,
+      startDate:         new Date(parsed.data.startDate),
+      endDate:           new Date(parsed.data.endDate),
+      registrationStart: new Date(parsed.data.registrationStart),
+      registrationEnd:   new Date(parsed.data.registrationEnd),
+      addDropDeadline:   new Date(parsed.data.addDropDeadline),
+    }), 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.patch('/semesters/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name:              z.string().min(2).optional(),
+      startDate:         z.string().optional(),
+      endDate:           z.string().optional(),
+      registrationStart: z.string().optional(),
+      registrationEnd:   z.string().optional(),
+      addDropDeadline:   z.string().optional(),
+      isCurrent:         z.boolean().optional(),
+      isActive:          z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    const { startDate, endDate, registrationStart, registrationEnd, addDropDeadline, ...rest } = parsed.data;
+    ok(res, await svc.updateSemester(pid(req), {
+      ...rest,
+      ...(startDate         && { startDate:         new Date(startDate) }),
+      ...(endDate           && { endDate:           new Date(endDate) }),
+      ...(registrationStart && { registrationStart: new Date(registrationStart) }),
+      ...(registrationEnd   && { registrationEnd:   new Date(registrationEnd) }),
+      ...(addDropDeadline   && { addDropDeadline:   new Date(addDropDeadline) }),
+    }));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.delete('/semesters/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.deleteSemester(pid(req))); } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMISSIONS MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/admissions', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await svc.listAdmissions({
+      page, limit,
+      search:       qp.search,
+      status:       qp.status as ApplicationStatus | undefined,
+      program:      qp.program,
+      academicYear: qp.academicYear,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/admissions/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getAdmissionById(pid(req))); } catch (e) { fail(res, e); }
+});
+
+router.patch('/admissions/:id/status', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      status:  z.nativeEnum(ApplicationStatus),
+      comment: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Invalid status or input' }); return; }
+    ok(res, await svc.updateAdmissionStatus(pid(req), parsed.data.status, req.user!.userId, parsed.data.comment));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.patch('/admissions/:id/onboarding', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      status: z.enum(['APPROVED', 'REJECTED']),
+      reason: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Invalid status or reason' }); return; }
+    ok(res, await svc.reviewOnboarding(pid(req), parsed.data.status, req.user!.userId, parsed.data.reason));
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -348,11 +737,12 @@ router.post('/settings/password', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       currentPassword: z.string().min(1),
-      newPassword:     z.string().min(8)
-        .regex(/[A-Z]/, 'Must contain uppercase letter')
-        .regex(/[a-z]/, 'Must contain lowercase letter')
-        .regex(/[0-9]/, 'Must contain a digit')
-        .regex(/[^A-Za-z0-9]/, 'Must contain a special character'),
+      newPassword:     z.string()
+        .min(8, 'Password must be at least 8 characters long')
+        .max(128, 'Password must be at most 128 characters long')
+        .regex(/^[A-Za-z0-9]+$/, 'Password must contain only letters and numbers')
+        .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
       confirmPassword: z.string(),
     }).refine(d => d.newPassword === d.confirmPassword, {
       message: 'Passwords do not match', path: ['confirmPassword'],

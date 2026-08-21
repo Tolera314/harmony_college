@@ -25,9 +25,9 @@ function analyzePassword(pw: string): StrengthResult {
 
   if (pw.length >= 8)  score++;  else hints.push('At least 8 characters');
   if (pw.length >= 12) score++;  else if (pw.length >= 8) hints.push('12+ chars is stronger');
-  if (/[A-Z]/.test(pw)) score++; else hints.push('Add an uppercase letter');
+  if (/[A-Za-z]/.test(pw)) score++; else hints.push('Add at least one letter');
   if (/[0-9]/.test(pw)) score++; else hints.push('Include a number');
-  if (/[^A-Za-z0-9]/.test(pw)) score++; else hints.push('Add a symbol (!@#...)');
+  if (/^[A-Za-z0-9]+$/.test(pw)) score++; else hints.push('Use only letters and numbers');
 
   // cap at 4
   const capped = Math.min(score, 4);

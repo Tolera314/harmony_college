@@ -186,15 +186,8 @@ export default function WelcomePage() {
 
   // ── Congratulations overlay for brand-new students ────────────────────────
   const handleCongratsClose = () => {
-    // Mark as shown for this session so it won't appear again on refresh
     const userId = state.account.userId;
     if (userId) sessionStorage.setItem(`congrats_shown_${userId}`, '1');
-    // Play applause sound
-    try {
-      const audio = new Audio('/sounds/pwlpl-applause-sound-effect-521104.mp3');
-      audio.volume = 0.55;
-      audio.play().catch(() => {});
-    } catch { /* ignore */ }
     setShowCongrats(false);
   };
 
@@ -245,6 +238,104 @@ export default function WelcomePage() {
 }
 
 // ── Inline confetti for the congratulations screen ───────────────────────────
+
+interface CongratsScreenProps {
+  state: OnboardingState;
+  onClose: () => void;
+}
+
+function CongratsScreen({ state, onClose }: CongratsScreenProps) {
+  const firstName = state.account.fullName.split(' ')[0] || 'Student';
+
+  // Play applause sound the moment the card appears — not on button click
+  React.useEffect(() => {
+    try {
+      const audio = new Audio('/sounds/pwlpl-applause-sound-effect-521104.mp3');
+      audio.volume = 0.6;
+      audio.play().catch(() => {});
+    } catch { /* browser blocked autoplay — silent */ }
+  }, []);
+
+  const handleContinue = () => {
+    onClose(); // marks congrats as seen in sessionStorage
+    window.location.href = '/onboarding/about';
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <CongratsConfetti />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.85, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        className="relative z-10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
+        style={{ backgroundColor: 'rgba(15,15,16,0.96)', border: '1px solid var(--accent-gold-border)', backdropFilter: 'blur(24px)' }}
+      >
+        {/* Gold top bar */}
+        <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold))' }} />
+
+        <div className="p-8 text-center space-y-6">
+          {/* Icon */}
+          <motion.div
+            initial={{ scale: 0, rotate: -30 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.15 }}
+            className="w-20 h-20 rounded-full mx-auto flex items-center justify-center"
+            style={{ background: 'radial-gradient(circle, rgba(233,195,73,0.25), transparent)', border: '2px solid var(--accent-gold-border)' }}
+          >
+            <GraduationCap className="w-10 h-10" style={{ color: 'var(--brand-gold)' }} />
+          </motion.div>
+
+          {/* Message */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="space-y-2"
+          >
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              Welcome, {firstName}!
+            </h1>
+            <p className="text-sm font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              Your account has been created successfully.
+            </p>
+            <p className="text-sm font-sans" style={{ color: 'var(--text-muted)' }}>
+              You are successfully part of the{' '}
+              <span className="font-semibold" style={{ color: 'var(--brand-gold)' }}>
+                Harmony College
+              </span>{' '}
+              community.
+            </p>
+          </motion.div>
+
+          {/* Application number card */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left"
+            style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}
+          >
+            <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: 'var(--status-success)' }} />
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Application Number</p>
+              <p className="font-mono font-bold text-sm" style={{ color: 'var(--brand-gold)' }}>
+                {state.applicationNumber}
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Continue button → /onboarding/about */}
+          <motion.button
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+            onClick={handleContinue}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold font-sans transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))', color: 'var(--bg-base)' }}
+          >
+            Continue <ArrowRight className="w-4 h-4" />
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 const CONFETTI_COLOURS = ['#E9C349','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#ffffff'];
 
 function CongratsConfetti() {
