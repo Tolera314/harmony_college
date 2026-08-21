@@ -1,15 +1,12 @@
 'use client';
 
 /**
- * /onboarding/about — "About Harmony College" onboarding page
+ * /onboarding/about
  *
- * Step 1 — College intro (read-only)
- * Step 2 — Pay registration fee (mandatory, hard-blocking)
- * Step 3 — Department selection (mandatory, hard-blocking)
- * Step 4 — Dashboard access granted → redirect to /dashboard/student
- *
- * The screenshot-upload / registrar-approval flow continues to exist
- * as a soft reminder inside the dashboard (non-blocking).
+ * Step 1 — College intro
+ * Step 2 — Pay registration fee: select method → upload payment screenshot → confirm
+ * Step 3 — Select department
+ * Step 4 — Done (redirect to dashboard)
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -19,35 +16,66 @@ import {
   GraduationCap, Building2, BookOpen, Users, Award,
   Camera, Music, Palette, Globe, Headphones, Film, Stethoscope,
   ArrowRight, ArrowLeft, CheckCircle2, CreditCard,
-  Banknote, Smartphone, AlertCircle,
+  Banknote, Smartphone, AlertCircle, Upload, X,
 } from 'lucide-react';
 import { OnboardingBackground } from './OnboardingBackground';
 import { Button } from '@/src/components/ui/Button';
 
 // ── types ─────────────────────────────────────────────────────────────────────
 interface Dept { id: string; name: string; code: string; description: string | null; }
-interface Prereqs { feePaid: boolean; departmentSelected: boolean; selectedDepartmentId: string | null; }
 
-// ── API helper ────────────────────────────────────────────────────────────────
+// ── API helper with auto-refresh on 401 ───────────────────────────────────────
+let refreshing: Promise<boolean> | null = null;
+async function tryRefresh(): Promise<boolean> {
+  if (refreshing) return refreshing;
+  refreshing = fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
+    .then(r => r.ok).catch(() => false).finally(() => { refreshing = null; });
+  return refreshing;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const doFetch = () => fetch(path, {
     ...init,
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
+  let res = await doFetch();
+  if (res.status === 401) {
+    const ok = await tryRefresh();
+    if (!ok) throw new Error('SESSION_EXPIRED');
+    res = await doFetch();
+  }
   const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
   if (!res.ok) throw new Error((data as any).error ?? `Request failed: ${res.status}`);
   return data as T;
 }
 
-// ── static college content ────────────────────────────────────────────────────
+/** Upload a file (multipart/form-data) with auto token refresh on 401. */
+async function uploadFile(formData: FormData): Promise<{ fileUrl: string }> {
+  const doFetch = () => fetch('/api/upload', {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+    // No Content-Type header — browser sets it automatically with the boundary
+  });
+  let res = await doFetch();
+  if (res.status === 401) {
+    const ok = await tryRefresh();
+    if (!ok) throw new Error('SESSION_EXPIRED');
+    res = await doFetch();
+  }
+  const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+  if (!res.ok) throw new Error((data as any).error ?? 'Upload failed');
+  return data as { fileUrl: string };
+}
+
+// ── Static college content ────────────────────────────────────────────────────
 const STATS = [
   { value: '500+', label: 'Students',  icon: Users },
   { value: '16+',  label: 'Programs',  icon: BookOpen },
   { value: '90%',  label: 'Placement', icon: Award },
   { value: '2015', label: 'Founded',   icon: GraduationCap },
 ];
-
 const PROGRAMS = [
   { name: 'Photography & Videography',   icon: Camera,      color: '#E9C349' },
   { name: 'Theatrical Art & Filmmaking', icon: Film,        color: '#a78bfa' },
@@ -58,7 +86,43 @@ const PROGRAMS = [
   { name: 'Pharmacy',                    icon: Stethoscope, color: '#4ade80' },
 ];
 
-// ── Step 1 — College Intro ─────────────────────────────────────────────────────
+// ── Payment methods ───────────────────────────────────────────────────────────
+const PAYMENT_METHODS = [
+  { id: 'telebirr', label: 'TeleBirr',        icon: Smartphone, detail: 'Pay via TeleBirr mobile wallet' },
+  { id: 'cbe',      label: 'CBE Birr',         icon: Smartphone, detail: 'Commercial Bank of Ethiopia app' },
+  { id: 'bank',     label: 'Bank Transfer',    icon: Banknote,   detail: 'CBE / Dashen / Awash Bank' },
+  { id: 'cash',     label: 'Pay at Campus',    icon: CreditCard, detail: 'Admissions Office, Burayu' },
+];
+
+const BANK_DETAILS: Record<string, { label: string; value: string }[]> = {
+  telebirr: [
+    { label: 'Account Name', value: 'Harmony College PLC' },
+    { label: 'TeleBirr No.', value: '0911 234 567' },
+    { label: 'Amount',       value: 'ETB 500' },
+    { label: 'Reference',    value: 'Your Full Name + Phone' },
+  ],
+  cbe: [
+    { label: 'Account Name', value: 'Harmony College PLC' },
+    { label: 'Account No.',  value: '1000 5678 9012 345' },
+    { label: 'Bank',         value: 'Commercial Bank of Ethiopia' },
+    { label: 'Reference',    value: 'Your Full Name + Phone' },
+  ],
+  bank: [
+    { label: 'Bank',         value: 'CBE / Dashen / Awash' },
+    { label: 'Account Name', value: 'Harmony College PLC' },
+    { label: 'Account No.',  value: '1000 5678 9012 345' },
+    { label: 'Reference',    value: 'Your Full Name + Phone' },
+  ],
+  cash: [
+    { label: 'Location', value: 'Admissions Office, Burayu Campus' },
+    { label: 'Hours',    value: 'Mon–Fri 8:00am–5:00pm' },
+    { label: 'Amount',   value: 'ETB 500 (cash only)' },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP 1 — College Intro
+// ─────────────────────────────────────────────────────────────────────────────
 function StepIntro({ onNext }: { onNext: () => void }) {
   return (
     <motion.div key="intro" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
@@ -134,16 +198,54 @@ function StepIntro({ onNext }: { onNext: () => void }) {
   );
 }
 
-// ── Step 2 — Registration Fee Payment ─────────────────────────────────────────
-const PAYMENT_METHODS = [
-  { id: 'bank',   label: 'Bank Transfer',    icon: Banknote,    detail: 'CBE / Dashen / Awash Bank' },
-  { id: 'mobile', label: 'Mobile Banking',   icon: Smartphone,  detail: 'TeleBirr / M-Pesa / HelloCash' },
-  { id: 'cash',   label: 'Pay at Campus',    icon: CreditCard,  detail: 'Admissions Office, Burayu' },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP 2 — Pay + Upload Screenshot
+// ─────────────────────────────────────────────────────────────────────────────
+function StepPayment({
+  onNext, onBack, saving,
+}: {
+  onNext: (screenshotUrl: string) => void;
+  onBack: () => void;
+  saving: boolean;
+}) {
+  const [method, setMethod]     = useState('');
+  const [file, setFile]         = useState<File | null>(null);
+  const [preview, setPreview]   = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [error, setError]       = useState('');
 
-function StepPayment({ onNext, onBack, saving }: { onNext: () => void; onBack: () => void; saving: boolean }) {
-  const [method, setMethod] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
+  const handleFile = (f: File) => {
+    if (!f.type.startsWith('image/') && f.type !== 'application/pdf') {
+      setError('Only images (JPG/PNG) or PDF are accepted.'); return;
+    }
+    if (f.size > 10 * 1024 * 1024) { setError('File must be under 10 MB.'); return; }
+    setError('');
+    setFile(f);
+    if (f.type.startsWith('image/')) setPreview(URL.createObjectURL(f));
+    else setPreview('');
+  };
+
+  const handleSubmit = async () => {
+    if (!method)  { setError('Please select a payment method.'); return; }
+    if (!file)    { setError('Please upload a screenshot of your payment receipt.'); return; }
+    setUploading(true); setError('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const { fileUrl } = await uploadFile(form);
+      onNext(fileUrl);
+    } catch (e: any) {
+      if (e.message === 'SESSION_EXPIRED') {
+        setError('Your session expired. Please sign in again.');
+        return;
+      }
+      setError(e.message ?? 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const details = method ? BANK_DETAILS[method] : null;
 
   return (
     <motion.div key="payment" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
@@ -152,7 +254,7 @@ function StepPayment({ onNext, onBack, saving }: { onNext: () => void; onBack: (
       <div>
         <h2 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Registration Fee</h2>
         <p className="text-sm font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
-          A one-time registration fee is required to confirm your place at Harmony College.
+          Pay the one-time ETB 500 registration fee, then upload your payment screenshot.
         </p>
       </div>
 
@@ -170,93 +272,129 @@ function StepPayment({ onNext, onBack, saving }: { onNext: () => void; onBack: (
         </div>
       </div>
 
-      {/* Payment method */}
+      {/* Payment method selector */}
       <div className="space-y-2">
-        <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>Select payment method</p>
-        {PAYMENT_METHODS.map(pm => {
-          const Icon = pm.icon;
-          const sel = method === pm.id;
-          return (
-            <button key={pm.id} type="button" onClick={() => setMethod(pm.id)}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all"
-              style={{
-                backgroundColor: sel ? 'var(--accent-gold-subtle)' : 'var(--bg-card)',
-                border: `1px solid ${sel ? 'var(--accent-gold-border)' : 'var(--border-card)'}`,
-              }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: sel ? 'var(--brand-gold)' : 'var(--hover-overlay)' }}>
-                <Icon className="w-5 h-5" style={{ color: sel ? 'var(--bg-base)' : 'var(--text-muted)' }} />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>{pm.label}</p>
-                <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>{pm.detail}</p>
-              </div>
-              {sel && <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-gold)' }} />}
-            </button>
-          );
-        })}
+        <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>
+          1. Select payment method
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {PAYMENT_METHODS.map(pm => {
+            const Icon = pm.icon;
+            const sel = method === pm.id;
+            return (
+              <button key={pm.id} type="button" onClick={() => setMethod(pm.id)}
+                className="flex items-center gap-3 p-3 rounded-2xl text-left transition-all"
+                style={{
+                  backgroundColor: sel ? 'var(--accent-gold-subtle)' : 'var(--bg-card)',
+                  border: `1px solid ${sel ? 'var(--accent-gold-border)' : 'var(--border-card)'}`,
+                }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: sel ? 'var(--brand-gold)' : 'var(--hover-overlay)' }}>
+                  <Icon className="w-4 h-4" style={{ color: sel ? 'var(--bg-base)' : 'var(--text-muted)' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold font-sans truncate" style={{ color: 'var(--text-primary)' }}>{pm.label}</p>
+                  <p className="text-[10px] font-sans truncate" style={{ color: 'var(--text-muted)' }}>{pm.detail}</p>
+                </div>
+                {sel && <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: 'var(--brand-gold)' }} />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Bank details (shown when bank transfer selected) */}
-      {method === 'bank' && (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-2xl space-y-2"
-          style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
-          <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>Bank Transfer Details</p>
-          {[
-            ['Bank', 'Commercial Bank of Ethiopia (CBE)'],
-            ['Account Name', 'Harmony College PLC'],
-            ['Account No.', '1000 5678 9012 345'],
-            ['Reference', 'Your Full Name + Phone'],
-          ].map(([k, v]) => (
-            <div key={k} className="flex justify-between text-xs font-sans">
-              <span style={{ color: 'var(--text-faint)' }}>{k}</span>
-              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{v}</span>
-            </div>
-          ))}
-        </motion.div>
-      )}
+      {/* Payment details */}
+      <AnimatePresence>
+        {details && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+            className="p-4 rounded-2xl space-y-2"
+            style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
+            <p className="text-xs font-semibold font-sans mb-2" style={{ color: 'var(--text-secondary)' }}>Payment Details</p>
+            {details.map(({ label, value }) => (
+              <div key={label} className="flex justify-between text-xs font-sans">
+                <span style={{ color: 'var(--text-faint)' }}>{label}</span>
+                <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</span>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Confirmation checkbox */}
-      <label className="flex items-start gap-3 cursor-pointer">
-        <div className="relative w-5 h-5 shrink-0 mt-0.5">
-          <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
-            className="peer appearance-none w-5 h-5 rounded-md border-2 cursor-pointer"
-            style={{ borderColor: confirmed ? 'var(--brand-gold)' : 'var(--border-strong)', backgroundColor: confirmed ? 'var(--brand-gold)' : 'transparent' }} />
-          {confirmed && (
-            <svg className="absolute inset-0 w-5 h-5 pointer-events-none" viewBox="0 0 20 20">
-              <polyline points="4,11 8,15 16,6" fill="none" stroke="var(--bg-base)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+      {/* Screenshot upload */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>
+          2. Upload payment screenshot
+        </p>
+        <div
+          className="relative rounded-2xl transition-all cursor-pointer"
+          style={{ border: '2px dashed var(--border-strong)', backgroundColor: 'var(--hover-overlay)', minHeight: 140 }}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+          onClick={() => document.getElementById('payment-file-input')?.click()}
+        >
+          <input id="payment-file-input" type="file" accept="image/*,.pdf" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+          {preview ? (
+            <div className="relative">
+              <img src={preview} alt="Receipt preview" className="w-full max-h-48 object-contain rounded-2xl" />
+              <button type="button" onClick={e => { e.stopPropagation(); setFile(null); setPreview(''); }}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}>
+                <X className="w-3.5 h-3.5" style={{ color: 'var(--status-danger)' }} />
+              </button>
+            </div>
+          ) : file ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <CheckCircle2 className="w-8 h-8" style={{ color: 'var(--status-success)' }} />
+              <p className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>{file.name}</p>
+              <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>{(file.size / 1024).toFixed(0)} KB · Click to change</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}>
+                <Upload className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>
+                  Drag & drop or click to upload
+                </p>
+                <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--text-faint)' }}>JPG, PNG or PDF · Max 10 MB</p>
+              </div>
+            </div>
           )}
         </div>
-        <span className="text-xs font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          I confirm that I have paid the ETB 500 registration fee and understand it is non-refundable.
-        </span>
-      </label>
+      </div>
+
+      {error && (
+        <p className="text-xs font-sans" style={{ color: 'var(--status-danger)' }}>{error}</p>
+      )}
 
       <div className="flex items-start gap-2 p-3 rounded-xl"
         style={{ backgroundColor: 'var(--status-info-bg)', border: '1px solid var(--status-info-border)' }}>
         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--status-info)' }} />
         <p className="text-xs font-sans" style={{ color: 'var(--text-secondary)' }}>
-          Keep your payment receipt — you'll need to upload a screenshot of it as proof of registration.
+          Make sure your name and the amount (ETB 500) are clearly visible in the screenshot.
         </p>
       </div>
 
       <div className="flex gap-3 pt-2">
         <Button variant="secondary" size="md" onClick={onBack} icon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
-        <Button variant="gold" size="md" className="flex-1" onClick={onNext}
-          disabled={!method || !confirmed || saving}
-          icon={saving
+        <Button variant="gold" size="md" className="flex-1" onClick={handleSubmit}
+          disabled={!method || !file || uploading || saving}
+          icon={uploading || saving
             ? <span className="w-4 h-4 border-2 border-[var(--bg-base)]/30 border-t-[var(--bg-base)] rounded-full animate-spin" />
             : <ArrowRight className="w-4 h-4" />}>
-          {saving ? 'Confirming…' : 'Confirm Payment'}
+          {uploading ? 'Uploading…' : saving ? 'Confirming…' : 'Confirm & Continue'}
         </Button>
       </div>
     </motion.div>
   );
 }
 
-// ── Step 3 — Department Selection ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP 3 — Department Selection
+// ─────────────────────────────────────────────────────────────────────────────
 function StepDepartment({
   departments, selected, onSelect, onNext, onBack, saving,
 }: {
@@ -329,7 +467,9 @@ function StepDepartment({
   );
 }
 
-// ── Step 4 — All Done, redirecting ────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP 4 — Done
+// ─────────────────────────────────────────────────────────────────────────────
 function StepDone() {
   return (
     <motion.div key="done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
@@ -347,44 +487,47 @@ function StepDone() {
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 export function AboutOnboardingInner() {
   const router = useRouter();
 
-  // steps: 1=intro, 2=payment, 3=department, 4=done
   const [step, setStep]               = useState<1 | 2 | 3 | 4>(1);
   const [departments, setDepartments] = useState<Dept[]>([]);
   const [selectedDept, setSelectedDept] = useState('');
   const [saving, setSaving]           = useState(false);
   const [loaded, setLoaded]           = useState(false);
 
-  // ── Auth guard + check if prereqs are already met ────────────────────────
+  // Auth guard — also handles expired tokens via the apiFetch refresh logic
   useEffect(() => {
     const init = async () => {
-      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-      if (!meRes.ok) { router.replace('/signin'); return; }
-      const me = await meRes.json();
+      // Use apiFetch so 401 triggers a refresh automatically
+      let me: { authenticated: boolean; user?: { role: string } };
+      try {
+        me = await apiFetch<{ authenticated: boolean; user?: { role: string } }>('/api/auth/me');
+      } catch (e: any) {
+        if (e.message === 'SESSION_EXPIRED') { router.replace('/signin'); return; }
+        router.replace('/signin'); return;
+      }
+
       if (!me.authenticated) { router.replace('/signin'); return; }
       if (me.user?.role !== 'STUDENT') { router.replace('/dashboard/student'); return; }
 
-      // Check prereqs — if both done, skip straight to dashboard
+      // Check prereqs — resume from where they left off
       try {
-        const prereqs = await apiFetch<{ feePaid: boolean; departmentSelected: boolean; selectedDepartmentId: string | null }>(
-          '/api/student/onboarding/prereqs'
-        );
+        const prereqs = await apiFetch<{
+          feePaid: boolean; departmentSelected: boolean; selectedDepartmentId: string | null;
+        }>('/api/student/onboarding/prereqs');
+
         if (prereqs.feePaid && prereqs.departmentSelected) {
           router.replace('/dashboard/student'); return;
         }
-        // Resume from where they left off
-        if (prereqs.feePaid) {
-          setStep(3); // already paid, go to dept
-        }
-        if (prereqs.selectedDepartmentId) {
-          setSelectedDept(prereqs.selectedDepartmentId);
-        }
-      } catch { /* treat as fresh */ }
+        if (prereqs.feePaid) setStep(3);
+        if (prereqs.selectedDepartmentId) setSelectedDept(prereqs.selectedDepartmentId);
+      } catch { /* treat as fresh start */ }
 
-      // Load departments for step 3
+      // Load departments
       try {
         const depts = await apiFetch<Dept[]>('/api/admin/departments');
         setDepartments(depts);
@@ -392,24 +535,31 @@ export function AboutOnboardingInner() {
 
       setLoaded(true);
     };
+
     init().catch(() => router.replace('/signin'));
   }, [router]);
 
-  // ── Step 2 → 3: confirm payment ──────────────────────────────────────────
-  const handlePaymentConfirm = useCallback(async () => {
+  // Step 2 → 3: upload screenshot + record payment
+  const handlePaymentConfirm = useCallback(async (screenshotUrl: string) => {
     setSaving(true);
     try {
+      // Submit screenshot to the existing screenshot endpoint
+      await apiFetch('/api/student/onboarding/screenshot', {
+        method: 'PATCH',
+        body: JSON.stringify({ screenshotUrl }),
+      });
+      // Mark fee as paid
       await apiFetch('/api/student/onboarding/payment', { method: 'PATCH' });
       setStep(3);
     } catch {
-      // Non-fatal — still advance so we don't hard-block on a network blip
+      // Non-fatal — still advance
       setStep(3);
     } finally {
       setSaving(false);
     }
   }, []);
 
-  // ── Step 3 → 4: save department then redirect ────────────────────────────
+  // Step 3 → 4: save department then redirect
   const handleDeptConfirm = useCallback(async () => {
     if (!selectedDept) return;
     setSaving(true);
@@ -420,12 +570,10 @@ export function AboutOnboardingInner() {
       });
     } catch { /* non-fatal */ }
     setStep(4);
-    // Short pause so the "done" animation is visible, then redirect
     setTimeout(() => router.replace('/dashboard/student'), 1200);
     setSaving(false);
   }, [selectedDept, router]);
 
-  // ── Loading spinner ───────────────────────────────────────────────────────
   if (!loaded) {
     return (
       <OnboardingBackground>
@@ -436,7 +584,6 @@ export function AboutOnboardingInner() {
     );
   }
 
-  // ── Step indicator labels ─────────────────────────────────────────────────
   const STEPS = ['About', 'Payment', 'Department', 'Done'];
 
   return (
@@ -455,13 +602,10 @@ export function AboutOnboardingInner() {
                 <span className="text-[9px] font-mono uppercase tracking-widest block" style={{ color: 'var(--brand-gold)' }}>College</span>
               </div>
             </div>
-
-            {/* Step dots */}
             <div className="flex items-center gap-1.5">
               {STEPS.map((label, i) => {
                 const n = (i + 1) as 1 | 2 | 3 | 4;
-                const done   = step > n;
-                const active = step === n;
+                const done = step > n; const active = step === n;
                 return (
                   <div key={label} className="flex items-center gap-1">
                     <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all"

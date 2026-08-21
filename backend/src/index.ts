@@ -14,7 +14,9 @@ import studentRouter     from './routes/student';
 import registrarRouter   from './routes/registrar';
 import studentDashRouter from './routes/studentDashboard';
 import attendanceRouter  from './routes/attendance';
-import { initSocket } from './lib/socket';
+import aiRouter          from './routes/ai';
+import adminRouter       from './routes/admin';
+import { initSocket }    from './lib/socket';
 import {
   loginLimiter, registerLimiter, refreshLimiter,
   verifyLimiter, resendLimiter, verifyStatusLimiter,
@@ -75,7 +77,9 @@ app.use('/api/chat',              chatRouter);
 app.use('/api/student',          studentRouter);
 app.use('/api/student/dashboard', studentDashRouter);
 app.use('/api/registrar',         registrarRouter);
+app.use('/api/admin',             adminRouter);
 app.use('/api/attendance',        attendanceRouter);
+app.use('/api/ai',                aiRouter);
 
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
