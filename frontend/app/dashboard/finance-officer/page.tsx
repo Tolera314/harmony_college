@@ -10,6 +10,7 @@ import { FOSearchModal }       from '@/src/components/fo/FOSearchModal';
 import { FOLogoutModal }       from '@/src/components/fo/FOLogoutModal';
 import { FOOverviewView }        from '@/src/components/fo/views/FOOverviewView';
 import { FOStudentAccountsView } from '@/src/components/fo/views/FOStudentAccountsView';
+import { FORegistrationPaymentsView } from '@/src/components/fo/views/FORegistrationPaymentsView';
 import { FOPaymentsView }        from '@/src/components/fo/views/FOPaymentsView';
 import { FOReceiptsView }        from '@/src/components/fo/views/FOReceiptsView';
 import { FOOutstandingView }     from '@/src/components/fo/views/FOOutstandingView';
@@ -72,6 +73,7 @@ export default function FinanceOfficerPage() {
       case 'overview':         return <FOOverviewView setActiveTab={setActiveTab} />;
       case 'student_accounts': return <FOStudentAccountsView />;
       case 'payments':         return <FOPaymentsView />;
+      case 'registration_payments': return <FORegistrationPaymentsView />;
       case 'receipts':         return <FOReceiptsView />;
       case 'outstanding':      return <FOOutstandingView />;
       case 'reports':          return <FOReportsView />;

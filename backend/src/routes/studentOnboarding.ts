@@ -25,8 +25,24 @@ import { Role } from '../types/auth';
 const router = Router();
 router.use(authenticate, requireRole([Role.STUDENT]));
 
-// ── GET /api/student/onboarding/prereqs ───────────────────────────────────────
-// Returns the two mandatory flags that gate dashboard access.
+// ── GET /api/student/onboarding/departments ───────────────────────────────────
+// Public list of active departments — used by the onboarding form.
+// Accessible to any authenticated student (no admin role needed).
+router.get('/departments', async (_req, res: Response): Promise<void> => {
+  try {
+    const departments = await prisma.department.findMany({
+      where:   { isActive: true },
+      orderBy: { name: 'asc' },
+      select:  { id: true, name: true, code: true, description: true },
+    });
+    res.status(200).json(departments);
+  } catch (err) {
+    console.error('[onboarding/departments]', err);
+    res.status(500).json({ error: 'Failed to load departments.' });
+  }
+});
+
+// ── GET /api/student/onboarding/prereqs ───────────────────────────────────────// Returns the two mandatory flags that gate dashboard access.
 router.get('/prereqs', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.userId;
@@ -122,7 +138,7 @@ router.patch('/screenshot', async (req: AuthRequest, res: Response): Promise<voi
     const userId = req.user!.userId;
 
     const parsed = z.object({
-      screenshotUrl: z.string().url('Must be a valid URL'),
+      screenshotUrl: z.string().min(1, 'Screenshot URL is required'),
     }).safeParse(req.body);
 
     if (!parsed.success) {

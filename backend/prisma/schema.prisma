@@ -372,11 +372,16 @@ model StudentProfile {
 
   /// Department chosen on the /onboarding/about page (pre-enrollment preference).
   selectedDepartmentId  String?
+  selectedDepartment    Department? @relation(fields: [selectedDepartmentId], references: [id])
   /// Set to true once the student confirms registration fee payment on /onboarding/about.
   registrationFeePaid   Boolean  @default(false)
   registrationFeePaidAt DateTime?
   /// Set to true once the student picks a department on /onboarding/about.
   departmentSelected    Boolean  @default(false)
+  /// Set to true once a Finance Officer verifies the student's registration fee payment.
+  paymentVerifiedByFinance   Boolean   @default(false)
+  paymentVerifiedAt          DateTime?
+  paymentVerifiedByUserId    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -492,6 +497,7 @@ model Department {
   courses          Course[]
   instructors      InstructorRecord[]
   studentRecords   StudentRecord[]
+  onboardingStudents StudentProfile[]
 
   @@index([code])
   @@index([isActive])

@@ -6,6 +6,7 @@ export type FONavTab =
   | 'overview'
   | 'student_accounts'
   | 'payments'
+  | 'registration_payments'
   | 'receipts'
   | 'outstanding'
   | 'reports'

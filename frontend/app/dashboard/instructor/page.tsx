@@ -199,7 +199,14 @@ export default function InstructorDashboardPage() {
       case 'materials':      return <InMaterialsView />;
       case 'announcements':  return <InAnnouncementsView />;
       case 'reports':        return <InReportsView />;
-      case 'notifications':  return <InNotificationsView notifications={headerNotifications} onMarkRead={handleMarkRead} onMarkAllRead={handleMarkAllRead} setActiveTab={setActiveTab} />;
+      case 'notifications':  return (
+          <InNotificationsView
+            notifications={headerNotifications}
+            onMarkRead={handleMarkRead}
+            onMarkAllRead={handleMarkAllRead}
+            setActiveTab={setActiveTab}
+          />
+        );
       case 'audit_log':      return <InAuditLogView />;
       case 'settings':       return <InSettingsView profile={profile} />;
       case 'messages':       return <ChatView />;

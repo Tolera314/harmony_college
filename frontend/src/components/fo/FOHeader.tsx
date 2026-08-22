@@ -25,6 +25,7 @@ const tabLabels: Record<FONavTab, string> = {
   overview:         'Dashboard Overview',
   student_accounts: 'Student Accounts',
   payments:         'Payments',
+  registration_payments: 'Reg. Fee Verification',
   receipts:         'Receipts',
   outstanding:      'Outstanding Accounts',
   reports:          'Financial Reports',

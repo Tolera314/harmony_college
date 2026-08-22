@@ -36,6 +36,7 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
     { id: 'overview',         label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'student_accounts', label: 'Student Accounts',     icon: <Users className="w-5 h-5" /> },
     { id: 'payments',         label: 'Payments',             icon: <CreditCard className="w-5 h-5" /> },
+    { id: 'registration_payments', label: 'Reg. Fee Verification', icon: <ClipboardList className="w-5 h-5" /> },
     { id: 'receipts',         label: 'Receipts',             icon: <Receipt className="w-5 h-5" /> },
     {
       id: 'outstanding', label: 'Outstanding Accounts', icon: <AlertTriangle className="w-5 h-5" />,
