@@ -1,208 +1,462 @@
 /**
- * /api/finance-officer — Finance Officer routes
+ * /api/finance-officer — Finance Officer REST API routes
  * All routes require: authenticate + requireRole([FINANCE_OFFICER, ADMIN, SUPER_ADMIN])
- *
- * POST /api/finance-officer/payments/:userId/verify
- *   Finance Officer marks a student's registration fee payment as verified.
- *   Sets StudentProfile.paymentVerifiedByFinance = true.
- *   After this, the student appears in Registrar → Admissions.
- *
- * POST /api/finance-officer/payments/:userId/unverify
- *   Reverses a mistaken verification.
- *
- * GET /api/finance-officer/payments/pending
- *   Lists students who have paid (registrationFeePaid = true) but whose
- *   payment has NOT yet been verified by Finance Officer.
- *
- * GET /api/finance-officer/payments/verified
- *   Lists students whose payment has been verified.
  */
 
 import { Router, Response } from 'express';
-import { prisma } from '../lib/prisma';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { Role } from '../types/auth';
 
+import * as foOverviewService from '../services/finance/foOverviewService';
+import * as foStudentAccountService from '../services/finance/foStudentAccountService';
+import * as foPaymentService from '../services/finance/foPaymentService';
+import * as foReceiptService from '../services/finance/foReceiptService';
+import * as foReconciliationService from '../services/finance/foReconciliationService';
+import * as foReportService from '../services/finance/foReportService';
+import * as foAuditService from '../services/finance/foAuditService';
+import * as foNotificationService from '../services/finance/foNotificationService';
+import * as foSettingsService from '../services/finance/foSettingsService';
+
 const router = Router();
 const FO_ROLES = [Role.FINANCE_OFFICER, Role.ADMIN, Role.SUPER_ADMIN];
+
 router.use(authenticate, requireRole(FO_ROLES));
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-function ok(res: Response, data: unknown, status = 200) { res.status(status).json(data); }
+function ok(res: Response, data: unknown, status = 200) {
+  res.status(status).json(data);
+}
+
 function fail(res: Response, err: unknown, status = 500) {
   const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
   res.status(status).json({ error: msg });
 }
-function pageParams(query: Record<string, string | undefined>) {
-  const page  = Math.max(1, parseInt(query.page  ?? '1',  10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10) || 20));
-  return { page, limit };
-}
 
-const PROFILE_SELECT = {
-  userId:                   true,
-  registrationFeePaid:      true,
-  registrationFeePaidAt:    true,
-  departmentSelected:       true,
-  paymentVerifiedByFinance:  true,
-  paymentVerifiedAt:        true,
-  paymentVerifiedByUserId:  true,
-  selectedDepartmentId:     true,
-  createdAt:                true,
-  user: {
-    select: { id: true, fullName: true, email: true, phone: true, createdAt: true },
-  },
-  selectedDepartment: {
-    select: { id: true, name: true, code: true },
-  },
-} as const;
+// ── OVERVIEW / DASHBOARD ANITICS ──────────────────────────────────────────────
+router.get('/overview', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await foOverviewService.getOverviewData();
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/overview]', err);
+    fail(res, err);
+  }
+});
 
-// ── GET /api/finance-officer/payments/pending ─────────────────────────────────
-// Students who paid but are not yet verified by Finance Officer
+// ── STUDENT ACCOUNTS ──────────────────────────────────────────────────────────
+router.get('/student-accounts', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foStudentAccountService.listStudentAccounts({
+      search: query.search,
+      departmentId: query.departmentId,
+      paymentStatus: query.paymentStatus,
+      riskLevel: query.riskLevel,
+      page: query.page ? parseInt(query.page, 10) : 1,
+      limit: query.limit ? parseInt(query.limit, 10) : 20,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/student-accounts]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/student-accounts/:studentRecordId', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const studentRecordId = String(req.params.studentRecordId);
+    const data = await foStudentAccountService.getStudentAccountDetail(studentRecordId);
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/student-accounts/:id]', err);
+    fail(res, err, 404);
+  }
+});
+
+router.post('/student-accounts/:studentRecordId/charge', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const studentRecordId = String(req.params.studentRecordId);
+    const { amount, description, category } = req.body;
+    if (!amount || amount <= 0) {
+      res.status(400).json({ error: 'Valid charge amount is required' });
+      return;
+    }
+    const result = await foStudentAccountService.postCharge(
+      studentRecordId,
+      { amount: Number(amount), description: description || 'Fee Charge', category: category || 'Fee' },
+      req.user!.userId
+    );
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName: 'Finance Officer',
+      action: `Posted Charge: ${description || category} (ETB ${amount})`,
+      module: 'Student Accounts',
+      amount: Number(amount),
+    });
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/student-accounts/charge]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.post('/student-accounts/:studentRecordId/credit', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const studentRecordId = String(req.params.studentRecordId);
+    const { amount, description, category } = req.body;
+    if (!amount || amount <= 0) {
+      res.status(400).json({ error: 'Valid credit amount is required' });
+      return;
+    }
+    const result = await foStudentAccountService.postCredit(
+      studentRecordId,
+      { amount: Number(amount), description: description || 'Discount/Scholarship', category: category || 'Scholarship' },
+      req.user!.userId
+    );
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName: 'Finance Officer',
+      action: `Posted Credit/Discount: ${description || category} (ETB ${amount})`,
+      module: 'Student Accounts',
+      amount: Number(amount),
+    });
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/student-accounts/credit]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.post('/student-accounts/:studentRecordId/clearance', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const studentRecordId = String(req.params.studentRecordId);
+    const { clearedForTerm } = req.body;
+    const result = await foStudentAccountService.updateAccountClearance(
+      studentRecordId,
+      { clearedForTerm: clearedForTerm || null },
+      req.user!.userId
+    );
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/student-accounts/clearance]', err);
+    fail(res, err, 400);
+  }
+});
+
+// ── REGISTRATION PAYMENTS VERIFICATION (PRESERVED & ENHANCED) ──────────────────
 router.get('/payments/pending', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const query  = req.query as Record<string, string | undefined>;
-    const { page, limit } = pageParams(query);
-    const skip = (page - 1) * limit;
-    const search = typeof query.search === 'string' ? query.search : undefined;
-
-    const where: any = {
-      registrationFeePaid:      true,
-      paymentVerifiedByFinance:  false,
-    };
-    if (search) {
-      where.user = {
-        OR: [
-          { fullName: { contains: search, mode: 'insensitive' } },
-          { email:    { contains: search, mode: 'insensitive' } },
-          { phone:    { contains: search, mode: 'insensitive' } },
-        ],
-      };
-    }
-
-    const [total, profiles] = await Promise.all([
-      prisma.studentProfile.count({ where }),
-      prisma.studentProfile.findMany({
-        where, skip, take: limit,
-        orderBy: { registrationFeePaidAt: 'desc' },
-        select: PROFILE_SELECT,
-      }),
-    ]);
-
-    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), payments: profiles });
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foPaymentService.getPendingRegistrationPayments(query);
+    ok(res, data);
   } catch (err) {
     console.error('[FO/payments/pending]', err);
     fail(res, err);
   }
 });
 
-// ── GET /api/finance-officer/payments/verified ────────────────────────────────
 router.get('/payments/verified', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const query  = req.query as Record<string, string | undefined>;
-    const { page, limit } = pageParams(query);
-    const skip = (page - 1) * limit;
-    const search = typeof query.search === 'string' ? query.search : undefined;
-
-    const where: any = { paymentVerifiedByFinance: true };
-    if (search) {
-      where.user = {
-        OR: [
-          { fullName: { contains: search, mode: 'insensitive' } },
-          { email:    { contains: search, mode: 'insensitive' } },
-          { phone:    { contains: search, mode: 'insensitive' } },
-        ],
-      };
-    }
-
-    const [total, profiles] = await Promise.all([
-      prisma.studentProfile.count({ where }),
-      prisma.studentProfile.findMany({
-        where, skip, take: limit,
-        orderBy: { paymentVerifiedAt: 'desc' },
-        select: PROFILE_SELECT,
-      }),
-    ]);
-
-    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), payments: profiles });
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foPaymentService.getVerifiedRegistrationPayments(query);
+    ok(res, data);
   } catch (err) {
     console.error('[FO/payments/verified]', err);
     fail(res, err);
   }
 });
 
-// ── POST /api/finance-officer/payments/:userId/verify ────────────────────────
 router.post('/payments/:userId/verify', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = String(req.params.userId);
-
-    const profile = await prisma.studentProfile.findUnique({ where: { userId } });
-    if (!profile) {
-      res.status(404).json({ error: 'Student profile not found. Student has not completed onboarding.' });
-      return;
-    }
-    if (!profile.registrationFeePaid) {
-      res.status(400).json({ error: 'Student has not submitted their registration fee payment yet.' });
-      return;
-    }
-    if (profile.paymentVerifiedByFinance) {
-      res.status(400).json({ error: 'Payment is already verified.' });
-      return;
-    }
-
-    const updated = await prisma.studentProfile.update({
-      where: { userId },
-      data: {
-        paymentVerifiedByFinance:  true,
-        paymentVerifiedAt:        new Date(),
-        paymentVerifiedByUserId:  req.user!.userId,
-      },
-      select: PROFILE_SELECT,
+    const result = await foPaymentService.verifyRegistrationPayment(userId, req.user!.userId);
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName: 'Finance Officer',
+      action: 'Verified Registration Fee Payment',
+      module: 'Admissions & Verifications',
+      previousValue: 'Unverified',
+      newValue: 'Verified',
     });
-
-    // Notify the student
-    try {
-      await prisma.notification.create({
-        data: {
-          userId,
-          title:   'Payment Verified ✓',
-          message: 'Your registration fee payment has been verified by the Finance Office. You now appear in the Registrar\'s admissions queue.',
-          type:    'SUCCESS',
-        },
-      });
-    } catch { /* notification failure must not fail the request */ }
-
-    ok(res, updated);
+    ok(res, result);
   } catch (err) {
     console.error('[FO/payments/verify]', err);
     fail(res, err, 400);
   }
 });
 
-// ── POST /api/finance-officer/payments/:userId/unverify ──────────────────────
 router.post('/payments/:userId/unverify', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = String(req.params.userId);
-
-    const profile = await prisma.studentProfile.findUnique({ where: { userId } });
-    if (!profile) {
-      res.status(404).json({ error: 'Student profile not found.' });
-      return;
-    }
-
-    const updated = await prisma.studentProfile.update({
-      where: { userId },
-      data: {
-        paymentVerifiedByFinance:  false,
-        paymentVerifiedAt:        null,
-        paymentVerifiedByUserId:  null,
-      },
-      select: PROFILE_SELECT,
+    const result = await foPaymentService.unverifyRegistrationPayment(userId);
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName: 'Finance Officer',
+      action: 'Unverified Registration Fee Payment',
+      module: 'Admissions & Verifications',
+      previousValue: 'Verified',
+      newValue: 'Unverified',
     });
-
-    ok(res, updated);
+    ok(res, result);
   } catch (err) {
     console.error('[FO/payments/unverify]', err);
+    fail(res, err, 400);
+  }
+});
+
+// ── DIRECT PAYMENT RECORDING & TRANSACTIONS ───────────────────────────────────
+router.post('/payments/record', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { studentRecordId, amount, paymentMethod, referenceNumber, description, category } = req.body;
+    if (!studentRecordId || !amount || amount <= 0 || !paymentMethod) {
+      res.status(400).json({ error: 'studentRecordId, valid positive amount, and paymentMethod are required' });
+      return;
+    }
+    const result = await foPaymentService.recordStudentPayment(
+      {
+        studentRecordId,
+        amount: Number(amount),
+        paymentMethod,
+        referenceNumber,
+        description,
+        category,
+      },
+      req.user!.userId
+    );
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName: 'Finance Officer',
+      action: `Recorded Payment via ${paymentMethod} (ETB ${amount})`,
+      module: 'Payments & Collections',
+      amount: Number(amount),
+    });
+    ok(res, result, 201);
+  } catch (err) {
+    console.error('[FO/payments/record]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.get('/transactions', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foPaymentService.listTransactions({
+      search: query.search,
+      type: query.type,
+      status: query.status,
+      page: query.page ? parseInt(query.page, 10) : 1,
+      limit: query.limit ? parseInt(query.limit, 10) : 20,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/transactions]', err);
+    fail(res, err);
+  }
+});
+
+router.post('/transactions/:id/reverse', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const { reason } = req.body;
+    const result = await foPaymentService.reverseTransaction(id, reason || 'Transaction reversed by FO', req.user!.userId);
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName: 'Finance Officer',
+      action: `Reversed Transaction ${id}: ${reason || 'N/A'}`,
+      module: 'Transactions',
+      status: 'Warning',
+    });
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/transactions/reverse]', err);
+    fail(res, err, 400);
+  }
+});
+
+// ── RECEIPTS ──────────────────────────────────────────────────────────────────
+router.get('/receipts', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foReceiptService.listReceipts({
+      search: query.search,
+      page: query.page ? parseInt(query.page, 10) : 1,
+      limit: query.limit ? parseInt(query.limit, 10) : 20,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/receipts]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/receipts/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const data = await foReceiptService.getReceiptDetail(id);
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/receipts/:id]', err);
+    fail(res, err, 404);
+  }
+});
+
+// ── OUTSTANDING & REMINDERS ───────────────────────────────────────────────────
+router.get('/outstanding', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foStudentAccountService.listStudentAccounts({
+      paymentStatus: 'Unpaid',
+      search: query.search,
+      page: query.page ? parseInt(query.page, 10) : 1,
+      limit: query.limit ? parseInt(query.limit, 10) : 20,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/outstanding]', err);
+    fail(res, err);
+  }
+});
+
+router.post('/reminders/send', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { studentRecordId, message } = req.body;
+    if (!studentRecordId) {
+      res.status(400).json({ error: 'studentRecordId is required' });
+      return;
+    }
+    const result = await foNotificationService.sendPaymentReminder(studentRecordId, message, req.user!.userId);
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/reminders/send]', err);
+    fail(res, err, 400);
+  }
+});
+
+// ── RECONCILIATION ─────────────────────────────────────────────────────────────
+router.get('/reconciliation', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foReconciliationService.listReconciliationEntries({
+      status: query.status,
+      search: query.search,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/reconciliation]', err);
+    fail(res, err);
+  }
+});
+
+router.post('/reconciliation/:id/match', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const { matchedReceiptId } = req.body;
+    const result = await foReconciliationService.matchReconciliation(id, matchedReceiptId || 'REC-AUTO-MATCH', req.user!.userId);
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/reconciliation/match]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.post('/reconciliation/:id/flag', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const { notes } = req.body;
+    const result = await foReconciliationService.flagReconciliation(id, notes || 'Flagged for review', req.user!.userId);
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/reconciliation/flag]', err);
+    fail(res, err, 400);
+  }
+});
+
+// ── REPORTS ───────────────────────────────────────────────────────────────────
+router.get('/reports/summary', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foReportService.getFinancialSummaryReport(query.period);
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/reports/summary]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/reports/aged-receivables', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await foReportService.getAgedReceivablesReport();
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/reports/aged-receivables]', err);
+    fail(res, err);
+  }
+});
+
+// ── NOTIFICATIONS & AUDIT LOGS ────────────────────────────────────────────────
+router.get('/notifications', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await foNotificationService.getNotifications(req.user!.userId);
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/notifications]', err);
+    fail(res, err);
+  }
+});
+
+router.post('/notifications/read', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { notificationId } = req.body;
+    const result = await foNotificationService.markAsRead(notificationId, req.user!.userId);
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/notifications/read]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.post('/notifications/read-all', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await foNotificationService.markAllAsRead(req.user!.userId);
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/notifications/read-all]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/audit-logs', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = req.query as Record<string, string | undefined>;
+    const data = await foAuditService.getAuditLogs({
+      search: query.search,
+      status: query.status,
+      page: query.page ? parseInt(query.page, 10) : 1,
+      limit: query.limit ? parseInt(query.limit, 10) : 20,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/audit-logs]', err);
+    fail(res, err);
+  }
+});
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+router.get('/settings', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await foSettingsService.getSettings();
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/settings/get]', err);
+    fail(res, err);
+  }
+});
+
+router.put('/settings', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await foSettingsService.updateSettings(req.body);
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/settings/put]', err);
     fail(res, err, 400);
   }
 });
