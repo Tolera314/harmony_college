@@ -15,6 +15,8 @@ import registrarRouter   from './routes/registrar';
 import studentDashRouter from './routes/studentDashboard';
 import attendanceRouter  from './routes/attendance';
 import instructorRouter  from './routes/instructor';
+import studentOnboarding   from './routes/studentOnboarding';
+import financeOfficerRouter from './routes/financeOfficer';
 import aiRouter          from './routes/ai';
 import adminRouter       from './routes/admin';
 import { initSocket }    from './lib/socket';
@@ -76,10 +78,12 @@ app.use('/api/advisor',   authenticate, advisorRouter);
 
 app.use('/api/chat',              chatRouter);
 app.use('/api/student',           studentRouter);
+app.use('/api/student/onboarding', studentOnboarding);
 app.use('/api/student/dashboard', studentDashRouter);
 app.use('/api/registrar',         registrarRouter);
 app.use('/api/instructor',        instructorRouter);
 app.use('/api/admin',             adminRouter);
+app.use('/api/finance-officer',   financeOfficerRouter);
 app.use('/api/attendance',        attendanceRouter);
 app.use('/api/ai',                aiRouter);
 

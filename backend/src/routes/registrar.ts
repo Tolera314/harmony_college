@@ -1273,6 +1273,100 @@ router.delete('/grade-scale/:id', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ONBOARDINGS — view-only list of all student onboarding registrations
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/onboardings', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    const { page, limit } = pageParams(qp);
+    const skip = (page - 1) * limit;
+
+    const searchWhere: any = qp.search ? {
+      user: {
+        OR: [
+          { fullName: { contains: qp.search, mode: 'insensitive' } },
+          { email:    { contains: qp.search, mode: 'insensitive' } },
+          { phone:    { contains: qp.search, mode: 'insensitive' } },
+        ],
+      },
+    } : {};
+
+    const feePaidFilter   = qp.feePaid   !== undefined ? { registrationFeePaid:  qp.feePaid   === 'true' } : {};
+    const deptFilter      = qp.deptSelected !== undefined ? { departmentSelected: qp.deptSelected === 'true' } : {};
+    const where = { ...searchWhere, ...feePaidFilter, ...deptFilter };
+
+    const [total, profiles] = await Promise.all([
+      prisma.studentProfile.count({ where }),
+      prisma.studentProfile.findMany({
+        where, skip, take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          userId:                   true,
+          registrationFeePaid:      true,
+          registrationFeePaidAt:    true,
+          departmentSelected:       true,
+          paymentVerifiedByFinance:  true,
+          paymentVerifiedAt:        true,
+          selectedDepartmentId:     true,
+          createdAt:                true,
+          user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
+          selectedDepartment: { select: { id: true, name: true, code: true } },
+        },
+      }),
+    ]);
+
+    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), onboardings: profiles });
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMISSIONS-READY — students whose payment was verified by Finance Officer
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/admissions-ready', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    const { page, limit } = pageParams(qp);
+    const skip = (page - 1) * limit;
+
+    const where: any = { paymentVerifiedByFinance: true };
+    if (qp.search) {
+      where.user = {
+        OR: [
+          { fullName: { contains: qp.search, mode: 'insensitive' } },
+          { email:    { contains: qp.search, mode: 'insensitive' } },
+          { phone:    { contains: qp.search, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    const [total, profiles] = await Promise.all([
+      prisma.studentProfile.count({ where }),
+      prisma.studentProfile.findMany({
+        where, skip, take: limit,
+        orderBy: { paymentVerifiedAt: 'desc' },
+        select: {
+          userId:                   true,
+          registrationFeePaid:      true,
+          registrationFeePaidAt:    true,
+          departmentSelected:       true,
+          paymentVerifiedByFinance:  true,
+          paymentVerifiedAt:        true,
+          paymentVerifiedByUserId:  true,
+          selectedDepartmentId:     true,
+          createdAt:                true,
+          user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
+          selectedDepartment: { select: { id: true, name: true, code: true } },
+        },
+      }),
+    ]);
+
+    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), admissions: profiles });
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // PUBLIC: Certificate verification (no auth required)
 // ══════════════════════════════════════════════════════════════════════════════
 export { router as registrarRouter };

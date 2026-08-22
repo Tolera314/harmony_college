@@ -6,7 +6,7 @@
 
 const BASE = '';
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     credentials: 'include',
@@ -26,7 +26,7 @@ export interface PaginatedResponse<T> {
   data?: T[];
 }
 
-function qs(params: Record<string, unknown>): string {
+export function qs(params: Record<string, unknown>): string {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== '') p.set(k, String(v));

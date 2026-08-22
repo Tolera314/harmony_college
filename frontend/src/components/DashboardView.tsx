@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavTab, StudentProfile, Course, TimetableEvent, AlertItem } from '../types';
 import {
   Sparkles,
@@ -8,6 +8,7 @@ import {
   ArrowRight,
   MapPin,
   BookOpen,
+  ClipboardCheck,
   ClipboardList,
   X,
   FileText,
@@ -22,6 +23,68 @@ import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
 import { SlidePanel } from './ui/SlidePanel';
+
+// ── Registration Under Review Banner ─────────────────────────────────────────
+// Shows only while paymentVerifiedByFinance is still false (i.e. student
+// has submitted but Finance Officer has not yet verified the payment).
+function RegistrationStatusBanner() {
+  const [status, setStatus] = React.useState<'loading' | 'pending' | 'verified' | 'hidden'>('loading');
+
+  useEffect(() => {
+    fetch('/api/student/onboarding/prereqs', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { setStatus('hidden'); return; }
+        // If both prereqs are met but Finance hasn't verified yet, show banner
+        if (d.feePaid && d.departmentSelected && !d.paymentVerifiedByFinance) {
+          setStatus('pending');
+        } else {
+          setStatus('hidden');
+        }
+      })
+      .catch(() => setStatus('hidden'));
+  }, []);
+
+  if (status === 'loading' || status === 'hidden' || status === 'verified') return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="w-full rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4"
+      style={{
+        background: 'linear-gradient(135deg, rgba(234,179,8,0.08) 0%, rgba(234,179,8,0.03) 100%)',
+        border: '1px solid rgba(234,179,8,0.3)',
+      }}
+      role="status"
+      aria-label="Registration under review"
+    >
+      {/* Icon */}
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+        style={{ backgroundColor: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)' }}>
+        <ClipboardCheck className="w-5 h-5" style={{ color: '#EAB308' }} />
+      </div>
+
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-serif text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+            Registration Status: Under Review
+          </p>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold"
+            style={{ backgroundColor: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.35)', color: '#EAB308' }}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#EAB308' }} />
+            Under Review
+          </span>
+        </div>
+        <p className="text-xs font-sans mt-1 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          Your registration is currently being reviewed by the administration. Please wait for approval.
+        </p>
+      </div>
+    </motion.div>
+  );
+}
 
 interface DashboardViewProps {
   profile: StudentProfile;
@@ -80,6 +143,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }}
       className="space-y-8 pb-8"
     >
+      {/* Registration Under Review banner — shown until payment is verified */}
+      <RegistrationStatusBanner />
+
       {/* 1. Hero Card Banner */}
       <section
         className="relative w-full min-h-80 rounded-3xl overflow-hidden shadow-2xl border"
