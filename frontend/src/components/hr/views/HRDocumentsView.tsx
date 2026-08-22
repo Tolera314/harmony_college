@@ -1,117 +1,271 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
-import { GESTURE, DURATION, EASE } from '@/src/lib/motion';
-import { FolderOpen, Upload, Eye, Download, RefreshCw, Search } from 'lucide-react';
-import { DocumentCategory } from '../../../types/hr';
-import { hrDocuments, employees } from '../../../data/hrData';
+import { DURATION, EASE } from '@/src/lib/motion';
+import { FolderOpen, Search, Plus, Trash2, Download, Upload } from 'lucide-react';
+import {
+  hrDocumentsApi, hrEmployeesApi, type HRDocumentApi, type HREmployeeApi,
+  DOC_CATEGORY_LABEL, type HRDocumentCategory,
+} from '../../../lib/hrApi';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
-import { SlidePanel } from '../../ui/SlidePanel';
+import { ConfirmModal } from '../../ui/ConfirmModal';
+import { SkeletonPage, ErrorState } from '../../ui/States';
 
-const catColor: Record<DocumentCategory, string> = {
-  CV: 'text-(--status-info)', Contract: 'text-(--brand-gold)', 'National ID': 'text-(--status-danger)',
-  Certificate: 'text-(--status-success)', 'Performance Report': 'text-purple-400',
-  Payslip: 'text-(--status-warning)', 'Leave Document': 'text-(--text-secondary)',
+const catVariant: Record<string, 'gold' | 'emerald' | 'glass' | 'amber' | 'rose'> = {
+  CONTRACT: 'gold', CV: 'emerald', NATIONAL_ID: 'glass',
+  CERTIFICATE: 'amber', PERFORMANCE_REPORT: 'glass', PAYSLIP: 'rose', LEAVE_DOCUMENT: 'glass',
 };
 
 export const HRDocumentsView: React.FC = () => {
-  const [search, setSearch] = useState('');
-  const [catFilter, setCatFilter] = useState<'All'|DocumentCategory>('All');
-  const [uploadModal, setUploadModal] = useState(false);
+  const [docs,      setDocs]      = useState<HRDocumentApi[]>([]);
+  const [employees, setEmployees] = useState<HREmployeeApi[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [search,    setSearch]    = useState('');
+  const [catFilter, setCatFilter] = useState('All');
+  const [addModal,  setAddModal]  = useState(false);
+  const [deleteDoc, setDeleteDoc] = useState<HRDocumentApi | null>(null);
+  const [saving,    setSaving]    = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [uploadPct, setUploadPct] = useState(0);
 
-  const filtered = hrDocuments.filter(d => {
-    const q = search.toLowerCase();
-    const emp = employees.find(e => e.id === d.employeeId);
-    const matchQ = !q || d.title.toLowerCase().includes(q) || emp?.name.toLowerCase().includes(q);
-    const matchC = catFilter === 'All' || d.category === catFilter;
-    return matchQ && matchC;
+  // File input ref for actual file upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [form, setForm] = useState({
+    employeeId:  '',
+    category:    'CV' as HRDocumentCategory,
+    title:       '',
+    // populated after upload
+    fileUrl:     '',
+    fileSize:    '',
+    version:     1,
   });
 
-  const categories: DocumentCategory[] = ['CV', 'Contract', 'National ID', 'Certificate', 'Performance Report', 'Payslip', 'Leave Document'];
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [d, em] = await Promise.all([
+        hrDocumentsApi.list({ search: search || undefined, category: catFilter !== 'All' ? catFilter : undefined }),
+        hrEmployeesApi.list({ limit: 200 }),
+      ]);
+      setDocs(d);
+      setEmployees(em.employees);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load documents'); }
+    finally { setLoading(false); }
+  }, [search, catFilter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // ── Upload file to /api/upload, then record document in HR DB ──────────────
+  const handleAddDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.employeeId || !form.title) { setSaveError('Employee and title are required.'); return; }
+    setSaving(true); setSaveError(''); setUploadPct(0);
+
+    try {
+      let fileUrl  = form.fileUrl;
+      let fileSize = form.fileSize;
+
+      const file = fileInputRef.current?.files?.[0];
+      if (file) {
+        // Upload via the existing /api/upload endpoint
+        setUploadPct(20);
+        const fd = new FormData();
+        fd.append('file', file);
+        const uploadRes = await fetch('/api/upload', {
+          method:      'POST',
+          credentials: 'include',
+          body:        fd,
+        });
+        setUploadPct(70);
+        if (!uploadRes.ok) {
+          const body = await uploadRes.json().catch(() => ({}));
+          throw new Error((body as any).error ?? `Upload failed: ${uploadRes.status}`);
+        }
+        const uploadData = await uploadRes.json() as { fileUrl: string };
+        fileUrl  = uploadData.fileUrl;
+        fileSize = `${(file.size / 1024).toFixed(0)} KB`;
+        setUploadPct(90);
+      }
+
+      await hrDocumentsApi.create({ ...form, fileUrl: fileUrl || undefined, fileSize: fileSize || undefined });
+      setUploadPct(100);
+      setAddModal(false);
+      setForm({ employeeId: '', category: 'CV', title: '', fileUrl: '', fileSize: '', version: 1 });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      load();
+    } catch (err) { setSaveError(err instanceof Error ? err.message : 'Upload failed'); }
+    finally { setSaving(false); setUploadPct(0); }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteDoc) return;
+    try { await hrDocumentsApi.delete(deleteDoc.id); load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Delete failed'); }
+    finally { setDeleteDoc(null); }
+  };
+
+  if (loading) return <SkeletonPage />;
+  if (error)   return <ErrorState variant="network" onRetry={load} description={error} />;
+
+  const CATEGORIES = ['All', ...Object.keys(DOC_CATEGORY_LABEL)];
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <DHPageHeader
-        title="HR Documents"
-        subtitle={`${hrDocuments.length} documents stored`}
+        title="Documents"
+        subtitle={`${docs.length} document${docs.length !== 1 ? 's' : ''} on file`}
         icon={<FolderOpen className="w-5 h-5" />}
-        actions={<Button variant="primary" size="sm" icon={<Upload className="w-4 h-4" />} onClick={() => setUploadModal(true)}>Upload Document</Button>}
+        actions={
+          <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => { setAddModal(true); setSaveError(''); }}>
+            Upload Document
+          </Button>
+        }
       />
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1"><Input icon={<Search className="w-4 h-4" />} placeholder="Search by document title or employee..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="flex-1">
+          <Input icon={<Search className="w-4 h-4" />} placeholder="Search by title or employee name…"
+            value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setCatFilter('All')} className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${catFilter === 'All' ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>All</button>
-          {categories.map(c => (
-            <button key={c} onClick={() => setCatFilter(c)} className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${catFilter === c ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>{c}</button>
+          {CATEGORIES.map(c => (
+            <button key={c} onClick={() => setCatFilter(c)}
+              className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${catFilter === c ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
+              {c === 'All' ? 'All' : (DOC_CATEGORY_LABEL as Record<string, string>)[c] ?? c}
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Document grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map(doc => {
-          const emp = employees.find(e => e.id === doc.employeeId);
-          return (
-            <motion.div key={doc.id} whileHover={GESTURE.cardHover} className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 space-y-3 hover:bg-(--hover-overlay) transition-all">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className={`font-mono text-xs font-semibold ${catColor[doc.category]}`}>{doc.category}</span>
-                  <p className="font-sans text-sm font-semibold text-(--text-primary) mt-1 leading-snug">{doc.title}</p>
-                </div>
-                <Badge variant="glass" className="text-[10px] shrink-0">v{doc.version}</Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <img src={emp?.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-(--border-default)" />
-                <span className="font-sans text-xs text-(--text-secondary) truncate">{emp?.name}</span>
-              </div>
-              <div className="flex items-center justify-between text-[10px] font-mono text-(--text-faint)">
-                <span>{doc.fileSize}</span>
-                <span>{doc.uploadedAt}</span>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Preview"><Eye className="w-4 h-4" /></button>
-                <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Download"><Download className="w-4 h-4" /></button>
-                <button className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Replace"><RefreshCw className="w-4 h-4" /></button>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Upload — SlidePanel */}
-      <SlidePanel isOpen={uploadModal} onClose={() => setUploadModal(false)} title="Upload Document" subtitle="HR Documents" width="max-w-md">
-        <div className="space-y-4 font-sans text-sm">
-          <div className="space-y-1.5">
-            <label className="font-sans text-xs font-semibold text-(--text-secondary)">Employee</label>
-            <select className="w-full px-4 py-3 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-sm text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
-              <option className="bg-(--bg-card-solid)">Select employee...</option>
-              {employees.filter(e => e.status === 'Active').map(e => <option key={e.id} className="bg-(--bg-card-solid)" value={e.id}>{e.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="font-sans text-xs font-semibold text-(--text-secondary)">Document Category</label>
-            <select className="w-full px-4 py-3 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-sm text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
-              {categories.map(c => <option key={c} className="bg-(--bg-card-solid)">{c}</option>)}
-            </select>
-          </div>
-          <div className="border-2 border-dashed border-(--border-strong) rounded-xl p-8 text-center hover:border-(--accent-gold-border) transition-colors cursor-pointer">
-            <Upload className="w-8 h-8 text-(--text-faint) mx-auto mb-2" />
-            <p className="text-(--text-muted) text-xs">Click to upload or drag & drop</p>
-            <p className="text-(--text-faint) text-[10px] mt-1 font-mono">PDF, DOCX, JPG up to 20MB</p>
-          </div>
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => setUploadModal(false)}>Cancel</Button>
-            <Button variant="primary" className="flex-1" icon={<Upload className="w-4 h-4" />} onClick={() => setUploadModal(false)}>Upload</Button>
-          </div>
+      {/* Documents grid */}
+      {docs.length === 0 ? (
+        <div className="py-16 text-center text-(--text-faint) text-sm border border-dashed border-(--border-default) rounded-2xl">
+          No documents match your search.
         </div>
-      </SlidePanel>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {docs.map(doc => (
+            <motion.div key={doc.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="p-4 bg-(--hover-overlay) border border-(--border-default) rounded-2xl space-y-3 group hover:border-(--brand-gold)/30 transition-colors">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <Badge variant={catVariant[doc.category] ?? 'glass'} className="text-[10px] mb-2">
+                    {(DOC_CATEGORY_LABEL as Record<string, string>)[doc.category] ?? doc.category}
+                  </Badge>
+                  <p className="font-sans text-xs font-semibold text-(--text-primary) leading-snug truncate">{doc.title}</p>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  {doc.fileUrl && (
+                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                      className="p-1.5 rounded-lg bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors"
+                      download>
+                      <Download className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                  <button onClick={() => setDeleteDoc(doc)}
+                    className="p-1.5 rounded-lg bg-(--hover-overlay) text-(--text-muted) hover:text-(--status-danger) transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs text-(--text-secondary)">
+                <img src={doc.employee?.avatarUrl ?? '/tigist.png'} alt="" className="w-6 h-6 rounded-full border border-(--border-default) shrink-0" />
+                <span className="truncate">{doc.employee?.fullName}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] font-mono text-(--text-faint)">
+                <span>{doc.fileSize ?? 'Unknown size'}</span>
+                <span>v{doc.version} · {new Date(doc.uploadedAt).toLocaleDateString()}</span>
+              </div>
+              <p className="text-[10px] text-(--text-faint)">By {doc.uploadedByName ?? 'HR Office'}</p>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Upload Modal */}
+      <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Upload Document" maxWidth="max-w-md">
+        <form onSubmit={handleAddDocument} className="space-y-4">
+          {saveError && <p className="text-xs text-(--status-danger) bg-(--status-danger-bg) border border-(--status-danger-border) p-3 rounded-xl">{saveError}</p>}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Employee *</label>
+            <select required value={form.employeeId} onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))}
+              className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              <option value="">— Select Employee —</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Category *</label>
+            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value as HRDocumentCategory }))}
+              className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              {Object.entries(DOC_CATEGORY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">Document Title *</label>
+            <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="e.g. Employment Contract — Dr. Ahmed"
+              className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+          </div>
+
+          {/* Real file input */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-(--text-secondary)">File <span className="text-(--text-faint)">(PDF, Word, Image — up to 50 MB)</span></label>
+            <label className="flex items-center gap-3 px-4 py-3 bg-(--hover-overlay) border border-dashed border-(--border-default) rounded-xl cursor-pointer hover:border-(--brand-gold)/60 transition-colors">
+              <Upload className="w-4 h-4 text-(--text-faint) shrink-0" />
+              <span className="text-xs text-(--text-secondary)">
+                {fileInputRef.current?.files?.[0]?.name ?? 'Click to select file'}
+              </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.txt,.mp4"
+                className="hidden"
+                onChange={() => {
+                  const f = fileInputRef.current?.files?.[0];
+                  if (f && !form.title) {
+                    // Auto-fill title from filename if not already set
+                    setForm(prev => ({ ...prev, title: f.name.replace(/\.[^.]+$/, '') }));
+                  }
+                }}
+              />
+            </label>
+          </div>
+
+          {/* Upload progress bar */}
+          {saving && uploadPct > 0 && (
+            <div className="space-y-1">
+              <div className="h-1.5 bg-(--hover-overlay) rounded-full overflow-hidden">
+                <div className="h-full bg-(--brand-gold) rounded-full transition-all duration-300" style={{ width: `${uploadPct}%` }} />
+              </div>
+              <p className="text-[10px] text-(--text-faint) text-center">{uploadPct < 90 ? 'Uploading…' : 'Saving record…'}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" type="button" className="flex-1" onClick={() => setAddModal(false)}>Cancel</Button>
+            <Button variant="gold" type="submit" className="flex-1" disabled={saving}>
+              {saving ? 'Uploading…' : 'Upload Document'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirm */}
+      <ConfirmModal isOpen={!!deleteDoc} onClose={() => setDeleteDoc(null)} onConfirm={handleDelete}
+        title="Delete Document"
+        message={`Permanently delete "${deleteDoc?.title}"? This action cannot be undone.`}
+        icon={<Trash2 className="w-6 h-6" />} variant="danger" confirmLabel="Delete Document" />
     </motion.div>
   );
 };

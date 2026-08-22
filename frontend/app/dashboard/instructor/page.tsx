@@ -201,15 +201,7 @@ export default function InstructorDashboardPage() {
       case 'reports':        return <InReportsView />;
       case 'notifications':  return (
           <InNotificationsView
-            notifications={notifications.map(n => ({
-              id:        n.id,
-              type:      (n.type?.toLowerCase() ?? 'system'),
-              title:     n.title,
-              message:   n.message,
-              timestamp: new Date(n.createdAt).toLocaleString(),
-              read:      n.isRead,
-              tab:       'notifications' as InstructorNavTab,
-            }))}
+            notifications={headerNotifications}
             onMarkRead={handleMarkRead}
             onMarkAllRead={handleMarkAllRead}
             setActiveTab={setActiveTab}

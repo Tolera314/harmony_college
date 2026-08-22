@@ -242,6 +242,9 @@ model User {
   instructorRecord InstructorRecord?
   registrarLogs    RegistrarAuditLog[]
 
+  // HR relation
+  hrEmployee       HREmployee?
+
   @@index([role])
   @@index([status])
   @@index([email])
@@ -1479,4 +1482,499 @@ model StudentNotificationPreference {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HR MODULE ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum HREmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum HRContractStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  PROBATION
+}
+
+enum HREmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+enum HRGender {
+  MALE
+  FEMALE
+}
+
+enum HRLeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  EMERGENCY
+  STUDY
+}
+
+enum HRLeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FORWARDED
+  CANCELLED
+}
+
+enum HRApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum HRPayrollStage {
+  DRAFT
+  PENDING_REVIEW
+  PENDING_HR_APPROVAL
+  APPROVED
+  LOCKED
+}
+
+enum HRReviewCycle {
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+enum HRReviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+enum HRDocumentCategory {
+  CV
+  CONTRACT
+  NATIONAL_ID
+  CERTIFICATE
+  PERFORMANCE_REPORT
+  PAYSLIP
+  LEAVE_DOCUMENT
+}
+
+enum HROnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+}
+
+enum HROffboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum HRExitReason {
+  RESIGNATION
+  TERMINATION
+  CONTRACT_EXPIRY
+  RETIREMENT
+}
+
+enum HRAuditStatus {
+  SUCCESS
+  WARNING
+  FAILED
+}
+
+enum HRNotifType {
+  LEAVE
+  PAYROLL
+  PERFORMANCE
+  CONTRACT
+  ONBOARDING
+  SYSTEM
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HR MODELS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// An HR department (separate from the academic Department model)
+model HRDepartment {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  headEmployeeId String?
+  budget         Float    @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employees      HREmployee[]
+
+  @@index([isActive])
+}
+
+/// HR employee record — includes personal, employment, salary, and sensitive fields
+model HREmployee {
+  id               String            @id @default(uuid())
+  employeeCode     String            @unique   // e.g. HC-FAC-0042
+  userId           String?           @unique   // linked User if they have a login
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Personal
+  fullName         String
+  avatarUrl        String?
+  gender           HRGender
+  dateOfBirth      DateTime?
+  address          String?
+
+  // Contact
+  email            String            @unique
+  phone            String?
+
+  // Employment
+  departmentId     String
+  department       HRDepartment      @relation(fields: [departmentId], references: [id])
+  position         String
+  employmentType   HREmploymentType  @default(FULL_TIME)
+  contractStatus   HRContractStatus  @default(ACTIVE)
+  status           HREmployeeStatus  @default(ACTIVE)
+  hireDate         DateTime
+  contractEndDate  DateTime?
+  managerId        String?
+  manager          HREmployee?       @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates     HREmployee[]      @relation("EmployeeManager")
+
+  // Qualifications
+  education        String?
+  experienceYears  Int               @default(0)
+
+  // Salary — stored encrypted conceptually; kept in DB for payroll generation
+  basicSalary      Float             @default(0)
+  allowances       Float             @default(0)
+  deductions       Float             @default(0)
+
+  // Sensitive (masked in frontend)
+  nationalId       String?
+  bankAccount      String?
+  taxNumber        String?
+
+  // Emergency contact
+  emergencyName     String?
+  emergencyPhone    String?
+  emergencyRelation String?
+
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  leaveRequests    HRLeaveRequest[]
+  leaveBalances    HRLeaveBalance[]
+  payslips         HRPayslip[]
+  performanceReviews HRPerformanceReview[]
+  documents        HRDocument[]
+  onboardingRecord HROnboardingRecord?
+  offboardingRecord HROffboardingRecord?
+  notifications    HRNotification[]
+  salaryHistory    HRSalaryHistory[]
+  contractRenewals HRContractRenewal[]
+
+  @@index([status])
+  @@index([departmentId])
+  @@index([contractStatus])
+  @@index([employmentType])
+  @@index([isActive])
+}
+
+/// Leave request raised by an employee
+model HRLeaveRequest {
+  id             String           @id @default(uuid())
+  employeeId     String
+  employee       HREmployee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType      HRLeaveType
+  startDate      DateTime
+  endDate        DateTime
+  daysCount      Int
+  reason         String           @db.Text
+  status         HRLeaveStatus    @default(PENDING)
+  managerApproval HRApprovalStatus @default(PENDING)
+  hrApproval     HRApprovalStatus  @default(PENDING)
+  reviewComment  String?
+  reviewedByUserId String?
+  submittedAt    DateTime         @default(now())
+  reviewedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([leaveType])
+  @@index([startDate])
+}
+
+/// Running leave balance per employee per type
+model HRLeaveBalance {
+  id           String     @id @default(uuid())
+  employeeId   String
+  employee     HREmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType    HRLeaveType
+  entitled     Int        @default(0)
+  taken        Int        @default(0)
+  remaining    Int        @default(0)
+  year         Int        // calendar year
+
+  @@unique([employeeId, leaveType, year])
+  @@index([employeeId])
+}
+
+/// Monthly payroll batch
+model HRPayrollRecord {
+  id             String         @id @default(uuid())
+  month          String         // "July"
+  year           Int
+  stage          HRPayrollStage @default(DRAFT)
+  totalGross     Float          @default(0)
+  totalNet       Float          @default(0)
+  employeeCount  Int            @default(0)
+  generatedAt    DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  approvals      HRPayrollApproval[]
+  payslips       HRPayslip[]
+
+  @@unique([month, year])
+  @@index([stage])
+  @@index([year])
+}
+
+/// Individual payroll approval step
+model HRPayrollApproval {
+  id          String          @id @default(uuid())
+  payrollId   String
+  payroll     HRPayrollRecord @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  stageName   String
+  approverName String
+  approvedAt  DateTime?
+  status      HRApprovalStatus @default(PENDING)
+  comment     String?
+  createdAt   DateTime        @default(now())
+
+  @@index([payrollId])
+}
+
+/// Individual employee payslip in a payroll batch
+model HRPayslip {
+  id               String          @id @default(uuid())
+  payrollId        String
+  payroll          HRPayrollRecord @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employeeId       String
+  employee         HREmployee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  basicSalary      Float
+  allowances       Float           @default(0)
+  bonuses          Float           @default(0)
+  tax              Float           @default(0)
+  pension          Float           @default(0)
+  otherDeductions  Float           @default(0)
+  netSalary        Float
+  createdAt        DateTime        @default(now())
+
+  @@unique([payrollId, employeeId])
+  @@index([payrollId])
+  @@index([employeeId])
+}
+
+/// Semi-annual / quarterly / annual performance review
+model HRPerformanceReview {
+  id              String          @id @default(uuid())
+  employeeId      String
+  employee        HREmployee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle           HRReviewCycle
+  period          String          // "H1 2024", "Q2 2024", "2024"
+  status          HRReviewStatus  @default(PENDING)
+  dueDate         DateTime
+  overallScore    Float?
+  goalsScore      Float?
+  competenciesScore Float?
+  attendanceScore Float?
+  communicationScore Float?
+  leadershipScore Float?
+  technicalScore  Float?
+  managerComment  String?         @db.Text
+  hrComment       String?         @db.Text
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+/// Documents linked to an employee
+model HRDocument {
+  id           String              @id @default(uuid())
+  employeeId   String
+  employee     HREmployee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  category     HRDocumentCategory
+  title        String
+  fileUrl      String?
+  fileSize     String?
+  uploadedByUserId String?
+  uploadedByName   String?
+  version      Int                 @default(1)
+  uploadedAt   DateTime            @default(now())
+  createdAt    DateTime            @default(now())
+
+  @@index([employeeId])
+  @@index([category])
+}
+
+/// Onboarding checklist for a new hire
+model HROnboardingRecord {
+  id           String             @id @default(uuid())
+  employeeId   String             @unique
+  employee     HREmployee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  currentStep  Int                @default(0)
+  status       HROnboardingStatus @default(NOT_STARTED)
+  startedAt    DateTime           @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  steps        HROnboardingStep[]
+}
+
+model HROnboardingStep {
+  id           String             @id @default(uuid())
+  recordId     String
+  record       HROnboardingRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  stepKey      String             // "personal_info", "contract", etc.
+  label        String
+  completed    Boolean            @default(false)
+  orderIndex   Int
+
+  @@unique([recordId, stepKey])
+  @@index([recordId])
+}
+
+/// Offboarding record for a departing employee
+model HROffboardingRecord {
+  id               String              @id @default(uuid())
+  employeeId       String              @unique
+  employee         HREmployee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  lastWorkingDay   DateTime
+  exitReason       HRExitReason
+  currentStep      Int                 @default(0)
+  status           HROffboardingStatus @default(NOT_STARTED)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  assetChecklist   HRAssetCheckItem[]
+}
+
+model HRAssetCheckItem {
+  id           String              @id @default(uuid())
+  recordId     String
+  record       HROffboardingRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  item         String
+  returned     Boolean             @default(false)
+  notes        String?
+
+  @@index([recordId])
+}
+
+/// Append-only HR audit log
+model HRAuditLog {
+  id           String        @id @default(uuid())
+  actorUserId  String?
+  actorName    String
+  action       String
+  employeeName String        @default("All Staff")
+  module       String
+  description  String        @db.Text
+  status       HRAuditStatus @default(SUCCESS)
+  metadata     Json?
+  createdAt    DateTime      @default(now())
+
+  @@index([actorUserId])
+  @@index([module])
+  @@index([createdAt])
+  @@index([status])
+}
+
+/// HR in-app notification
+model HRNotification {
+  id          String      @id @default(uuid())
+  employeeId  String?
+  employee    HREmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  recipientUserId String  // the HR officer's userId who receives this
+  type        HRNotifType
+  title       String
+  message     String      @db.Text
+  tab         String      // matches HRNavTab
+  isRead      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+
+  @@index([recipientUserId])
+  @@index([isRead])
+  @@index([type])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SALARY HISTORY (recommendation §1 — never lose previous salary when updated)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Append-only salary change record. Created every time an employee's salary is updated.
+model HRSalaryHistory {
+  id           String     @id @default(uuid())
+  employeeId   String
+  employee     HREmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  effectiveDate  DateTime
+  basicSalary    Float
+  allowances     Float    @default(0)
+  deductions     Float    @default(0)
+  grossSalary    Float    // basicSalary + allowances (computed at write time)
+
+  reason         String?  @db.Text   // "Annual increment", "Promotion", etc.
+  changedByUserId String?
+  changedByName   String
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([effectiveDate])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTRACT RENEWAL (recommendation §2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A contract renewal record created when HR renews or extends an employee contract.
+model HRContractRenewal {
+  id           String     @id @default(uuid())
+  employeeId   String
+  employee     HREmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  previousEndDate  DateTime
+  newEndDate       DateTime
+  reason           String?  @db.Text
+  documentId       String?  // optional linked HRDocument id
+
+  approvedByUserId String?
+  approvedByName   String
+  approvedAt       DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
 }

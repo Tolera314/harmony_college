@@ -6,20 +6,22 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
 
-import authRouter        from './routes/auth';
-import uploadRouter      from './routes/upload';
-import advisorRouter     from './routes/advisor';
-import chatRouter        from './routes/chat';
-import studentRouter     from './routes/student';
-import registrarRouter   from './routes/registrar';
-import studentDashRouter from './routes/studentDashboard';
-import attendanceRouter  from './routes/attendance';
-import instructorRouter  from './routes/instructor';
-import studentOnboarding   from './routes/studentOnboarding';
+import authRouter           from './routes/auth';
+import uploadRouter         from './routes/upload';
+import advisorRouter        from './routes/advisor';
+import chatRouter           from './routes/chat';
+import studentRouter        from './routes/student';
+import registrarRouter      from './routes/registrar';
+import studentDashRouter    from './routes/studentDashboard';
+import attendanceRouter     from './routes/attendance';
+import instructorRouter     from './routes/instructor';
+import hrRouter             from './routes/hr';
+import studentOnboarding    from './routes/studentOnboarding';
 import financeOfficerRouter from './routes/financeOfficer';
-import aiRouter          from './routes/ai';
-import adminRouter       from './routes/admin';
-import { initSocket }    from './lib/socket';
+import aiRouter             from './routes/ai';
+import adminRouter          from './routes/admin';
+import { initSocket }       from './lib/socket';
+import { startContractExpiryJob } from './services/hr/hrContractExpiryJob';
 import {
   loginLimiter, registerLimiter, refreshLimiter,
   verifyLimiter, resendLimiter, verifyStatusLimiter,
@@ -35,9 +37,7 @@ const UPLOAD_DIR   = path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? 'uplo
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(
   helmet({
-    // Allow inline styles used by Tailwind/glassmorphism in API error pages
-    contentSecurityPolicy: false,
-    // Allow the frontend and dashboard iframes if needed
+    contentSecurityPolicy:     false,
     crossOriginEmbedderPolicy: false,
   })
 );
@@ -48,13 +48,9 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Static uploads — Phase 7: serve via authenticated endpoint only ───────────
-// express.static for /uploads intentionally REMOVED.
-// Files are served through POST /api/uploads/:filename (authenticated below).
-
-// ── Auth-specific rate limiters (must be before route handlers) ───────────────
+// ── Auth-specific rate limiters ───────────────────────────────────────────────
 app.use('/api/auth/login',                    loginLimiter);
-app.use('/api/auth/signin',                   loginLimiter);        // legacy alias
+app.use('/api/auth/signin',                   loginLimiter);
 app.use('/api/auth/register',                 registerLimiter);
 app.use('/api/auth/refresh',                  refreshLimiter);
 app.use('/api/auth/verify/phone',             verifyLimiter);
@@ -67,25 +63,20 @@ app.use('/api/auth/reset-password',           resetPasswordLimiter);
 app.use('/api/auth/reset-password/validate',  verifyStatusLimiter);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/auth',      authRouter);
-
-// Phase 5: authenticate guards upload
-// Phase 7: upload file serving also requires authenticate (see upload route)
-app.use('/api/upload',    authenticate, uploadRouter);
-
-// Phase 7 C3: advisor now requires authentication
-app.use('/api/advisor',   authenticate, advisorRouter);
-
-app.use('/api/chat',              chatRouter);
-app.use('/api/student',           studentRouter);
+app.use('/api/auth',               authRouter);
+app.use('/api/upload',             authenticate, uploadRouter);
+app.use('/api/advisor',            authenticate, advisorRouter);
+app.use('/api/chat',               chatRouter);
+app.use('/api/student',            studentRouter);
 app.use('/api/student/onboarding', studentOnboarding);
-app.use('/api/student/dashboard', studentDashRouter);
-app.use('/api/registrar',         registrarRouter);
-app.use('/api/instructor',        instructorRouter);
-app.use('/api/admin',             adminRouter);
-app.use('/api/finance-officer',   financeOfficerRouter);
-app.use('/api/attendance',        attendanceRouter);
-app.use('/api/ai',                aiRouter);
+app.use('/api/student/dashboard',  studentDashRouter);
+app.use('/api/registrar',          registrarRouter);
+app.use('/api/instructor',         instructorRouter);
+app.use('/api/hr',                 hrRouter);
+app.use('/api/admin',              adminRouter);
+app.use('/api/finance-officer',    financeOfficerRouter);
+app.use('/api/attendance',         attendanceRouter);
+app.use('/api/ai',                 aiRouter);
 
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
@@ -110,12 +101,15 @@ app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
 const httpServer = http.createServer(app);
 const io = initSocket(httpServer, FRONTEND_URL);
 
-// ── Restore auto-close timers for any OPEN attendance sessions after restart ──
+// ── Restore attendance auto-close timers on restart ───────────────────────────
 import('./services/attendance/attendanceService').then(svc => {
   svc.restoreAutoCloseTimers().catch((err: unknown) => {
     console.error('[startup] Failed to restore attendance auto-close timers:', err);
   });
 });
+
+// ── HR: start daily contract expiry check ─────────────────────────────────────
+startContractExpiryJob();
 
 httpServer.listen(PORT, () => {
   console.log(`🚀  Harmony College API  →  http://localhost:${PORT}`);
