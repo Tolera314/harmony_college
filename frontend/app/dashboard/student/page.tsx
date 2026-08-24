@@ -95,9 +95,14 @@ function mapApiCourse(c: CourseDetail, assignments: any[]): Course {
       feedback: a.submission?.feedback ?? undefined,
       description: a.description,
       instructions: a.instructions,
-      attachments: a.attachments ?? [],
+      attachments: (a.attachments ?? []).map((att: any) => ({
+        name: att.fileName ?? att.name ?? 'Attachment',
+        size: att.fileSize ?? att.size ?? '',
+        type: att.fileType ?? att.type ?? 'FILE',
+        url:  att.fileUrl ?? att.url ?? '#',
+      })),
       submittedAt: a.submission?.submittedAt ? new Date(a.submission.submittedAt).toLocaleString() : undefined,
-      submittedFile: a.submission?.fileName ? { name: a.submission.fileName, size: a.submission.fileSize ?? '' } : undefined,
+      submittedFile: a.submission?.fileName ? { name: a.submission.fileName, size: a.submission.fileSize ?? '', url: a.submission.fileUrl ?? '#' } : undefined,
       submittedText: a.submission?.textContent ?? undefined,
     })),
     quizzes: (c.quizzes ?? []).map((q: any) => ({

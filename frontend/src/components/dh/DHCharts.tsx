@@ -23,6 +23,8 @@ export const LineChart: React.FC<LineChartProps> = ({
     return () => clearTimeout(t);
   }, [color]);
 
+  if (!data || data.length === 0) return null;
+
   const W = 540; const H = height;
   const pad = { top: 10, right: 20, bottom: showLabels ? 24 : 8, left: 32 };
   const innerW = W - pad.left - pad.right;
@@ -32,7 +34,8 @@ export const LineChart: React.FC<LineChartProps> = ({
   const maxV = Math.max(...vals) * 1.02;
   const range = maxV - minV || 1;
 
-  const toX = (i: number) => pad.left + (i / (data.length - 1)) * innerW;
+  const count = Math.max(1, data.length - 1);
+  const toX = (i: number) => pad.left + (data.length === 1 ? innerW / 2 : (i / count) * innerW);
   const toY = (v: number) => pad.top + innerH - ((v - minV) / range) * innerH;
 
   const pts = data.map((d, i) => `${toX(i)},${toY(d.value)}`).join(' ');
@@ -96,6 +99,8 @@ export const BarChart: React.FC<BarChartProps> = ({ data, height = 140, showValu
     const c = getComputedStyle(document.documentElement).getPropertyValue('--brand-gold').trim() || '#E9C349';
     setGoldColor(c);
   }, []);
+
+  if (!data || data.length === 0) return null;
 
   const W = 540; const H = height;
   const pad = { top: 20, right: 12, bottom: 28, left: 8 };

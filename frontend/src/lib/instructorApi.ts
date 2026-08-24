@@ -249,6 +249,10 @@ export interface AssignmentDetail extends Omit<AssignmentSummary, 'submissionCou
     feedback:    string | null;
     gradedAt:    string | null;
     isLate:      boolean;
+    fileUrl?:    string | null;
+    fileName?:   string | null;
+    fileSize?:   string | null;
+    textContent?: string | null;
   }[];
   stats: { total: number; ungraded: number; graded: number; submitted: number };
 }

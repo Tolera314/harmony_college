@@ -320,13 +320,26 @@ const AssignmentPanel: React.FC<{
                           <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{att.name}</p>
                           <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>{att.size} · {att.type}</p>
                         </div>
-                        <button
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-[10px] font-semibold"
+                        <a
+                          href={att.url || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={att.name}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-[10px] font-semibold transition-all hover:brightness-110 cursor-pointer"
                           style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)' }}
                           aria-label={`Download ${att.name}`}
+                          onClick={(e) => {
+                            if (!att.url || att.url === '#') {
+                              e.preventDefault();
+                              const blob = new Blob([`Document content for ${att.name}`], { type: 'text/plain' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url; a.download = att.name; a.click();
+                            }
+                          }}
                         >
-                          <Download className="w-3 h-3" />Download
-                        </button>
+                          <Download className="w-3 h-3" />Download / View
+                        </a>
                       </div>
                     ))}
                   </div>
@@ -399,6 +412,17 @@ const AssignmentPanel: React.FC<{
                           </p>
                           <p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>{assignment.submittedFile.size}</p>
                         </div>
+                        {assignment.submittedFile.name && (
+                          <a
+                            href={assignment.submittedFile.name ? `/uploads/${assignment.submittedFile.name}` : '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            download={assignment.submittedFile.name}
+                            className="text-xs font-sans font-semibold text-(--brand-gold) hover:underline flex items-center gap-1 shrink-0"
+                          >
+                            <Download className="w-3.5 h-3.5" /> View / Download
+                          </a>
+                        )}
                       </div>
                     )}
                     {assignment.submittedText && (
