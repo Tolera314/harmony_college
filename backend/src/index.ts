@@ -15,6 +15,7 @@ import registrarRouter   from './routes/registrar';
 import studentDashRouter from './routes/studentDashboard';
 import attendanceRouter  from './routes/attendance';
 import instructorRouter  from './routes/instructor';
+import departmentHeadRouter from './routes/departmentHead';
 import { initSocket } from './lib/socket';
 import {
   loginLimiter, registerLimiter, refreshLimiter,
@@ -78,6 +79,7 @@ app.use('/api/student/dashboard', studentDashRouter);
 app.use('/api/registrar',         registrarRouter);
 app.use('/api/attendance',        attendanceRouter);
 app.use('/api/instructor',        instructorRouter);
+app.use('/api/department-head',   departmentHeadRouter);
 
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {

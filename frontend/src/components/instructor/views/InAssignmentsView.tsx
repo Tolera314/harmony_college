@@ -6,7 +6,7 @@ import { DURATION, EASE } from '@/src/lib/motion';
 import {
   ClipboardCheck, Plus, Search, ChevronDown, RefreshCw,
   FileText, CheckCircle2, Clock, AlertTriangle, Eye,
-  Save, Upload, X, Paperclip, Trash2,
+  Save, Upload, X, Paperclip, Trash2, Download,
 } from 'lucide-react';
 import { DHPageHeader }   from '../../dh/DHPageHeader';
 import { Badge }          from '../../ui/Badge';
@@ -464,6 +464,37 @@ export const InAssignmentsView: React.FC = () => {
                             </Button>
                           </div>
                         </div>
+
+                        {/* Student submitted file & text response */}
+                        {(sub.fileName || sub.textContent) && (
+                          <div className="p-2.5 rounded-lg bg-(--bg-base) border border-(--border-subtle) space-y-1.5 text-xs">
+                            {sub.fileName && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-sans font-medium text-(--text-primary) flex items-center gap-1.5 truncate">
+                                  <FileText className="w-3.5 h-3.5 text-(--brand-gold) shrink-0" />
+                                  {sub.fileName}
+                                  {sub.fileSize && <span className="font-mono text-[10px] text-(--text-faint)">({sub.fileSize})</span>}
+                                </span>
+                                {sub.fileUrl && (
+                                  <a
+                                    href={sub.fileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    download={sub.fileName}
+                                    className="font-mono text-[11px] text-(--brand-gold) hover:underline flex items-center gap-1 shrink-0"
+                                  >
+                                    <Download className="w-3 h-3" /> View / Download File
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                            {sub.textContent && (
+                              <p className="font-sans text-xs text-(--text-secondary) leading-relaxed pt-1 border-t border-(--border-subtle)">
+                                {sub.textContent}
+                              </p>
+                            )}
+                          </div>
+                        )}
 
                         {sub.score !== null && sub.feedback && (
                           <p className="font-sans text-[11px] italic text-(--text-faint) px-1">"{sub.feedback}"</p>

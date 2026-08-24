@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import authRouter from '../routes/auth';
 import studentRouter from '../routes/student';
+import departmentHeadRouter from '../routes/departmentHead';
 
 const testApp = express();
 
@@ -18,5 +19,6 @@ testApp.use(express.urlencoded({ extended: true }));
 // Mount without rate limiters so tests aren't throttled
 testApp.use('/api/auth', authRouter);
 testApp.use('/api/student', studentRouter);
+testApp.use('/api/department-head', departmentHeadRouter);
 
 export default testApp;

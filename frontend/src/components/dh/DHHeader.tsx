@@ -15,7 +15,7 @@ interface DHHeaderProps {
   unreadCount: number;
   onMarkRead: (id: string) => void;
   onOpenSearch: () => void;
-  semesterLabel: string;
+  semesterLabel?: string;
   onMobileMenuToggle?: () => void;
 }
 

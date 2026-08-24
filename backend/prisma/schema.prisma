@@ -203,8 +203,8 @@ model User {
   id String @id @default(uuid())
 
   fullName String
-  email    String?  @unique
-  phone    String?  @unique
+  email    String? @unique
+  phone    String? @unique
 
   // ── Credentials ───────────────────────────────────────────────────────────
   /// bcrypt hash of the user's password. Optional for OAuth-only users. NEVER store plaintext.
@@ -242,6 +242,10 @@ model User {
   instructorRecord InstructorRecord?
   registrarLogs    RegistrarAuditLog[]
 
+  // Department Head relations
+  departmentHeadRecord DepartmentHeadRecord?
+  dhAuditLogs          DepartmentHeadAuditLog[]
+
   @@index([role])
   @@index([status])
   @@index([email])
@@ -272,13 +276,13 @@ model Session {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   refreshTokenHash String
-  deviceInfo       String?  @db.VarChar(255)
-  ipAddress        String?  @db.VarChar(45)
-  isRevoked        Boolean  @default(false)
+  deviceInfo       String? @db.VarChar(255)
+  ipAddress        String? @db.VarChar(45)
+  isRevoked        Boolean @default(false)
 
   expiresAt  DateTime
-  lastUsedAt DateTime  @default(now())
-  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([expiresAt])
@@ -292,8 +296,8 @@ model VerificationToken {
 
   type      VerificationTokenType
   tokenHash String
-  attempts  Int      @default(0)
-  used      Boolean  @default(false)
+  attempts  Int                   @default(0)
+  used      Boolean               @default(false)
 
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -309,8 +313,8 @@ model PasswordResetToken {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   tokenHash String
-  attempts  Int      @default(0)
-  used      Boolean  @default(false)
+  attempts  Int     @default(0)
+  used      Boolean @default(false)
 
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -327,9 +331,9 @@ model AuditLog {
 
   action    AuditAction
   metadata  Json?
-  ipAddress String?   @db.VarChar(45)
-  userAgent String?   @db.VarChar(255)
-  createdAt DateTime  @default(now())
+  ipAddress String?     @db.VarChar(45)
+  userAgent String?     @db.VarChar(255)
+  createdAt DateTime    @default(now())
 
   @@index([userId])
   @@index([action])
@@ -352,11 +356,11 @@ model StudentProfile {
   city        String?
   address     String?
 
-  program      String?
-  academicYear String?
-  semester     String?
-  matricResult     String?
-  ministryResult   String?
+  program        String?
+  academicYear   String?
+  semester       String?
+  matricResult   String?
+  ministryResult String?
 
   profilePictureUrl String?
   faydaIdUrl        String?
@@ -370,10 +374,10 @@ model StudentProfile {
   /// Department chosen on the /onboarding/about page (pre-enrollment preference).
   selectedDepartmentId  String?
   /// Set to true once the student confirms registration fee payment on /onboarding/about.
-  registrationFeePaid   Boolean  @default(false)
+  registrationFeePaid   Boolean   @default(false)
   registrationFeePaidAt DateTime?
   /// Set to true once the student picks a department on /onboarding/about.
-  departmentSelected    Boolean  @default(false)
+  departmentSelected    Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -408,12 +412,12 @@ model Application {
   reviewedAt    DateTime?
 
   // ── Post-admission onboarding ─────────────────────────────────────────────
-  onboardingStatus              OnboardingStatus @default(PENDING)
-  registrationScreenshotUrl     String?
-  screenshotUploadedAt          DateTime?
-  onboardingReviewedBy          String?
-  onboardingReviewedAt          DateTime?
-  onboardingRejectionReason     String?
+  onboardingStatus          OnboardingStatus @default(PENDING)
+  registrationScreenshotUrl String?
+  screenshotUploadedAt      DateTime?
+  onboardingReviewedBy      String?
+  onboardingReviewedAt      DateTime?
+  onboardingRejectionReason String?
 
   documents   Document[]
   submittedAt DateTime?
@@ -485,23 +489,24 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  programs         Program[]
-  courses          Course[]
-  instructors      InstructorRecord[]
-  studentRecords   StudentRecord[]
+  programs        Program[]
+  courses         Course[]
+  instructors     InstructorRecord[]
+  studentRecords  StudentRecord[]
+  departmentHeads DepartmentHeadRecord[]
 
   @@index([code])
   @@index([isActive])
 }
 
 model Program {
-  id           String  @id @default(uuid())
-  name         String
-  code         String  @unique
-  description  String?
-  durationYears Int    @default(4)
-  totalCredits Int     @default(120)
-  isActive     Boolean @default(true)
+  id            String  @id @default(uuid())
+  name          String
+  code          String  @unique
+  description   String?
+  durationYears Int     @default(4)
+  totalCredits  Int     @default(120)
+  isActive      Boolean @default(true)
 
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
@@ -518,12 +523,12 @@ model Program {
 }
 
 model AcademicYear {
-  id         String   @id @default(uuid())
-  name       String   @unique   // e.g. "2024-2025"
-  startDate  DateTime
-  endDate    DateTime
-  isCurrent  Boolean  @default(false)
-  isActive   Boolean  @default(true)
+  id        String   @id @default(uuid())
+  name      String   @unique // e.g. "2024-2025"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  isActive  Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -535,10 +540,10 @@ model AcademicYear {
 }
 
 model Semester {
-  id           String   @id @default(uuid())
-  name         String                  // "Semester I", "Semester II"
+  id             String       @id @default(uuid())
+  name           String // "Semester I", "Semester II"
   academicYearId String
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
 
   startDate         DateTime
   endDate           DateTime
@@ -558,11 +563,11 @@ model Semester {
 }
 
 model Course {
-  id          String      @id @default(uuid())
-  code        String      @unique
+  id          String       @id @default(uuid())
+  code        String       @unique
   name        String
   description String?
-  creditHours Int         @default(3)
+  creditHours Int          @default(3)
   status      CourseStatus @default(ACTIVE)
 
   departmentId String
@@ -571,10 +576,10 @@ model Course {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  prerequisites   CoursePrerequisite[] @relation("CoursePrereqs")
-  requiredBy      CoursePrerequisite[] @relation("PrereqFor")
-  offerings       CourseOffering[]
-  programCourses  ProgramCourse[]
+  prerequisites  CoursePrerequisite[] @relation("CoursePrereqs")
+  requiredBy     CoursePrerequisite[] @relation("PrereqFor")
+  offerings      CourseOffering[]
+  programCourses ProgramCourse[]
 
   @@index([code])
   @@index([departmentId])
@@ -582,9 +587,9 @@ model Course {
 }
 
 model CoursePrerequisite {
-  id           String @id @default(uuid())
-  courseId     String
-  course       Course @relation("CoursePrereqs", fields: [courseId], references: [id], onDelete: Cascade)
+  id             String @id @default(uuid())
+  courseId       String
+  course         Course @relation("CoursePrereqs", fields: [courseId], references: [id], onDelete: Cascade)
   prerequisiteId String
   prerequisite   Course @relation("PrereqFor", fields: [prerequisiteId], references: [id], onDelete: Cascade)
 
@@ -605,13 +610,13 @@ model ProgramCourse {
 }
 
 model ProgramRequirement {
-  id             String  @id @default(uuid())
-  programId      String
-  program        Program @relation(fields: [programId], references: [id], onDelete: Cascade)
-  category       String  // "CORE", "ELECTIVE", "GENERAL"
-  description    String?
+  id              String  @id @default(uuid())
+  programId       String
+  program         Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  category        String // "CORE", "ELECTIVE", "GENERAL"
+  description     String?
   requiredCredits Int
-  minimumGPA     Float   @default(2.0)
+  minimumGPA      Float   @default(2.0)
 
   @@index([programId])
 }
@@ -626,8 +631,8 @@ model Room {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  offerings  CourseOffering[]
-  timetables TimetableSlot[]
+  offerings     CourseOffering[]
+  timetables    TimetableSlot[]
   classSessions ClassSession[]
 
   @@unique([building, name])
@@ -640,13 +645,13 @@ model Room {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model InstructorRecord {
-  id           String  @id @default(uuid())
-  userId       String  @unique
-  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  employeeId   String  @unique
-  title        String  @default("Instructor")
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId     String  @unique
+  title          String  @default("Instructor")
   specialization String?
-  isActive     Boolean @default(true)
+  isActive       Boolean @default(true)
 
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
@@ -654,8 +659,9 @@ model InstructorRecord {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  offerings  CourseOffering[]
-  timetables TimetableSlot[]
+  offerings     CourseOffering[]
+  timetables    TimetableSlot[]
+  leaveRequests DepartmentLeaveRequest[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -666,36 +672,37 @@ model InstructorRecord {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model StudentRecord {
-  id           String        @id @default(uuid())
-  userId       String        @unique
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  studentId    String        @unique  // e.g. HC-2024-0012
-  status       StudentStatus @default(ACTIVE)
+  id        String        @id @default(uuid())
+  userId    String        @unique
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId String        @unique // e.g. HC-2024-0012
+  status    StudentStatus @default(ACTIVE)
 
   programId    String
   program      Program    @relation(fields: [programId], references: [id])
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
 
-  yearLevel    Int     @default(1)
-  gpa          Float   @default(0.0)
-  totalCredits Int     @default(0)
+  yearLevel    Int      @default(1)
+  gpa          Float    @default(0.0)
+  totalCredits Int      @default(0)
   admittedAt   DateTime @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  enrollments       Enrollment[]
-  transcriptRequests TranscriptRequest[]
-  graduationAudit    GraduationAudit?
-  certificate        Certificate?
-  courseGrades       CourseGrade[]
-  assignmentSubmissions AssignmentSubmission[]
-  quizAttempts          QuizAttempt[]
-  attendanceRecords     AttendanceRecord[]
-  financialAccount      FinancialAccount?
-  advisorAppointments   AdvisorAppointment[]
+  enrollments            Enrollment[]
+  transcriptRequests     TranscriptRequest[]
+  graduationAudit        GraduationAudit?
+  certificate            Certificate?
+  courseGrades           CourseGrade[]
+  assignmentSubmissions  AssignmentSubmission[]
+  quizAttempts           QuizAttempt[]
+  attendanceRecords      AttendanceRecord[]
+  financialAccount       FinancialAccount?
+  advisorAppointments    AdvisorAppointment[]
   notificationPreference StudentNotificationPreference?
+
   @@index([studentId])
   @@index([programId])
   @@index([departmentId])
@@ -717,20 +724,20 @@ model CourseOffering {
   instructorId String?
   instructor   InstructorRecord? @relation(fields: [instructorId], references: [id])
 
-  roomId   String?
-  room     Room?   @relation(fields: [roomId], references: [id])
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id])
 
-  capacity Int @default(40)
-  section  String @default("A")   // A, B, C for multiple sections
+  capacity Int    @default(40)
+  section  String @default("A") // A, B, C for multiple sections
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  enrollments Enrollment[]
-  timetables  TimetableSlot[]
-  assignments Assignment[]
-  quizzes     Quiz[]
-  classSessions      ClassSession[]
+  enrollments   Enrollment[]
+  timetables    TimetableSlot[]
+  assignments   Assignment[]
+  quizzes       Quiz[]
+  classSessions ClassSession[]
 
   @@unique([courseId, semesterId, section])
   @@index([semesterId])
@@ -744,16 +751,16 @@ model CourseOffering {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model TimetableSlot {
-  id               String @id @default(uuid())
+  id               String         @id @default(uuid())
   courseOfferingId String
   courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
 
-  dayOfWeek  Int      // 0=Mon, 1=Tue, ..., 4=Fri
-  startTime  String   // "09:00"
-  endTime    String   // "10:30"
+  dayOfWeek Int // 0=Mon, 1=Tue, ..., 4=Fri
+  startTime String // "09:00"
+  endTime   String // "10:30"
 
   roomId       String?
-  room         Room?         @relation(fields: [roomId], references: [id])
+  room         Room?             @relation(fields: [roomId], references: [id])
   instructorId String?
   instructor   InstructorRecord? @relation(fields: [instructorId], references: [id])
 
@@ -777,17 +784,17 @@ model Enrollment {
   courseOffering   CourseOffering   @relation(fields: [courseOfferingId], references: [id])
   status           EnrollmentStatus @default(ACTIVE)
 
-  enrolledAt DateTime @default(now())
+  enrolledAt DateTime  @default(now())
   droppedAt  DateTime?
   dropReason String?
 
   // Override fields (force-add/force-drop)
-  isOverride      Boolean @default(false)
-  overrideReason  String?
-  overrideBy      String?   // userId of registrar
-  overrideAt      DateTime?
+  isOverride     Boolean   @default(false)
+  overrideReason String?
+  overrideBy     String? // userId of registrar
+  overrideAt     DateTime?
 
-  grade       CourseGrade?
+  grade CourseGrade?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -803,19 +810,19 @@ model Enrollment {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model CourseGrade {
-  id             String @id @default(uuid())
-  enrollmentId   String @unique
-  enrollment     Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  id              String        @id @default(uuid())
+  enrollmentId    String        @unique
+  enrollment      Enrollment    @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   studentRecordId String
-  studentRecord  StudentRecord @relation(fields: [studentRecordId], references: [id])
+  studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id])
 
-  letterGrade    String?   // A, B+, B, C+, C, D, F
-  gradePoints    Float?    // 4.0, 3.5, 3.0, ...
-  creditHours    Int
+  letterGrade String? // A, B+, B, C+, C, D, F
+  gradePoints Float? // 4.0, 3.5, 3.0, ...
+  creditHours Int
 
-  gradedAt   DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  gradedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([studentRecordId])
   @@index([enrollmentId])
@@ -861,10 +868,10 @@ model GraduationAudit {
   requiredGpa      Float   @default(2.0)
   isEligible       Boolean @default(false)
 
-  auditNotes    String?
-  reviewedBy    String?
-  reviewedAt    DateTime?
-  graduatedAt   DateTime?
+  auditNotes  String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  graduatedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -882,13 +889,13 @@ model Certificate {
   studentRecord   StudentRecord     @relation(fields: [studentRecordId], references: [id])
   status          CertificateStatus @default(ISSUED)
 
-  certificateNumber String @unique
-  verificationCode  String @unique
+  certificateNumber String   @unique
+  verificationCode  String   @unique
   issuedAt          DateTime @default(now())
   issuedBy          String
 
-  revokedAt     DateTime?
-  revokedBy     String?
+  revokedAt        DateTime?
+  revokedBy        String?
   revocationReason String?
 
   documentUrl String?
@@ -929,17 +936,17 @@ model AcademicCalendarEvent {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Announcement {
-  id              String             @id @default(uuid())
-  title           String
-  content         String             @db.Text
-  status          AnnouncementStatus @default(DRAFT)
-  priority        String             @default("NORMAL") // HIGH, NORMAL, LOW
-  targetAudience  String             @default("ALL")    // ALL, DEPARTMENT:<id>, PROGRAM:<id>
-  publishDate     DateTime?
-  expirationDate  DateTime?
-  createdBy       String
-  publishedBy     String?
-  publishedAt     DateTime?
+  id             String             @id @default(uuid())
+  title          String
+  content        String             @db.Text
+  status         AnnouncementStatus @default(DRAFT)
+  priority       String             @default("NORMAL") // HIGH, NORMAL, LOW
+  targetAudience String             @default("ALL") // ALL, DEPARTMENT:<id>, PROGRAM:<id>
+  publishDate    DateTime?
+  expirationDate DateTime?
+  createdBy      String
+  publishedBy    String?
+  publishedAt    DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -957,7 +964,7 @@ model RegistrarAuditLog {
   userId      String
   user        User            @relation(fields: [userId], references: [id])
   action      RegistrarAction
-  entityType  String          // "Application", "StudentRecord", "Course", etc.
+  entityType  String // "Application", "StudentRecord", "Course", etc.
   entityId    String
   description String
   metadata    Json?
@@ -995,13 +1002,13 @@ model Notification {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model GradeScale {
-  id           String   @id @default(uuid())
-  letterGrade  String   @unique  // "A", "A-", "B+", "B", etc.
-  gradePoints  Float             // 4.0, 3.7, 3.5, etc.
-  description  String?           // "Excellent", "Very Good", etc.
-  isPassing    Boolean  @default(true)
-  isActive     Boolean  @default(true)
-  displayOrder Int      @default(0)
+  id           String  @id @default(uuid())
+  letterGrade  String  @unique // "A", "A-", "B+", "B", etc.
+  gradePoints  Float // 4.0, 3.7, 3.5, etc.
+  description  String? // "Excellent", "Very Good", etc.
+  isPassing    Boolean @default(true)
+  isActive     Boolean @default(true)
+  displayOrder Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1009,6 +1016,7 @@ model GradeScale {
   @@index([isActive])
   @@index([letterGrade])
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum AssignmentStatus {
@@ -1086,25 +1094,25 @@ enum AppointmentStatus {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Assignment {
-  id               String           @id @default(uuid())
+  id               String         @id @default(uuid())
   courseOfferingId String
-  courseOffering   CourseOffering   @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
-  createdBy        String           // instructorRecord.userId
+  courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+  createdBy        String // instructorRecord.userId
 
-  title            String
-  description      String           @db.Text
-  instructions     String           @db.Text
-  dueDate          DateTime
-  totalPoints      Int              @default(100)
-  status           AssignmentStatus @default(DRAFT)
-  allowLateSubmit  Boolean          @default(false)
-  maxFileSize      Int              @default(250) // MB
+  title           String
+  description     String           @db.Text
+  instructions    String           @db.Text
+  dueDate         DateTime
+  totalPoints     Int              @default(100)
+  status          AssignmentStatus @default(DRAFT)
+  allowLateSubmit Boolean          @default(false)
+  maxFileSize     Int              @default(250) // MB
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  attachments  AssignmentAttachment[]
-  submissions  AssignmentSubmission[]
+  attachments AssignmentAttachment[]
+  submissions AssignmentSubmission[]
 
   @@index([courseOfferingId])
   @@index([dueDate])
@@ -1117,35 +1125,35 @@ model AssignmentAttachment {
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   fileName     String
   fileUrl      String
-  fileSize     String     // human-readable e.g. "420 KB"
-  fileType     String     // "PDF", "TXT", etc.
+  fileSize     String // human-readable e.g. "420 KB"
+  fileType     String // "PDF", "TXT", etc.
   uploadedAt   DateTime   @default(now())
 
   @@index([assignmentId])
 }
 
 model AssignmentSubmission {
-  id             String           @id @default(uuid())
-  assignmentId   String
-  assignment     Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  id              String        @id @default(uuid())
+  assignmentId    String
+  assignment      Assignment    @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   studentRecordId String
-  studentRecord  StudentRecord    @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+  studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
 
-  status         SubmissionStatus @default(SUBMITTED)
-  submittedAt    DateTime         @default(now())
+  status      SubmissionStatus @default(SUBMITTED)
+  submittedAt DateTime         @default(now())
 
   // Submission content
-  fileUrl        String?
-  fileName       String?
-  fileSize       String?
-  textContent    String?          @db.Text
+  fileUrl     String?
+  fileName    String?
+  fileSize    String?
+  textContent String? @db.Text
 
   // Grading
-  score          Float?
-  letterGrade    String?
-  feedback       String?          @db.Text
-  gradedAt       DateTime?
-  gradedBy       String?          // instructorRecord.userId
+  score       Float?
+  letterGrade String?
+  feedback    String?   @db.Text
+  gradedAt    DateTime?
+  gradedBy    String? // instructorRecord.userId
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1164,20 +1172,20 @@ model Quiz {
   id               String         @id @default(uuid())
   courseOfferingId String
   courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
-  createdBy        String         // instructorRecord.userId
+  createdBy        String // instructorRecord.userId
 
   title                  String
   description            String?
-  instructions           String?          @db.Text
-  durationMinutes        Int              @default(30)
+  instructions           String?    @db.Text
+  durationMinutes        Int        @default(30)
   availableFrom          DateTime
   availableUntil         DateTime
-  passingScore           Int              @default(60)   // percentage
-  maxAttempts            Int              @default(1)
-  totalPoints            Int              @default(100)
-  showResultsImmediately Boolean          @default(true)
-  status                 QuizStatus       @default(DRAFT)
-  shuffleQuestions       Boolean          @default(false)
+  passingScore           Int        @default(60) // percentage
+  maxAttempts            Int        @default(1)
+  totalPoints            Int        @default(100)
+  showResultsImmediately Boolean    @default(true)
+  status                 QuizStatus @default(DRAFT)
+  shuffleQuestions       Boolean    @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1200,8 +1208,8 @@ model QuizQuestion {
   points       Int          @default(1)
   orderIndex   Int          @default(0)
 
-  options      QuizQuestionOption[]
-  answers      QuizAnswer[]
+  options QuizQuestionOption[]
+  answers QuizAnswer[]
 
   @@index([quizId])
   @@index([orderIndex])
@@ -1219,21 +1227,21 @@ model QuizQuestionOption {
 }
 
 model QuizAttempt {
-  id              String            @id @default(uuid())
+  id              String        @id @default(uuid())
   quizId          String
-  quiz            Quiz              @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quiz            Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
   studentRecordId String
-  studentRecord   StudentRecord     @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+  studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
 
-  status          QuizAttemptStatus @default(IN_PROGRESS)
-  startedAt       DateTime          @default(now())
-  submittedAt     DateTime?
+  status           QuizAttemptStatus @default(IN_PROGRESS)
+  startedAt        DateTime          @default(now())
+  submittedAt      DateTime?
   timeSpentSeconds Int?
 
   score           Float?
   percentageScore Float?
   isPassing       Boolean?
-  feedback        String?          @db.Text
+  feedback        String?   @db.Text
   gradedAt        DateTime?
   gradedBy        String?
 
@@ -1248,16 +1256,16 @@ model QuizAttempt {
 }
 
 model QuizAnswer {
-  id          String       @id @default(uuid())
-  attemptId   String
-  attempt     QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  questionId  String
-  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id         String       @id @default(uuid())
+  attemptId  String
+  attempt    QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  answerText  String?      @db.Text   // for open-ended
+  answerText       String? @db.Text // for open-ended
   selectedOptionId String? // for MCQ / TrueFalse
 
-  isCorrect   Boolean?
+  isCorrect    Boolean?
   pointsEarned Float?
 
   @@unique([attemptId, questionId])
@@ -1275,12 +1283,12 @@ model ClassSession {
   courseOfferingId String
   courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
 
-  date      DateTime  // The actual calendar date of this session
-  startTime String    // "09:00"
-  endTime   String    // "10:30"
+  date      DateTime // The actual calendar date of this session
+  startTime String // "09:00"
+  endTime   String // "10:30"
   topic     String?
   roomId    String?
-  room      Room?     @relation(fields: [roomId], references: [id])
+  room      Room?    @relation(fields: [roomId], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -1297,7 +1305,7 @@ model AttendanceSession {
   id             String                     @id @default(uuid())
   classSessionId String                     @unique
   classSession   ClassSession               @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
-  openedBy       String                     // InstructorRecord.userId
+  openedBy       String // InstructorRecord.userId
   lifecycle      AttendanceSessionLifecycle @default(NOT_STARTED)
 
   openedAt    DateTime?
@@ -1305,7 +1313,7 @@ model AttendanceSession {
   finalizedAt DateTime?
 
   // QR attendance token (hashed — raw token sent to frontend only once)
-  qrTokenHash  String?
+  qrTokenHash   String?
   qrTokenExpiry DateTime?
 
   // Policy overrides for this session
@@ -1323,22 +1331,22 @@ model AttendanceSession {
 
 /// One student's attendance for one AttendanceSession.
 model AttendanceRecord {
-  id                  String              @id @default(uuid())
+  id                  String            @id @default(uuid())
   attendanceSessionId String
-  attendanceSession   AttendanceSession   @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
+  attendanceSession   AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
   studentRecordId     String
-  studentRecord       StudentRecord       @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+  studentRecord       StudentRecord     @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
 
-  status   AttendanceStatus  @default(PRESENT)
-  method   AttendanceMethod  @default(MANUAL)
-  markedAt DateTime          @default(now())
-  markedBy String            // userId who marked (instructor or student via QR)
+  status   AttendanceStatus @default(PRESENT)
+  method   AttendanceMethod @default(MANUAL)
+  markedAt DateTime         @default(now())
+  markedBy String // userId who marked (instructor or student via QR)
   note     String?
 
   // Correction tracking
-  correctionOf    String?           // ID of previous record this corrects
+  correctionOf     String? // ID of previous record this corrects
   correctionReason String?
-  correctedAt     DateTime?
+  correctedAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1359,8 +1367,8 @@ model AttendanceCorrectionLog {
   oldStatus AttendanceStatus
   newStatus AttendanceStatus
   reason    String
-  changedBy String            // userId
-  changedAt DateTime          @default(now())
+  changedBy String // userId
+  changedAt DateTime         @default(now())
 
   @@index([attendanceRecordId])
 }
@@ -1374,9 +1382,9 @@ model FinancialAccount {
   studentRecordId String        @unique
   studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
 
-  balance         Float         @default(0.0)   // 0 = cleared
-  clearedForTerm  String?                        // e.g. "Fall 2024"
-  lastUpdatedAt   DateTime      @default(now())
+  balance        Float    @default(0.0) // 0 = cleared
+  clearedForTerm String? // e.g. "Fall 2024"
+  lastUpdatedAt  DateTime @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1387,20 +1395,20 @@ model FinancialAccount {
 }
 
 model FinancialTransaction {
-  id                String          @id @default(uuid())
+  id                 String           @id @default(uuid())
   financialAccountId String
-  financialAccount  FinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+  financialAccount   FinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
 
   type        TransactionType
-  amount      Float            // positive = charge, negative = credit
+  amount      Float // positive = charge, negative = credit
   description String
-  category    String           // "Tuition", "Fee", "Scholarship", etc.
-  receiptId   String?          @unique
-  status      String           @default("POSTED") // POSTED, PENDING, REVERSED
-  referenceId String?          // payment gateway reference
+  category    String // "Tuition", "Fee", "Scholarship", etc.
+  receiptId   String?         @unique
+  status      String          @default("POSTED") // POSTED, PENDING, REVERSED
+  referenceId String? // payment gateway reference
 
-  transactionDate DateTime     @default(now())
-  createdAt       DateTime     @default(now())
+  transactionDate DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   @@index([financialAccountId])
   @@index([transactionDate])
@@ -1412,21 +1420,21 @@ model FinancialTransaction {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model AdvisorAppointment {
-  id              String            @id @default(uuid())
+  id              String        @id @default(uuid())
   studentRecordId String
-  studentRecord   StudentRecord     @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
-  advisorUserId   String            // instructor userId acting as advisor
+  studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+  advisorUserId   String // instructor userId acting as advisor
 
-  topic           String
-  requestedDate   DateTime
-  requestedTime   String            // "10:00", "11:30", etc.
-  status          AppointmentStatus @default(PENDING)
+  topic         String
+  requestedDate DateTime
+  requestedTime String // "10:00", "11:30", etc.
+  status        AppointmentStatus @default(PENDING)
 
-  confirmedAt     DateTime?
-  cancelledAt     DateTime?
+  confirmedAt        DateTime?
+  cancelledAt        DateTime?
   cancellationReason String?
-  meetingLink     String?
-  notes           String?
+  meetingLink        String?
+  notes              String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1446,11 +1454,126 @@ model StudentNotificationPreference {
   studentRecordId String        @unique
   studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
 
-  gradeAlerts       Boolean @default(true)
-  tuitionReminders  Boolean @default(true)
-  registrarNotices  Boolean @default(true)
-  advisorMessages   Boolean @default(true)
+  gradeAlerts      Boolean @default(true)
+  tuitionReminders Boolean @default(true)
+  registrarNotices Boolean @default(true)
+  advisorMessages  Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEPARTMENT HEAD RECORD
+// Links a DEPARTMENT_HEAD user to their assigned department.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DepartmentHeadRecord {
+  id         String  @id @default(uuid())
+  userId     String  @unique
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId String  @unique
+  title      String  @default("Department Head")
+  isActive   Boolean @default(true)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leaveRequests DepartmentLeaveRequest[]
+
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEAVE REQUEST (Faculty → Department Head → HR)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum LeaveType {
+  MEDICAL
+  PERSONAL
+  CONFERENCE
+  RESEARCH
+  ANNUAL
+  MATERNITY
+  PATERNITY
+  EMERGENCY
+}
+
+enum LeaveStatus {
+  PENDING_DH // Awaiting Department Head review
+  DH_APPROVED // Approved by DH, forwarded to HR
+  DH_REJECTED // Rejected by DH (final)
+  HR_APPROVED // HR final approval
+  HR_REJECTED // HR final rejection
+  WITHDRAWN // Faculty withdrew
+}
+
+model DepartmentLeaveRequest {
+  id           String           @id @default(uuid())
+  /// Faculty member submitting the request
+  instructorId String
+  instructor   InstructorRecord @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  leaveType        LeaveType
+  startDate        DateTime
+  endDate          DateTime
+  durationDays     Int
+  reason           String    @db.Text
+  supportingDocUrl String? // Uploaded file URL
+
+  status LeaveStatus @default(PENDING_DH)
+
+  /// Department Head who reviewed this request
+  reviewedByDhId String?
+  reviewedByDh   DepartmentHeadRecord? @relation(fields: [reviewedByDhId], references: [id])
+  dhComment      String?               @db.Text
+  dhReviewedAt   DateTime?
+
+  /// HR final decision
+  hrComment    String?   @db.Text
+  hrReviewedAt DateTime?
+  hrReviewedBy String? // userId of HR officer
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([instructorId])
+  @@index([status])
+  @@index([startDate])
+  @@index([reviewedByDhId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEPARTMENT HEAD AUDIT LOG
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum DepartmentHeadAction {
+  OFFERING_APPROVED
+  OFFERING_REJECTED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  PROFILE_UPDATED
+  PASSWORD_CHANGED
+}
+
+model DepartmentHeadAuditLog {
+  id          String               @id @default(uuid())
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id])
+  action      DepartmentHeadAction
+  entityType  String // "CourseOffering", "LeaveRequest", etc.
+  entityId    String
+  description String
+  metadata    Json?
+  ipAddress   String?              @db.VarChar(45)
+  createdAt   DateTime             @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
 }
