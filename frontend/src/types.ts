@@ -47,6 +47,7 @@ export interface NewsArticle {
 export type NavTab =
   | 'dashboard'
   | 'my_courses'
+  | 'timetable'
   | 'registration'
   | 'assignments'
   | 'quizzes'

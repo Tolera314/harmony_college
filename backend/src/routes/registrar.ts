@@ -18,6 +18,12 @@ import * as graduation from '../services/registrar/graduationService';
 import * as certificates from '../services/registrar/certificateService';
 import * as reports from '../services/registrar/reportsService';
 import { prisma } from '../lib/prisma';
+import {
+  broadcastTimetableCreated,
+  broadcastTimetableUpdated,
+  broadcastTimetableDeleted,
+  broadcastTimetableConflict,
+} from '../lib/socket';
 
 const router = Router();
 const REGISTRAR_ROLES = [Role.REGISTRAR, Role.ADMIN, Role.SUPER_ADMIN];
@@ -737,11 +743,12 @@ router.post('/settings/password', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       currentPassword: z.string().min(1),
-      newPassword:     z.string().min(8, 'Password must be at least 8 characters')
-        .regex(/[A-Z]/, 'Must contain uppercase letter')
-        .regex(/[a-z]/, 'Must contain lowercase letter')
-        .regex(/[0-9]/, 'Must contain a digit')
-        .regex(/[^A-Za-z0-9]/, 'Must contain a special character'),
+      newPassword:     z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .max(128, 'Password must be at most 128 characters long')
+        .regex(/^[A-Za-z0-9]+$/, 'Password must contain only letters and numbers')
+        .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
       confirmPassword: z.string(),
     }).refine(d => d.newPassword === d.confirmPassword, {
       message: 'Passwords do not match', path: ['confirmPassword'],
@@ -896,13 +903,17 @@ router.get('/reports/course-utilization', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 // TIMETABLE (dedicated endpoints)
 // ══════════════════════════════════════════════════════════════════════════════
+
+/** GET /timetable — list slots, filtered by semester / room / instructor / status */
 router.get('/timetable', async (req: AuthRequest, res) => {
   try {
     const qp = q(req);
-    const where: any = {};
-    if (qp.semesterId) where.courseOffering = { semesterId: qp.semesterId };
-    if (qp.roomId) where.roomId = qp.roomId;
+    const where: any = { status: { in: ['PUBLISHED', 'DRAFT'] } };
+    if (qp.semesterId)   where.courseOffering = { semesterId: qp.semesterId };
+    if (qp.roomId)       where.roomId = qp.roomId;
     if (qp.instructorId) where.instructorId = qp.instructorId;
+    if (qp.status)       where.status = qp.status;  // allow explicit override
+
     const slots = await prisma.timetableSlot.findMany({
       where,
       include: {
@@ -913,7 +924,7 @@ router.get('/timetable', async (req: AuthRequest, res) => {
             instructor: { include: { user: { select: { fullName: true } } } },
           },
         },
-        room: { select: { building: true, name: true, capacity: true } },
+        room: { select: { building: true, name: true, capacity: true, roomType: true } },
       },
       orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
     });
@@ -921,76 +932,279 @@ router.get('/timetable', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
+/** GET /timetable/conflicts — detect room and time-overlap conflicts in a semester */
 router.get('/timetable/conflicts', async (req: AuthRequest, res) => {
   try {
     const qp = q(req);
-    const semesterFilter = qp.semesterId ? `AND co."semesterId" = '${qp.semesterId}'` : '';
-    type ConflictRow = { roomId: string; dayOfWeek: number; startTime: string; courses: string; room: string };
-    const conflicts = await prisma.$queryRawUnsafe<ConflictRow[]>(`
-      SELECT t1."roomId", t1."dayOfWeek", t1."startTime",
-             STRING_AGG(DISTINCT c."code", ', ') as courses,
-             CONCAT(r."building", ' ', r."name") as room
-      FROM "TimetableSlot" t1
-      JOIN "TimetableSlot" t2 ON t1."roomId" = t2."roomId"
-        AND t1."dayOfWeek" = t2."dayOfWeek"
-        AND t1."startTime" = t2."startTime"
-        AND t1.id <> t2.id
-        AND t1."roomId" IS NOT NULL
-      JOIN "CourseOffering" co ON t1."courseOfferingId" = co.id
-      JOIN "Course" c ON co."courseId" = c.id
-      JOIN "Room" r ON t1."roomId" = r.id
-      ${semesterFilter}
-      GROUP BY t1."roomId", t1."dayOfWeek", t1."startTime", r."building", r."name"
-    `);
+    const semesterId = qp.semesterId;
+
+    // Use the service overlap-aware logic rather than the old raw SQL exact-match query
+    const slots = await prisma.timetableSlot.findMany({
+      where: {
+        status: { in: ['PUBLISHED', 'DRAFT'] },
+        ...(semesterId ? { courseOffering: { semesterId } } : {}),
+      },
+      include: {
+        courseOffering: {
+          include: { course: { select: { code: true } } },
+        },
+        room: { select: { building: true, name: true } },
+      },
+    });
+
+    const conflicts: {
+      type: 'ROOM' | 'INSTRUCTOR';
+      dayOfWeek: number;
+      slotA: { id: string; courseCode: string; startTime: string; endTime: string };
+      slotB: { id: string; courseCode: string; startTime: string; endTime: string };
+      resource: string;
+    }[] = [];
+
+    function toMin(t: string) {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    }
+    function overlaps(a: typeof slots[0], b: typeof slots[0]) {
+      return (
+        a.dayOfWeek === b.dayOfWeek &&
+        toMin(a.startTime) < toMin(b.endTime) &&
+        toMin(a.endTime) > toMin(b.startTime)
+      );
+    }
+
+    for (let i = 0; i < slots.length; i++) {
+      for (let j = i + 1; j < slots.length; j++) {
+        const a = slots[i], b = slots[j];
+        if (!overlaps(a, b)) continue;
+        if (a.roomId && b.roomId && a.roomId === b.roomId) {
+          conflicts.push({
+            type: 'ROOM',
+            dayOfWeek: a.dayOfWeek,
+            slotA: { id: a.id, courseCode: a.courseOffering.course.code, startTime: a.startTime, endTime: a.endTime },
+            slotB: { id: b.id, courseCode: b.courseOffering.course.code, startTime: b.startTime, endTime: b.endTime },
+            resource: `${a.room?.building ?? ''} ${a.room?.name ?? ''}`.trim(),
+          });
+        }
+        if (a.instructorId && b.instructorId && a.instructorId === b.instructorId) {
+          conflicts.push({
+            type: 'INSTRUCTOR',
+            dayOfWeek: a.dayOfWeek,
+            slotA: { id: a.id, courseCode: a.courseOffering.course.code, startTime: a.startTime, endTime: a.endTime },
+            slotB: { id: b.id, courseCode: b.courseOffering.course.code, startTime: b.startTime, endTime: b.endTime },
+            resource: a.instructorId,
+          });
+        }
+      }
+    }
+
     ok(res, conflicts);
   } catch (e) { fail(res, e); }
 });
 
+/** POST /timetable/check-conflicts — frontend pre-flight conflict check without saving */
+router.post('/timetable/check-conflicts', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      semesterId:        z.string().uuid(),
+      roomId:            z.string().uuid().nullable().optional(),
+      instructorId:      z.string().uuid().nullable().optional(),
+      excludeOfferingId: z.string().uuid().optional(),
+      timetables: z.array(z.object({
+        dayOfWeek: z.number().int().min(0).max(6),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/),
+        endTime:   z.string().regex(/^\d{2}:\d{2}$/),
+      })).min(1),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+    const conflicts = await offerings.checkConflicts(parsed.data);
+    ok(res, { conflicts, hasConflicts: conflicts.length > 0 });
+  } catch (e) { fail(res, e, 400); }
+});
+
+/** POST /timetable — create a single timetable slot with full overlap conflict detection */
 router.post('/timetable', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       courseOfferingId: z.string().uuid(),
-      dayOfWeek: z.number().int().min(0).max(6),
-      startTime: z.string().regex(/^\d{2}:\d{2}$/),
-      endTime: z.string().regex(/^\d{2}:\d{2}$/),
-      roomId: z.string().uuid().optional(),
+      dayOfWeek:  z.number().int().min(0).max(6),
+      startTime:  z.string().regex(/^\d{2}:\d{2}$/),
+      endTime:    z.string().regex(/^\d{2}:\d{2}$/),
+      roomId:     z.string().uuid().optional(),
       instructorId: z.string().uuid().optional(),
+      status:     z.enum(['DRAFT', 'PUBLISHED']).optional().default('PUBLISHED'),
     });
     const parsed = schema.safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
 
-    // Conflict check
-    const { courseOfferingId, dayOfWeek, startTime, roomId, instructorId } = parsed.data;
+    const { courseOfferingId, dayOfWeek, startTime, endTime, roomId, instructorId, status } = parsed.data;
     const offering = await prisma.courseOffering.findUnique({ where: { id: courseOfferingId } });
     if (!offering) { res.status(404).json({ error: 'Course offering not found' }); return; }
 
-    if (roomId) {
-      const roomConflict = await prisma.timetableSlot.findFirst({
-        where: { roomId, dayOfWeek, startTime, courseOffering: { semesterId: offering.semesterId } },
+    // Full overlap-aware conflict check
+    const conflicts = await offerings.checkConflicts({
+      semesterId:   offering.semesterId,
+      roomId:       roomId ?? null,
+      instructorId: instructorId ?? null,
+      excludeOfferingId: courseOfferingId,
+      timetables:   [{ dayOfWeek, startTime, endTime }],
+    });
+    if (conflicts.length) {
+      // Broadcast conflict notification to timetable room so other registrar tabs see it
+      broadcastTimetableConflict({
+        semesterId: offering.semesterId,
+        conflicts,
+        context: { dayOfWeek, startTime, endTime, roomId, instructorId },
       });
-      if (roomConflict) { res.status(409).json({ error: `Room conflict at day ${dayOfWeek} ${startTime}` }); return; }
-    }
-    if (instructorId) {
-      const instrConflict = await prisma.timetableSlot.findFirst({
-        where: { instructorId, dayOfWeek, startTime, courseOffering: { semesterId: offering.semesterId } },
-      });
-      if (instrConflict) { res.status(409).json({ error: `Instructor conflict at day ${dayOfWeek} ${startTime}` }); return; }
+      res.status(409).json({ error: 'Schedule conflict detected', conflicts });
+      return;
     }
 
-    const slot = await prisma.timetableSlot.create({ data: { ...parsed.data } });
-    await prisma.registrarAuditLog.create({
-      data: { userId: req.user!.userId, action: 'TIMETABLE_CREATED', entityType: 'TimetableSlot', entityId: slot.id, description: `Timetable slot created for offering ${courseOfferingId}` },
+    const slot = await prisma.timetableSlot.create({
+      data: { courseOfferingId, dayOfWeek, startTime, endTime, roomId, instructorId, status },
     });
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId, action: 'TIMETABLE_CREATED',
+        entityType: 'TimetableSlot', entityId: slot.id,
+        description: `Timetable slot created for offering ${courseOfferingId}`,
+      },
+    });
+
+    // Broadcast to all clients watching this semester
+    broadcastTimetableCreated({
+      semesterId: offering.semesterId,
+      slot: {
+        id: slot.id, courseOfferingId, dayOfWeek,
+        startTime, endTime,
+        roomId: slot.roomId, instructorId: slot.instructorId,
+        status: slot.status,
+      },
+    });
+
     ok(res, slot, 201);
   } catch (e) { fail(res, e, 400); }
 });
 
+/** PATCH /timetable/:id — update a slot (reschedule, change room/instructor, change status) */
+router.patch('/timetable/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      dayOfWeek:    z.number().int().min(0).max(6).optional(),
+      startTime:    z.string().regex(/^\d{2}:\d{2}$/).optional(),
+      endTime:      z.string().regex(/^\d{2}:\d{2}$/).optional(),
+      roomId:       z.string().uuid().nullable().optional(),
+      instructorId: z.string().uuid().nullable().optional(),
+      status:       z.enum(['DRAFT', 'PUBLISHED', 'CANCELLED', 'COMPLETED']).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    const existing = await prisma.timetableSlot.findUnique({
+      where: { id: pid(req) },
+      include: { courseOffering: { select: { semesterId: true } } },
+    });
+    if (!existing) { res.status(404).json({ error: 'Timetable slot not found' }); return; }
+
+    // If rescheduling (day or time changed) re-run conflict detection
+    const newDay   = parsed.data.dayOfWeek   ?? existing.dayOfWeek;
+    const newStart = parsed.data.startTime   ?? existing.startTime;
+    const newEnd   = parsed.data.endTime     ?? existing.endTime;
+    const newRoom  = parsed.data.roomId      !== undefined ? parsed.data.roomId  : existing.roomId;
+    const newInstr = parsed.data.instructorId !== undefined ? parsed.data.instructorId : existing.instructorId;
+    const isRescheduling =
+      newDay !== existing.dayOfWeek || newStart !== existing.startTime || newEnd !== existing.endTime;
+
+    if (isRescheduling) {
+      const conflicts = await offerings.checkConflicts({
+        semesterId:        existing.courseOffering.semesterId,
+        roomId:            newRoom,
+        instructorId:      newInstr,
+        excludeOfferingId: existing.courseOfferingId,
+        timetables:        [{ dayOfWeek: newDay, startTime: newStart, endTime: newEnd }],
+      });
+      if (conflicts.length) {
+        broadcastTimetableConflict({
+          semesterId: existing.courseOffering.semesterId,
+          conflicts,
+          context: { dayOfWeek: newDay, startTime: newStart, endTime: newEnd, roomId: newRoom, instructorId: newInstr },
+        });
+        res.status(409).json({ error: 'Schedule conflict detected', conflicts });
+        return;
+      }
+    }
+
+    const updated = await prisma.timetableSlot.update({
+      where: { id: pid(req) },
+      data: {
+        ...(parsed.data.dayOfWeek    !== undefined && { dayOfWeek:    parsed.data.dayOfWeek }),
+        ...(parsed.data.startTime    !== undefined && { startTime:    parsed.data.startTime }),
+        ...(parsed.data.endTime      !== undefined && { endTime:      parsed.data.endTime }),
+        ...(parsed.data.roomId       !== undefined && { roomId:       parsed.data.roomId }),
+        ...(parsed.data.instructorId !== undefined && { instructorId: parsed.data.instructorId }),
+        ...(parsed.data.status       !== undefined && { status:       parsed.data.status }),
+      },
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId, action: 'TIMETABLE_UPDATED',
+        entityType: 'TimetableSlot', entityId: pid(req),
+        description: `Timetable slot ${pid(req)} updated`,
+      },
+    });
+
+    broadcastTimetableUpdated({
+      semesterId: existing.courseOffering.semesterId,
+      slot: {
+        id: updated.id, courseOfferingId: updated.courseOfferingId,
+        dayOfWeek: updated.dayOfWeek, startTime: updated.startTime, endTime: updated.endTime,
+        roomId: updated.roomId, instructorId: updated.instructorId,
+        status: updated.status,
+      },
+    });
+
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+/** DELETE /timetable/:id — soft-cancel (status → CANCELLED) rather than hard delete */
 router.delete('/timetable/:id', async (req: AuthRequest, res) => {
   try {
-    await prisma.timetableSlot.delete({ where: { id: pid(req) } });
-    await prisma.registrarAuditLog.create({
-      data: { userId: req.user!.userId, action: 'TIMETABLE_DELETED', entityType: 'TimetableSlot', entityId: pid(req), description: 'Timetable slot deleted' },
+    const existing = await prisma.timetableSlot.findUnique({
+      where: { id: pid(req) },
+      include: { courseOffering: { select: { semesterId: true } } },
     });
+    if (!existing) { res.status(404).json({ error: 'Timetable slot not found' }); return; }
+
+    // Soft-cancel: preserve history for attendance and academic records
+    await prisma.timetableSlot.update({
+      where: { id: pid(req) },
+      data: { status: 'CANCELLED' },
+    });
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId, action: 'TIMETABLE_DELETED',
+        entityType: 'TimetableSlot', entityId: pid(req),
+        description: 'Timetable slot cancelled (soft delete)',
+      },
+    });
+
+    broadcastTimetableDeleted({
+      semesterId: existing.courseOffering.semesterId,
+      slotId: pid(req),
+      courseOfferingId: existing.courseOfferingId,
+    });
+
     ok(res, { success: true });
   } catch (e) { fail(res, e, 400); }
 });
@@ -1056,6 +1270,100 @@ router.delete('/grade-scale/:id', async (req: AuthRequest, res) => {
     });
     ok(res, updated);
   } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ONBOARDINGS — view-only list of all student onboarding registrations
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/onboardings', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    const { page, limit } = pageParams(qp);
+    const skip = (page - 1) * limit;
+
+    const searchWhere: any = qp.search ? {
+      user: {
+        OR: [
+          { fullName: { contains: qp.search, mode: 'insensitive' } },
+          { email:    { contains: qp.search, mode: 'insensitive' } },
+          { phone:    { contains: qp.search, mode: 'insensitive' } },
+        ],
+      },
+    } : {};
+
+    const feePaidFilter   = qp.feePaid   !== undefined ? { registrationFeePaid:  qp.feePaid   === 'true' } : {};
+    const deptFilter      = qp.deptSelected !== undefined ? { departmentSelected: qp.deptSelected === 'true' } : {};
+    const where = { ...searchWhere, ...feePaidFilter, ...deptFilter };
+
+    const [total, profiles] = await Promise.all([
+      prisma.studentProfile.count({ where }),
+      prisma.studentProfile.findMany({
+        where, skip, take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          userId:                   true,
+          registrationFeePaid:      true,
+          registrationFeePaidAt:    true,
+          departmentSelected:       true,
+          paymentVerifiedByFinance:  true,
+          paymentVerifiedAt:        true,
+          selectedDepartmentId:     true,
+          createdAt:                true,
+          user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
+          selectedDepartment: { select: { id: true, name: true, code: true } },
+        },
+      }),
+    ]);
+
+    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), onboardings: profiles });
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMISSIONS-READY — students whose payment was verified by Finance Officer
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/admissions-ready', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    const { page, limit } = pageParams(qp);
+    const skip = (page - 1) * limit;
+
+    const where: any = { paymentVerifiedByFinance: true };
+    if (qp.search) {
+      where.user = {
+        OR: [
+          { fullName: { contains: qp.search, mode: 'insensitive' } },
+          { email:    { contains: qp.search, mode: 'insensitive' } },
+          { phone:    { contains: qp.search, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    const [total, profiles] = await Promise.all([
+      prisma.studentProfile.count({ where }),
+      prisma.studentProfile.findMany({
+        where, skip, take: limit,
+        orderBy: { paymentVerifiedAt: 'desc' },
+        select: {
+          userId:                   true,
+          registrationFeePaid:      true,
+          registrationFeePaidAt:    true,
+          departmentSelected:       true,
+          paymentVerifiedByFinance:  true,
+          paymentVerifiedAt:        true,
+          paymentVerifiedByUserId:  true,
+          selectedDepartmentId:     true,
+          createdAt:                true,
+          user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
+          selectedDepartment: { select: { id: true, name: true, code: true } },
+        },
+      }),
+    ]);
+
+    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), admissions: profiles });
+  } catch (e) { fail(res, e); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

@@ -59,4 +59,20 @@ export class ResendEmailProvider implements EmailProvider {
     </body></html>`;
     return this.send(to, 'Reset your Harmony College password', html, text);
   }
+
+  async sendHrNotificationEmail(
+    to: string,
+    params: { recipientName: string; subject: string; heading: string; body: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    const html = `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px">
+      <img src="https://harmony.edu/logo.png" alt="Harmony College" style="height:40px;margin-bottom:24px" />
+      <h2 style="color:#0F0F10">${params.heading}</h2>
+      <p>Dear ${params.recipientName},</p>
+      <p style="white-space:pre-line">${params.body}</p>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
+      <p style="color:#888;font-size:12px">Harmony College HR System — automated notification</p>
+    </body></html>`;
+    const text = `${params.heading}\n\nDear ${params.recipientName},\n\n${params.body}`;
+    return this.send(to, params.subject, html, text);
+  }
 }

@@ -41,11 +41,13 @@ export const HRSearchModal: React.FC<HRSearchModalProps> = ({ isOpen, onClose, o
   const results = q.length >= 2 ? allResults.filter(r => r.label.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q)).slice(0, 10) : [];
 
   const quickLinks: { tab: HRNavTab; label: string; icon: React.ReactNode }[] = [
-    { tab: 'employees',   label: 'Employees',   icon: <Users className="w-4 h-4" /> },
-    { tab: 'leave',       label: 'Leave',       icon: <CalendarCheck className="w-4 h-4" /> },
-    { tab: 'payroll',     label: 'Payroll',     icon: <Banknote className="w-4 h-4" /> },
-    { tab: 'performance', label: 'Performance', icon: <TrendingUp className="w-4 h-4" /> },
-    { tab: 'documents',   label: 'Documents',   icon: <FolderOpen className="w-4 h-4" /> },
+    { tab: 'employees',      label: 'Employees',           icon: <Users className="w-4 h-4" /> },
+    { tab: 'leave',          label: 'Leave',               icon: <CalendarCheck className="w-4 h-4" /> },
+    { tab: 'payroll',        label: 'Payroll',             icon: <Banknote className="w-4 h-4" /> },
+    { tab: 'performance',    label: 'Performance',         icon: <TrendingUp className="w-4 h-4" /> },
+    { tab: 'documents',      label: 'Documents',           icon: <FolderOpen className="w-4 h-4" /> },
+    { tab: 'salary_history', label: 'Salary & Contracts',  icon: <TrendingUp className="w-4 h-4" /> },
+    { tab: 'offboarding',    label: 'Offboarding',         icon: <Users className="w-4 h-4" /> },
   ];
 
   return (

@@ -93,6 +93,45 @@ router.get('/', async (req: AuthRequest, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TIMETABLE (spec §12 — read-only for students, shows only enrolled courses)
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/timetable', async (req: AuthRequest, res) => {
+  try {
+    const srId = await resolveStudentRecord(req.user!.userId);
+
+    // Active enrollments for this student
+    const enrollments = await prisma.enrollment.findMany({
+      where: { studentRecordId: srId, status: { in: ['ACTIVE', 'FORCE_ADDED'] } },
+      select: { courseOfferingId: true },
+    });
+    const offeringIds = enrollments.map(e => e.courseOfferingId);
+
+    if (!offeringIds.length) { ok(res, { slots: [], offeringIds: [] }); return; }
+
+    const slots = await prisma.timetableSlot.findMany({
+      where: {
+        courseOfferingId: { in: offeringIds },
+        status: { in: ['PUBLISHED'] },
+      },
+      include: {
+        courseOffering: {
+          include: {
+            course: { select: { code: true, name: true, creditHours: true } },
+            instructor: { include: { user: { select: { fullName: true } } } },
+            room: { select: { name: true, building: true, roomType: true } },
+            semester: { include: { academicYear: { select: { name: true } } } },
+          },
+        },
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+
+    ok(res, { slots, offeringIds });
+  } catch (e) { fail(res, e); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // COURSES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -377,10 +416,12 @@ router.post('/settings/password', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       currentPassword: z.string().min(1),
-      newPassword:     z.string().min(8, 'Password must be at least 8 characters')
-        .regex(/[A-Z]/, 'Must contain uppercase')
-        .regex(/[0-9]/, 'Must contain a digit')
-        .regex(/[^A-Za-z0-9]/, 'Must contain a special character'),
+      newPassword:     z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .max(128, 'Password must be at most 128 characters long')
+        .regex(/^[A-Za-z0-9]+$/, 'Password must contain only letters and numbers')
+        .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
       confirmPassword: z.string(),
     }).refine(d => d.newPassword === d.confirmPassword, {
       message: 'Passwords do not match',

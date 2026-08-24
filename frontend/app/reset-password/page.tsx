@@ -55,10 +55,9 @@ function Field({ id, label, type = 'text', value, onChange, error, suffix, autoC
 function PasswordHints({ password }: { password: string }) {
   const checks = [
     { label: 'At least 8 characters',  ok: password.length >= 8 },
-    { label: 'One uppercase letter',    ok: /[A-Z]/.test(password) },
-    { label: 'One lowercase letter',    ok: /[a-z]/.test(password) },
-    { label: 'One number',              ok: /[0-9]/.test(password) },
-    { label: 'One special character',   ok: /[^A-Za-z0-9]/.test(password) },
+    { label: 'At least one letter',     ok: /[A-Za-z]/.test(password) },
+    { label: 'At least one number',     ok: /[0-9]/.test(password) },
+    { label: 'Letters and numbers only', ok: password.length > 0 && /^[A-Za-z0-9]+$/.test(password) },
   ];
   if (!password) return null;
   return (

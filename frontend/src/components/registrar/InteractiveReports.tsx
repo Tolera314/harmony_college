@@ -11,6 +11,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { SkeletonPage, ErrorState } from '../ui/States';
 import { reportsApi, offeringsApi } from '@/src/lib/registrarApi';
+import { dateToEthiopianTime } from '@/src/lib/utils';
 
 // ── Attendance API helpers ────────────────────────────────────────────────────
 async function fetchAttendanceReport(params: Record<string, string | number | undefined>) {
@@ -408,7 +409,7 @@ export const InteractiveReports: React.FC = () => {
                           {rec.method ?? 'Manual'}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                          {rec.markedAt ? new Date(rec.markedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {rec.markedAt ? dateToEthiopianTime(new Date(rec.markedAt)) : '—'}
                         </td>
                       </tr>
                     );

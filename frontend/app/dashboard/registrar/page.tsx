@@ -20,6 +20,7 @@ import { settingsApi, notificationsApi, type RegistrarProfile, type RegistrarNot
 import { DashboardOverview } from '@/src/components/registrar/DashboardOverview';
 
 const RegistrarStudentsView  = dynamic(() => import('@/src/components/registrar/RegistrarStudentsView').then(m => m.RegistrarStudentsView), { ssr: false });
+const RegistrarOnboardingsView = dynamic(() => import('@/src/components/registrar/RegistrarOnboardingsView').then(m => m.RegistrarOnboardingsView), { ssr: false });
 const AdmissionsManagement   = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
 const CourseCatalog          = dynamic(() => import('@/src/components/registrar/CourseCatalog').then(m => m.CourseCatalog), { ssr: false });
 const CourseOfferings        = dynamic(() => import('@/src/components/registrar/CourseOfferings').then(m => m.CourseOfferings), { ssr: false });
@@ -37,7 +38,7 @@ const RegistrarSettings      = dynamic(() => import('@/src/components/registrar/
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RegistrarTab =
-  | 'dashboard' | 'students' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
+  | 'dashboard' | 'students' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
   | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
 
@@ -46,6 +47,7 @@ interface MenuItem { id: RegistrarTab; label: string; icon: React.ComponentType<
 const MENU_ITEMS: MenuItem[] = [
   { id: 'dashboard',    label: 'Dashboard',           icon: LayoutDashboard },
   { id: 'students',     label: 'Student Records',     icon: Users },
+  { id: 'onboardings',  label: 'Onboardings',         icon: ClipboardList },
   { id: 'admissions',   label: 'Admissions',          icon: ClipboardList },
   { id: 'enrollments',  label: 'Course Enrollments',  icon: BookOpen },
   { id: 'catalog',      label: 'Course Catalog',      icon: BookOpen },
@@ -207,6 +209,7 @@ export default function RegistrarDashboardPage() {
     switch (activeTab) {
       case 'dashboard':    return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} />;
       case 'students':     return <RegistrarStudentsView />;
+      case 'onboardings':  return <RegistrarOnboardingsView />;
       case 'admissions':   return <AdmissionsManagement />;
       case 'catalog':      return <CourseCatalog />;
       case 'offerings':    return <CourseOfferings />;

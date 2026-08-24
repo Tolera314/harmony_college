@@ -3,7 +3,7 @@
 import React from 'react';
 import { InstructorNavTab, InstructorProfile } from '../../types/instructor';
 import {
-  LayoutDashboard, BookOpen, CalendarCheck, GraduationCap, ClipboardList,
+  LayoutDashboard, BookOpen, CalendarCheck, CalendarDays, GraduationCap, ClipboardList,
   FolderOpen, Megaphone, BarChart3, Bell, FileText, Settings, LogOut,
   ClipboardCheck, HelpCircle,
 } from 'lucide-react';
@@ -36,6 +36,7 @@ export const InSidebar: React.FC<InSidebarProps> = ({
   const navItems: NavItem[] = [
     { id: 'overview',       label: 'Dashboard',        icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'my_classes',     label: 'My Classes',       icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'schedule',       label: 'My Schedule',      icon: <CalendarDays className="w-5 h-5" /> },
     {
       id: 'attendance', label: 'Attendance', icon: <CalendarCheck className="w-5 h-5" />,
       badge: activeSession ? 'Live' : undefined, badgeVariant: 'emerald',

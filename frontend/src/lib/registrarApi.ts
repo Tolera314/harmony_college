@@ -6,7 +6,7 @@
 
 const BASE = '';
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     credentials: 'include',
@@ -26,7 +26,7 @@ export interface PaginatedResponse<T> {
   data?: T[];
 }
 
-function qs(params: Record<string, unknown>): string {
+export function qs(params: Record<string, unknown>): string {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== '') p.set(k, String(v));
@@ -155,7 +155,7 @@ export interface OfferingsListResponse {
 }
 export interface OfferingMeta {
   semesters: { id: string; name: string; isCurrent: boolean; academicYear: { name: string } }[];
-  rooms: { id: string; name: string; building: string; capacity: number }[];
+  rooms: { id: string; name: string; building: string; capacity: number; roomType: string }[];
   instructors: { id: string; user: { fullName: string }; department: { name: string } }[];
 }
 export const offeringsApi = {
@@ -266,11 +266,76 @@ export const reportsApi = {
 // ═══════════════════════════════════════════════════════════════════════════
 // TIMETABLE
 // ═══════════════════════════════════════════════════════════════════════════
+export type TimetableSlotStatus = 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
+export type RoomType = 'CLASSROOM' | 'LAB' | 'LECTURE_HALL' | 'EXAM_HALL' | 'SEMINAR_ROOM';
+
+export interface TimetableSlot {
+  id: string;
+  courseOfferingId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  status: TimetableSlotStatus;
+  roomId: string | null;
+  instructorId: string | null;
+  courseOffering: {
+    course: { code: string; name: string };
+    semester: { name: string; academicYear: { name: string } };
+    instructor: { user: { fullName: string } } | null;
+    _count?: { enrollments: number };
+  };
+  room: { building: string; name: string; capacity: number; roomType: RoomType } | null;
+}
+
+export interface TimetableConflict {
+  type: 'ROOM' | 'INSTRUCTOR';
+  dayOfWeek: number;
+  slotA: { id: string; courseCode: string; startTime: string; endTime: string };
+  slotB: { id: string; courseCode: string; startTime: string; endTime: string };
+  resource: string;
+}
+
+export interface ConflictCheckResult {
+  conflicts: string[];
+  hasConflicts: boolean;
+}
+
 export const timetableApi = {
-  list:          (params: Record<string, unknown> = {}) => apiFetch<Record<string, any>[]>(`/api/registrar/timetable${qs(params)}`),
-  getConflicts:  (semesterId?: string) => apiFetch<Record<string, any>[]>(`/api/registrar/timetable/conflicts${semesterId ? `?semesterId=${semesterId}` : ''}`),
-  createSlot:    (data: Record<string, unknown>) => apiFetch(`/api/registrar/timetable`, { method: 'POST', body: JSON.stringify(data) }),
-  deleteSlot:    (id: string) => apiFetch(`/api/registrar/timetable/${id}`, { method: 'DELETE' }),
+  list: (params: Record<string, unknown> = {}) =>
+    apiFetch<TimetableSlot[]>(`/api/registrar/timetable${qs(params)}`),
+
+  getConflicts: (semesterId?: string) =>
+    apiFetch<TimetableConflict[]>(`/api/registrar/timetable/conflicts${semesterId ? `?semesterId=${semesterId}` : ''}`),
+
+  /** Pre-flight conflict check — no DB write (spec §5 "Check Availability") */
+  checkConflicts: (data: {
+    semesterId: string;
+    roomId?: string | null;
+    instructorId?: string | null;
+    excludeOfferingId?: string;
+    timetables: { dayOfWeek: number; startTime: string; endTime: string }[];
+  }) => apiFetch<ConflictCheckResult>('/api/registrar/timetable/check-conflicts', {
+    method: 'POST', body: JSON.stringify(data),
+  }),
+
+  createSlot: (data: Record<string, unknown>) =>
+    apiFetch<TimetableSlot>('/api/registrar/timetable', { method: 'POST', body: JSON.stringify(data) }),
+
+  /** Update a slot — reschedule, change room/instructor, change status */
+  patchSlot: (id: string, data: {
+    dayOfWeek?: number;
+    startTime?: string;
+    endTime?: string;
+    roomId?: string | null;
+    instructorId?: string | null;
+    status?: TimetableSlotStatus;
+  }) => apiFetch<TimetableSlot>(`/api/registrar/timetable/${id}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  }),
+
+  /** Soft-cancel a slot (sets status → CANCELLED, preserves history) */
+  deleteSlot: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/registrar/timetable/${id}`, { method: 'DELETE' }),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

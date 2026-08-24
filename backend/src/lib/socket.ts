@@ -177,6 +177,23 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
       socket.leave(`attendance:${courseOfferingId}`);
     });
 
+    // ── Timetable: join/leave a semester room ────────────────────────────────
+    // Registrars, instructors and students join `timetable:${semesterId}` to
+    // receive live TIMETABLE_CREATED / UPDATED / DELETED / CONFLICT events.
+    socket.on('timetable:join', async (semesterId: string) => {
+      try {
+        if (!semesterId) return;
+        // Any authenticated user may observe the published timetable
+        socket.join(`timetable:${semesterId}`);
+      } catch (err) {
+        console.error('[socket:timetable:join]', err);
+      }
+    });
+
+    socket.on('timetable:leave', (semesterId: string) => {
+      socket.leave(`timetable:${semesterId}`);
+    });
+
     // ── disconnect ──────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       setOffline(userId, socket.id);
@@ -258,4 +275,100 @@ export function broadcastGradePosted(payload: {
   term: string;
 }) {
   _io?.to(`user:${payload.studentUserId}`).emit('grade:posted', payload);
+}
+
+/**
+ * Notify a specific user (student or instructor) that their timetable changed.
+ * Room: `user:${userId}`
+ * This lets the client refetch its schedule automatically.
+ */
+export function notifyTimetableChanged(payload: {
+  userId: string;
+  offeringId: string;
+  courseCode: string;
+  changeType: 'CREATED' | 'UPDATED' | 'DELETED';
+  summary: string;           // e.g. "DB Systems moved: Mon 08:00→10:00 → Tue 14:00→16:00"
+}) {
+  _io?.to(`user:${payload.userId}`).emit('timetable:my_schedule_changed', {
+    offeringId:  payload.offeringId,
+    courseCode:  payload.courseCode,
+    changeType:  payload.changeType,
+    summary:     payload.summary,
+    receivedAt:  new Date().toISOString(),
+  });
+}
+
+// ── Timetable broadcast helpers (called from registrar routes / offeringService) ──
+//
+// Clients (registrar, instructor, student) join `timetable:${semesterId}` to
+// receive live schedule changes without a page refresh.
+
+/**
+ * Broadcast that a timetable slot was created.
+ * Room: `timetable:${semesterId}`
+ */
+export function broadcastTimetableCreated(payload: {
+  semesterId: string;
+  slot: {
+    id: string;
+    courseOfferingId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    roomId: string | null;
+    instructorId: string | null;
+    status: string;
+  };
+}) {
+  _io?.to(`timetable:${payload.semesterId}`).emit('timetable:created', payload.slot);
+}
+
+/**
+ * Broadcast that a timetable slot was updated (rescheduled, room/instructor changed).
+ * Room: `timetable:${semesterId}`
+ */
+export function broadcastTimetableUpdated(payload: {
+  semesterId: string;
+  slot: {
+    id: string;
+    courseOfferingId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    roomId: string | null;
+    instructorId: string | null;
+    status: string;
+  };
+}) {
+  _io?.to(`timetable:${payload.semesterId}`).emit('timetable:updated', payload.slot);
+}
+
+/**
+ * Broadcast that a timetable slot was deleted (status → CANCELLED or hard delete).
+ * Room: `timetable:${semesterId}`
+ */
+export function broadcastTimetableDeleted(payload: {
+  semesterId: string;
+  slotId: string;
+  courseOfferingId: string;
+}) {
+  _io?.to(`timetable:${payload.semesterId}`).emit('timetable:deleted', {
+    slotId: payload.slotId,
+    courseOfferingId: payload.courseOfferingId,
+  });
+}
+
+/**
+ * Broadcast a conflict warning so all connected Registrar tabs see it immediately.
+ * Room: `timetable:${semesterId}`
+ */
+export function broadcastTimetableConflict(payload: {
+  semesterId: string;
+  conflicts: string[];
+  context: { dayOfWeek: number; startTime: string; endTime: string; roomId?: string | null; instructorId?: string | null };
+}) {
+  _io?.to(`timetable:${payload.semesterId}`).emit('timetable:conflict', {
+    conflicts: payload.conflicts,
+    context: payload.context,
+  });
 }

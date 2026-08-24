@@ -56,6 +56,7 @@ export default function SignInPage() {
       };
 
       if (role === 'STUDENT') {
+        // profileCompleted=false → welcome portal (includes brand-new students)
         window.location.href = profileCompleted ? '/dashboard/student' : '/welcome';
         return;
       }

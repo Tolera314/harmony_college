@@ -1,393 +1,279 @@
 'use client';
 
 /**
- * /onboarding/about — "About Harmony College" onboarding page
+ * /onboarding/about
  *
- * Step 1 — College intro (read-only)
- * Step 2 — Pay registration fee (mandatory, hard-blocking)
- * Step 3 — Department selection (mandatory, hard-blocking)
- * Step 4 — Dashboard access granted → redirect to /dashboard/student
- *
- * The screenshot-upload / registrar-approval flow continues to exist
- * as a soft reminder inside the dashboard (non-blocking).
+ * Single page — payment method + receipt upload + department selection.
+ * One submit button saves everything, then shows a success modal.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  GraduationCap, Building2, BookOpen, Users, Award,
-  Camera, Music, Palette, Globe, Headphones, Film, Stethoscope,
-  ArrowRight, ArrowLeft, CheckCircle2, CreditCard,
-  Banknote, Smartphone, AlertCircle,
+  ArrowRight, CheckCircle2, CreditCard, Clock,
+  Banknote, Smartphone, Upload, X, ClipboardCheck,
 } from 'lucide-react';
 import { OnboardingBackground } from './OnboardingBackground';
 import { Button } from '@/src/components/ui/Button';
 
 // ── types ─────────────────────────────────────────────────────────────────────
 interface Dept { id: string; name: string; code: string; description: string | null; }
-interface Prereqs { feePaid: boolean; departmentSelected: boolean; selectedDepartmentId: string | null; }
 
-// ── API helper ────────────────────────────────────────────────────────────────
+// ── API helpers ───────────────────────────────────────────────────────────────
+let refreshing: Promise<boolean> | null = null;
+async function tryRefresh(): Promise<boolean> {
+  if (refreshing) return refreshing;
+  refreshing = fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
+    .then(r => r.ok).catch(() => false).finally(() => { refreshing = null; });
+  return refreshing;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const doFetch = () => fetch(path, {
     ...init,
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
+  let res = await doFetch();
+  if (res.status === 401) {
+    const ok = await tryRefresh();
+    if (!ok) throw new Error('SESSION_EXPIRED');
+    res = await doFetch();
+  }
   const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
   if (!res.ok) throw new Error((data as any).error ?? `Request failed: ${res.status}`);
   return data as T;
 }
 
-// ── static college content ────────────────────────────────────────────────────
-const STATS = [
-  { value: '500+', label: 'Students',  icon: Users },
-  { value: '16+',  label: 'Programs',  icon: BookOpen },
-  { value: '90%',  label: 'Placement', icon: Award },
-  { value: '2015', label: 'Founded',   icon: GraduationCap },
-];
-
-const PROGRAMS = [
-  { name: 'Photography & Videography',   icon: Camera,      color: '#E9C349' },
-  { name: 'Theatrical Art & Filmmaking', icon: Film,        color: '#a78bfa' },
-  { name: 'Music & Vocal Arts',          icon: Music,       color: '#34d399' },
-  { name: 'Cubase Music Production',     icon: Headphones,  color: '#f87171' },
-  { name: 'Graphic Design & Marketing',  icon: Palette,     color: '#60a5fa' },
-  { name: 'IT, Journalism & Languages',  icon: Globe,       color: '#fb923c' },
-  { name: 'Pharmacy',                    icon: Stethoscope, color: '#4ade80' },
-];
-
-// ── Step 1 — College Intro ─────────────────────────────────────────────────────
-function StepIntro({ onNext }: { onNext: () => void }) {
-  return (
-    <motion.div key="intro" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25 }} className="space-y-8">
-
-      <div className="relative rounded-2xl overflow-hidden h-48 sm:h-64">
-        <img src="/hero.png" alt="Harmony College campus" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F10]/90 via-[#0F0F10]/40 to-transparent" />
-        <div className="absolute bottom-0 left-0 p-5">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
-            style={{ color: 'var(--brand-gold)', backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}>
-            Est. 2015 · Burayu, Ethiopia
-          </span>
-          <h2 className="font-serif text-2xl font-bold text-white mt-2">Harmony College</h2>
-          <p className="text-sm text-white/70 font-sans">Empowering the next generation of creative professionals</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-3">
-        {STATS.map(({ value, label, icon: Icon }) => (
-          <div key={label} className="p-3 rounded-2xl text-center"
-            style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
-            <Icon className="w-4 h-4 mx-auto mb-1.5" style={{ color: 'var(--brand-gold)' }} />
-            <p className="font-mono font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{value}</p>
-            <p className="text-[10px] font-sans mt-0.5" style={{ color: 'var(--text-faint)' }}>{label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="p-5 rounded-2xl space-y-3"
-        style={{ background: 'linear-gradient(135deg, var(--accent-gold-subtle) 0%, transparent 100%)', border: '1px solid var(--accent-gold-border)' }}>
-        <h3 className="font-serif text-base font-bold" style={{ color: 'var(--text-primary)' }}>Our Mission</h3>
-        <p className="text-sm font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          Harmony College is dedicated to nurturing creative talent and professional excellence in Ethiopia.
-          We provide industry-relevant education across arts, technology, and health sciences — equipping
-          students with real-world skills that open doors to meaningful careers.
-        </p>
-      </div>
-
-      <div>
-        <h3 className="font-serif text-base font-bold mb-3" style={{ color: 'var(--text-primary)' }}>What We Offer</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {PROGRAMS.map(({ name, icon: Icon, color }) => (
-            <div key={name} className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}1a` }}>
-                <Icon className="w-4 h-4" style={{ color }} />
-              </div>
-              <span className="text-xs font-sans font-medium" style={{ color: 'var(--text-secondary)' }}>{name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[
-          { title: 'Excellence', body: 'World-class curriculum designed by industry professionals.' },
-          { title: 'Community',  body: 'A vibrant campus life that connects students across disciplines.' },
-          { title: 'Career',     body: '90% graduate placement rate within 6 months of completing.' },
-        ].map(v => (
-          <div key={v.title} className="p-4 rounded-2xl"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
-            <p className="font-serif text-sm font-bold mb-1.5" style={{ color: 'var(--text-primary)' }}>{v.title}</p>
-            <p className="text-xs font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>{v.body}</p>
-          </div>
-        ))}
-      </div>
-
-      <Button variant="gold" size="lg" className="w-full" onClick={onNext} icon={<ArrowRight className="w-4 h-4" />}>
-        Continue to Registration Fee
-      </Button>
-    </motion.div>
-  );
+async function uploadFile(formData: FormData): Promise<{ fileUrl: string }> {
+  const doFetch = () => fetch('/api/upload', { method: 'POST', credentials: 'include', body: formData });
+  let res = await doFetch();
+  if (res.status === 401) {
+    const ok = await tryRefresh();
+    if (!ok) throw new Error('SESSION_EXPIRED');
+    res = await doFetch();
+  }
+  const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+  if (!res.ok) throw new Error((data as any).error ?? 'Upload failed');
+  return data as { fileUrl: string };
 }
 
-// ── Step 2 — Registration Fee Payment ─────────────────────────────────────────
+// ── Payment methods ───────────────────────────────────────────────────────────
 const PAYMENT_METHODS = [
-  { id: 'bank',   label: 'Bank Transfer',    icon: Banknote,    detail: 'CBE / Dashen / Awash Bank' },
-  { id: 'mobile', label: 'Mobile Banking',   icon: Smartphone,  detail: 'TeleBirr / M-Pesa / HelloCash' },
-  { id: 'cash',   label: 'Pay at Campus',    icon: CreditCard,  detail: 'Admissions Office, Burayu' },
+  { id: 'telebirr', label: 'TeleBirr',      icon: Smartphone, detail: 'Pay via TeleBirr mobile wallet' },
+  { id: 'cbe',      label: 'CBE Birr',       icon: Smartphone, detail: 'Commercial Bank of Ethiopia app' },
+  { id: 'bank',     label: 'Bank Transfer',  icon: Banknote,   detail: 'CBE / Dashen / Awash Bank' },
+  { id: 'cash',     label: 'Pay at Campus',  icon: CreditCard, detail: 'Admissions Office, Burayu' },
 ];
 
-function StepPayment({ onNext, onBack, saving }: { onNext: () => void; onBack: () => void; saving: boolean }) {
-  const [method, setMethod] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
+const BANK_DETAILS: Record<string, { label: string; value: string }[]> = {
+  telebirr: [
+    { label: 'Account Name', value: 'Harmony College PLC' },
+    { label: 'TeleBirr No.', value: '0911 234 567' },
+    { label: 'Amount',       value: 'ETB 500' },
+    { label: 'Reference',    value: 'Your Full Name + Phone' },
+  ],
+  cbe: [
+    { label: 'Account Name', value: 'Harmony College PLC' },
+    { label: 'Account No.',  value: '1000 5678 9012 345' },
+    { label: 'Bank',         value: 'Commercial Bank of Ethiopia' },
+    { label: 'Reference',    value: 'Your Full Name + Phone' },
+  ],
+  bank: [
+    { label: 'Bank',         value: 'CBE / Dashen / Awash' },
+    { label: 'Account Name', value: 'Harmony College PLC' },
+    { label: 'Account No.',  value: '1000 5678 9012 345' },
+    { label: 'Reference',    value: 'Your Full Name + Phone' },
+  ],
+  cash: [
+    { label: 'Location', value: 'Admissions Office, Burayu Campus' },
+    { label: 'Hours',    value: 'Mon–Fri 8:00am–5:00pm' },
+    { label: 'Amount',   value: 'ETB 500 (cash only)' },
+  ],
+};
 
-  return (
-    <motion.div key="payment" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25 }} className="space-y-6">
-
-      <div>
-        <h2 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Registration Fee</h2>
-        <p className="text-sm font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
-          A one-time registration fee is required to confirm your place at Harmony College.
-        </p>
-      </div>
-
-      {/* Fee card */}
-      <div className="p-5 rounded-2xl flex items-center justify-between"
-        style={{ background: 'linear-gradient(135deg, var(--accent-gold-subtle) 0%, transparent 100%)', border: '1px solid var(--accent-gold-border)' }}>
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: 'var(--text-faint)' }}>One-time Registration Fee</p>
-          <p className="font-serif text-3xl font-bold" style={{ color: 'var(--brand-gold)' }}>ETB 500</p>
-          <p className="text-xs font-sans mt-1" style={{ color: 'var(--text-muted)' }}>Non-refundable · Confirms your enrollment slot</p>
-        </div>
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
-          style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}>
-          <CreditCard className="w-7 h-7" style={{ color: 'var(--brand-gold)' }} />
-        </div>
-      </div>
-
-      {/* Payment method */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>Select payment method</p>
-        {PAYMENT_METHODS.map(pm => {
-          const Icon = pm.icon;
-          const sel = method === pm.id;
-          return (
-            <button key={pm.id} type="button" onClick={() => setMethod(pm.id)}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all"
-              style={{
-                backgroundColor: sel ? 'var(--accent-gold-subtle)' : 'var(--bg-card)',
-                border: `1px solid ${sel ? 'var(--accent-gold-border)' : 'var(--border-card)'}`,
-              }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: sel ? 'var(--brand-gold)' : 'var(--hover-overlay)' }}>
-                <Icon className="w-5 h-5" style={{ color: sel ? 'var(--bg-base)' : 'var(--text-muted)' }} />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>{pm.label}</p>
-                <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>{pm.detail}</p>
-              </div>
-              {sel && <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-gold)' }} />}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Bank details (shown when bank transfer selected) */}
-      {method === 'bank' && (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-2xl space-y-2"
-          style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
-          <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>Bank Transfer Details</p>
-          {[
-            ['Bank', 'Commercial Bank of Ethiopia (CBE)'],
-            ['Account Name', 'Harmony College PLC'],
-            ['Account No.', '1000 5678 9012 345'],
-            ['Reference', 'Your Full Name + Phone'],
-          ].map(([k, v]) => (
-            <div key={k} className="flex justify-between text-xs font-sans">
-              <span style={{ color: 'var(--text-faint)' }}>{k}</span>
-              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{v}</span>
-            </div>
-          ))}
-        </motion.div>
-      )}
-
-      {/* Confirmation checkbox */}
-      <label className="flex items-start gap-3 cursor-pointer">
-        <div className="relative w-5 h-5 shrink-0 mt-0.5">
-          <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
-            className="peer appearance-none w-5 h-5 rounded-md border-2 cursor-pointer"
-            style={{ borderColor: confirmed ? 'var(--brand-gold)' : 'var(--border-strong)', backgroundColor: confirmed ? 'var(--brand-gold)' : 'transparent' }} />
-          {confirmed && (
-            <svg className="absolute inset-0 w-5 h-5 pointer-events-none" viewBox="0 0 20 20">
-              <polyline points="4,11 8,15 16,6" fill="none" stroke="var(--bg-base)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-        </div>
-        <span className="text-xs font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          I confirm that I have paid the ETB 500 registration fee and understand it is non-refundable.
-        </span>
-      </label>
-
-      <div className="flex items-start gap-2 p-3 rounded-xl"
-        style={{ backgroundColor: 'var(--status-info-bg)', border: '1px solid var(--status-info-border)' }}>
-        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--status-info)' }} />
-        <p className="text-xs font-sans" style={{ color: 'var(--text-secondary)' }}>
-          Keep your payment receipt — you'll need to upload a screenshot of it as proof of registration.
-        </p>
-      </div>
-
-      <div className="flex gap-3 pt-2">
-        <Button variant="secondary" size="md" onClick={onBack} icon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
-        <Button variant="gold" size="md" className="flex-1" onClick={onNext}
-          disabled={!method || !confirmed || saving}
-          icon={saving
-            ? <span className="w-4 h-4 border-2 border-[var(--bg-base)]/30 border-t-[var(--bg-base)] rounded-full animate-spin" />
-            : <ArrowRight className="w-4 h-4" />}>
-          {saving ? 'Confirming…' : 'Confirm Payment'}
-        </Button>
-      </div>
-    </motion.div>
-  );
-}
-
-// ── Step 3 — Department Selection ─────────────────────────────────────────────
-function StepDepartment({
-  departments, selected, onSelect, onNext, onBack, saving,
-}: {
-  departments: Dept[];
-  selected: string;
-  onSelect: (id: string) => void;
-  onNext: () => void;
-  onBack: () => void;
-  saving: boolean;
+// ─────────────────────────────────────────────────────────────────────────────
+// SUCCESS MODAL — shown after all API calls succeed
+// ─────────────────────────────────────────────────────────────────────────────
+function SuccessModal({ onGoToDashboard, onViewDetails }: {
+  onGoToDashboard: () => void;
+  onViewDetails:   () => void;
 }) {
-  return (
-    <motion.div key="dept" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25 }} className="space-y-6">
+  // Confetti particles
+  const particles = useMemo(() =>
+    Array.from({ length: 44 }, (_, i) => ({
+      id:     i,
+      x:      Math.random() * 100,
+      vx:     (Math.random() - 0.5) * 28,
+      vy:     -(48 + Math.random() * 40),
+      size:   5 + Math.random() * 8,
+      colour: ['#E9C349','#10B981','#3B82F6','#8B5CF6','#EC4899','#ffffff'][i % 6],
+      delay:  Math.random() * 0.35,
+      rotate: Math.random() * 720,
+      dur:    1.4 + Math.random() * 0.8,
+    })), []);
 
-      <div>
-        <h2 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Choose Your Department</h2>
-        <p className="text-sm font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
-          Select the department you're most interested in. You can update this after enrollment.
-        </p>
+  const NEXT_STEPS = [
+    'Your registration information will be reviewed.',
+    'Your selected department / program will be verified.',
+    'Your payment will be confirmed by the Finance Office.',
+    'Once approved, your registration status will be updated.',
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
+
+      {/* Confetti */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+        {particles.map(p => (
+          <motion.div key={p.id}
+            initial={{ left: `${p.x}vw`, top: '100vh', opacity: 1, rotate: 0, scale: 1 }}
+            animate={{ left: `calc(${p.x}vw + ${p.vx}vw)`, top: `calc(100vh + ${p.vy}vh)`,
+              opacity: [1, 1, 0], rotate: p.rotate, scale: [1, 1.2, 0.5] }}
+            transition={{ duration: p.dur, delay: p.delay, ease: 'easeOut' }}
+            style={{ position: 'fixed', width: p.size, height: p.size * 0.5,
+              backgroundColor: p.colour, borderRadius: p.size < 10 ? '50%' : 2 }}
+          />
+        ))}
       </div>
 
-      {departments.length === 0 ? (
-        <div className="py-12 text-center">
-          <div className="w-8 h-8 border-2 border-t-[var(--brand-gold)] border-white/10 rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-sans mt-4" style={{ color: 'var(--text-faint)' }}>Loading departments…</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {departments.map(dept => {
-            const isSelected = selected === dept.id;
-            return (
-              <button key={dept.id} type="button" onClick={() => onSelect(dept.id)}
-                className="text-left p-4 rounded-2xl transition-all"
-                style={{
-                  backgroundColor: isSelected ? 'var(--accent-gold-subtle)' : 'var(--bg-card)',
-                  border: `1px solid ${isSelected ? 'var(--accent-gold-border)' : 'var(--border-card)'}`,
-                  boxShadow: isSelected ? '0 0 0 2px var(--accent-gold-border)' : undefined,
-                }}>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: isSelected ? 'var(--brand-gold)' : 'var(--hover-overlay)' }}>
-                    <Building2 className="w-4 h-4" style={{ color: isSelected ? 'var(--bg-base)' : 'var(--text-muted)' }} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>{dept.name}</p>
-                    <p className="font-mono text-[10px]" style={{ color: 'var(--brand-gold)' }}>{dept.code}</p>
-                  </div>
-                  {isSelected && <CheckCircle2 className="w-4 h-4 ml-auto shrink-0" style={{ color: 'var(--brand-gold)' }} />}
+      {/* Card */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.88, y: 28 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
+        style={{ backgroundColor: 'rgba(15,15,16,0.97)', border: '1px solid var(--accent-gold-border)', backdropFilter: 'blur(24px)' }}
+      >
+        {/* Gold accent bar */}
+        <div className="h-1 w-full"
+          style={{ background: 'linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold), var(--brand-gold-dark))' }} />
+
+        <div className="p-7 sm:p-8 space-y-6">
+
+          {/* Icon */}
+          <motion.div
+            initial={{ scale: 0, rotate: -30 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.15 }}
+            className="w-20 h-20 rounded-full mx-auto flex items-center justify-center"
+            style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.2), transparent)', border: '2px solid var(--status-success-border)' }}>
+            <CheckCircle2 className="w-10 h-10" style={{ color: 'var(--status-success)' }} />
+          </motion.div>
+
+          {/* Title & message */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
+            className="text-center space-y-2">
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              Registration Successful! 🎉
+            </h2>
+            <p className="text-sm font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              Congratulations! Your registration has been submitted successfully.
+            </p>
+            <p className="text-xs font-sans leading-relaxed pt-1" style={{ color: 'var(--text-faint)' }}>
+              Your application is now under review. Please wait while the school administration
+              and registrar verify your registration details and payment.
+            </p>
+          </motion.div>
+
+          {/* Status badge */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}
+            className="flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-mono text-xs font-bold"
+              style={{ backgroundColor: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.4)', color: '#EAB308' }}>
+              <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#EAB308' }} />
+              Status: Under Review
+            </div>
+          </motion.div>
+
+          {/* What happens next */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }}
+            className="rounded-2xl p-4 space-y-3"
+            style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
+            <p className="text-xs font-semibold font-sans uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+              What happens next?
+            </p>
+            {NEXT_STEPS.map((step, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-mono font-bold"
+                  style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)', color: 'var(--brand-gold)' }}>
+                  {i + 1}
                 </div>
-                {dept.description && (
-                  <p className="text-xs font-sans line-clamp-2" style={{ color: 'var(--text-muted)' }}>{dept.description}</p>
-                )}
-              </button>
-            );
-          })}
+                <p className="text-xs font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{step}</p>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Buttons */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}
+            className="flex flex-col sm:flex-row gap-3">
+            <Button variant="gold" size="lg" className="flex-1" onClick={onGoToDashboard}
+              icon={<ArrowRight className="w-4 h-4" />}>
+              Go to Dashboard
+            </Button>
+            <button onClick={onViewDetails}
+              className="flex-1 py-3 rounded-2xl text-sm font-semibold font-sans border transition-all hover:bg-white/[0.04]"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>
+              View Registration Details
+            </button>
+          </motion.div>
+
         </div>
-      )}
-
-      <div className="flex gap-3 pt-2">
-        <Button variant="secondary" size="md" onClick={onBack} icon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
-        <Button variant="gold" size="md" className="flex-1" onClick={onNext}
-          disabled={!selected || saving}
-          icon={saving
-            ? <span className="w-4 h-4 border-2 border-[var(--bg-base)]/30 border-t-[var(--bg-base)] rounded-full animate-spin" />
-            : <ArrowRight className="w-4 h-4" />}>
-          {saving ? 'Saving…' : 'Go to My Dashboard'}
-        </Button>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
-// ── Step 4 — All Done, redirecting ────────────────────────────────────────────
-function StepDone() {
-  return (
-    <motion.div key="done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col items-center text-center py-10 gap-5">
-      <div className="w-20 h-20 rounded-full flex items-center justify-center"
-        style={{ background: 'radial-gradient(circle, var(--status-success-bg), transparent)', border: '2px solid var(--status-success-border)' }}>
-        <CheckCircle2 className="w-10 h-10" style={{ color: 'var(--status-success)' }} />
-      </div>
-      <h2 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>You're all set! 🎉</h2>
-      <p className="text-sm font-sans max-w-xs mx-auto" style={{ color: 'var(--text-muted)' }}>
-        Taking you to your dashboard…
-      </p>
-      <div className="w-8 h-8 border-2 border-t-[var(--brand-gold)] border-white/10 rounded-full animate-spin" />
-    </motion.div>
-  );
-}
-
-// ── Main component ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 export function AboutOnboardingInner() {
   const router = useRouter();
 
-  // steps: 1=intro, 2=payment, 3=department, 4=done
-  const [step, setStep]               = useState<1 | 2 | 3 | 4>(1);
-  const [departments, setDepartments] = useState<Dept[]>([]);
-  const [selectedDept, setSelectedDept] = useState('');
-  const [saving, setSaving]           = useState(false);
-  const [loaded, setLoaded]           = useState(false);
+  // ── Form state ──────────────────────────────────────────────────────────────
+  const [method, setMethod]     = useState('');
+  const [file, setFile]         = useState<File | null>(null);
+  const [preview, setPreview]   = useState('');
+  const [deptId, setDeptId]     = useState('');
+  const [departments, setDepts] = useState<Dept[]>([]);
 
-  // ── Auth guard + check if prereqs are already met ────────────────────────
+  // ── UI state ─────────────────────────────────────────────────────────────────
+  const [loaded, setLoaded]         = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError]           = useState('');
+
+  // ── Auth guard + load data ────────────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
-      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-      if (!meRes.ok) { router.replace('/signin'); return; }
-      const me = await meRes.json();
+      let me: { authenticated: boolean; user?: { role: string } };
+      try {
+        me = await apiFetch<{ authenticated: boolean; user?: { role: string } }>('/api/auth/me');
+      } catch (e: any) {
+        router.replace('/signin'); return;
+      }
       if (!me.authenticated) { router.replace('/signin'); return; }
       if (me.user?.role !== 'STUDENT') { router.replace('/dashboard/student'); return; }
 
-      // Check prereqs — if both done, skip straight to dashboard
+      // If both prereqs already met, skip straight to dashboard
       try {
-        const prereqs = await apiFetch<{ feePaid: boolean; departmentSelected: boolean; selectedDepartmentId: string | null }>(
-          '/api/student/onboarding/prereqs'
-        );
+        const prereqs = await apiFetch<{
+          feePaid: boolean; departmentSelected: boolean; selectedDepartmentId: string | null;
+        }>('/api/student/onboarding/prereqs');
+
         if (prereqs.feePaid && prereqs.departmentSelected) {
           router.replace('/dashboard/student'); return;
         }
-        // Resume from where they left off
-        if (prereqs.feePaid) {
-          setStep(3); // already paid, go to dept
-        }
-        if (prereqs.selectedDepartmentId) {
-          setSelectedDept(prereqs.selectedDepartmentId);
-        }
-      } catch { /* treat as fresh */ }
+        // Pre-fill department if already saved
+        if (prereqs.selectedDepartmentId) setDeptId(prereqs.selectedDepartmentId);
+      } catch { /* fresh start */ }
 
-      // Load departments for step 3
+      // Load departments
       try {
-        const depts = await apiFetch<Dept[]>('/api/admin/departments');
-        setDepartments(depts);
+        const depts = await apiFetch<Dept[]>('/api/student/onboarding/departments');
+        setDepts(depts);
       } catch { /* non-fatal */ }
 
       setLoaded(true);
@@ -395,37 +281,57 @@ export function AboutOnboardingInner() {
     init().catch(() => router.replace('/signin'));
   }, [router]);
 
-  // ── Step 2 → 3: confirm payment ──────────────────────────────────────────
-  const handlePaymentConfirm = useCallback(async () => {
-    setSaving(true);
-    try {
-      await apiFetch('/api/student/onboarding/payment', { method: 'PATCH' });
-      setStep(3);
-    } catch {
-      // Non-fatal — still advance so we don't hard-block on a network blip
-      setStep(3);
-    } finally {
-      setSaving(false);
+  // ── File handler ──────────────────────────────────────────────────────────
+  const handleFile = (f: File) => {
+    if (!f.type.startsWith('image/') && f.type !== 'application/pdf') {
+      setError('Only images (JPG/PNG) or PDF are accepted.'); return;
     }
-  }, []);
+    if (f.size > 10 * 1024 * 1024) { setError('File must be under 10 MB.'); return; }
+    setError('');
+    setFile(f);
+    if (f.type.startsWith('image/')) setPreview(URL.createObjectURL(f));
+    else setPreview('');
+  };
 
-  // ── Step 3 → 4: save department then redirect ────────────────────────────
-  const handleDeptConfirm = useCallback(async () => {
-    if (!selectedDept) return;
-    setSaving(true);
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const handleSubmit = useCallback(async () => {
+    if (!method)  { setError('Please choose how you paid.'); return; }
+    if (!file)    { setError('Please upload a photo of your payment receipt.'); return; }
+    if (!deptId)  { setError('Please select your department.'); return; }
+
+    setSubmitting(true); setError('');
     try {
-      await apiFetch('/api/student/onboarding/department', {
-        method: 'PATCH',
-        body: JSON.stringify({ departmentId: selectedDept }),
-      });
-    } catch { /* non-fatal */ }
-    setStep(4);
-    // Short pause so the "done" animation is visible, then redirect
-    setTimeout(() => router.replace('/dashboard/student'), 1200);
-    setSaving(false);
-  }, [selectedDept, router]);
+      // 1. Upload receipt
+      const form = new FormData();
+      form.append('file', file);
+      const { fileUrl } = await uploadFile(form);
 
-  // ── Loading spinner ───────────────────────────────────────────────────────
+      // 2. Submit screenshot + mark fee paid + save department (parallel)
+      await Promise.all([
+        apiFetch('/api/student/onboarding/screenshot', {
+          method: 'PATCH',
+          body: JSON.stringify({ screenshotUrl: fileUrl }),
+        }),
+        apiFetch('/api/student/onboarding/payment', { method: 'PATCH' }),
+        apiFetch('/api/student/onboarding/department', {
+          method: 'PATCH',
+          body: JSON.stringify({ departmentId: deptId }),
+        }),
+      ]);
+
+      // All API calls succeeded — show the success modal
+      setShowSuccess(true);
+    } catch (e: any) {
+      if (e.message === 'SESSION_EXPIRED') {
+        setError('Your session expired. Please sign in again.'); return;
+      }
+      setError(e.message ?? 'Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [method, file, deptId, router]);
+
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (!loaded) {
     return (
       <OnboardingBackground>
@@ -436,75 +342,228 @@ export function AboutOnboardingInner() {
     );
   }
 
-  // ── Step indicator labels ─────────────────────────────────────────────────
-  const STEPS = ['About', 'Payment', 'Department', 'Done'];
+  const details = method ? BANK_DETAILS[method] : null;
 
   return (
     <OnboardingBackground>
-      <div className="min-h-screen flex flex-col items-center justify-start py-8 px-4">
-        <div className="w-full max-w-2xl space-y-8">
+      {/* Success modal — shown on top when submission succeeds */}
+      <AnimatePresence>
+        {showSuccess && (
+          <SuccessModal
+            onGoToDashboard={() => router.replace('/dashboard/student')}
+            onViewDetails={() => {
+              setShowSuccess(false);
+              router.replace('/dashboard/student');
+            }}
+          />
+        )}
+      </AnimatePresence>
+      <div className="min-h-screen flex flex-col items-center justify-start py-8 px-4 pb-16">
+        <div className="w-full max-w-lg space-y-6">
 
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl overflow-hidden border-2" style={{ borderColor: 'var(--accent-gold-border)' }}>
-                <img src="/logo2.jpg" alt="Harmony" className="w-full h-full object-cover" />
-              </div>
-              <div>
-                <span className="font-serif text-base font-bold block leading-none" style={{ color: 'var(--text-primary)' }}>Harmony</span>
-                <span className="text-[9px] font-mono uppercase tracking-widest block" style={{ color: 'var(--brand-gold)' }}>College</span>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl overflow-hidden border-2 shrink-0"
+              style={{ borderColor: 'var(--accent-gold-border)' }}>
+              <img src="/logo2.jpg" alt="Harmony" className="w-full h-full object-cover" />
             </div>
-
-            {/* Step dots */}
-            <div className="flex items-center gap-1.5">
-              {STEPS.map((label, i) => {
-                const n = (i + 1) as 1 | 2 | 3 | 4;
-                const done   = step > n;
-                const active = step === n;
-                return (
-                  <div key={label} className="flex items-center gap-1">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all"
-                      style={{
-                        backgroundColor: done ? 'var(--status-success-bg)' : active ? 'var(--brand-gold)' : 'var(--hover-overlay)',
-                        color:           done ? 'var(--status-success)'    : active ? 'var(--bg-base)'    : 'var(--text-faint)',
-                        border: `1px solid ${done ? 'var(--status-success-border)' : active ? 'var(--brand-gold)' : 'var(--border-subtle)'}`,
-                      }}>
-                      {done ? '✓' : n}
-                    </div>
-                    {i < STEPS.length - 1 && (
-                      <div className="w-6 h-0.5 rounded"
-                        style={{ backgroundColor: done ? 'var(--status-success-border)' : 'var(--border-subtle)' }} />
-                    )}
-                  </div>
-                );
-              })}
+            <div>
+              <span className="font-serif text-base font-bold block leading-none" style={{ color: 'var(--text-primary)' }}>Harmony College</span>
+              <span className="text-[10px] font-sans" style={{ color: 'var(--text-muted)' }}>Complete your registration to access your dashboard</span>
             </div>
           </div>
 
           {/* Card */}
-          <div className="rounded-2xl p-6 sm:p-8 shadow-2xl"
-            style={{ backgroundColor: 'rgba(15,15,16,0.85)', border: '1px solid var(--accent-gold-border)', backdropFilter: 'blur(24px)' }}>
+          <div className="rounded-2xl shadow-2xl overflow-hidden"
+            style={{ backgroundColor: 'rgba(15,15,16,0.88)', border: '1px solid var(--accent-gold-border)', backdropFilter: 'blur(24px)' }}>
+
             <AnimatePresence mode="wait">
-              {step === 1 && <StepIntro onNext={() => setStep(2)} />}
-              {step === 2 && (
-                <StepPayment
-                  onNext={handlePaymentConfirm}
-                  onBack={() => setStep(1)}
-                  saving={saving}
-                />
-              )}
-              {step === 3 && (
-                <StepDepartment
-                  departments={departments}
-                  selected={selectedDept}
-                  onSelect={setSelectedDept}
-                  onNext={handleDeptConfirm}
-                  onBack={() => setStep(2)}
-                  saving={saving}
-                />
-              )}
-              {step === 4 && <StepDone />}
+              <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6 sm:p-8 space-y-8">
+
+                  {/* ── SECTION 1: Registration Fee ── */}
+                  <section className="space-y-4">
+                    {/* Title row */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-mono text-xs font-bold"
+                        style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>1</div>
+                      <div>
+                        <h2 className="font-serif text-lg font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
+                          Pay Registration Fee
+                        </h2>
+                        <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          One-time fee of <span className="font-bold" style={{ color: 'var(--brand-gold)' }}>ETB 500</span> — confirms your enrollment slot
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Payment methods */}
+                    <div className="space-y-2">
+                      {PAYMENT_METHODS.map(pm => {
+                        const Icon = pm.icon;
+                        const sel  = method === pm.id;
+                        return (
+                          <button key={pm.id} type="button" onClick={() => setMethod(pm.id)}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
+                            style={{
+                              backgroundColor: sel ? 'var(--accent-gold-subtle)' : 'var(--hover-overlay)',
+                              border: `1px solid ${sel ? 'var(--brand-gold)' : 'var(--border-subtle)'}`,
+                            }}>
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                              style={{ backgroundColor: sel ? 'var(--brand-gold)' : 'var(--bg-card)' }}>
+                              <Icon className="w-4 h-4" style={{ color: sel ? 'var(--bg-base)' : 'var(--text-muted)' }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>{pm.label}</p>
+                              <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>{pm.detail}</p>
+                            </div>
+                            <div className="w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center"
+                              style={{ borderColor: sel ? 'var(--brand-gold)' : 'var(--border-strong)', backgroundColor: sel ? 'var(--brand-gold)' : 'transparent' }}>
+                              {sel && <span className="w-1.5 h-1.5 rounded-full block" style={{ backgroundColor: 'var(--bg-base)' }} />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Payment details — inline under selected method */}
+                    <AnimatePresence>
+                      {details && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                          <div className="p-3 rounded-xl space-y-1.5"
+                            style={{ backgroundColor: 'var(--hover-overlay)', border: '1px solid var(--border-subtle)' }}>
+                            <p className="text-[10px] font-semibold font-sans uppercase tracking-wider mb-1" style={{ color: 'var(--text-faint)' }}>
+                              Send payment to
+                            </p>
+                            {details.map(({ label, value }) => (
+                              <div key={label} className="flex items-center justify-between gap-4">
+                                <span className="text-xs font-sans" style={{ color: 'var(--text-faint)' }}>{label}</span>
+                                <span className="text-xs font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Upload receipt */}
+                    <div
+                      className="relative rounded-xl cursor-pointer transition-all"
+                      style={{
+                        border: `2px dashed ${file ? 'var(--status-success-border)' : 'var(--border-strong)'}`,
+                        backgroundColor: 'var(--hover-overlay)',
+                        minHeight: 100,
+                      }}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+                      onClick={() => document.getElementById('receipt-input')?.click()}
+                    >
+                      <input id="receipt-input" type="file" accept="image/*,.pdf" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+
+                      {preview ? (
+                        <div className="relative">
+                          <img src={preview} alt="Receipt" className="w-full max-h-40 object-contain rounded-xl" />
+                          <button type="button" onClick={e => { e.stopPropagation(); setFile(null); setPreview(''); }}
+                            className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}>
+                            <X className="w-3 h-3" style={{ color: 'var(--status-danger)' }} />
+                          </button>
+                        </div>
+                      ) : file ? (
+                        <div className="flex items-center gap-3 px-4 py-4">
+                          <CheckCircle2 className="w-6 h-6 shrink-0" style={{ color: 'var(--status-success)' }} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{file.name}</p>
+                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{(file.size / 1024).toFixed(0)} KB · Tap to change</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 px-4 py-5">
+                          <Upload className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-gold)' }} />
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Upload payment receipt</p>
+                            <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+                              Photo or PDF · Your name &amp; ETB 500 must be visible
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Divider */}
+                  <div className="h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+
+                  {/* ── SECTION 2: Department ── */}
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-mono text-xs font-bold"
+                        style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>2</div>
+                      <div>
+                        <h2 className="font-serif text-lg font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
+                          Choose Your Department
+                        </h2>
+                        <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          Which department interests you? You can change this later.
+                        </p>
+                      </div>
+                    </div>
+
+                    {departments.length === 0 ? (
+                      <div className="flex items-center gap-2 py-4">
+                        <div className="w-5 h-5 border-2 border-t-[var(--brand-gold)] border-white/10 rounded-full animate-spin shrink-0" />
+                        <p className="text-sm font-sans" style={{ color: 'var(--text-faint)' }}>Loading departments…</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {departments.map(dept => {
+                          const sel = deptId === dept.id;
+                          return (
+                            <button key={dept.id} type="button" onClick={() => setDeptId(dept.id)}
+                              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
+                              style={{
+                                backgroundColor: sel ? 'var(--accent-gold-subtle)' : 'var(--hover-overlay)',
+                                border: `1px solid ${sel ? 'var(--brand-gold)' : 'var(--border-subtle)'}`,
+                              }}>
+                              <div className="w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center"
+                                style={{ borderColor: sel ? 'var(--brand-gold)' : 'var(--border-strong)', backgroundColor: sel ? 'var(--brand-gold)' : 'transparent' }}>
+                                {sel && <span className="w-1.5 h-1.5 rounded-full block" style={{ backgroundColor: 'var(--bg-base)' }} />}
+                              </div>
+                              <span className="flex-1 text-sm font-semibold font-sans" style={{ color: 'var(--text-primary)' }}>
+                                {dept.name}
+                              </span>
+                              <span className="font-mono text-[10px] px-2 py-0.5 rounded-md shrink-0"
+                                style={{ backgroundColor: 'var(--bg-card)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)' }}>
+                                {dept.code}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Error */}
+                  {error && (
+                    <p className="text-xs font-sans px-1" style={{ color: 'var(--status-danger)' }}>{error}</p>
+                  )}
+
+                  {/* Submit */}
+                  <Button
+                    variant="gold"
+                    size="lg"
+                    className="w-full"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    icon={submitting
+                      ? <span className="w-4 h-4 border-2 border-[var(--bg-base)]/30 border-t-[var(--bg-base)] rounded-full animate-spin" />
+                      : <ArrowRight className="w-4 h-4" />}
+                  >
+                    {submitting ? 'Submitting…' : 'Complete Registration'}
+                  </Button>
+
+                </motion.div>
             </AnimatePresence>
           </div>
         </div>

@@ -205,11 +205,20 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
         });
 
         const IS_PROD = process.env.NODE_ENV === 'production';
+        const accessSeconds = (() => {
+          const v = process.env.ACCESS_TOKEN_EXPIRES_IN ?? '1h';
+          const n = parseInt(v, 10);
+          if (isNaN(n)) return 3600;
+          if (v.endsWith('h')) return n * 3600;
+          if (v.endsWith('d')) return n * 86400;
+          if (v.endsWith('m')) return n * 60;
+          return n;
+        })();
         res.cookie('accessToken', newAccessToken, {
           httpOnly: true,
           secure:   IS_PROD,
           sameSite: 'lax',
-          maxAge:   (parseInt(process.env.ACCESS_TOKEN_EXPIRES_IN ?? '900', 10) || 900) * 1000,
+          maxAge:   accessSeconds * 1000,
           path:     '/',
         });
       }
