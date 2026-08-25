@@ -12,6 +12,7 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { foProfile } from '../../../data/financeData';
+import { updateSettings } from '../../../lib/foApi';
 
 type SettingsTab = 'profile' | 'password' | 'notifications' | 'appearance' | 'language' | 'security' | 'sessions';
 
@@ -40,7 +41,10 @@ export const FOSettingsView: React.FC = () => {
   const [saved, setSaved]         = useState(false);
   const [activeTheme, setActiveTheme] = useState<ThemeId>('dark');
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    try {
+      await updateSettings({ activeTheme, activeTab });
+    } catch {}
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

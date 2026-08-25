@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Receipt, Search, X, Download, Printer, Share2, Eye, QrCode, CheckCircle2,
@@ -11,9 +11,10 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { receipts } from '../../../data/financeData';
+import { receipts as defaultReceipts } from '../../../data/financeData';
 import type { Receipt as ReceiptType } from '../../../types/finance';
 import { shareContent, downloadPDF } from '../../../lib/exportUtils';
+import { getReceipts } from '../../../lib/foApi';
 
 // ── Receipt print helper ──────────────────────────────────────────────────────
 function printTranscriptReceipt(r: ReceiptType): void {
@@ -80,19 +81,6 @@ function printTranscriptReceipt(r: ReceiptType): void {
 // ── Receipt Preview Modal ─────────────────────────────────────────────────────
 function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClose: () => void }) {
   const [shareMsg, setShareMsg] = React.useState('');
-
-  const handleDownloadPDF = () => {
-    downloadPDF(
-      `Receipt ${receipt.receiptNumber}`,
-      `${receipt.studentName} · ${receipt.date}`,
-      ['Item', 'Amount (ETB)'],
-      [
-        ...receipt.items.map((item) => [item.label, item.amount.toLocaleString()]),
-        ['TOTAL PAID', receipt.amount.toLocaleString()],
-      ],
-      `Receipt: ${receipt.receiptNumber} · Method: ${receipt.paymentMethod} · Ref: ${receipt.referenceNumber} · Cashier: ${receipt.cashierName}`
-    );
-  };
 
   const handleShare = () => {
     shareContent(
@@ -189,14 +177,25 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOReceiptsView: React.FC = () => {
+  const [receiptList, setReceiptList] = useState<ReceiptType[]>(defaultReceipts);
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('All');
   const [selected, setSelected] = useState<ReceiptType | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
+  useEffect(() => {
+    getReceipts({ search })
+      .then((data) => {
+        if (data && Array.isArray(data.receipts)) {
+          setReceiptList(data.receipts);
+        }
+      })
+      .catch(() => {});
+  }, [search]);
+
   const filtered = useMemo(() => {
-    let list = [...receipts];
+    let list = [...receiptList];
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((r) =>
@@ -207,11 +206,11 @@ export const FOReceiptsView: React.FC = () => {
     }
     if (methodFilter !== 'All') list = list.filter((r) => r.paymentMethod === methodFilter);
     return list;
-  }, [search, methodFilter]);
+  }, [search, methodFilter, receiptList]);
 
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const totalAmount = receipts.reduce((s, r) => s + r.amount, 0);
+  const totalAmount = receiptList.reduce((s, r) => s + r.amount, 0);
 
   const methodColor: Record<string, string> = {
     Cash: 'text-amber-400', 'Bank Transfer': 'text-blue-400',
@@ -222,7 +221,7 @@ export const FOReceiptsView: React.FC = () => {
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
       <FOPageHeader
         title="Receipts"
-        subtitle={`${receipts.length} receipts issued · ETB ${(totalAmount / 1_000_000).toFixed(2)}M total`}
+        subtitle={`${receiptList.length} receipts issued · ETB ${(totalAmount / 1_000_000).toFixed(2)}M total`}
         icon={<Receipt className="w-5 h-5" />}
         actions={<Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />}>Export All</Button>}
       />
@@ -230,10 +229,10 @@ export const FOReceiptsView: React.FC = () => {
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Receipts',   value: receipts.length,                              color: 'text-white' },
+          { label: 'Total Receipts',   value: receiptList.length,                              color: 'text-white' },
           { label: 'Total Amount',     value: `ETB ${(totalAmount/1_000_000).toFixed(2)}M`, color: 'text-[#E9C349]' },
-          { label: 'Printed',          value: receipts.filter((r) => r.printed).length,      color: 'text-emerald-400' },
-          { label: 'Shared / Digital', value: receipts.filter((r) => r.shared).length,       color: 'text-blue-400' },
+          { label: 'Printed',          value: receiptList.filter((r) => r.printed).length,      color: 'text-emerald-400' },
+          { label: 'Shared / Digital', value: receiptList.filter((r) => r.shared).length,       color: 'text-blue-400' },
         ].map((s) => (
           <div key={s.label} className="bg-white/5 border border-white/10 rounded-2xl p-4">
             <p className="font-mono text-[10px] text-white/40 uppercase tracking-wider">{s.label}</p>
