@@ -16,13 +16,16 @@ import { SlidePanel } from '../../ui/SlidePanel';
 import { transactions, financeStudents } from '../../../data/financeData';
 import { Transaction, PaymentMethod } from '../../../types/finance';
 
+import { recordStudentPayment, getTransactions, reverseTransaction } from '../../../lib/foApi';
+
 // ── Record Payment Modal ───────────────────────────────────────────────────────
-function RecordPaymentModal({ onClose }: { onClose: () => void }) {
+function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) {
   const [form, setForm] = useState({
     studentId: '', method: 'Cash' as PaymentMethod, amount: '',
     reference: '', date: new Date().toISOString().split('T')[0], notes: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -33,9 +36,24 @@ function RecordPaymentModal({ onClose }: { onClose: () => void }) {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
-    onClose();
+    setSubmitting(true);
+    try {
+      await recordStudentPayment({
+        studentRecordId: form.studentId,
+        amount: Number(form.amount),
+        paymentMethod: form.method as any,
+        referenceNumber: form.reference,
+        description: form.notes || `Payment via ${form.method}`,
+      });
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (err: any) {
+      setErrors({ api: err?.message || 'Failed to record payment' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const selected = financeStudents.find((s) => s.id === form.studentId);

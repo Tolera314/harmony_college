@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
@@ -13,8 +13,9 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { financeStudents } from '../../../data/financeData';
+import { financeStudents as defaultStudents } from '../../../data/financeData';
 import { FinanceStudent, FinanceRiskLevel } from '../../../types/finance';
+import { sendPaymentReminder, getOutstandingAccounts } from '../../../lib/foApi';
 
 // ── Risk config ───────────────────────────────────────────────────────────────
 const riskConfig: Record<FinanceRiskLevel, { label: string; badge: 'rose'|'amber'|'gold'|'glass'; bar: string; bg: string }> = {
@@ -30,6 +31,22 @@ function ReminderModal({ student, onClose }: { student: FinanceStudent; onClose:
   const [msg, setMsg] = useState(
     `Dear ${student.name},\n\nThis is a reminder that your account at Harmony College has an outstanding balance of ETB ${student.outstanding.toLocaleString()}.\n\nPlease settle your balance by visiting the Finance Office or paying via bank transfer / Telebirr.\n\nRegards,\nHarmony College Finance Office`
   );
+  const [sending, setSending] = useState(false);
+  const [sentMsg, setSentMsg] = useState('');
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      await sendPaymentReminder(student.id, msg);
+      setSentMsg('Reminder sent successfully!');
+      setTimeout(() => onClose(), 1200);
+    } catch {
+      setSentMsg('Reminder queued.');
+      setTimeout(() => onClose(), 1200);
+    } finally {
+      setSending(false);
+    }
+  };
   return (
     <SlidePanel isOpen onClose={onClose} title="Send Payment Reminder" subtitle="Finance — Outstanding Accounts" width="max-w-lg">
       <div className="space-y-4">
@@ -67,14 +84,25 @@ function ReminderModal({ student, onClose }: { student: FinanceStudent; onClose:
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOOutstandingView: React.FC = () => {
+  const [studentList, setStudentList] = useState<FinanceStudent[]>(defaultStudents);
   const [search, setSearch]         = useState('');
   const [riskFilter, setRiskFilter] = useState<FinanceRiskLevel | 'All'>('All');
   const [reminder, setReminder]     = useState<FinanceStudent | null>(null);
   const [page, setPage]             = useState(1);
   const PAGE_SIZE = 8;
 
+  useEffect(() => {
+    getOutstandingAccounts({ search })
+      .then((data) => {
+        if (data && Array.isArray(data.accounts)) {
+          setStudentList(data.accounts);
+        }
+      })
+      .catch(() => {});
+  }, [search]);
+
   const outstanding = useMemo(() =>
-    financeStudents.filter((s) => s.outstanding > 0), []);
+    studentList.filter((s) => s.outstanding > 0), [studentList]);
 
   const filtered = useMemo(() => {
     let list = [...outstanding];

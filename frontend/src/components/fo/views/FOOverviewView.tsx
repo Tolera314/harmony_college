@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
@@ -14,10 +14,11 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { FONavTab } from '../../../types/finance';
 import {
-  foKpis, monthlyRevenue, paymentMethodBreakdown, dailyCollections,
-  outstandingTrend, departments, financeStudents,
-  foNotifications, transactions, foProfile,
+  foKpis as defaultKpis, monthlyRevenue as defaultRevenue, paymentMethodBreakdown as defaultPaymentMethods, dailyCollections as defaultDailyCollections,
+  outstandingTrend as defaultOutstandingTrend, departments as defaultDepartments, financeStudents,
+  foNotifications, transactions as defaultTxns, foProfile,
 } from '../../../data/financeData';
+import { getOverviewData } from '../../../lib/foApi';
 
 interface FOOverviewViewProps {
   setActiveTab: (tab: FONavTab) => void;
@@ -40,32 +41,61 @@ const payStatusBadge: Record<string, 'emerald' | 'amber' | 'rose' | 'glass'> = {
 };
 
 export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) => {
+  const [kpis, setKpis] = useState(defaultKpis);
+  const [recentTxns, setRecentTxns] = useState(defaultTxns.slice(0, 8));
+  const [monthlyRev, setMonthlyRev] = useState(defaultRevenue);
+  const [methodBreakdown, setMethodBreakdown] = useState(defaultPaymentMethods);
+  const [deptList, setDeptList] = useState(defaultDepartments);
+
+  useEffect(() => {
+    getOverviewData()
+      .then((data) => {
+        if (data) {
+          if (data.kpis) setKpis((prev) => ({ ...prev, ...data.kpis }));
+          if (data.recentTransactions && Array.isArray(data.recentTransactions)) {
+            setRecentTxns(data.recentTransactions);
+          }
+          if (data.monthlyRevenue && Array.isArray(data.monthlyRevenue)) {
+            setMonthlyRev(data.monthlyRevenue);
+          }
+          if (data.paymentMethodBreakdown && Array.isArray(data.paymentMethodBreakdown)) {
+            setMethodBreakdown(data.paymentMethodBreakdown);
+          }
+          if (data.departmentBreakdown && Array.isArray(data.departmentBreakdown)) {
+            setDeptList(data.departmentBreakdown);
+          }
+        }
+      })
+      .catch(() => {
+        // Keep default preset state on offline or error
+      });
+  }, []);
+
   const overdue = financeStudents.filter((s) => s.riskLevel === 'Critical' || s.riskLevel === 'High');
   const unreadNotifs = foNotifications.filter((n) => !n.read);
-  const recentTxns = transactions.slice(0, 8);
 
-  const lineData = monthlyRevenue.map((m) => ({ label: m.month, value: m.revenue }));
-  const targetData = monthlyRevenue.map((m) => ({ label: m.month, value: m.target }));
-  const outstandingLine = outstandingTrend.map((o) => ({ label: o.month, value: o.amount }));
-  const dailyData = dailyCollections.map((d) => ({ label: d.day, value: d.amount }));
-  const deptBars = departments.map((d) => ({
-    label: d.code,
+  const lineData = monthlyRev.map((m) => ({ label: m.month, value: m.revenue }));
+  const targetData = monthlyRev.map((m) => ({ label: m.month, value: m.target }));
+  const outstandingLine = defaultOutstandingTrend.map((o) => ({ label: o.month, value: o.amount }));
+  const dailyData = defaultDailyCollections.map((d) => ({ label: d.day, value: d.amount }));
+  const deptBars = deptList.map((d) => ({
+    label: d.code || d.name,
     value: d.totalRevenue,
-    max: Math.max(...departments.map((x) => x.totalRevenue)),
+    max: Math.max(...deptList.map((x) => x.totalRevenue || 1)),
     subLabel: `${d.studentCount} students`,
     color: '#E9C349',
   }));
-  const groupedBar = monthlyRevenue.slice(-6).map((m) => ({
+  const groupedBar = monthlyRev.slice(-6).map((m) => ({
     label: m.month,
     primary: m.revenue,
     secondary: m.target,
   }));
-  const donutSegments = paymentMethodBreakdown.map((p) => ({
+  const donutSegments = methodBreakdown.map((p) => ({
     label: p.method,
     value: p.count,
-    color: p.color,
+    color: p.color || '#E9C349',
   }));
-  const totalTxns = paymentMethodBreakdown.reduce((s, p) => s + p.count, 0);
+  const totalTxns = methodBreakdown.reduce((s, p) => s + p.count, 0);
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-8 pb-16">
@@ -94,9 +124,9 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
                   {overdue.length} High-Risk Accounts
                 </Button>
               )}
-              {foKpis.pendingReconciliation > 0 && (
+              {kpis.pendingReconciliation > 0 && (
                 <Button variant="outline" size="sm" onClick={() => setActiveTab('reconciliation')} icon={<RefreshCw className="w-4 h-4" />}>
-                  {foKpis.pendingReconciliation} Pending Reconciliations
+                  {kpis.pendingReconciliation} Pending Reconciliations
                 </Button>
               )}
               <Button variant="secondary" size="sm" onClick={() => setActiveTab('reports')} icon={<BarChart3 className="w-4 h-4" />}>
@@ -107,7 +137,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
           {/* Today's collection stat */}
           <div className="hidden lg:flex flex-col items-center gap-1 shrink-0 bg-(--hover-overlay) border border-(--border-default) rounded-2xl px-6 py-5">
             <p className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider">Today&apos;s Collections</p>
-            <p className="font-mono text-3xl font-bold text-(--brand-gold)">ETB {fmtETB(foKpis.todaysCollections)}</p>
+            <p className="font-mono text-3xl font-bold text-(--brand-gold)">ETB {fmtETB(kpis.todaysCollections)}</p>
             <div className="flex items-center gap-1 text-(--status-success) mt-1">
               <TrendingUp className="w-3.5 h-3.5" />
               <span className="font-sans text-xs">+12% vs yesterday</span>
@@ -121,7 +151,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
         <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
           <KPICard
             label="Total Revenue — Semester"
-            value={`ETB ${fmtETB(foKpis.totalRevenueSemester)}`}
+            value={`ETB ${fmtETB(kpis.totalRevenueSemester)}`}
             icon={<DollarSign className="w-5 h-5" />}
             trend="up" trendLabel="+8.4% vs last sem."
             sparkline={[22, 26, 24, 28, 31.8]}
@@ -130,15 +160,15 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
           />
           <KPICard
             label="Outstanding Balances"
-            value={`ETB ${fmtETB(foKpis.totalOutstanding)}`}
+            value={`ETB ${fmtETB(kpis.totalOutstanding)}`}
             icon={<AlertTriangle className="w-5 h-5" />}
-            trend="down" trendLabel={`${foKpis.overdueAccounts} overdue accounts`}
+            trend="down" trendLabel={`${kpis.overdueAccounts} overdue accounts`}
             sparkline={[0.98, 0.85, 0.92, 2.08, 1.89]}
             onClick={() => setActiveTab('outstanding')}
           />
           <KPICard
             label="Receipts Issued"
-            value={foKpis.receiptsIssued}
+            value={kpis.receiptsIssued}
             icon={<Receipt className="w-5 h-5" />}
             trend="up" trendLabel="This semester"
             sparkline={[80, 88, 95, 110, 120]}
@@ -146,11 +176,11 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
           />
           <KPICard
             label="Pending Reconciliation"
-            value={foKpis.pendingReconciliation}
+            value={kpis.pendingReconciliation}
             icon={<RefreshCw className="w-5 h-5" />}
-            trend={foKpis.pendingReconciliation > 0 ? 'down' : 'neutral'}
+            trend={kpis.pendingReconciliation > 0 ? 'down' : 'neutral'}
             trendLabel="Requires review"
-            accent={foKpis.pendingReconciliation > 0}
+            accent={kpis.pendingReconciliation > 0}
             sparkline={[2, 3, 1, 4, 5]}
             onClick={() => setActiveTab('reconciliation')}
           />
@@ -159,7 +189,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <KPICard
             label="Today's Collections"
-            value={`ETB ${fmtETB(foKpis.todaysCollections)}`}
+            value={`ETB ${fmtETB(kpis.todaysCollections)}`}
             icon={<CreditCard className="w-5 h-5" />}
             trend="up" trendLabel="+12% vs yesterday"
             sparkline={[310, 380, 290, 460, 520]}
@@ -167,7 +197,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
           />
           <KPICard
             label="Avg Daily Revenue"
-            value={`ETB ${fmtETB(foKpis.averageDailyRevenue)}`}
+            value={`ETB ${fmtETB(kpis.averageDailyRevenue)}`}
             icon={<TrendingUp className="w-5 h-5" />}
             trend="up" trendLabel="30-day average"
             sparkline={[320, 340, 330, 350, 358]}
@@ -175,16 +205,16 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
           />
           <KPICard
             label="Overdue Accounts"
-            value={foKpis.overdueAccounts}
+            value={kpis.overdueAccounts}
             icon={<Clock className="w-5 h-5" />}
             trend="down" trendLabel="Action required"
-            accent={foKpis.overdueAccounts > 0}
+            accent={kpis.overdueAccounts > 0}
             sparkline={[2, 3, 3, 4, 4]}
             onClick={() => setActiveTab('outstanding')}
           />
           <KPICard
             label="Recent Transactions"
-            value={foKpis.recentTransactionsCount}
+            value={kpis.recentTransactionsCount}
             icon={<Users className="w-5 h-5" />}
             trend="neutral" trendLabel="Last 7 days"
             sparkline={[30, 35, 38, 40, 42]}
@@ -238,7 +268,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
               <h3 className="font-serif text-lg font-bold text-(--text-primary)">Outstanding Balance Trend</h3>
               <p className="font-sans text-xs text-(--text-faint) mt-0.5">Total overdue over time</p>
             </div>
-            <Badge variant="rose">ETB {fmtETB(foKpis.totalOutstanding)}</Badge>
+            <Badge variant="rose">ETB {fmtETB(kpis.totalOutstanding)}</Badge>
           </div>
           <RevenueLineChart data={outstandingLine} color="#f87171" height={140} />
         </Card>

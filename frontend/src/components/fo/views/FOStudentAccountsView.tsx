@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
@@ -13,8 +13,9 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { financeStudents, installmentPlans, transactions, foProfile } from '../../../data/financeData';
+import { financeStudents as defaultStudents, installmentPlans, transactions, foProfile } from '../../../data/financeData';
 import { FinanceStudent, PaymentStatus } from '../../../types/finance';
+import { getStudentAccounts } from '../../../lib/foApi';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const statusBadge: Record<PaymentStatus, { variant: 'emerald'|'amber'|'rose'|'glass'; label: string }> = {
@@ -59,7 +60,7 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
           <div className="text-right shrink-0">
             <p className="font-mono text-2xl font-bold text-(--text-primary)">ETB {student.outstanding.toLocaleString()}</p>
             <p className="font-sans text-xs text-(--text-muted) mt-0.5">Outstanding balance</p>
-            <Badge variant={statusBadge[student.paymentStatus].variant} className="mt-1">{statusBadge[student.paymentStatus].label}</Badge>
+            <Badge variant={statusBadge[student.paymentStatus]?.variant ?? 'glass'} className="mt-1">{statusBadge[student.paymentStatus]?.label ?? student.paymentStatus}</Badge>
           </div>
         </div>
 
@@ -147,6 +148,7 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOStudentAccountsView: React.FC = () => {
+  const [studentList, setStudentList] = useState<FinanceStudent[]>(defaultStudents);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'All'>('All');
   const [sortField, setSortField] = useState<'name' | 'outstanding' | 'daysOverdue'>('outstanding');
@@ -155,8 +157,20 @@ export const FOStudentAccountsView: React.FC = () => {
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
+  useEffect(() => {
+    getStudentAccounts({ search, paymentStatus: statusFilter !== 'All' ? statusFilter : undefined })
+      .then((data) => {
+        if (data && Array.isArray(data.accounts)) {
+          setStudentList(data.accounts);
+        }
+      })
+      .catch(() => {
+        // Fallback to default preset list
+      });
+  }, [search, statusFilter]);
+
   const filtered = useMemo(() => {
-    let list = [...financeStudents];
+    let list = [...studentList];
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((s) =>
@@ -187,18 +201,18 @@ export const FOStudentAccountsView: React.FC = () => {
     sortField === field ? (sortDir === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />) : null;
 
   const summary = {
-    total: financeStudents.length,
-    paid: financeStudents.filter((s) => s.paymentStatus === 'Paid').length,
-    partial: financeStudents.filter((s) => s.paymentStatus === 'Partial').length,
-    overdue: financeStudents.filter((s) => s.paymentStatus === 'Overdue').length,
-    unpaid: financeStudents.filter((s) => s.paymentStatus === 'Unpaid').length,
+    total: studentList.length,
+    paid: studentList.filter((s) => s.paymentStatus === 'Paid').length,
+    partial: studentList.filter((s) => s.paymentStatus === 'Partial').length,
+    overdue: studentList.filter((s) => s.paymentStatus === 'Overdue').length,
+    unpaid: studentList.filter((s) => s.paymentStatus === 'Unpaid').length,
   };
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
       <FOPageHeader
         title="Student Accounts"
-        subtitle={`${financeStudents.length} students · ${foProfile.currentSemester}`}
+        subtitle={`${studentList.length} students · ${foProfile.currentSemester}`}
         icon={<Users className="w-5 h-5" />}
       />
 

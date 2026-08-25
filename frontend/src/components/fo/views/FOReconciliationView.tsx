@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { RefreshCw, Search, X, CheckCircle2, AlertTriangle, XCircle, Clock, Eye } from 'lucide-react';
@@ -10,8 +10,9 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { reconciliationEntries } from '../../../data/financeData';
+import { reconciliationEntries as defaultEntries } from '../../../data/financeData';
 import { ReconciliationEntry, ReconciliationStatus, GatewaySource } from '../../../types/finance';
+import { getReconciliationEntries, matchReconciliation, flagReconciliation } from '../../../lib/foApi';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const statusConfig: Record<ReconciliationStatus, { icon: React.ReactNode; badge: 'emerald'|'rose'|'amber'|'glass'; label: string }> = {
@@ -84,6 +85,7 @@ function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onCl
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOReconciliationView: React.FC = () => {
+  const [entriesList, setEntriesList] = useState<ReconciliationEntry[]>(defaultEntries);
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatusFilter] = useState<ReconciliationStatus | 'All'>('All');
   const [sourceFilter, setSourceFilter] = useState<GatewaySource | 'All'>('All');
@@ -91,8 +93,18 @@ export const FOReconciliationView: React.FC = () => {
   const [page, setPage]             = useState(1);
   const PAGE_SIZE = 10;
 
+  useEffect(() => {
+    getReconciliationEntries({ status: statusFilter !== 'All' ? statusFilter : undefined, search })
+      .then((data) => {
+        if (data && Array.isArray(data.entries)) {
+          setEntriesList(data.entries);
+        }
+      })
+      .catch(() => {});
+  }, [search, statusFilter]);
+
   const filtered = useMemo(() => {
-    let list = [...reconciliationEntries];
+    let list = [...entriesList];
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((e) =>
@@ -103,16 +115,16 @@ export const FOReconciliationView: React.FC = () => {
     if (statusFilter !== 'All') list = list.filter((e) => e.status === statusFilter);
     if (sourceFilter !== 'All') list = list.filter((e) => e.source === sourceFilter);
     return list;
-  }, [search, statusFilter, sourceFilter]);
+  }, [search, statusFilter, sourceFilter, entriesList]);
 
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   const counts = {
-    Matched:        reconciliationEntries.filter((e) => e.status === 'Matched').length,
-    Unmatched:      reconciliationEntries.filter((e) => e.status === 'Unmatched').length,
-    Failed:         reconciliationEntries.filter((e) => e.status === 'Failed').length,
-    'Pending Review': reconciliationEntries.filter((e) => e.status === 'Pending Review').length,
+    Matched:        entriesList.filter((e) => e.status === 'Matched').length,
+    Unmatched:      entriesList.filter((e) => e.status === 'Unmatched').length,
+    Failed:         entriesList.filter((e) => e.status === 'Failed').length,
+    'Pending Review': entriesList.filter((e) => e.status === 'Pending Review').length,
   };
 
   return (
