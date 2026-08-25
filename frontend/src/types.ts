@@ -89,9 +89,9 @@ export interface Assignment {
   grade?: string;
   description?: string;
   instructions?: string;
-  attachments?: { name: string; size: string; type: string }[];
+  attachments?: { name: string; size: string; type: string; url?: string }[];
   submittedAt?: string;
-  submittedFile?: { name: string; size: string };
+  submittedFile?: { name: string; size: string; url?: string };
   submittedText?: string;
   feedback?: string;
   score?: number;

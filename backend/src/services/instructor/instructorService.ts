@@ -675,6 +675,10 @@ export async function getAssignmentDetail(userId: string, assignmentId: string) 
       feedback: s.feedback,
       gradedAt: s.gradedAt,
       isLate: s.status === SubmissionStatus.LATE,
+      fileUrl: s.fileUrl,
+      fileName: s.fileName,
+      fileSize: s.fileSize,
+      textContent: s.textContent,
     })),
     stats: {
       total: submissions.length,
@@ -797,7 +801,7 @@ export async function gradeSubmission(
     throw new Error(`Score must be between 0 and ${submission.assignment.totalPoints}.`);
   }
 
-  return prisma.assignmentSubmission.update({
+  const updated = await prisma.assignmentSubmission.update({
     where: { id: submissionId },
     data: {
       score: data.score,
@@ -807,7 +811,27 @@ export async function gradeSubmission(
       gradedBy: userId,
       status: SubmissionStatus.GRADED,
     },
+    include: {
+      assignment: { select: { title: true, totalPoints: true } },
+      studentRecord: { select: { userId: true } },
+    },
   });
+
+  // Notify student of posted grade
+  try {
+    if (updated.studentRecord?.userId) {
+      await prisma.notification.create({
+        data: {
+          userId: updated.studentRecord.userId,
+          title: `Grade Posted: ${updated.assignment.title}`,
+          message: `Your submission for "${updated.assignment.title}" has been graded: ${updated.score}/${updated.assignment.totalPoints} (${updated.letterGrade ?? 'Graded'}).`,
+          type: 'GRADE',
+        },
+      });
+    }
+  } catch { /* ignore notification side effect error */ }
+
+  return updated;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

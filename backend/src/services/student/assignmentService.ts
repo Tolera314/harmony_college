@@ -220,8 +220,9 @@ export async function submitAssignment(data: {
 
   const submissionStatus = isPastDue ? 'LATE' : 'SUBMITTED';
 
+  let resSubmission;
   if (existing) {
-    return prisma.assignmentSubmission.update({
+    resSubmission = await prisma.assignmentSubmission.update({
       where: { id: existing.id },
       data: {
         status: submissionStatus as any,
@@ -237,17 +238,44 @@ export async function submitAssignment(data: {
         gradedBy: null,
       },
     });
+  } else {
+    resSubmission = await prisma.assignmentSubmission.create({
+      data: {
+        assignmentId,
+        studentRecordId,
+        status: submissionStatus as any,
+        fileUrl: data.fileUrl ?? null,
+        fileName: data.fileName ?? null,
+        fileSize: data.fileSize ?? null,
+        textContent: data.textContent ?? null,
+      },
+    });
   }
 
-  return prisma.assignmentSubmission.create({
-    data: {
-      assignmentId,
-      studentRecordId,
-      status: submissionStatus as any,
-      fileUrl: data.fileUrl ?? null,
-      fileName: data.fileName ?? null,
-      fileSize: data.fileSize ?? null,
-      textContent: data.textContent ?? null,
-    },
-  });
+  // Notify instructor of new student submission
+  try {
+    const fullOffering = await prisma.courseOffering.findUnique({
+      where: { id: assignment.courseOfferingId },
+      include: {
+        course: { select: { code: true } },
+        instructor: { select: { userId: true } },
+      },
+    });
+    const studentUser = await prisma.studentRecord.findUnique({
+      where: { id: studentRecordId },
+      include: { user: { select: { fullName: true } } },
+    });
+    if (fullOffering?.instructor?.userId) {
+      await prisma.notification.create({
+        data: {
+          userId: fullOffering.instructor.userId,
+          title: `New Submission: ${fullOffering.course.code}`,
+          message: `${studentUser?.user.fullName ?? 'A student'} submitted an assignment.`,
+          type: 'ASSIGNMENT',
+        },
+      });
+    }
+  } catch { /* ignore notification side-effect */ }
+
+  return resSubmission;
 }

@@ -279,6 +279,67 @@ async function main(): Promise<void> {
   });
   console.log('   ✓ 5 instructor records');
 
+  // ── 6b. Department Head Record ───────────────────────────────────────────
+  console.log('👩‍💼  Seeding department head record...');
+  await prisma.departmentHeadRecord.upsert({
+    where:  { userId: users['departmenthead@test.local'] },
+    update: {},
+    create: {
+      userId:       users['departmenthead@test.local'],
+      employeeId:   'DH-2024-001',
+      title:        'Department Head & Associate Professor',
+      isActive:     true,
+      departmentId: deptCS.id,
+    },
+  });
+  // Seed a few sample leave requests for CS faculty
+  const dhRecord = await prisma.departmentHeadRecord.findUnique({
+    where: { userId: users['departmenthead@test.local'] },
+  });
+  if (dhRecord) {
+    const leaveSeeds = [
+      {
+        instructorId: instr1.id,
+        leaveType:    'CONFERENCE' as const,
+        startDate:    new Date('2026-09-15'),
+        endDate:      new Date('2026-09-19'),
+        durationDays: 5,
+        reason:       'Presenting research at the International Computer Science Conference in Nairobi.',
+        status:       'PENDING_DH' as const,
+      },
+      {
+        instructorId: instr3.id,
+        leaveType:    'MEDICAL' as const,
+        startDate:    new Date('2026-09-22'),
+        endDate:      new Date('2026-09-26'),
+        durationDays: 5,
+        reason:       'Medical procedure and recovery period. Doctor clearance attached.',
+        status:       'PENDING_DH' as const,
+      },
+      {
+        instructorId: instr1.id,
+        leaveType:    'RESEARCH' as const,
+        startDate:    new Date('2026-08-01'),
+        endDate:      new Date('2026-08-14'),
+        durationDays: 14,
+        reason:       'University-sponsored research collaboration at Addis Ababa University.',
+        status:       'DH_APPROVED' as const,
+        reviewedByDhId: dhRecord.id,
+        dhComment:    'Approved. Research collaboration benefits the department.',
+        dhReviewedAt: new Date('2026-07-25'),
+      },
+    ];
+    for (const lr of leaveSeeds) {
+      const existing = await prisma.departmentLeaveRequest.findFirst({
+        where: { instructorId: lr.instructorId, startDate: lr.startDate },
+      });
+      if (!existing) {
+        await prisma.departmentLeaveRequest.create({ data: lr });
+      }
+    }
+  }
+  console.log('   ✓ Department head record & sample leave requests');
+
   // ── 7. Courses ───────────────────────────────────────────────────────────
   console.log('📖  Seeding courses...');
   const courseData = [
