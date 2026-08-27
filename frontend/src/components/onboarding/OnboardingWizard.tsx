@@ -399,11 +399,16 @@ function OnboardingContextPanel({
 }
 
 const PROGRAMS = [
-  'Photography', 'Videography', 'Theatrical Art', 'Filmmaking',
-  'Music Instruments', 'Vocal Arts', 'Cubase Music Production',
-  'Graphic Design', 'Digital Marketing', 'Journalism',
-  'Information Technology (IT)', 'English', 'Arabic', 'French',
-  'Other Languages', 'Pharmacy',
+  'Photography & Videography',
+  'Theatrical Art & Filmmaking',
+  'Music Instruments & Vocal',
+  'Cubase Music Production',
+  'Graphic Design',
+  'Digital Marketing',
+  'Journalism',
+  'Information Technology (IT)',
+  'Languages',
+  'Pharmacy',
 ];
 
 const WIZARD_STEPS = [

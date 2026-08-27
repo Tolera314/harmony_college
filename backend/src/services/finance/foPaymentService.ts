@@ -11,7 +11,17 @@ const PROFILE_SELECT = {
   selectedDepartmentId: true,
   createdAt: true,
   user: {
-    select: { id: true, fullName: true, email: true, phone: true, createdAt: true },
+    select: {
+      id: true, fullName: true, email: true, phone: true, createdAt: true,
+      application: {
+        select: {
+          registrationScreenshotUrl: true,
+          screenshotUploadedAt:      true,
+          onboardingStatus:          true,
+          program:                   true,
+        },
+      },
+    },
   },
   selectedDepartment: {
     select: { id: true, name: true, code: true },
