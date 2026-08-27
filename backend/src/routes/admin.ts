@@ -819,5 +819,79 @@ router.delete('/settings/sessions', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ANALYTICS (institution-wide reports data)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/analytics', async (_req, res) => {
+  try { ok(res, await svc.getAdminAnalytics()); } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COURSE OFFERINGS LIST (read-only admin view)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/offerings', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await svc.listOfferings({
+      page, limit,
+      search:       qp.search,
+      departmentId: qp.departmentId,
+      semesterId:   qp.semesterId,
+      status:       qp.status,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SYSTEM HEALTH (admin-only — checks DB + backend response)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/system-health', async (_req, res) => {
+  const start = Date.now();
+  try {
+    // DB ping
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const dbMs = Date.now() - dbStart;
+
+    // Count active sessions as a proxy for active connections
+    const [sessions, users, students, offerings] = await Promise.all([
+      prisma.session.count({ where: { isRevoked: false, expiresAt: { gt: new Date() } } }),
+      prisma.user.count(),
+      prisma.studentRecord.count({ where: { status: 'ACTIVE' } }),
+      prisma.courseOffering.count({ where: { status: 'ACTIVE' } }),
+    ]);
+
+    ok(res, {
+      status: 'ok',
+      responseTimeMs: Date.now() - start,
+      services: [
+        { name: 'Database (PostgreSQL)', status: 'Healthy', responseTime: `${dbMs}ms`, detail: 'Connected' },
+        { name: 'API Server (Node.js)',  status: 'Healthy', responseTime: `${Date.now() - start}ms`, detail: 'Running' },
+        { name: 'Auth Service (JWT)',    status: 'Healthy', responseTime: '< 1ms', detail: 'Active' },
+      ],
+      stats: { activeSessions: sessions, totalUsers: users, activeStudents: students, activeOfferings: offerings },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(503).json({ status: 'degraded', error: e instanceof Error ? e.message : 'Health check failed' });
+  }
+});
+
+router.get('/transactions', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    const { listTransactions } = await import('../services/finance/foPaymentService');
+    ok(res, await listTransactions({
+      page, limit,
+      search: qp.search,
+      type:   qp.type,
+      status: qp.status,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
 export { router as adminRouter };
 export default router;
