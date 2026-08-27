@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
@@ -13,11 +13,9 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { transactions, financeStudents } from '../../../data/financeData';
 import { Transaction, PaymentMethod } from '../../../types/finance';
 
-import { recordStudentPayment, getTransactions, reverseTransaction } from '../../../lib/foApi';
-
+import { recordStudentPayment, getTransactions, reverseTransaction, getStudentAccounts } from '../../../lib/foApi';
 // ── Record Payment Modal ───────────────────────────────────────────────────────
 function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) {
   const [form, setForm] = useState({
@@ -56,7 +54,14 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
     }
   };
 
-  const selected = financeStudents.find((s) => s.id === form.studentId);
+  const [studentAccounts, setStudentAccounts] = useState<any[]>([]);
+  useEffect(() => {
+    getStudentAccounts({ limit: 100 })
+      .then((d: any) => { if (d?.accounts) setStudentAccounts(d.accounts); })
+      .catch(() => {});
+  }, []);
+
+  const selected = studentAccounts.find((s: any) => s.id === form.studentId || s.studentRecordId === form.studentId);
 
   return (
     <SlidePanel isOpen onClose={onClose} title={<><Plus className="w-5 h-5 inline mr-2 text-(--brand-gold)" />Record Payment</>} subtitle="Finance — Payments" width="max-w-xl">
@@ -70,8 +75,8 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-sans text-sm text-(--text-primary) outline-none focus:border-(--brand-gold)/50 transition-colors"
           >
             <option value="" className="bg-(--bg-card-solid)">Select student...</option>
-            {financeStudents.map((s) => (
-              <option key={s.id} value={s.id} className="bg-(--bg-card-solid)">
+            {studentAccounts.map((s: any) => (
+              <option key={s.id} value={s.studentRecordId ?? s.id} className="bg-(--bg-card-solid)">
                 {s.name} — {s.studentId}
               </option>
             ))}
@@ -195,37 +200,50 @@ function TxnDetailModal({ txn, onClose }: { txn: Transaction; onClose: () => voi
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOPaymentsView: React.FC = () => {
-  const [search, setSearch] = useState('');
+  const [txnList,      setTxnList]     = useState<Transaction[]>([]);
+  const [total,        setTotal]       = useState(0);
+  const [loading,      setLoading]     = useState(false);
+  const [search,       setSearch]      = useState('');
   const [methodFilter, setMethodFilter] = useState<PaymentMethod | 'All'>('All');
-  const [sortField, setSortField] = useState<'date' | 'amount'>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [recordOpen, setRecordOpen] = useState(false);
-  const [detailTxn, setDetailTxn] = useState<Transaction | null>(null);
+  const [sortField,    setSortField]   = useState<'date' | 'amount'>('date');
+  const [sortDir,      setSortDir]     = useState<'asc' | 'desc'>('desc');
+  const [recordOpen,   setRecordOpen]  = useState(false);
+  const [detailTxn,    setDetailTxn]   = useState<Transaction | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const filtered = useMemo(() => {
-    let list = [...transactions];
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((t) =>
-        t.studentName.toLowerCase().includes(q) ||
-        t.referenceNumber.toLowerCase().includes(q) ||
-        t.type.toLowerCase().includes(q)
-      );
+  const loadTransactions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getTransactions({
+        search: search || undefined,
+        type:   methodFilter !== 'All' ? methodFilter : undefined,
+        page,
+        limit: pageSize,
+      });
+      if (data?.transactions && Array.isArray(data.transactions)) {
+        setTxnList(data.transactions);
+        setTotal(data.total ?? data.transactions.length);
+      }
+    } catch {
+      // Keep existing list on error
+    } finally {
+      setLoading(false);
     }
-    if (methodFilter !== 'All') list = list.filter((t) => t.paymentMethod === methodFilter);
-    list.sort((a, b) => {
-      const mul = sortDir === 'asc' ? 1 : -1;
-      if (sortField === 'amount') return mul * (a.amount - b.amount);
-      return mul * (a.date + a.time).localeCompare(b.date + b.time);
-    });
+  }, [search, methodFilter, page]);
+
+  useEffect(() => { loadTransactions(); }, [loadTransactions]);
+
+  const filtered = useMemo(() => {
+    // Client-side filter only applies when server didn't filter
+    let list = [...txnList];
+    if (sortField === 'amount') list.sort((a, b) => (sortDir === 'asc' ? 1 : -1) * (a.amount - b.amount));
+    else list.sort((a, b) => (sortDir === 'asc' ? 1 : -1) * (a.date + a.time).localeCompare(b.date + b.time));
     return list;
-  }, [search, methodFilter, sortField, sortDir]);
+  }, [txnList, sortField, sortDir]);
 
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const totalPages = Math.ceil(filtered.length / pageSize);
-
+  const paginated = filtered;
+  const totalPages = Math.ceil(total / pageSize);
   const totalAmount = filtered.filter((t) => t.status === 'Completed').reduce((s, t) => s + t.amount, 0);
 
   const methodColors: Record<string, string> = {
@@ -237,7 +255,7 @@ export const FOPaymentsView: React.FC = () => {
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
       <FOPageHeader
         title="Payments"
-        subtitle={`${transactions.length} transactions recorded this semester`}
+        subtitle={`${total} transactions recorded this semester`}
         icon={<CreditCard className="w-5 h-5" />}
         actions={
           <Button variant="primary" size="sm" onClick={() => setRecordOpen(true)} icon={<Plus className="w-4 h-4" />}>
@@ -246,13 +264,15 @@ export const FOPaymentsView: React.FC = () => {
         }
       />
 
+      {loading && <div className="h-1 bg-(--accent-gold-subtle) rounded-full overflow-hidden"><div className="h-full bg-(--brand-gold) animate-pulse w-1/2" /></div>}
+
       {/* Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Transactions', value: transactions.length, mono: true, color: 'text-(--text-primary)' },
+          { label: 'Total Transactions', value: total, mono: true, color: 'text-(--text-primary)' },
           { label: 'Total Collected', value: `ETB ${(totalAmount/1000).toFixed(0)}K`, mono: true, color: 'text-(--brand-gold)' },
-          { label: 'Cash Payments', value: transactions.filter((t) => t.paymentMethod === 'Cash').length, mono: true, color: 'text-(--status-warning)' },
-          { label: 'Online Payments', value: transactions.filter((t) => t.paymentMethod !== 'Cash').length, mono: true, color: 'text-blue-400' },
+          { label: 'Cash Payments', value: txnList.filter((t) => t.paymentMethod === 'Cash').length, mono: true, color: 'text-(--status-warning)' },
+          { label: 'Online Payments', value: txnList.filter((t) => t.paymentMethod !== 'Cash').length, mono: true, color: 'text-blue-400' },
         ].map((s) => (
           <div key={s.label} className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-4">
             <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{s.label}</p>
@@ -363,7 +383,7 @@ export const FOPaymentsView: React.FC = () => {
       )}
 
       <AnimatePresence>
-        {recordOpen && <RecordPaymentModal onClose={() => setRecordOpen(false)} />}
+        {recordOpen && <RecordPaymentModal onClose={() => setRecordOpen(false)} onSuccess={loadTransactions} />}
         {detailTxn && <TxnDetailModal txn={detailTxn} onClose={() => setDetailTxn(null)} />}
       </AnimatePresence>
     </motion.div>

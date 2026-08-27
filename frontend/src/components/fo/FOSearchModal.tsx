@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { Search, X, Users, CreditCard, Receipt, BarChart3, RefreshCw } from 'lucide-react';
+import { Search, X, Users, CreditCard, Receipt, BarChart3, RefreshCw, Loader2 } from 'lucide-react';
 import { FONavTab } from '../../types/finance';
-import { financeStudents, receipts, transactions } from '../../data/financeData';
+import { getStudentAccounts, getReceipts, getTransactions } from '../../lib/foApi';
 
 interface Result {
   id: string;
@@ -22,50 +22,82 @@ interface FOSearchModalProps {
 }
 
 export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, onNavigate }) => {
-  const [query, setQuery] = useState('');
+  const [query,   setQuery]   = useState('');
+  const [results, setResults] = useState<Result[]>([]);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 80);
-    else setQuery('');
+    else { setQuery(''); setResults([]); }
   }, [isOpen]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const allResults: Result[] = [
-    ...financeStudents.map((s) => ({
-      id: s.id,
-      label: `${s.name} — ${s.studentId}`,
-      sub: `${s.programName} · ${s.paymentStatus} · ETB ${s.outstanding.toLocaleString()} outstanding`,
-      tab: 'student_accounts' as FONavTab,
-      icon: <Users className="w-4 h-4" />,
-    })),
-    ...receipts.slice(0, 30).map((r) => ({
-      id: r.id,
-      label: `${r.receiptNumber}`,
-      sub: `${r.studentName} · ETB ${r.amount.toLocaleString()} · ${r.date}`,
-      tab: 'receipts' as FONavTab,
-      icon: <Receipt className="w-4 h-4" />,
-    })),
-    ...transactions.slice(0, 30).map((t) => ({
-      id: t.id,
-      label: `${t.referenceNumber}`,
-      sub: `${t.studentName} · ${t.paymentMethod} · ETB ${t.amount.toLocaleString()}`,
-      tab: 'payments' as FONavTab,
-      icon: <CreditCard className="w-4 h-4" />,
-    })),
-  ];
+  // Debounced live search against real API
+  const doSearch = useCallback((q: string) => {
+    clearTimeout(timerRef.current);
+    if (q.length < 2) { setResults([]); return; }
 
-  const q = query.toLowerCase().trim();
-  const results = q.length >= 2
-    ? allResults.filter((r) => r.label.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q)).slice(0, 10)
-    : [];
+    timerRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const [studentsData, receiptsData, txnsData] = await Promise.allSettled([
+          getStudentAccounts({ search: q, limit: 5 }),
+          getReceipts({ search: q, limit: 5 }),
+          getTransactions({ search: q, limit: 5 }),
+        ]);
+
+        const combined: Result[] = [];
+
+        if (studentsData.status === 'fulfilled') {
+          const accounts: any[] = (studentsData.value as any)?.accounts ?? [];
+          accounts.forEach((s: any) => combined.push({
+            id:    `stu-${s.id}`,
+            label: `${s.name} — ${s.studentId ?? ''}`,
+            sub:   `${s.programName ?? ''} · ${s.paymentStatus ?? ''} · ETB ${(s.outstanding ?? 0).toLocaleString()} outstanding`,
+            tab:   'student_accounts',
+            icon:  <Users className="w-4 h-4" />,
+          }));
+        }
+
+        if (receiptsData.status === 'fulfilled') {
+          const rcpts: any[] = (receiptsData.value as any)?.receipts ?? [];
+          rcpts.forEach((r: any) => combined.push({
+            id:    `rec-${r.id}`,
+            label: `${r.receiptNumber}`,
+            sub:   `${r.studentName} · ETB ${(r.amount ?? 0).toLocaleString()} · ${r.date ?? ''}`,
+            tab:   'receipts',
+            icon:  <Receipt className="w-4 h-4" />,
+          }));
+        }
+
+        if (txnsData.status === 'fulfilled') {
+          const txns: any[] = (txnsData.value as any)?.transactions ?? [];
+          txns.forEach((t: any) => combined.push({
+            id:    `txn-${t.id}`,
+            label: `${t.referenceId ?? t.receiptId ?? t.id.slice(0, 8)}`,
+            sub:   `${t.financialAccount?.studentRecord?.user?.fullName ?? 'Unknown'} · ETB ${Math.abs(t.amount ?? 0).toLocaleString()}`,
+            tab:   'payments',
+            icon:  <CreditCard className="w-4 h-4" />,
+          }));
+        }
+
+        setResults(combined.slice(0, 10));
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }, []);
+
+  useEffect(() => { doSearch(query.toLowerCase().trim()); }, [query, doSearch]);
 
   const handleSelect = (r: Result) => { onNavigate(r.tab); onClose(); };
 
@@ -96,7 +128,10 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
           >
             {/* Input */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-(--border-default)">
-              <Search className="w-5 h-5 text-(--text-faint) shrink-0" />
+              {loading
+                ? <Loader2 className="w-5 h-5 text-(--brand-gold) shrink-0 animate-spin" />
+                : <Search className="w-5 h-5 text-(--text-faint) shrink-0" />
+              }
               <input
                 ref={inputRef}
                 type="text"
@@ -138,11 +173,11 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
                   </li>
                 ))}
               </ul>
-            ) : q.length >= 2 ? (
+            ) : query.trim().length >= 2 && !loading ? (
               <div className="py-12 text-center">
                 <p className="font-sans text-sm text-(--text-faint)">No results for &quot;{query}&quot;</p>
               </div>
-            ) : (
+            ) : query.trim().length === 0 ? (
               <div className="py-8 px-4">
                 <p className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider mb-3">Quick navigate</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -157,6 +192,10 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
                     </button>
                   ))}
                 </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center">
+                <Loader2 className="w-5 h-5 animate-spin text-(--brand-gold) mx-auto" />
               </div>
             )}
           </motion.div>

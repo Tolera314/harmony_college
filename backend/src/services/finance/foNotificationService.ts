@@ -1,61 +1,46 @@
 import { prisma } from '../../lib/prisma';
 
-export interface FONotificationItem {
-  id: string;
-  type: 'payment_received' | 'payment_overdue' | 'installment_due' | 'reconciliation_failed' | 'large_payment' | 'system' | 'reminder';
-  title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-  tab: string;
-  amount?: number;
-  studentId?: string;
-}
-
-const mockNotifs: FONotificationItem[] = [
-  {
-    id: 'FO-NOTIF-001',
-    type: 'payment_received',
-    title: 'Registration Payment Verified',
-    message: 'Abebe Bikila registration fee payment of ETB 1,500 verified.',
-    timestamp: '10 mins ago',
-    read: false,
-    tab: 'registration_payments',
-    amount: 1500,
-    studentId: 'HC/2026/0012',
-  },
-  {
-    id: 'FO-NOTIF-002',
-    type: 'reconciliation_failed',
-    title: 'Gateway Mismatch Alert',
-    message: 'Telebirr payment TXN-TB-99201 requires manual matching review.',
-    timestamp: '1 hour ago',
-    read: false,
-    tab: 'reconciliation',
-  },
-  {
-    id: 'FO-NOTIF-003',
-    type: 'payment_overdue',
-    title: 'Overdue Account Alert',
-    message: '14 student accounts in Computer Science department have crossed 30 days overdue.',
-    timestamp: '3 hours ago',
-    read: true,
-    tab: 'outstanding',
-  },
-];
+/**
+ * Finance Officer notifications are pulled from the real Notification table
+ * (same table used by Admin and Registrar). They are scoped to the FO user.
+ */
 
 export async function getNotifications(recipientUserId: string) {
-  return { notifications: mockNotifs };
+  const rows = await prisma.notification.findMany({
+    where:   { userId: recipientUserId },
+    orderBy: { createdAt: 'desc' },
+    take:    50,
+  });
+
+  const mapped = rows.map((n) => ({
+    id:        n.id,
+    type:      mapType(n.type, n.entityType),
+    title:     n.title,
+    message:   n.message,
+    timestamp: relativeTime(n.createdAt),
+    read:      n.isRead,
+    tab:       mapTab(n.type, n.entityType),
+    entityType: n.entityType,
+    entityId:   n.entityId,
+    createdAt:  n.createdAt,
+  }));
+
+  return { total: mapped.length, notifications: mapped };
 }
 
 export async function markAsRead(notificationId: string, recipientUserId: string) {
-  const notif = mockNotifs.find((n) => n.id === notificationId);
-  if (notif) notif.read = true;
+  await prisma.notification.updateMany({
+    where: { id: notificationId, userId: recipientUserId },
+    data:  { isRead: true },
+  });
   return { success: true };
 }
 
 export async function markAllAsRead(recipientUserId: string) {
-  mockNotifs.forEach((n) => (n.read = true));
+  await prisma.notification.updateMany({
+    where: { userId: recipientUserId, isRead: false },
+    data:  { isRead: true },
+  });
   return { success: true };
 }
 
@@ -65,24 +50,54 @@ export async function sendPaymentReminder(
   senderUserId: string
 ) {
   const student = await prisma.studentRecord.findUnique({
-    where: { id: studentRecordId },
+    where:   { id: studentRecordId },
     include: { user: true, financialAccount: true },
   });
-
   if (!student) throw new Error('Student record not found');
 
-  const balance = student.financialAccount ? student.financialAccount.balance : 0;
+  const balance = student.financialAccount?.balance ?? 0;
 
   await prisma.notification.create({
     data: {
-      userId: student.userId,
-      title: 'Tuition Payment Reminder ⚠️',
-      message:
-        message ||
+      userId:  student.userId,
+      title:   'Tuition Payment Reminder ⚠️',
+      message: message ||
         `Dear ${student.user.fullName}, you have an outstanding balance of ETB ${balance.toLocaleString()} for the current academic term. Please settle your payment promptly.`,
-      type: 'WARNING',
+      type:       'WARNING',
+      entityType: 'FinancialAccount',
+      entityId:   student.financialAccount?.id ?? null,
     },
   });
 
   return { success: true, studentId: student.studentId, studentName: student.user.fullName };
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function mapType(
+  type: string | null,
+  entityType: string | null
+): 'payment_received' | 'payment_overdue' | 'reconciliation_failed' | 'large_payment' | 'system' | 'reminder' {
+  if (type === 'SUCCESS')              return 'payment_received';
+  if (type === 'WARNING')              return 'payment_overdue';
+  if (type === 'ERROR')                return 'reconciliation_failed';
+  if (entityType === 'FinancialAccount') return 'payment_overdue';
+  return 'system';
+}
+
+function mapTab(type: string | null, entityType: string | null): string {
+  if (entityType === 'Application')    return 'registration_payments';
+  if (entityType === 'FinancialAccount') return 'student_accounts';
+  return 'overview';
+}
+
+function relativeTime(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)   return 'just now';
+  if (mins < 60)  return `${mins} min${mins > 1 ? 's' : ''} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)   return `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days > 1 ? 's' : ''} ago`;
 }

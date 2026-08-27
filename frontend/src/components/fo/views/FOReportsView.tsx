@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { BarChart3, Download, Printer, TrendingUp, TrendingDown } from 'lucide-react';
@@ -12,12 +12,8 @@ import {
   RevenueLineChart, GroupedBarChart, DonutChart,
   HorizontalBarChart, VerticalBarChart, fmtETB,
 } from '../FOCharts';
-import {
-  monthlyRevenue, paymentMethodBreakdown,
-  dailyCollections, outstandingTrend, departments,
-  financeStudents, foKpis,
-} from '../../../data/financeData';
 import { exportToExcel, downloadPDF, printTable } from '../../../lib/exportUtils';
+import { getFinancialSummaryReport, getAgedReceivablesReport } from '../../../lib/foApi';
 
 type ReportTab = 'revenue' | 'department' | 'payment_methods' | 'outstanding' | 'cash_flow' | 'collection';
 
@@ -31,7 +27,33 @@ const tabLabels: Record<ReportTab, string> = {
 };
 
 export const FOReportsView: React.FC = () => {
-  const [activeReport, setActiveReport] = useState<ReportTab>('revenue');
+  const [activeReport,     setActiveReport]     = useState<ReportTab>('revenue');
+  const [monthlyRevenue,   setMonthlyRevenue]   = useState<any[]>([]);
+  const [methodBreakdown,  setMethodBreakdown]  = useState<any[]>([]);
+  const [departments,      setDepartments]      = useState<any[]>([]);
+  const [agedReceivables,  setAgedReceivables]  = useState<any[]>([]);
+  const [kpis,             setKpis]             = useState<any>({});
+
+  // Load summary on tab change
+  useEffect(() => {
+    getFinancialSummaryReport(activeReport)
+      .then((data: any) => {
+        if (!data) return;
+        if (data.monthlyRevenue    && Array.isArray(data.monthlyRevenue))    setMonthlyRevenue(data.monthlyRevenue);
+        if (data.methodBreakdown   && Array.isArray(data.methodBreakdown))   setMethodBreakdown(data.methodBreakdown);
+        if (data.departments       && Array.isArray(data.departments))       setDepartments(data.departments);
+        if (data.kpis)                                                        setKpis((p: any) => ({ ...p, ...data.kpis }));
+      })
+      .catch(() => { /* keep defaults */ });
+
+    if (activeReport === 'outstanding') {
+      getAgedReceivablesReport()
+        .then((data: any) => {
+          if (data && Array.isArray(data.accounts)) setAgedReceivables(data.accounts);
+        })
+        .catch(() => {});
+    }
+  }, [activeReport]);
 
   // ── Export helpers ──────────────────────────────────────────────────────────
   const handleExportExcel = () => {
@@ -47,15 +69,14 @@ export const FOReportsView: React.FC = () => {
       );
     } else if (activeReport === 'payment_methods') {
       exportToExcel(
-        paymentMethodBreakdown.map((p) => ({ Method: p.method, Transactions: p.count, Amount: p.amount })),
+        methodBreakdown.map((p) => ({ Method: p.method, Transactions: p.count, Amount: p.amount })),
         'harmony-payment-methods'
       );
     } else if (activeReport === 'outstanding') {
       exportToExcel(
-        financeStudents.filter((s) => s.outstanding > 0).map((s) => ({
-          Student: s.name, ID: s.studentId, Program: s.programName,
-          'Total Charged': s.totalCharged, Paid: s.totalPaid,
-          Outstanding: s.outstanding, 'Days Overdue': s.daysOverdue, Risk: s.riskLevel,
+        agedReceivables.map((s: any) => ({
+          Student: s.studentName, ID: s.studentId ?? '', Department: s.department ?? '',
+          Outstanding: s.balance, 'Last Updated': s.lastUpdatedAt,
         })),
         'harmony-outstanding-balances'
       );
@@ -71,7 +92,7 @@ export const FOReportsView: React.FC = () => {
     if (activeReport === 'revenue') {
       downloadPDF(
         'Revenue by Period Report',
-        `${foKpis.totalRevenueSemester.toLocaleString()} ETB total · Fall 2024`,
+        `${kpis.totalRevenueSemester.toLocaleString()} ETB total · Fall 2024`,
         ['Month', 'Revenue (ETB)', 'Target (ETB)', 'Collections (ETB)', 'Variance'],
         monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString(), (m.revenue - m.target > 0 ? '+' : '') + (m.revenue - m.target).toLocaleString()])
       );
@@ -85,12 +106,11 @@ export const FOReportsView: React.FC = () => {
     } else if (activeReport === 'outstanding') {
       downloadPDF(
         'Outstanding Balances Report',
-        `${financeStudents.filter((s) => s.outstanding > 0).length} students with unpaid balances`,
-        ['Student', 'ID', 'Program', 'Total Charged', 'Paid', 'Outstanding', 'Days Overdue', 'Risk'],
-        financeStudents.filter((s) => s.outstanding > 0).map((s) => [
-          s.name, s.studentId, s.programName,
-          `ETB ${s.totalCharged.toLocaleString()}`, `ETB ${s.totalPaid.toLocaleString()}`,
-          `ETB ${s.outstanding.toLocaleString()}`, `${s.daysOverdue}d`, s.riskLevel,
+        `${agedReceivables.length} accounts with unpaid balances`,
+        ['Student', 'ID', 'Department', 'Outstanding (ETB)', 'Last Updated'],
+        agedReceivables.map((s: any) => [
+          s.studentName, s.studentId ?? '', s.department ?? '',
+          `ETB ${(s.balance ?? 0).toLocaleString()}`, s.lastUpdatedAt?.toString().split('T')[0] ?? '',
         ])
       );
     } else if (activeReport === 'payment_methods') {
@@ -98,8 +118,8 @@ export const FOReportsView: React.FC = () => {
         'Payment Method Analysis',
         'Transaction breakdown by channel',
         ['Method', 'Transactions', 'Amount (ETB)', 'Share %'],
-        paymentMethodBreakdown.map((p) => {
-          const total = paymentMethodBreakdown.reduce((s, x) => s + x.amount, 0);
+        methodBreakdown.map((p) => {
+          const total = methodBreakdown.reduce((s, x) => s + x.amount, 0);
           return [p.method, p.count, p.amount.toLocaleString(), `${((p.amount / total) * 100).toFixed(1)}%`];
         })
       );
@@ -128,10 +148,10 @@ export const FOReportsView: React.FC = () => {
     } else if (activeReport === 'outstanding') {
       printTable(
         'Outstanding Balances',
-        `${financeStudents.filter((s) => s.outstanding > 0).length} students`,
-        ['Student', 'Program', 'Outstanding (ETB)', 'Days Overdue', 'Risk'],
-        financeStudents.filter((s) => s.outstanding > 0).map((s) => [
-          s.name, s.programName, `ETB ${s.outstanding.toLocaleString()}`, `${s.daysOverdue}d`, s.riskLevel,
+        `${agedReceivables.length} accounts`,
+        ['Student', 'Department', 'Outstanding (ETB)', 'Risk'],
+        agedReceivables.map((s: any) => [
+          s.studentName, s.department ?? '', `ETB ${(s.balance ?? 0).toLocaleString()}`, 'High',
         ])
       );
     } else if (activeReport === 'payment_methods') {
@@ -139,7 +159,7 @@ export const FOReportsView: React.FC = () => {
         'Payment Method Analysis',
         'Transaction breakdown by channel',
         ['Method', 'Transactions', 'Amount (ETB)'],
-        paymentMethodBreakdown.map((p) => [p.method, p.count, p.amount.toLocaleString()])
+        methodBreakdown.map((p) => [p.method, p.count, p.amount.toLocaleString()])
       );
     } else {
       printTable(
@@ -155,22 +175,24 @@ export const FOReportsView: React.FC = () => {
   const revenueLineData   = monthlyRevenue.map((m) => ({ label: m.month, value: m.revenue }));
   const targetLineData    = monthlyRevenue.map((m) => ({ label: m.month, value: m.target }));
   const collectionLine    = monthlyRevenue.map((m) => ({ label: m.month, value: m.collections }));
-  const outstandingLine   = outstandingTrend.map((o) => ({ label: o.month, value: o.amount }));
-  const deptBars          = departments.map((d) => ({
+  const outstandingLine   = monthlyRevenue.map((m: any) => ({ label: m.month, value: m.target ?? 0 }));
+  const deptMax           = departments.length > 0 ? Math.max(...departments.map((d: any) => d.totalRevenue || 1)) : 1;
+  const deptBars          = departments.map((d: any) => ({
     label: d.code, value: d.totalRevenue,
-    max: Math.max(...departments.map((x) => x.totalRevenue)),
+    max: deptMax,
     subLabel: `${d.studentCount} students`, color: '#E9C349',
   }));
-  const outstandingBars   = departments.map((d) => ({
+  const outstandingMax    = departments.length > 0 ? Math.max(...departments.map((d: any) => d.outstandingBalance || 1)) : 1;
+  const outstandingBars   = departments.map((d: any) => ({
     label: d.code, value: d.outstandingBalance,
-    max: Math.max(...departments.map((x) => x.outstandingBalance)),
-    subLabel: `${((d.outstandingBalance / d.totalRevenue) * 100).toFixed(1)}% of revenue`, color: '#f87171',
+    max: outstandingMax,
+    subLabel: `${(((d.outstandingBalance || 0) / Math.max(d.totalRevenue, 1)) * 100).toFixed(1)}% of revenue`, color: '#f87171',
   }));
-  const donutSegments     = paymentMethodBreakdown.map((p) => ({ label: p.method, value: p.amount, color: p.color }));
-  const totalAmount       = paymentMethodBreakdown.reduce((s, p) => s + p.amount, 0);
-  const dailyData         = dailyCollections.map((d) => ({ label: d.day, value: d.amount }));
-  const groupedBarData    = monthlyRevenue.map((m) => ({ label: m.month, primary: m.revenue, secondary: m.target }));
-  const cashFlowBars      = monthlyRevenue.map((m) => ({ label: m.month, primary: m.collections, secondary: m.revenue }));
+  const donutSegments     = methodBreakdown.map((p: any) => ({ label: p.method, value: p.amount, color: p.color }));
+  const totalAmount       = methodBreakdown.reduce((s: number, p: any) => s + p.amount, 0);
+  const dailyData: { label: string; value: number }[] = [];
+  const groupedBarData    = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.revenue ?? 0, secondary: m.target ?? 0 }));
+  const cashFlowBars      = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.collections ?? 0, secondary: m.revenue ?? 0 }));
 
   const totalRevenue    = monthlyRevenue.reduce((s, m) => s + m.revenue, 0);
   const totalCollected  = monthlyRevenue.reduce((s, m) => s + m.collections, 0);
@@ -346,7 +368,7 @@ export const FOReportsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-(--border-subtle)">
-                  {paymentMethodBreakdown.map((p) => (
+                  {methodBreakdown.map((p) => (
                     <tr key={p.method} className="hover:bg-white/3 transition-colors">
                       <td className="py-3 pr-3">
                         <div className="flex items-center gap-2">
@@ -391,16 +413,16 @@ export const FOReportsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-(--border-subtle)">
-                {financeStudents.filter((s) => s.outstanding > 0).sort((a,b) => b.outstanding - a.outstanding).map((s) => (
-                  <tr key={s.id} className="hover:bg-white/3 transition-colors">
+                {agedReceivables.filter((s: any) => (s.balance ?? s.outstanding ?? 0) > 0).sort((a: any, b: any) => (b.balance ?? 0) - (a.balance ?? 0)).map((s: any) => (
+                  <tr key={s.id ?? s.studentId} className="hover:bg-white/3 transition-colors">
                     <td className="py-3 pr-4">
-                      <p className="font-sans text-sm text-(--text-primary) font-medium">{s.name}</p>
+                      <p className="font-sans text-sm text-(--text-primary) font-medium">{s.studentName ?? s.name}</p>
                       <p className="font-mono text-[10px] text-(--text-faint)">{s.studentId}</p>
                     </td>
-                    <td className="py-3 pr-4 font-sans text-xs text-(--text-secondary) max-w-[130px]"><span className="truncate block">{s.programName}</span></td>
-                    <td className="py-3 pr-4 font-mono text-sm text-(--text-secondary)">ETB {fmtETB(s.totalCharged)}</td>
-                    <td className="py-3 pr-4 font-mono text-sm text-(--status-success)">ETB {fmtETB(s.totalPaid)}</td>
-                    <td className="py-3 pr-4 font-mono text-sm font-bold text-(--status-danger)">ETB {fmtETB(s.outstanding)}</td>
+                    <td className="py-3 pr-4 font-sans text-xs text-(--text-secondary) max-w-[130px]"><span className="truncate block">{s.programName ?? s.department ?? 'N/A'}</span></td>
+                    <td className="py-3 pr-4 font-mono text-sm text-(--text-secondary)">—</td>
+                    <td className="py-3 pr-4 font-mono text-sm text-(--status-success)">—</td>
+                    <td className="py-3 pr-4 font-mono text-sm font-bold text-(--status-danger)">ETB {fmtETB(s.balance ?? s.outstanding ?? 0)}</td>
                     <td className="py-3">
                       <span className={`font-mono text-xs font-bold ${
                         s.riskLevel === 'Critical' ? 'text-(--status-danger)' :

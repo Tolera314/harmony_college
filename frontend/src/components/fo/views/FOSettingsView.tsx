@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
@@ -11,8 +11,7 @@ import { FOPageHeader } from '../FOPageHeader';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
-import { foProfile } from '../../../data/financeData';
-import { updateSettings } from '../../../lib/foApi';
+import { updateSettings, getSettings } from '../../../lib/foApi';
 
 type SettingsTab = 'profile' | 'password' | 'notifications' | 'appearance' | 'language' | 'security' | 'sessions';
 
@@ -38,6 +37,21 @@ type ThemeId = typeof themes[number]['id'];
 export const FOSettingsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [showPass, setShowPass]   = useState(false);
+  const emptyProfile = {
+    name: '', title: 'Finance Officer', department: 'Finance & Bursary Office',
+    email: '', phone: '', officeRoom: '', avatar: '', employeeId: '',
+    academicYear: '', currentSemester: '',
+  };
+  const [foProfile, setFoProfile] = useState(emptyProfile);
+
+  // Load real profile on mount
+  useEffect(() => {
+    getSettings()
+      .then((data: any) => {
+        if (data) setFoProfile((p) => ({ ...p, ...data }));
+      })
+      .catch(() => { /* keep empty defaults */ });
+  }, []);
   const [saved, setSaved]         = useState(false);
   const [activeTheme, setActiveTheme] = useState<ThemeId>('dark');
 

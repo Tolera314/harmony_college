@@ -13,7 +13,6 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { financeStudents as defaultStudents } from '../../../data/financeData';
 import { FinanceStudent, FinanceRiskLevel } from '../../../types/finance';
 import { sendPaymentReminder, getOutstandingAccounts } from '../../../lib/foApi';
 
@@ -73,8 +72,8 @@ function ReminderModal({ student, onClose }: { student: FinanceStudent; onClose:
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" className="flex-1" onClick={() => { onClose(); }} icon={<Mail className="w-4 h-4" />}>
-            Send Reminder
+          <Button variant="primary" className="flex-1" onClick={handleSend} disabled={sending} icon={<Mail className="w-4 h-4" />}>
+            {sending ? 'Sending…' : 'Send Reminder'}
           </Button>
         </div>
       </div>
@@ -84,7 +83,7 @@ function ReminderModal({ student, onClose }: { student: FinanceStudent; onClose:
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOOutstandingView: React.FC = () => {
-  const [studentList, setStudentList] = useState<FinanceStudent[]>(defaultStudents);
+  const [studentList, setStudentList] = useState<FinanceStudent[]>([]);
   const [search, setSearch]         = useState('');
   const [riskFilter, setRiskFilter] = useState<FinanceRiskLevel | 'All'>('All');
   const [reminder, setReminder]     = useState<FinanceStudent | null>(null);
