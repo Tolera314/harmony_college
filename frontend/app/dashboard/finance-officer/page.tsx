@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { FONavTab, FONotification } from '@/src/types/finance';
-import { foProfile, foNotifications as initialNotifs, reconciliationEntries, financeStudents } from '@/src/data/financeData';
+import { foProfile } from '@/src/data/financeData';
 import { FOSidebar }           from '@/src/components/fo/FOSidebar';
 import { FOHeader }            from '@/src/components/fo/FOHeader';
 import { FOMobileNav }         from '@/src/components/fo/FOMobileNav';
@@ -22,19 +22,30 @@ import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView'
 import { ChatView }               from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
+import { getReconciliationEntries, getOutstandingAccounts } from '@/src/lib/foApi';
 
 export default function FinanceOfficerPage() {
-  const [activeTab,     setRawTab]       = useState<FONavTab>('overview');
-  const [notifications, setNotifications] = useState<FONotification[]>(initialNotifs);
-  const [searchOpen,    setSearchOpen]    = useState(false);
-  const [logoutOpen,    setLogoutOpen]    = useState(false);
-  const [tabLoading,    setTabLoading]    = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeTab,          setRawTab]       = useState<FONavTab>('overview');
+  const [notifications,      setNotifications] = useState<FONotification[]>([]);
+  const [searchOpen,         setSearchOpen]    = useState(false);
+  const [logoutOpen,         setLogoutOpen]    = useState(false);
+  const [tabLoading,         setTabLoading]    = useState(false);
+  const [mobileMenuOpen,     setMobileMenuOpen] = useState(false);
+  const [pendingReconciliation, setPendingRecon] = useState(0);
+  const [overdueCount,       setOverdueCount]  = useState(0);
   const { toast, show: showToast, hide: hideToast } = useToast();
 
-  const unreadCount           = notifications.filter((n) => !n.read).length;
-  const pendingReconciliation = reconciliationEntries.filter((e) => e.status === 'Unmatched' || e.status === 'Pending Review').length;
-  const overdueCount          = financeStudents.filter((s) => s.riskLevel === 'Critical' || s.paymentStatus === 'Overdue').length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Load live badge counts on mount
+  useEffect(() => {
+    getReconciliationEntries({ status: 'Unmatched' })
+      .then((d: any) => setPendingRecon((d?.entries ?? d ?? []).length))
+      .catch(() => {});
+    getOutstandingAccounts({ limit: 1 })
+      .then((d: any) => setOverdueCount(d?.total ?? 0))
+      .catch(() => {});
+  }, []);
 
   const setActiveTab = (tab: FONavTab) => {
     if (tab === (activeTab as string)) return;
@@ -52,14 +63,6 @@ export default function FinanceOfficerPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
-
-  const handleMarkRead = useCallback((id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
-  }, []);
-
-  const handleMarkAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }, []);
 
   const handleLogout = async () => {
@@ -80,9 +83,6 @@ export default function FinanceOfficerPage() {
       case 'reconciliation':   return <FOReconciliationView />;
       case 'notifications':    return (
         <FONotificationsView
-          notifications={notifications}
-          onMarkRead={handleMarkRead}
-          onMarkAllRead={handleMarkAllRead}
           setActiveTab={setActiveTab}
         />
       );
@@ -120,7 +120,7 @@ export default function FinanceOfficerPage() {
             profile={foProfile}
             notifications={notifications}
             unreadCount={unreadCount}
-            onMarkRead={handleMarkRead}
+            onMarkRead={() => {}}
             onOpenSearch={() => setSearchOpen(true)}
             semesterLabel={foProfile.currentSemester}
             academicYear={foProfile.academicYear}

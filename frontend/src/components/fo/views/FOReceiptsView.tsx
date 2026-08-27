@@ -11,7 +11,6 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { receipts as defaultReceipts } from '../../../data/financeData';
 import type { Receipt as ReceiptType } from '../../../types/finance';
 import { shareContent, downloadPDF } from '../../../lib/exportUtils';
 import { getReceipts } from '../../../lib/foApi';
@@ -177,7 +176,7 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOReceiptsView: React.FC = () => {
-  const [receiptList, setReceiptList] = useState<ReceiptType[]>(defaultReceipts);
+  const [receiptList, setReceiptList] = useState<ReceiptType[]>([]);
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('All');
   const [selected, setSelected] = useState<ReceiptType | null>(null);

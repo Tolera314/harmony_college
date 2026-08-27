@@ -10,7 +10,6 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { reconciliationEntries as defaultEntries } from '../../../data/financeData';
 import { ReconciliationEntry, ReconciliationStatus, GatewaySource } from '../../../types/finance';
 import { getReconciliationEntries, matchReconciliation, flagReconciliation } from '../../../lib/foApi';
 
@@ -30,7 +29,22 @@ const gatewayColor: Record<GatewaySource, string> = {
 };
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
-function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onClose: () => void }) {
+function EntryDetailModal({ entry, onClose, onMatch, onFlag }: {
+  entry: ReconciliationEntry;
+  onClose: () => void;
+  onMatch: (id: string) => Promise<void>;
+  onFlag:  (id: string) => Promise<void>;
+}) {
+  const [working, setWorking] = useState(false);
+
+  const doMatch = async () => {
+    setWorking(true);
+    try { await onMatch(entry.id); onClose(); } finally { setWorking(false); }
+  };
+  const doFlag = async () => {
+    setWorking(true);
+    try { await onFlag(entry.id); onClose(); } finally { setWorking(false); }
+  };
   return (
     <SlidePanel isOpen onClose={onClose} title="Reconciliation Details" subtitle="Finance — Reconciliation" width="max-w-md">
       <div className="space-y-4">
@@ -68,13 +82,13 @@ function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onCl
 
         <div className="flex gap-3 pt-2">
           {entry.status === 'Unmatched' && (
-            <Button variant="primary" className="flex-1" onClick={() => { onClose(); }}>
-              Match Transaction
+            <Button variant="primary" className="flex-1" disabled={working} onClick={doMatch}>
+              {working ? 'Matching…' : 'Match Transaction'}
             </Button>
           )}
           {entry.status === 'Pending Review' && (
-            <Button variant="outline" className="flex-1" onClick={() => { onClose(); }}>
-              Resolve
+            <Button variant="outline" className="flex-1" disabled={working} onClick={doFlag}>
+              {working ? 'Flagging…' : 'Resolve / Flag'}
             </Button>
           )}
         </div>
@@ -85,7 +99,7 @@ function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onCl
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOReconciliationView: React.FC = () => {
-  const [entriesList, setEntriesList] = useState<ReconciliationEntry[]>(defaultEntries);
+  const [entriesList, setEntriesList] = useState<ReconciliationEntry[]>([]);
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatusFilter] = useState<ReconciliationStatus | 'All'>('All');
   const [sourceFilter, setSourceFilter] = useState<GatewaySource | 'All'>('All');
@@ -102,6 +116,20 @@ export const FOReconciliationView: React.FC = () => {
       })
       .catch(() => {});
   }, [search, statusFilter]);
+
+  const handleMatch = async (id: string) => {
+    try {
+      await matchReconciliation(id);
+      setEntriesList((prev) => prev.map((e) => e.id === id ? { ...e, status: 'Matched' as ReconciliationStatus } : e));
+    } catch { /* non-fatal */ }
+  };
+
+  const handleFlag = async (id: string) => {
+    try {
+      await flagReconciliation(id);
+      setEntriesList((prev) => prev.map((e) => e.id === id ? { ...e, status: 'Pending Review' as ReconciliationStatus } : e));
+    } catch { /* non-fatal */ }
+  };
 
   const filtered = useMemo(() => {
     let list = [...entriesList];
@@ -261,7 +289,7 @@ export const FOReconciliationView: React.FC = () => {
       )}
 
       <AnimatePresence>
-        {detail && <EntryDetailModal entry={detail} onClose={() => setDetail(null)} />}
+        {detail && <EntryDetailModal entry={detail} onClose={() => setDetail(null)} onMatch={handleMatch} onFlag={handleFlag} />}
       </AnimatePresence>
     </motion.div>
   );

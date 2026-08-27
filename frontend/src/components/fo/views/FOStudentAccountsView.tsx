@@ -13,7 +13,6 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { financeStudents as defaultStudents, installmentPlans, transactions, foProfile } from '../../../data/financeData';
 import { FinanceStudent, PaymentStatus } from '../../../types/finance';
 import { getStudentAccounts } from '../../../lib/foApi';
 
@@ -35,8 +34,7 @@ const riskColor: Record<string, string> = {
 
 // ── Ledger Detail Modal ────────────────────────────────────────────────────────
 function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: () => void }) {
-  const plan = installmentPlans.find((p) => p.studentId === student.id);
-  const studentTxns = transactions.filter((t) => t.studentId === student.id);
+  const studentTxns = (student as any).transactions ?? [];
 
   const charges = [
     { label: 'Tuition Fee',          amount: student.tuition },
@@ -97,31 +95,15 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
           </div>
         </div>
 
-        {/* Installment plan */}
-        {plan && (
-          <div>
-            <h4 className="font-serif text-base font-bold text-(--text-primary) mb-3">Installment Plan</h4>
-            <div className="space-y-2">
-              {plan.installments.map((inst) => (
-                <div key={inst.id} className={`flex items-center gap-3 p-3 rounded-xl border ${inst.paid ? 'border-(--status-success-border) bg-(--status-success-bg)' : 'border-(--border-default) bg-(--hover-overlay)'}`}>
-                  <CheckCircle2 className={`w-4 h-4 shrink-0 ${inst.paid ? 'text-(--status-success)' : 'text-(--text-faint)'}`} />
-                  <div className="flex-1">
-                    <p className="font-sans text-xs text-(--text-secondary)">Due: <span className="font-mono">{inst.dueDate}</span></p>
-                    {inst.paidDate && <p className="font-mono text-[10px] text-(--status-success)">Paid on {inst.paidDate}</p>}
-                  </div>
-                  <span className="font-mono text-sm font-bold text-(--text-primary)">ETB {inst.amount.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
+
 
         {/* Transaction history */}
         {studentTxns.length > 0 && (
           <div>
             <h4 className="font-serif text-base font-bold text-(--text-primary) mb-3">Transaction History</h4>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-              {studentTxns.map((t) => (
+              {studentTxns.map((t: any) => (
                 <div key={t.id} className="flex items-center gap-3 p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                   <div className="flex-1 min-w-0">
                     <p className="font-sans text-xs text-(--text-primary) font-medium">{t.description}</p>
@@ -148,7 +130,7 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOStudentAccountsView: React.FC = () => {
-  const [studentList, setStudentList] = useState<FinanceStudent[]>(defaultStudents);
+  const [studentList, setStudentList] = useState<FinanceStudent[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'All'>('All');
   const [sortField, setSortField] = useState<'name' | 'outstanding' | 'daysOverdue'>('outstanding');
@@ -212,7 +194,7 @@ export const FOStudentAccountsView: React.FC = () => {
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
       <FOPageHeader
         title="Student Accounts"
-        subtitle={`${studentList.length} students · ${foProfile.currentSemester}`}
+        subtitle={`${studentList.length} students · ${new Date().getFullYear()}`}
         icon={<Users className="w-5 h-5" />}
       />
 
