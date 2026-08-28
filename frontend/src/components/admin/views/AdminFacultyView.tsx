@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { GESTURE, DURATION, EASE } from '@/src/lib/motion';
-import { UserCheck, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, UserX } from 'lucide-react';
+import { UserCheck, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, UserX, Trash2 } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
@@ -307,9 +307,10 @@ export const AdminFacultyView: React.FC = () => {
                   {inst.isActive && (
                     <button
                       onClick={() => setConfirmDeactivate(inst)}
-                      className="p-1 rounded hover:bg-(--status-warning-bg) text-(--text-muted) hover:text-(--status-warning) transition-colors"
-                      aria-label="Deactivate">
-                      <UserX className="w-3.5 h-3.5" />
+                      className="p-1 rounded hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors"
+                      aria-label="Delete"
+                      title="Delete Faculty">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -438,18 +439,17 @@ export const AdminFacultyView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Confirm Deactivate Modal */}
-      <Modal isOpen={!!confirmDeactivate} onClose={() => setConfirmDeactivate(null)} title="Confirm Deactivation" maxWidth="max-w-sm">
+      {/* Confirm Delete Modal */}
+      <Modal isOpen={!!confirmDeactivate} onClose={() => setConfirmDeactivate(null)} title="Delete Instructor" maxWidth="max-w-sm">
         {confirmDeactivate && (
           <div className="space-y-4 font-sans text-sm">
             <p className="text-(--text-secondary)">
-              Deactivate <span className="font-semibold text-(--text-primary)">{confirmDeactivate.user.fullName}</span>?
-              Their account will be deactivated and sessions revoked.
+              Are you sure you want to delete instructor <span className="font-semibold text-(--text-primary)">{confirmDeactivate.user.fullName}</span>?
             </p>
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setConfirmDeactivate(null)}>Cancel</Button>
               <Button variant="danger" className="flex-1" disabled={actionLoading} onClick={handleDeactivate}>
-                {actionLoading ? 'Working...' : 'Deactivate'}
+                {actionLoading ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
           </div>

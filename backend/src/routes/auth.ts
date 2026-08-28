@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { z } from 'zod';
+import { AuthRequest } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { signAccessToken, signRefreshToken, signJWT, verifyJWT } from '../lib/auth';
 import {
@@ -28,6 +30,7 @@ import {
   getInactivityTimeoutMs,
 } from '../types/auth';
 import { sendVerificationCode, verifyCode } from '../services/verification';
+import { validateInvitationToken, acceptStaffInvitation } from '../services/invitationService';
 import {
   requestPasswordReset,
   validateResetToken,
@@ -1531,6 +1534,104 @@ router.post('/oauth/link-account', async (req: Request, res: Response): Promise<
   } catch (err: unknown) {
     console.error('[OAuth Link Account Error]', err instanceof Error ? err.message : err);
     res.status(500).json({ error: 'An unexpected error occurred while linking your account.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAFF INVITATION (Public validation & acceptance)
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get('/invitations/validate', async (req, res) => {
+  try {
+    const token = req.query.token as string;
+    const result = await validateInvitationToken(token);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ isValid: false, reason: 'INVALID_TOKEN', error: err.message });
+  }
+});
+
+router.post('/invitations/accept', async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      token:    z.string().min(1, 'Invitation token is required'),
+      password: z.string().min(8, 'Password must be at least 8 characters long'),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      const msg = firstIssue?.message ?? 'Validation failed';
+      res.status(400).json({ error: msg, details: parsed.error.flatten() });
+      return;
+    }
+
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+        ?? req.socket.remoteAddress
+        ?? null;
+
+    const user = await acceptStaffInvitation(parsed.data.token, parsed.data.password, clientIp);
+
+    // Create session and sign in automatically
+    const deviceInfo = (req.headers['user-agent'] ?? '').slice(0, 255) || null;
+    const expiresAt  = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+
+    const session = await prisma.session.create({
+      data: {
+        userId:           user.id,
+        deviceInfo,
+        ipAddress:        clientIp,
+        refreshTokenHash: '',
+        expiresAt,
+      },
+    });
+
+    const accessToken = await signAccessToken({
+      userId:           user.id,
+      sessionId:        session.id,
+      email:            user.email ?? null,
+      role:             user.role,
+      status:           user.status,
+      profileCompleted: user.profileCompleted,
+    });
+
+    const refreshToken = await signRefreshToken({ sessionId: session.id });
+    const refreshTokenHash = await bcrypt.hash(refreshToken, TOKEN_BCRYPT_ROUNDS);
+
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { refreshTokenHash },
+    });
+
+    setAccessTokenCookie(res, accessToken);
+    setRefreshTokenCookie(res, refreshToken);
+
+    const redirectMap: Record<string, string> = {
+      INSTRUCTOR:      '/dashboard/instructor',
+      DEPARTMENT_HEAD: '/dashboard/department-head',
+      REGISTRAR:       '/dashboard/registrar',
+      FINANCE_OFFICER: '/dashboard/finance-officer',
+      HR_OFFICER:      '/dashboard/hr',
+      ADMIN:           '/dashboard/admin',
+      SUPER_ADMIN:     '/dashboard/admin',
+    };
+
+    res.status(200).json({
+      success:     true,
+      message:     'Account created successfully!',
+      redirectUrl: redirectMap[user.role] ?? '/dashboard/admin',
+      user: {
+        id:                user.id,
+        fullName:          user.fullName,
+        email:             user.email,
+        phone:             user.phone,
+        role:              user.role,
+        status:            user.status,
+        emailVerified:     user.emailVerified,
+        profileCompleted:  user.profileCompleted,
+      },
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message ?? 'Failed to accept invitation' });
   }
 });
 

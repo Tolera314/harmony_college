@@ -4,8 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
-  GraduationCap, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight,
-  UserX, RotateCcw, X,
+  GraduationCap, Search, Eye, Edit, ChevronLeft, ChevronRight,
+  UserX, UserCheck, RotateCcw, X, Trash2,
 } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
@@ -18,7 +18,7 @@ import {
   useToast, ToastContainer,
 } from '../../ui/States';
 import {
-  adminStudentsApi, adminDepartmentsApi, adminProgramsApi,
+  adminStudentsApi, adminUsersApi, adminDepartmentsApi, adminProgramsApi,
   AdminStudentRecord, ApiDepartment, ApiProgram,
 } from '../../../lib/adminApi';
 
@@ -66,9 +66,9 @@ export const AdminStudentsView: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
 
   // ── modals
-  const [createOpen, setCreateOpen]     = useState(false);
   const [editTarget, setEditTarget]     = useState<AdminStudentRecord | null>(null);
   const [confirmSuspend, setConfirmSuspend] = useState<AdminStudentRecord | null>(null);
+  const [confirmReactivate, setConfirmReactivate] = useState<AdminStudentRecord | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError]       = useState('');
 
@@ -76,11 +76,7 @@ export const AdminStudentsView: React.FC = () => {
   const [departments, setDepartments] = useState<ApiDepartment[]>([]);
   const [programs, setPrograms]       = useState<ApiProgram[]>([]);
 
-  // ── create form
-  const [cf, setCf] = useState({
-    fullName: '', email: '', phone: '', password: '',
-    programId: '', departmentId: '', studentId: '', yearLevel: '1',
-  });
+  // ── edit form
   // ── edit form
   const [ef, setEf] = useState({
     fullName: '', email: '', phone: '', status: '',
@@ -133,32 +129,7 @@ export const AdminStudentsView: React.FC = () => {
     }
   };
 
-  // ── create
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(''); setActionLoading(true);
-    try {
-      await adminStudentsApi.create({
-        fullName:     cf.fullName,
-        email:        cf.email || undefined,
-        phone:        cf.phone || undefined,
-        password:     cf.password,
-        programId:    cf.programId,
-        departmentId: cf.departmentId,
-        studentId:    cf.studentId || undefined,
-        yearLevel:    parseInt(cf.yearLevel, 10) || 1,
-      });
-      showToast('Student account created', 'success');
-      setCreateOpen(false);
-      setCf({ fullName: '', email: '', phone: '', password: '', programId: '', departmentId: '', studentId: '', yearLevel: '1' });
-      fetchStudents(1, search, statusFilter, deptFilter, programFilter);
-      setPage(1);
-    } catch (e: any) {
-      setFormError(e.message ?? 'Failed to create student');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+
 
   // ── edit
   const openEdit = (s: AdminStudentRecord) => {
@@ -213,6 +184,25 @@ export const AdminStudentsView: React.FC = () => {
     }
   };
 
+  // ── reactivate
+  const handleReactivate = async () => {
+    if (!confirmReactivate) return;
+    setActionLoading(true);
+    try {
+      await adminStudentsApi.update(confirmReactivate.id, { status: 'ACTIVE' });
+      if (confirmReactivate.user?.id) {
+        await adminUsersApi.updateStatus(confirmReactivate.user.id, 'ACTIVE').catch(() => {});
+      }
+      showToast('Student reactivated', 'success');
+      setConfirmReactivate(null);
+      fetchStudents(page, search, statusFilter, deptFilter, programFilter);
+    } catch (e: any) {
+      showToast(e.message ?? 'Action failed', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // ── filter programs based on selected dept
   const filteredPrograms = deptFilter
     ? programs.filter(p => p.departmentId === deptFilter)
@@ -231,12 +221,6 @@ export const AdminStudentsView: React.FC = () => {
         title="Students"
         subtitle={`${total} total students`}
         icon={<GraduationCap className="w-5 h-5" />}
-        actions={
-          <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}
-            onClick={() => { setCreateOpen(true); setFormError(''); }}>
-            Add Student
-          </Button>
-        }
       />
 
       {/* Filters */}
@@ -324,21 +308,32 @@ export const AdminStudentsView: React.FC = () => {
                       <button
                         onClick={() => openDetail(s)}
                         className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors"
-                        aria-label="View">
+                        aria-label="View"
+                        title="View Details">
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => openEdit(s)}
                         className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors"
-                        aria-label="Edit">
+                        aria-label="Edit"
+                        title="Edit Student">
                         <Edit className="w-3.5 h-3.5" />
                       </button>
-                      {s.status === 'ACTIVE' && (
+                      {s.status === 'ACTIVE' ? (
                         <button
                           onClick={() => setConfirmSuspend(s)}
-                          className="p-1.5 rounded-lg hover:bg-(--status-warning-bg) text-(--text-muted) hover:text-(--status-warning) transition-colors"
-                          aria-label="Suspend">
-                          <UserX className="w-3.5 h-3.5" />
+                          className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors"
+                          aria-label="Delete"
+                          title="Delete Student">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmReactivate(s)}
+                          className="p-1.5 rounded-lg hover:bg-(--status-success-bg) text-(--text-muted) hover:text-(--status-success) transition-colors"
+                          aria-label="Reactivate"
+                          title="Reactivate Student">
+                          <UserCheck className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
@@ -411,49 +406,7 @@ export const AdminStudentsView: React.FC = () => {
         )}
       </SlidePanel>
 
-      {/* Create Modal */}
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Add Student" maxWidth="max-w-lg">
-        <form onSubmit={handleCreate} className="space-y-4">
-          {formError && <InlineError message={formError} />}
-          <Input label="Full Name" required value={cf.fullName} onChange={e => setCf({ ...cf, fullName: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Email" type="email" value={cf.email} onChange={e => setCf({ ...cf, email: e.target.value })} />
-            <Input label="Phone" value={cf.phone} onChange={e => setCf({ ...cf, phone: e.target.value })} />
-          </div>
-          <Input label="Password" type="password" required value={cf.password} onChange={e => setCf({ ...cf, password: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Student ID (optional)" value={cf.studentId} onChange={e => setCf({ ...cf, studentId: e.target.value })} />
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-(--text-secondary)">Year Level</label>
-              <select value={cf.yearLevel} onChange={e => setCf({ ...cf, yearLevel: e.target.value })}
-                className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
-                {[1, 2, 3, 4, 5].map(y => <option key={y} value={y}>Year {y}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-(--text-secondary)">Department *</label>
-            <select required value={cf.departmentId} onChange={e => setCf({ ...cf, departmentId: e.target.value, programId: '' })}
-              className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
-              <option value="">Select department</option>
-              {departments.filter(d => d.isActive).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-(--text-secondary)">Program *</label>
-            <select required value={cf.programId} onChange={e => setCf({ ...cf, programId: e.target.value })}
-              className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
-              <option value="">Select program</option>
-              {programs.filter(p => p.isActive && (!cf.departmentId || p.departmentId === cf.departmentId))
-                .map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" type="button" className="flex-1" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button variant="gold" type="submit" className="flex-1" disabled={actionLoading}>{actionLoading ? 'Creating...' : 'Create'}</Button>
-          </div>
-        </form>
-      </Modal>
+
 
       {/* Edit Modal */}
       <Modal isOpen={!!editTarget} onClose={() => setEditTarget(null)} title={`Edit: ${editTarget?.user.fullName}`} maxWidth="max-w-lg">
@@ -503,18 +456,35 @@ export const AdminStudentsView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Confirm Suspend Modal */}
-      <Modal isOpen={!!confirmSuspend} onClose={() => setConfirmSuspend(null)} title="Confirm Suspension" maxWidth="max-w-sm">
+      {/* Confirm Delete Modal */}
+      <Modal isOpen={!!confirmSuspend} onClose={() => setConfirmSuspend(null)} title="Delete Student" maxWidth="max-w-sm">
         {confirmSuspend && (
           <div className="space-y-4 font-sans text-sm">
             <p className="text-(--text-secondary)">
-              Suspend <span className="font-semibold text-(--text-primary)">{confirmSuspend.user.fullName}</span>?
-              Their account will be deactivated and sessions revoked.
+              Are you sure you want to delete student <span className="font-semibold text-(--text-primary)">{confirmSuspend.user.fullName}</span> ({confirmSuspend.studentId})?
             </p>
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setConfirmSuspend(null)}>Cancel</Button>
               <Button variant="danger" className="flex-1" disabled={actionLoading} onClick={handleSuspend}>
-                {actionLoading ? 'Working...' : 'Suspend'}
+                {actionLoading ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirm Reactivate Modal */}
+      <Modal isOpen={!!confirmReactivate} onClose={() => setConfirmReactivate(null)} title="Confirm Reactivation" maxWidth="max-w-sm">
+        {confirmReactivate && (
+          <div className="space-y-4 font-sans text-sm">
+            <p className="text-(--text-secondary)">
+              Reactivate <span className="font-semibold text-(--text-primary)">{confirmReactivate.user.fullName}</span>?
+              Their status will be restored to active.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setConfirmReactivate(null)}>Cancel</Button>
+              <Button variant="primary" className="flex-1" disabled={actionLoading} onClick={handleReactivate}>
+                {actionLoading ? 'Working...' : 'Reactivate'}
               </Button>
             </div>
           </div>

@@ -206,7 +206,8 @@ export const AdminAdmissionsView: React.FC = () => {
                       <button
                         onClick={() => openDetail(a)}
                         className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors"
-                        aria-label="View">
+                        aria-label="View"
+                        title="View Application">
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                       {(a.status === 'SUBMITTED' || a.status === 'UNDER_REVIEW') && (
@@ -214,13 +215,15 @@ export const AdminAdmissionsView: React.FC = () => {
                           <button
                             onClick={() => { setActionTarget({ admission: a, action: 'accept' }); setActionComment(''); setActionError(''); }}
                             className="p-1.5 rounded-lg hover:bg-(--status-success-bg) text-(--text-muted) hover:text-(--status-success) transition-colors"
-                            aria-label="Accept">
+                            aria-label="Accept"
+                            title="Accept Application">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => { setActionTarget({ admission: a, action: 'reject' }); setActionComment(''); setActionError(''); }}
                             className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors"
-                            aria-label="Reject">
+                            aria-label="Reject"
+                            title="Reject Application">
                             <XCircle className="w-3.5 h-3.5" />
                           </button>
                         </>

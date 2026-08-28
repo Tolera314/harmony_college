@@ -179,8 +179,81 @@ export const adminUsersApi = {
     }),
 
   softDelete: (id: string) =>
-    apiFetch<AdminUser>(`/api/admin/users/${id}`, { method: 'DELETE' }),
+    apiFetch<{ success: boolean }>(`/api/admin/users/${id}`, { method: 'DELETE' }),
+};
 
+export interface ApiStaffInvitation {
+  id:              string;
+  email:           string;
+  fullName:        string;
+  role:            string;
+  departmentId:    string;
+  positionTitle?:  string;
+  employeeId?:     string;
+  phone?:          string;
+  specialization?: string;
+  expiresAt:       string;
+  acceptedAt?:     string;
+  revokedAt?:      string;
+  createdAt:       string;
+  status:          'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
+  department?:     { id: string; name: string; code: string };
+  invitedByUser?:  { id: string; fullName: string; email: string };
+  acceptedByUser?: { id: string; fullName: string; email: string };
+}
+
+export interface InvitationsListResponse {
+  invitations: ApiStaffInvitation[];
+  total:       number;
+  page:       number;
+  limit:       number;
+  totalPages:  number;
+}
+
+export const adminInvitationsApi = {
+  list: (params: Record<string, unknown> = {}) =>
+    apiFetch<InvitationsListResponse>(`/api/admin/invitations${qs(params)}`),
+
+  create: (data: {
+    fullName: string;
+    email: string;
+    role: string;
+    departmentId: string;
+    positionTitle?: string;
+    employeeId?: string;
+    phone?: string;
+    specialization?: string;
+  }) => apiFetch<{ success: boolean; message: string; invitation: ApiStaffInvitation; emailWarning?: string; invitationLink?: string }>('/api/admin/invitations', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  update: (id: string, data: {
+    fullName?: string;
+    email?: string;
+    role?: string;
+    departmentId?: string;
+    positionTitle?: string;
+    employeeId?: string;
+    phone?: string;
+    specialization?: string;
+  }) => apiFetch<{ success: boolean; message: string; invitation: ApiStaffInvitation; emailWarning?: string; invitationLink?: string }>(`/api/admin/invitations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  }),
+
+  resend: (id: string) =>
+    apiFetch<{ success: boolean; message: string; invitation: ApiStaffInvitation; emailWarning?: string; invitationLink?: string }>(`/api/admin/invitations/${id}/resend`, {
+      method: 'POST',
+    }),
+
+  revoke: (id: string) =>
+    apiFetch<{ success: boolean; message: string; invitation: ApiStaffInvitation }>(`/api/admin/invitations/${id}/revoke`, {
+      method: 'POST',
+    }),
+};
+
+export const adminUserSessionsApi = {
   getSessions: (userId: string) =>
     apiFetch<AdminSessionItem[]>(`/api/admin/users/${userId}/sessions`),
 
@@ -305,6 +378,9 @@ export const adminDepartmentsApi = {
 
   update: (id: string, data: { name?: string; description?: string; isActive?: boolean }) =>
     apiFetch<ApiDepartment>(`/api/admin/departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (id: string) =>
+    apiFetch<ApiDepartment>(`/api/admin/departments/${id}`, { method: 'DELETE' }),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -342,6 +418,9 @@ export const adminProgramsApi = {
     name?: string; description?: string;
     durationYears?: number; totalCredits?: number; isActive?: boolean;
   }) => apiFetch<ApiProgram>(`/api/admin/programs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (id: string) =>
+    apiFetch<ApiProgram>(`/api/admin/programs/${id}`, { method: 'DELETE' }),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
