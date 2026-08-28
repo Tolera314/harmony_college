@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { BookOpen, Search, Plus, Edit } from 'lucide-react';
+import { BookOpen, Search, Plus, Edit, Trash2 } from 'lucide-react';
 import { adminProgramsApi, adminDepartmentsApi, ApiProgram, ApiDepartment } from '../../../lib/adminApi';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Badge } from '../../ui/Badge';
@@ -31,6 +31,11 @@ export const AdminProgramsView: React.FC = () => {
   const [editError, setEditError]     = useState('');
   const [editing, setEditing]         = useState(false);
   const [ef, setEf] = useState({ name: '', description: '', durationYears: 4, totalCredits: 120, isActive: true });
+
+  // delete modal
+  const [deleteTarget, setDeleteTarget] = useState<ApiProgram | null>(null);
+  const [deleteError, setDeleteError]   = useState('');
+  const [deleting, setDeleting]         = useState(false);
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -82,6 +87,20 @@ export const AdminProgramsView: React.FC = () => {
     finally { setEditing(false); }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteError(''); setDeleting(true);
+    try {
+      await adminProgramsApi.delete(deleteTarget.id);
+      showToast('Program deleted', 'success');
+      setDeleteTarget(null); fetchData();
+    } catch (e: any) {
+      setDeleteError(e.message ?? 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
@@ -111,7 +130,7 @@ export const AdminProgramsView: React.FC = () => {
         <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
           <table className="w-full text-left text-xs font-sans min-w-[800px]">
             <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-              <tr>{['Program', 'Code', 'Department', 'Duration', 'Credits', 'Students', 'Status', ''].map(h => (
+              <tr>{['Program', 'Code', 'Department', 'Duration', 'Credits', 'Students', 'Status', 'Actions'].map(h => (
                 <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted)">{h}</th>
               ))}</tr>
             </thead>
@@ -126,9 +145,14 @@ export const AdminProgramsView: React.FC = () => {
                   <td className="px-4 py-3.5 font-mono text-sm font-bold text-(--text-primary)">{p._count.studentRecords}</td>
                   <td className="px-4 py-3.5"><Badge variant={p.isActive ? 'emerald' : 'glass'}>{p.isActive ? 'Active' : 'Inactive'}</Badge></td>
                   <td className="px-4 py-3.5">
-                    <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit">
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit" title="Edit Program">
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => { setDeleteTarget(p); setDeleteError(''); }} className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors" aria-label="Delete" title="Delete Program">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -206,6 +230,24 @@ export const AdminProgramsView: React.FC = () => {
             <Button variant="primary" type="submit" className="flex-1" disabled={editing}>{editing ? 'Saving...' : 'Save'}</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete modal */}
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={`Delete: ${deleteTarget?.name}`} maxWidth="max-w-sm">
+        {deleteTarget && (
+          <div className="space-y-4 font-sans text-sm">
+            {deleteError && <InlineError message={deleteError} />}
+            <p className="text-(--text-secondary)">
+              Are you sure you want to delete program <span className="font-semibold text-(--text-primary)">{deleteTarget.name}</span> ({deleteTarget.code})?
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+              <Button variant="danger" className="flex-1" disabled={deleting} onClick={handleDelete}>
+                {deleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </motion.div>
   );

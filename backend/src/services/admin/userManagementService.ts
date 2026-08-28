@@ -1749,3 +1749,425 @@ export async function reviewOnboarding(
   return updated;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ANALYTICS — Institution-wide aggregated reports for the Admin Reports view
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AdminAnalytics {
+  enrollment: {
+    total:         number;
+    byDepartment:  { name: string; code: string; count: number }[];
+    byProgram:     { name: string; code: string; count: number }[];
+    byStatus:      Record<string, number>;
+    byYearLevel:   { year: number; count: number }[];
+  };
+  academic: {
+    avgGpa:        number;
+    gpaByDept:     { name: string; code: string; avgGpa: number; count: number }[];
+    gpaByProgram:  { name: string; code: string; avgGpa: number; count: number }[];
+    gradeDist:     { grade: string; count: number }[];
+    atRiskCount:   number; // GPA < 2.0
+  };
+  attendance: {
+    overallRate:      number | null;
+    byDepartment:     { name: string; code: string; rate: number | null; total: number; present: number }[];
+    lowAttendanceCount: number; // students < 80%
+  };
+  faculty: {
+    total:           number;
+    active:          number;
+    byDepartment:    { name: string; code: string; count: number }[];
+    avgOfferings:    number;
+  };
+  offerings: {
+    total:           number;
+    active:          number;
+    avgUtilization:  number;
+    byDepartment:    { name: string; code: string; active: number; total: number }[];
+  };
+  courses: {
+    total:   number;
+    active:  number;
+    inactive: number;
+  };
+}
+
+export async function getAdminAnalytics(): Promise<AdminAnalytics> {
+  const [
+    departments,
+    enrollmentByDept,
+    enrollmentByProg,
+    enrollmentByStatus,
+    enrollmentByYear,
+    gpaRecords,
+    gpaDept,
+    gpaProg,
+    gradeDist,
+    atRisk,
+    attendanceRecords,
+    facultyStats,
+    offeringStats,
+    courseStats,
+  ] = await Promise.all([
+    // All departments
+    prisma.department.findMany({ select: { id: true, name: true, code: true } }),
+
+    // Enrollment by department
+    prisma.studentRecord.groupBy({
+      by: ['departmentId'],
+      _count: { id: true },
+      where: { status: StudentStatus.ACTIVE },
+    }),
+
+    // Enrollment by program
+    prisma.studentRecord.groupBy({
+      by: ['programId'],
+      _count: { id: true },
+      where: { status: StudentStatus.ACTIVE },
+    }),
+
+    // Enrollment by status
+    prisma.studentRecord.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    }),
+
+    // Enrollment by year level
+    prisma.studentRecord.groupBy({
+      by: ['yearLevel'],
+      _count: { id: true },
+      where: { status: StudentStatus.ACTIVE },
+    }),
+
+    // Avg GPA overall
+    prisma.studentRecord.aggregate({
+      _avg: { gpa: true },
+      where: { status: StudentStatus.ACTIVE },
+    }),
+
+    // GPA by department
+    prisma.studentRecord.groupBy({
+      by: ['departmentId'],
+      _avg: { gpa: true },
+      _count: { id: true },
+      where: { status: StudentStatus.ACTIVE },
+    }),
+
+    // GPA by program
+    prisma.studentRecord.groupBy({
+      by: ['programId'],
+      _avg: { gpa: true },
+      _count: { id: true },
+      where: { status: StudentStatus.ACTIVE },
+    }),
+
+    // Grade distribution
+    prisma.courseGrade.groupBy({
+      by: ['letterGrade'],
+      _count: { id: true },
+      where: { letterGrade: { not: null } },
+    }),
+
+    // At-risk students (GPA < 2.0)
+    prisma.studentRecord.count({
+      where: { status: StudentStatus.ACTIVE, gpa: { lt: 2.0, gt: 0 } },
+    }),
+
+    // Attendance — aggregate present/total per department
+    prisma.attendanceRecord.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    }),
+
+    // Faculty stats
+    prisma.instructorRecord.groupBy({
+      by: ['departmentId', 'isActive'],
+      _count: { id: true },
+    }),
+
+    // Offering stats
+    prisma.courseOffering.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    }),
+
+    // Course stats
+    prisma.course.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    }),
+  ]);
+
+  // Enrich departments for lookups
+  const deptMap = Object.fromEntries(departments.map(d => [d.id, d]));
+
+  // Programs lookup
+  const programs = await prisma.program.findMany({
+    select: { id: true, name: true, code: true },
+  });
+  const progMap = Object.fromEntries(programs.map(p => [p.id, p]));
+
+  // Enrollment by department
+  const byDepartment = enrollmentByDept.map(r => ({
+    name: deptMap[r.departmentId]?.name ?? r.departmentId,
+    code: deptMap[r.departmentId]?.code ?? '—',
+    count: r._count.id,
+  })).sort((a, b) => b.count - a.count);
+
+  // Enrollment by program
+  const byProgram = enrollmentByProg.map(r => ({
+    name: progMap[r.programId]?.name ?? r.programId,
+    code: progMap[r.programId]?.code ?? '—',
+    count: r._count.id,
+  })).sort((a, b) => b.count - a.count);
+
+  // Enrollment by status
+  const byStatus: Record<string, number> = {};
+  for (const r of enrollmentByStatus) byStatus[r.status] = r._count.id;
+
+  // Enrollment by year level
+  const byYearLevel = enrollmentByYear.map(r => ({ year: r.yearLevel, count: r._count.id }))
+    .sort((a, b) => a.year - b.year);
+
+  // GPA by dept
+  const gpaByDept = gpaDept.map(r => ({
+    name: deptMap[r.departmentId]?.name ?? r.departmentId,
+    code: deptMap[r.departmentId]?.code ?? '—',
+    avgGpa: Math.round((r._avg.gpa ?? 0) * 100) / 100,
+    count: r._count.id,
+  })).sort((a, b) => b.avgGpa - a.avgGpa);
+
+  // GPA by program
+  const gpaByProgram = gpaProg.map(r => ({
+    name: progMap[r.programId]?.name ?? r.programId,
+    code: progMap[r.programId]?.code ?? '—',
+    avgGpa: Math.round((r._avg.gpa ?? 0) * 100) / 100,
+    count: r._count.id,
+  })).sort((a, b) => b.avgGpa - a.avgGpa);
+
+  // Grade distribution
+  const gradeDist2 = gradeDist
+    .filter(r => r.letterGrade)
+    .map(r => ({ grade: r.letterGrade as string, count: r._count.id }))
+    .sort((a, b) => b.count - a.count);
+
+  // Attendance overall rate
+  const attMap: Record<string, number> = {};
+  for (const r of attendanceRecords) attMap[r.status] = r._count.id;
+  const totalAtt = Object.values(attMap).reduce((s, n) => s + n, 0);
+  const presentAtt = attMap['PRESENT'] ?? 0;
+  const overallRate = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100 * 10) / 10 : null;
+
+  // Attendance by department — need a join query
+  const attByDeptRaw = await prisma.attendanceRecord.findMany({
+    select: {
+      status: true,
+      attendanceSession: {
+        select: {
+          classSession: {
+            select: {
+              courseOffering: {
+                select: { course: { select: { departmentId: true } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Aggregate attendance by department
+  const attByDeptMap: Record<string, { total: number; present: number }> = {};
+  for (const r of attByDeptRaw) {
+    const deptId = r.attendanceSession.classSession.courseOffering.course.departmentId;
+    if (!attByDeptMap[deptId]) attByDeptMap[deptId] = { total: 0, present: 0 };
+    attByDeptMap[deptId].total++;
+    if (r.status === 'PRESENT') attByDeptMap[deptId].present++;
+  }
+
+  const attByDeptResult = Object.entries(attByDeptMap).map(([deptId, v]) => ({
+    name: deptMap[deptId]?.name ?? deptId,
+    code: deptMap[deptId]?.code ?? '—',
+    total: v.total,
+    present: v.present,
+    rate: v.total > 0 ? Math.round((v.present / v.total) * 100 * 10) / 10 : null,
+  }));
+
+  // Low attendance count (student attendance rate < 80%)
+  // Approximate: count students where present/total < 0.8
+  const studentAttStats = await prisma.studentRecord.findMany({
+    where: { status: StudentStatus.ACTIVE },
+    select: {
+      id: true,
+      attendanceRecords: {
+        select: { status: true },
+      },
+    },
+  });
+  let lowAttCount = 0;
+  for (const s of studentAttStats) {
+    const total = s.attendanceRecords.length;
+    const present = s.attendanceRecords.filter(r => r.status === 'PRESENT').length;
+    if (total >= 5 && present / total < 0.8) lowAttCount++;
+  }
+
+  // Faculty stats
+  const facultyByDept: Record<string, { total: number; active: number }> = {};
+  let totalFaculty = 0;
+  let activeFaculty = 0;
+  for (const r of facultyStats) {
+    if (!facultyByDept[r.departmentId]) facultyByDept[r.departmentId] = { total: 0, active: 0 };
+    facultyByDept[r.departmentId].total += r._count.id;
+    totalFaculty += r._count.id;
+    if (r.isActive) {
+      facultyByDept[r.departmentId].active += r._count.id;
+      activeFaculty += r._count.id;
+    }
+  }
+  const facultyByDeptResult = Object.entries(facultyByDept).map(([deptId, v]) => ({
+    name: deptMap[deptId]?.name ?? deptId,
+    code: deptMap[deptId]?.code ?? '—',
+    count: v.active,
+  }));
+
+  // Avg offerings per faculty
+  const totalOfferings = offeringStats.reduce((s, r) => s + r._count.id, 0);
+  const avgOfferings = totalFaculty > 0 ? Math.round((totalOfferings / totalFaculty) * 10) / 10 : 0;
+
+  // Offerings by dept
+  const activeOfferingsByDept = await prisma.courseOffering.groupBy({
+    by: ['status'],
+    _count: { id: true },
+  });
+  const offeringsByDeptRaw = await prisma.courseOffering.findMany({
+    select: {
+      status: true,
+      course: { select: { departmentId: true } },
+    },
+  });
+  const offerDeptMap: Record<string, { active: number; total: number }> = {};
+  for (const o of offeringsByDeptRaw) {
+    const dId = o.course.departmentId;
+    if (!offerDeptMap[dId]) offerDeptMap[dId] = { active: 0, total: 0 };
+    offerDeptMap[dId].total++;
+    if (o.status === OfferingStatus.ACTIVE) offerDeptMap[dId].active++;
+  }
+  const offeringsByDept = Object.entries(offerDeptMap).map(([dId, v]) => ({
+    name: deptMap[dId]?.name ?? dId,
+    code: deptMap[dId]?.code ?? '—',
+    active: v.active,
+    total: v.total,
+  }));
+
+  // Capacity utilization across active offerings
+  const activeOfferingsData = await prisma.courseOffering.findMany({
+    where: { status: OfferingStatus.ACTIVE },
+    select: { capacity: true, _count: { select: { enrollments: true } } },
+  });
+  const totalCap = activeOfferingsData.reduce((s, o) => s + o.capacity, 0);
+  const totalEnr = activeOfferingsData.reduce((s, o) => s + o._count.enrollments, 0);
+  const avgUtil = totalCap > 0 ? Math.round((totalEnr / totalCap) * 100 * 10) / 10 : 0;
+
+  // Course stats
+  const courseStatMap: Record<string, number> = {};
+  for (const r of courseStats) courseStatMap[r.status] = r._count.id;
+
+  // Offering totals
+  const offeringTotal = offeringStats.reduce((s, r) => s + r._count.id, 0);
+  const offeringActive = offeringStats.find(r => r.status === OfferingStatus.ACTIVE)?._count.id ?? 0;
+
+  return {
+    enrollment: {
+      total:       byStatus['ACTIVE'] ?? 0,
+      byDepartment,
+      byProgram,
+      byStatus,
+      byYearLevel,
+    },
+    academic: {
+      avgGpa:      Math.round((gpaRecords._avg.gpa ?? 0) * 100) / 100,
+      gpaByDept,
+      gpaByProgram,
+      gradeDist:   gradeDist2,
+      atRiskCount: atRisk,
+    },
+    attendance: {
+      overallRate,
+      byDepartment: attByDeptResult,
+      lowAttendanceCount: lowAttCount,
+    },
+    faculty: {
+      total:       totalFaculty,
+      active:      activeFaculty,
+      byDepartment: facultyByDeptResult,
+      avgOfferings,
+    },
+    offerings: {
+      total:         offeringTotal,
+      active:        offeringActive,
+      avgUtilization: avgUtil,
+      byDepartment:  offeringsByDept,
+    },
+    courses: {
+      total:   Object.values(courseStatMap).reduce((s, n) => s + n, 0),
+      active:  courseStatMap['ACTIVE'] ?? 0,
+      inactive: (courseStatMap['INACTIVE'] ?? 0) + (courseStatMap['ARCHIVED'] ?? 0),
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COURSE OFFERINGS LIST (admin-level read, for Registrar/Reports view)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface OfferingListQuery {
+  page:         number;
+  limit:        number;
+  search?:      string;
+  departmentId?: string;
+  semesterId?:  string;
+  status?:      string;
+}
+
+export async function listOfferings(q: OfferingListQuery) {
+  const { page, limit, search, departmentId, semesterId, status } = q;
+  const skip = (page - 1) * limit;
+
+  const where: any = {};
+  if (semesterId) where.semesterId = semesterId;
+  if (status)     where.status     = status;
+  if (departmentId) {
+    where.course = { departmentId };
+  }
+  if (search) {
+    where.OR = [
+      { course: { code: { contains: search, mode: 'insensitive' } } },
+      { course: { name: { contains: search, mode: 'insensitive' } } },
+    ];
+  }
+
+  const [total, offerings] = await Promise.all([
+    prisma.courseOffering.count({ where }),
+    prisma.courseOffering.findMany({
+      where, skip, take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        course:    { select: { id: true, code: true, name: true, creditHours: true, departmentId: true, department: { select: { name: true, code: true } } } },
+        semester:  { select: { id: true, name: true, isCurrent: true, academicYear: { select: { name: true } } } },
+        instructor: { select: { id: true, title: true, user: { select: { fullName: true } } } },
+        room:       { select: { name: true, building: true, capacity: true } },
+        _count:     { select: { enrollments: true } },
+      },
+    }),
+  ]);
+
+  return {
+    total, page, limit, totalPages: Math.ceil(total / limit),
+    offerings: offerings.map(o => ({
+      ...o,
+      enrolledCount: o._count.enrollments,
+      utilizationPct: o.capacity > 0 ? Math.round((o._count.enrollments / o.capacity) * 100) : 0,
+    })),
+  };
+}
+

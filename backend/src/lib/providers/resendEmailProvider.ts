@@ -11,8 +11,12 @@ export class ResendEmailProvider implements EmailProvider {
   private readonly from:   string;
 
   constructor() {
-    this.apiKey = process.env.RESEND_API_KEY    ?? '';
-    this.from   = process.env.RESEND_FROM_EMAIL ?? 'noreply@harmonycollege.edu.et';
+    this.apiKey = process.env.RESEND_API_KEY ?? '';
+    let rawFrom = process.env.RESEND_FROM_EMAIL ?? process.env.EMAIL_FROM ?? 'onboarding@resend.dev';
+    if (/@(gmail|yahoo|hotmail|outlook|icloud)\.com/i.test(rawFrom)) {
+      rawFrom = 'onboarding@resend.dev';
+    }
+    this.from = rawFrom;
   }
 
   private async send(to: string, subject: string, html: string, text: string): Promise<{ success: boolean; error?: string }> {
@@ -74,5 +78,26 @@ export class ResendEmailProvider implements EmailProvider {
     </body></html>`;
     const text = `${params.heading}\n\nDear ${params.recipientName},\n\n${params.body}`;
     return this.send(to, params.subject, html, text);
+  }
+
+  async sendStaffInvitationEmail(
+    to: string,
+    params: { fullName: string; role: string; departmentName: string; invitationLink: string; expiresInHours: number }
+  ): Promise<{ success: boolean; error?: string }> {
+    const text = `You're Invited to Harmony College\n\nHello ${params.fullName},\n\nYou have been invited to join Harmony College as ${params.role} in the ${params.departmentName} department.\n\nAccept your invitation and set up your account here:\n${params.invitationLink}\n\nThis link is secure and will expire in ${params.expiresInHours} hours.\nIf you did not expect this invitation, please contact administrator support immediately.`;
+    const html = `<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0F0F10;color:#fff;padding:40px 20px;max-width:600px;margin:0 auto;">
+      <h1 style="color:#E9C349;margin-bottom:24px;">Harmony College</h1>
+      <h2 style="color:#fff;font-size:20px;">You're Invited to Join Harmony College</h2>
+      <p>Hello <strong>${params.fullName}</strong>,</p>
+      <p>You have been invited to join Harmony College as a staff member:</p>
+      <div style="background:#1A1A1E;border-left:4px solid #E9C349;padding:16px;margin:20px 0;border-radius:6px;">
+        <p style="margin:4px 0;"><strong>Role:</strong> ${params.role}</p>
+        <p style="margin:4px 0;"><strong>Department:</strong> ${params.departmentName}</p>
+      </div>
+      <p>Click the secure link below to set your password and activate your account:</p>
+      <a href="${params.invitationLink}" style="display:inline-block;background:#E9C349;color:#0F0F10;font-weight:bold;padding:14px 28px;border-radius:10px;text-decoration:none;margin:20px 0;">Accept Invitation</a>
+      <p style="color:#888;font-size:13px;margin-top:24px;">This link expires in ${params.expiresInHours} hours. If you did not expect this invitation, please disregard this email or contact support.</p>
+    </body></html>`;
+    return this.send(to, "You're Invited to Harmony College", html, text);
   }
 }

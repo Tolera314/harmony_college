@@ -1,9 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { AdminNavTab, AdminNotification, UserRole } from '@/src/types/admin';
-import { adminProfile as mockProfile } from '@/src/data/adminData';
-import { maintenanceConfig } from '@/src/data/adminData2';
+import React, { useState, useEffect } from 'react';
+import { AdminNavTab, AdminNotification, AdminProfile as UiAdminProfile, UserRole } from '@/src/types/admin';
 import { adminSettingsApi } from '@/src/lib/adminApi';
 import { AdminSidebar }        from '@/src/components/admin/AdminSidebar';
 import { AdminHeader }         from '@/src/components/admin/AdminHeader';
@@ -39,36 +37,50 @@ export default function AdminDashboardPage() {
   const [searchOpen,      setSearchOpen]    = useState(false);
   const [logoutOpen,      setLogoutOpen]    = useState(false);
   const [tabLoading,      setTabLoading]    = useState(false);
-  const [maintenanceMode, setMaintenanceMode] = useState(maintenanceConfig.enabled);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [impersonating, setImpersonating]   = useState<{
+  const [mobileMenuOpen,  setMobileMenuOpen] = useState(false);
+  const [impersonating,   setImpersonating] = useState<{
     targetName: string; targetRole: UserRole; startTime: string;
   } | null>(null);
-  // Real profile fetched from the backend; fall back to mock while loading
-  const [profile, setProfile] = useState(mockProfile);
+
+  // Real profile — blank defaults while loading, populated from API
+  // UiAdminProfile is the shape AdminSidebar/AdminHeader expect
+  const [profile, setProfile] = useState<UiAdminProfile>({
+    name:             'Administrator',
+    title:            'System Administrator',
+    email:            '',
+    avatar:           '/logo2.jpg',
+    adminId:          '—',
+    role:             'Super Admin',
+    twoFactorEnabled: false,
+    lastLogin:        '—',
+    lastLoginIp:      '',
+    lastLoginDevice:  '',
+  });
   const [callerRole, setCallerRole] = useState('ADMIN');
   const { toast, show: showToast, hide: hideToast } = useToast();
 
   // Load real profile on mount
   useEffect(() => {
-    adminSettingsApi.getProfile().then(p => {
-      setProfile({
-        name:             p.fullName,
-        title:            'System Administrator',
-        email:            p.email ?? '',
-        avatar:           mockProfile.avatar,
-        adminId:          p.id.slice(0, 8).toUpperCase(),
-        role:             'Super Admin',
-        twoFactorEnabled: false,
-        lastLogin:        p.lastLoginAt ? new Date(p.lastLoginAt).toLocaleString() : '—',
-        lastLoginIp:      '',
-        lastLoginDevice:  '',
-      });
-      setCallerRole(p.role);
-    }).catch(() => { /* keep mock profile */ });
+    adminSettingsApi.getProfile()
+      .then(p => {
+        setProfile({
+          name:             p.fullName,
+          title:            'System Administrator',
+          email:            p.email ?? '',
+          avatar:           '/logo2.jpg',
+          adminId:          p.id.slice(0, 8).toUpperCase(),
+          role:             'Super Admin',
+          twoFactorEnabled: false,
+          lastLogin:        p.lastLoginAt ? new Date(p.lastLoginAt).toLocaleString() : '—',
+          lastLoginIp:      '',
+          lastLoginDevice:  '',
+        });
+        setCallerRole(p.role);
+      })
+      .catch(() => { /* keep defaults */ });
   }, []);
 
-  const unreadCount = 0; // notifications are now self-managed inside AdminNotificationsView
+  const unreadCount = 0; // self-managed inside AdminNotificationsView
 
   const setActiveTab = (tab: AdminNavTab) => {
     if (tab === activeTab) return;
@@ -139,7 +151,7 @@ export default function AdminDashboardPage() {
             activeTab={activeTab} setActiveTab={setActiveTab} profile={profile}
             notifications={notifications} unreadCount={unreadCount}
             onMarkRead={() => {}} onOpenSearch={() => setSearchOpen(true)}
-            academicYear="2024–2025" maintenanceMode={maintenanceMode}
+            academicYear="2024–2025" maintenanceMode={false}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
           {impersonating && (

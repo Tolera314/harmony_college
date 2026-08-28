@@ -9,6 +9,7 @@ import authRouter from '../routes/auth';
 import studentRouter from '../routes/student';
 import departmentHeadRouter from '../routes/departmentHead';
 import adminRouter from '../routes/admin';
+import { adminInvitationsRouter } from '../routes/adminInvitations';
 import financeOfficerRouter from '../routes/financeOfficer';
 import hrRouter from '../routes/hr';
 
@@ -23,6 +24,7 @@ testApp.use(express.urlencoded({ extended: true }));
 testApp.use('/api/auth', authRouter);
 testApp.use('/api/student', studentRouter);
 testApp.use('/api/department-head', departmentHeadRouter);
+testApp.use('/api/admin/invitations', adminInvitationsRouter);
 testApp.use('/api/admin', adminRouter);
 testApp.use('/api/finance-officer', financeOfficerRouter);
 testApp.use('/api/hr', hrRouter);

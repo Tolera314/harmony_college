@@ -56,4 +56,15 @@ export class SendGridEmailProvider implements EmailProvider {
       `Dear ${params.recipientName},\n\n${params.body}\n\n— Harmony College HR System`,
     );
   }
+
+  async sendStaffInvitationEmail(
+    to: string,
+    params: { fullName: string; role: string; departmentName: string; invitationLink: string; expiresInHours: number }
+  ): Promise<{ success: boolean; error?: string }> {
+    return this.send(
+      to,
+      "You're Invited to Harmony College",
+      `Hello ${params.fullName},\n\nYou have been invited to join Harmony College as ${params.role} (${params.departmentName}).\nAccept your invitation: ${params.invitationLink} (expires in ${params.expiresInHours} hours).\nIf unexpected, contact administrator support.`,
+    );
+  }
 }
