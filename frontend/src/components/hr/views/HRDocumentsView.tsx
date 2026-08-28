@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { FolderOpen, Search, Plus, Trash2, Download, Upload } from 'lucide-react';
+import { FolderOpen, Search, Plus, Trash2, Download, Upload, Eye, X, FileText, Image as ImageIcon, ExternalLink } from 'lucide-react';
 import {
   hrDocumentsApi, hrEmployeesApi, type HRDocumentApi, type HREmployeeApi,
   DOC_CATEGORY_LABEL, type HRDocumentCategory,
@@ -15,6 +15,131 @@ import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
 import { ConfirmModal } from '../../ui/ConfirmModal';
 import { SkeletonPage, ErrorState } from '../../ui/States';
+
+// ── Document Viewer Modal ─────────────────────────────────────────────────────
+
+/** Detect file type from URL extension */
+function getFileType(url: string): 'pdf' | 'image' | 'other' {
+  const lower = url.toLowerCase().split('?')[0];
+  if (lower.endsWith('.pdf')) return 'pdf';
+  if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(lower)) return 'image';
+  return 'other';
+}
+
+interface DocumentViewerProps {
+  doc:     HRDocumentApi | null;
+  onClose: () => void;
+}
+
+const DocumentViewer: React.FC<DocumentViewerProps> = ({ doc, onClose }) => {
+  if (!doc) return null;
+  const url      = doc.fileUrl ?? '';
+  const fileType = url ? getFileType(url) : 'other';
+
+  return (
+    <AnimatePresence>
+      {doc && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] flex flex-col"
+          style={{ backgroundColor: 'rgba(0,0,0,0.9)' }}
+        >
+          {/* Header bar */}
+          <div className="flex items-center justify-between px-5 py-3 bg-black/60 border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              {fileType === 'pdf'   ? <FileText className="w-5 h-5 text-white/70 shrink-0" /> : null}
+              {fileType === 'image' ? <ImageIcon className="w-5 h-5 text-white/70 shrink-0" /> : null}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{doc.title}</p>
+                <p className="text-[11px] text-white/50 font-mono">
+                  {(DOC_CATEGORY_LABEL as Record<string, string>)[doc.category] ?? doc.category}
+                  {doc.fileSize ? ` · ${doc.fileSize}` : ''}
+                  {` · Uploaded ${new Date(doc.uploadedAt).toLocaleDateString()}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 ml-4">
+              {url && (
+                <a href={url} download target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors">
+                  <Download className="w-3.5 h-3.5" /> Download
+                </a>
+              )}
+              {url && (
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors">
+                  <ExternalLink className="w-3.5 h-3.5" /> Open
+                </a>
+              )}
+              <button onClick={onClose}
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Content area */}
+          <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+            {!url ? (
+              <div className="text-center text-white/50 space-y-3">
+                <FileText className="w-16 h-16 mx-auto opacity-40" />
+                <p className="text-sm">No file URL available for this document.</p>
+                <p className="text-xs">The document may have been uploaded without a file.</p>
+              </div>
+            ) : fileType === 'image' ? (
+              /* Image preview */
+              <motion.img
+                key={url}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                src={url}
+                alt={doc.title}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                style={{ maxHeight: 'calc(100vh - 120px)' }}
+              />
+            ) : fileType === 'pdf' ? (
+              /* PDF inline viewer */
+              <motion.div
+                key={url}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="w-full h-full"
+                style={{ height: 'calc(100vh - 120px)' }}
+              >
+                <iframe
+                  src={`${url}#toolbar=1&navpanes=0&scrollbar=1`}
+                  className="w-full h-full rounded-lg border border-white/10"
+                  title={doc.title}
+                />
+              </motion.div>
+            ) : (
+              /* Unsupported format — fallback UI */
+              <div className="text-center text-white/70 space-y-4 max-w-sm">
+                <FileText className="w-20 h-20 mx-auto opacity-40" />
+                <div>
+                  <p className="text-base font-semibold text-white">{doc.title}</p>
+                  <p className="text-sm text-white/50 mt-1">
+                    This file type cannot be previewed inline.
+                  </p>
+                </div>
+                <a href={url} download target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#E9C349] text-black font-semibold rounded-xl text-sm hover:opacity-90 transition-opacity">
+                  <Download className="w-4 h-4" /> Download File
+                </a>
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  className="block text-xs text-white/40 hover:text-white/70 transition-colors mt-2">
+                  or open in new tab
+                </a>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 const catVariant: Record<string, 'gold' | 'emerald' | 'glass' | 'amber' | 'rose'> = {
   CONTRACT: 'gold', CV: 'emerald', NATIONAL_ID: 'glass',
@@ -30,6 +155,7 @@ export const HRDocumentsView: React.FC = () => {
   const [catFilter, setCatFilter] = useState('All');
   const [addModal,  setAddModal]  = useState(false);
   const [deleteDoc, setDeleteDoc] = useState<HRDocumentApi | null>(null);
+  const [viewDoc,   setViewDoc]   = useState<HRDocumentApi | null>(null);
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState('');
   const [uploadPct, setUploadPct] = useState(0);
@@ -164,9 +290,17 @@ export const HRDocumentsView: React.FC = () => {
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   {doc.fileUrl && (
+                    <button
+                      title="View document"
+                      onClick={() => setViewDoc(doc)}
+                      className="p-1.5 rounded-lg bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold) transition-colors">
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {doc.fileUrl && (
                     <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
                       className="p-1.5 rounded-lg bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors"
-                      download>
+                      title="Download" download>
                       <Download className="w-3.5 h-3.5" />
                     </a>
                   )}
@@ -266,6 +400,9 @@ export const HRDocumentsView: React.FC = () => {
         title="Delete Document"
         message={`Permanently delete "${deleteDoc?.title}"? This action cannot be undone.`}
         icon={<Trash2 className="w-6 h-6" />} variant="danger" confirmLabel="Delete Document" />
+
+      {/* Document viewer — full-screen overlay */}
+      <DocumentViewer doc={viewDoc} onClose={() => setViewDoc(null)} />
     </motion.div>
   );
 };

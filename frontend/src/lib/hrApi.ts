@@ -91,6 +91,7 @@ export interface HRDepartmentApi {
 export interface HREmployeeApi {
   id: string; employeeCode: string; fullName: string; avatarUrl: string | null;
   gender: HRGender; email: string; phone: string | null; position: string;
+  dateOfBirth: string | null; address: string | null;
   departmentId: string; department?: { id: string; name: string };
   employmentType: HREmploymentType; contractStatus: HRContractStatus;
   status: HREmployeeStatus; hireDate: string; contractEndDate: string | null;
@@ -98,6 +99,12 @@ export interface HREmployeeApi {
   education: string | null; experienceYears: number;
   basicSalary: number; allowances: number; deductions: number;
   nationalId?: string | null; bankAccount?: string | null; taxNumber?: string | null;
+  // System role and course (for INSTRUCTOR/DEPARTMENT_HEAD)
+  systemRole?: string | null;
+  courseId?:   string | null;
+  // Document URLs (sensitive — only in /full endpoint)
+  faydaIdUrl?: string | null;      faydaIdFileSize?: string | null;
+  certificateUrl?: string | null;  certificateFileSize?: string | null;
   emergencyName: string | null; emergencyPhone: string | null; emergencyRelation: string | null;
   isActive: boolean; createdAt: string; updatedAt: string;
 }
@@ -163,7 +170,11 @@ export interface HROnboardingRecordApi {
   id: string; employeeId: string; currentStep: number;
   status: HROnboardingStatus; startedAt: string; completedAt: string | null;
   steps: HROnboardingStepApi[];
-  employee?: { id: string; fullName: string; avatarUrl: string | null; position: string; employeeCode: string };
+  employee?: {
+    id: string; fullName: string; avatarUrl: string | null;
+    position: string; employeeCode: string;
+    department?: { id: string; name: string };
+  };
 }
 
 export interface HRAuditLogApi {
@@ -210,15 +221,27 @@ export const hrDepartmentsApi = {
   list: () => apiFetch<HRDepartmentApi[]>('/departments'),
 };
 
+// ── Courses (for INSTRUCTOR / DEPARTMENT_HEAD role assignment) ────────────────
+export interface HRCourseOption {
+  id: string; code: string; name: string; creditHours: number;
+  department: { name: string };
+}
+export const hrCoursesApi = {
+  list: () => apiFetch<HRCourseOption[]>('/courses/options'),
+};
+
 // ── Employees ─────────────────────────────────────────────────────────────────
 export const hrEmployeesApi = {
-  list: (params: { page?: number; limit?: number; search?: string; departmentId?: string; status?: string; employmentType?: string } = {}) =>
+  list: (params: {
+    page?: number; limit?: number; search?: string; departmentId?: string;
+    status?: string; employmentType?: string; systemRole?: string;
+  } = {}) =>
     apiFetch<{ total: number; page: number; limit: number; totalPages: number; employees: HREmployeeApi[] }>(`/employees${qs(params)}`),
 
   getById: (id: string) =>
     apiFetch<HREmployeeApi>(`/employees/${id}`),
 
-  /** Full detail including nationalId, bankAccount, taxNumber — HR roles only */
+  /** Full detail including nationalId, bankAccount, taxNumber, faydaIdUrl, certificateUrl — HR roles only */
   getFullById: (id: string) =>
     apiFetch<HREmployeeApi>(`/employees/${id}/full`),
 
@@ -294,7 +317,11 @@ export const hrDocumentsApi = {
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
 export const hrOnboardingApi = {
-  list: () => apiFetch<HROnboardingRecordApi[]>('/onboarding'),
+  list: (params: { page?: number; limit?: number; search?: string; departmentId?: string; status?: string } = {}) =>
+    apiFetch<{
+      total: number; page: number; limit: number; totalPages: number;
+      records: HROnboardingRecordApi[];
+    }>(`/onboarding${qs(params)}`),
 
   getByEmployee: (employeeId: string) =>
     apiFetch<HROnboardingRecordApi>(`/onboarding/${employeeId}`),
@@ -339,7 +366,11 @@ export const EXIT_REASON_LABEL: Record<HRExitReason, string> = {
 };
 
 export const hrOffboardingApi = {
-  list: () => apiFetch<HROffboardingRecordApi[]>('/offboarding'),
+  list: (params: { page?: number; limit?: number; search?: string; departmentId?: string; status?: string } = {}) =>
+    apiFetch<{
+      total: number; page: number; limit: number; totalPages: number;
+      records: HROffboardingRecordApi[];
+    }>(`/offboarding${qs(params)}`),
 
   getByEmployee: (employeeId: string) =>
     apiFetch<HROffboardingRecordApi>(`/offboarding/${employeeId}`),

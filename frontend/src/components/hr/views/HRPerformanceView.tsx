@@ -9,11 +9,11 @@ import {
   REVIEW_CYCLE_LABEL, REVIEW_STATUS_LABEL,
 } from '../../../lib/hrApi';
 import { DHPageHeader } from '../../dh/DHPageHeader';
-import { Card } from '../../ui/Card';
-import { Badge } from '../../ui/Badge';
-import { Button } from '../../ui/Button';
-import { Modal } from '../../ui/Modal';
-import { SlidePanel } from '../../ui/SlidePanel';
+import { Card }         from '../../ui/Card';
+import { Badge }        from '../../ui/Badge';
+import { Button }       from '../../ui/Button';
+import { Modal }        from '../../ui/Modal';
+import { SlidePanel }   from '../../ui/SlidePanel';
 import { SkeletonPage, ErrorState } from '../../ui/States';
 
 type HRReviewStatus = 'PENDING'|'IN_PROGRESS'|'COMPLETED'|'OVERDUE';
@@ -237,32 +237,85 @@ export const HRPerformanceView: React.FC = () => {
         )}
       </SlidePanel>
 
-      {/* Score Modal */}
-      <Modal isOpen={!!scoreModal} onClose={() => setScoreModal(null)} title={`Score Review — ${scoreModal?.employee?.fullName}`} maxWidth="max-w-md">
-        <div className="space-y-4">
-          {(['goalsScore','competenciesScore','attendanceScore','communicationScore','leadershipScore','technicalScore'] as const).map(k => (
-            <div key={k} className="flex items-center justify-between gap-4">
-              <span className="font-sans text-xs text-(--text-secondary) capitalize w-32">{k.replace('Score','')}</span>
-              <div className="flex items-center gap-1">
-                {[1,2,3,4,5].map(n => (
-                  <button key={n} onClick={() => setScores(s => ({ ...s, [k]: n }))}
-                    className={`w-7 h-7 rounded-lg font-mono text-xs font-bold border transition-all ${scores[k] >= n ? 'bg-[#E9C349] border-[#E9C349] text-black' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-faint)'}`}>
-                    {n}
-                  </button>
-                ))}
+      {/* Score SlidePanel — Submit Scores */}
+      <SlidePanel
+        isOpen={!!scoreModal}
+        onClose={() => { setScoreModal(null); setScores(emptyScores); }}
+        title={`Submit Scores — ${scoreModal?.employee?.fullName ?? ''}`}
+        subtitle={scoreModal ? `${(REVIEW_CYCLE_LABEL as Record<string,string>)[scoreModal.cycle] ?? scoreModal.cycle} · ${scoreModal.period}` : undefined}
+        width="max-w-lg"
+      >
+        {scoreModal && (
+          <div className="flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {/* Employee reminder */}
+              <div className="flex items-center gap-3 p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
+                <img src={scoreModal.employee?.avatarUrl ?? '/tigist.png'} alt=""
+                  className="w-10 h-10 rounded-xl border border-(--border-default) object-cover shrink-0" />
+                <div>
+                  <p className="font-semibold text-(--text-primary) text-sm">{scoreModal.employee?.fullName}</p>
+                  <p className="text-xs text-(--text-muted)">{scoreModal.employee?.position}</p>
+                </div>
+                <div className="ml-auto text-right">
+                  <p className="font-mono text-[10px] text-(--text-faint)">Due</p>
+                  <p className="font-mono text-xs font-semibold text-(--text-secondary)">
+                    {new Date(scoreModal.dueDate).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
+
+              {/* Score rows */}
+              <p className="font-mono text-[11px] uppercase tracking-wider text-(--brand-gold)">Scores (1–5)</p>
+              {(['goalsScore','competenciesScore','attendanceScore','communicationScore','leadershipScore','technicalScore'] as const).map(k => (
+                <div key={k} className="flex items-center justify-between gap-4">
+                  <span className="font-sans text-xs text-(--text-secondary) capitalize w-36 shrink-0">
+                    {k.replace('Score', '')}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5].map(n => (
+                      <button key={n} type="button"
+                        onClick={() => setScores(s => ({ ...s, [k]: n }))}
+                        className={`w-8 h-8 rounded-lg font-mono text-xs font-bold border transition-all ${
+                          scores[k] >= n
+                            ? 'bg-[#E9C349] border-[#E9C349] text-black'
+                            : 'bg-(--hover-overlay) border-(--border-default) text-(--text-faint) hover:border-(--brand-gold)/50'
+                        }`}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="font-mono text-xs font-semibold text-(--brand-gold) w-8 text-right shrink-0">
+                    {scores[k]}/5
+                  </span>
+                </div>
+              ))}
+
+              {/* Computed overall */}
+              <div className="px-3 py-2 bg-(--accent-gold-subtle) border border-(--accent-gold-border) rounded-xl font-mono text-sm text-(--brand-gold) text-center">
+                Overall: {(Object.values(scores).slice(0,6).reduce((a: number, b) => a + (typeof b === 'number' ? b : 0), 0) / 6).toFixed(2)} / 5
+              </div>
+
+              <p className="font-mono text-[11px] uppercase tracking-wider text-(--brand-gold)">Comments</p>
+              <textarea value={scores.managerComment}
+                onChange={e => setScores(s => ({ ...s, managerComment: e.target.value }))}
+                rows={2} placeholder="Manager comment (optional)…"
+                className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-3 py-2 text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold) resize-none" />
+              <textarea value={scores.hrComment}
+                onChange={e => setScores(s => ({ ...s, hrComment: e.target.value }))}
+                rows={2} placeholder="HR comment (optional)…"
+                className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-3 py-2 text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold) resize-none" />
             </div>
-          ))}
-          <textarea value={scores.managerComment} onChange={e => setScores(s => ({ ...s, managerComment: e.target.value }))} rows={2} placeholder="Manager comment (optional)..."
-            className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-3 py-2 text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold) resize-none" />
-          <textarea value={scores.hrComment} onChange={e => setScores(s => ({ ...s, hrComment: e.target.value }))} rows={2} placeholder="HR comment (optional)..."
-            className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-3 py-2 text-xs text-(--text-primary) placeholder:text-(--text-faint) focus:outline-none focus:border-(--brand-gold) resize-none" />
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setScoreModal(null)}>Cancel</Button>
-            <Button variant="gold" className="flex-1" disabled={saving} onClick={handleSubmitScores}>{saving ? 'Submitting…' : 'Submit Scores'}</Button>
+
+            {/* Sticky footer */}
+            <div className="shrink-0 px-6 py-4 border-t border-(--border-default) bg-(--bg-modal) flex gap-3 justify-end">
+              <Button variant="secondary" onClick={() => { setScoreModal(null); setScores(emptyScores); }}>Cancel</Button>
+              <Button variant="gold" disabled={saving} onClick={handleSubmitScores}>
+                {saving ? 'Submitting…' : 'Submit Scores'}
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        )}
+      </SlidePanel>
 
       {/* Create Review Modal */}
       <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Create Performance Review" maxWidth="max-w-md">

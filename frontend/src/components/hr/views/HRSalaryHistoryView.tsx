@@ -17,10 +17,10 @@ import {
   type HRSalaryHistoryEntry, type HREmployeeApi, type HRContractRenewalEntry,
 } from '../../../lib/hrApi';
 import { DHPageHeader } from '../../dh/DHPageHeader';
-import { Button } from '../../ui/Button';
-import { Input } from '../../ui/Input';
-import { Modal } from '../../ui/Modal';
-import { Badge } from '../../ui/Badge';
+import { Button }       from '../../ui/Button';
+import { Input }        from '../../ui/Input';
+import { SlidePanel }   from '../../ui/SlidePanel';
+import { Badge }        from '../../ui/Badge';
 import { SkeletonPage, ErrorState } from '../../ui/States';
 
 // ── Masked number ─────────────────────────────────────────────────────────────
@@ -315,65 +315,103 @@ export const HRSalaryHistoryView: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Salary Change Modal ─────────────────────────────────────── */}
-      <Modal isOpen={salaryModal} onClose={() => setSalaryModal(false)} title={`Record Salary Change — ${selectedEmp?.fullName}`} maxWidth="max-w-md">
-        <form onSubmit={handleSalarySubmit} className="space-y-4">
-          {salaryError && <p className="text-xs text-(--status-danger) bg-(--status-danger-bg) border border-(--status-danger-border) p-3 rounded-xl">{salaryError}</p>}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-(--text-secondary)">Effective Date *</label>
-            <input type="date" required value={salaryForm.effectiveDate}
-              onChange={e => setSalaryForm(f => ({ ...f, effectiveDate: e.target.value }))} className={sel} />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Input label="Basic Salary (ETB) *" type="number" min="0" required
-              value={String(salaryForm.basicSalary)} onChange={e => setSalaryForm(f => ({ ...f, basicSalary: Number(e.target.value) }))} />
-            <Input label="Allowances (ETB)" type="number" min="0"
-              value={String(salaryForm.allowances)} onChange={e => setSalaryForm(f => ({ ...f, allowances: Number(e.target.value) }))} />
-            <Input label="Deductions (ETB)" type="number" min="0"
-              value={String(salaryForm.deductions)} onChange={e => setSalaryForm(f => ({ ...f, deductions: Number(e.target.value) }))} />
-          </div>
-          <div className="p-3 bg-(--accent-gold-subtle) border border-(--accent-gold-border) rounded-xl font-mono text-sm text-(--brand-gold)">
-            New gross: ETB {(salaryForm.basicSalary + salaryForm.allowances).toLocaleString()}
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-(--text-secondary)">Reason</label>
-            <input type="text" placeholder="e.g. Annual increment, Promotion…"
-              value={salaryForm.reason} onChange={e => setSalaryForm(f => ({ ...f, reason: e.target.value }))}
-              className={sel} maxLength={500} />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" type="button" className="flex-1" onClick={() => setSalaryModal(false)}>Cancel</Button>
-            <Button variant="gold" type="submit" className="flex-1" disabled={saving}>{saving ? 'Saving…' : 'Record Change'}</Button>
-          </div>
-        </form>
-      </Modal>
+      {/* ── Record Salary SlidePanel ────────────────────────────── */}
+      <SlidePanel
+        isOpen={salaryModal}
+        onClose={() => setSalaryModal(false)}
+        title={`Record Salary Change — ${selectedEmp?.fullName ?? ''}`}
+        subtitle={selectedEmp?.employeeCode}
+        width="max-w-md"
+      >
+        {selectedEmp && (
+          <form onSubmit={handleSalarySubmit} className="flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {salaryError && <p className="text-xs text-(--status-danger) bg-(--status-danger-bg) border border-(--status-danger-border) p-3 rounded-xl">{salaryError}</p>}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-(--text-secondary)">Effective Date *</label>
+                <input type="date" required value={salaryForm.effectiveDate}
+                  onChange={e => setSalaryForm(f => ({ ...f, effectiveDate: e.target.value }))}
+                  className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-(--text-secondary)">Basic Salary (ETB) *</label>
+                  <input type="number" min="0" required value={String(salaryForm.basicSalary)}
+                    onChange={e => setSalaryForm(f => ({ ...f, basicSalary: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-(--text-secondary)">Allowances (ETB)</label>
+                  <input type="number" min="0" value={String(salaryForm.allowances)}
+                    onChange={e => setSalaryForm(f => ({ ...f, allowances: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-(--text-secondary)">Deductions (ETB)</label>
+                  <input type="number" min="0" value={String(salaryForm.deductions)}
+                    onChange={e => setSalaryForm(f => ({ ...f, deductions: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+                </div>
+              </div>
+              <div className="px-3 py-2 bg-(--accent-gold-subtle) border border-(--accent-gold-border) rounded-xl font-mono text-sm text-(--brand-gold)">
+                New gross: ETB {(salaryForm.basicSalary + salaryForm.allowances).toLocaleString()}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-(--text-secondary)">Reason</label>
+                <input type="text" placeholder="e.g. Annual increment, Promotion…"
+                  value={salaryForm.reason} onChange={e => setSalaryForm(f => ({ ...f, reason: e.target.value }))}
+                  maxLength={500}
+                  className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+              </div>
+            </div>
+            <div className="shrink-0 px-6 py-4 border-t border-(--border-default) bg-(--bg-modal) flex gap-3 justify-end">
+              <Button variant="secondary" type="button" onClick={() => setSalaryModal(false)}>Cancel</Button>
+              <Button variant="gold" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Record Change'}</Button>
+            </div>
+          </form>
+        )}
+      </SlidePanel>
 
-      {/* ── Contract Renewal Modal ──────────────────────────────────── */}
-      <Modal isOpen={renewModal} onClose={() => setRenewModal(false)} title={`Renew Contract — ${selectedEmp?.fullName}`} maxWidth="max-w-sm">
-        <form onSubmit={handleRenewSubmit} className="space-y-4">
-          {renewError && <p className="text-xs text-(--status-danger) bg-(--status-danger-bg) border border-(--status-danger-border) p-3 rounded-xl">{renewError}</p>}
-          {selectedEmp?.contractEndDate && (
-            <p className="text-xs text-(--text-secondary) bg-(--hover-overlay) p-3 rounded-xl border border-(--border-subtle)">
-              Current end date: <span className="font-semibold text-(--text-primary)">{new Date(selectedEmp.contractEndDate).toLocaleDateString()}</span>
-            </p>
-          )}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-(--text-secondary)">New End Date *</label>
-            <input type="date" required value={renewForm.newEndDate}
-              onChange={e => setRenewForm(f => ({ ...f, newEndDate: e.target.value }))} className={sel} />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-(--text-secondary)">Reason</label>
-            <input type="text" placeholder="e.g. Performance satisfactory, budget approved…"
-              value={renewForm.reason} onChange={e => setRenewForm(f => ({ ...f, reason: e.target.value }))}
-              className={sel} maxLength={500} />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" type="button" className="flex-1" onClick={() => setRenewModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit" className="flex-1" disabled={saving}>{saving ? 'Renewing…' : 'Renew Contract'}</Button>
-          </div>
-        </form>
-      </Modal>
+      {/* ── Contract Renewal SlidePanel ─────────────────────────── */}
+      <SlidePanel
+        isOpen={renewModal}
+        onClose={() => setRenewModal(false)}
+        title={`Renew Contract — ${selectedEmp?.fullName ?? ''}`}
+        subtitle={selectedEmp?.contractEndDate
+          ? `Current end: ${new Date(selectedEmp.contractEndDate).toLocaleDateString()}`
+          : 'No current contract end date'}
+        width="max-w-md"
+      >
+        {selectedEmp && (
+          <form onSubmit={handleRenewSubmit} className="flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {renewError && <p className="text-xs text-(--status-danger) bg-(--status-danger-bg) border border-(--status-danger-border) p-3 rounded-xl">{renewError}</p>}
+              {selectedEmp.contractEndDate && (
+                <p className="text-xs text-(--text-secondary) bg-(--hover-overlay) p-3 rounded-xl border border-(--border-subtle)">
+                  Current end date: <span className="font-semibold text-(--text-primary)">{new Date(selectedEmp.contractEndDate).toLocaleDateString()}</span>
+                </p>
+              )}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-(--text-secondary)">New End Date *</label>
+                <input type="date" required value={renewForm.newEndDate}
+                  onChange={e => setRenewForm(f => ({ ...f, newEndDate: e.target.value }))}
+                  className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-(--text-secondary)">Reason</label>
+                <input type="text" placeholder="e.g. Performance satisfactory, budget approved…"
+                  value={renewForm.reason} onChange={e => setRenewForm(f => ({ ...f, reason: e.target.value }))}
+                  maxLength={500}
+                  className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+              </div>
+            </div>
+            <div className="shrink-0 px-6 py-4 border-t border-(--border-default) bg-(--bg-modal) flex gap-3 justify-end">
+              <Button variant="secondary" type="button" onClick={() => setRenewModal(false)}>Cancel</Button>
+              <Button variant="primary" type="submit" disabled={saving}>{saving ? 'Renewing…' : 'Renew Contract'}</Button>
+            </div>
+          </form>
+        )}
+      </SlidePanel>
 
     </motion.div>
   );

@@ -11,14 +11,54 @@ const DEFAULT_STEPS = [
   { key: 'review',             label: 'Review & Submit',       order: 6 },
 ];
 
-export async function listOnboardingRecords() {
-  return prisma.hROnboardingRecord.findMany({
-    orderBy: { startedAt: 'desc' },
-    include: {
-      employee: { select: { id: true, fullName: true, avatarUrl: true, position: true, employeeCode: true } },
-      steps:    { orderBy: { orderIndex: 'asc' } },
-    },
-  });
+export interface OnboardingListQuery {
+  page:         number;
+  limit:        number;
+  search?:      string;  // employee name / code
+  departmentId?: string;
+  status?:      string;  // HROnboardingStatus
+}
+
+export async function listOnboardingRecords(q: OnboardingListQuery) {
+  const { page, limit, search, departmentId, status } = q;
+  const skip = (page - 1) * limit;
+
+  // Build a WHERE for the nested employee filter
+  const empWhere: any = {};
+  if (departmentId && departmentId !== 'All') empWhere.departmentId = departmentId;
+  if (search) {
+    empWhere.OR = [
+      { fullName:     { contains: search, mode: 'insensitive' } },
+      { employeeCode: { contains: search, mode: 'insensitive' } },
+      { email:        { contains: search, mode: 'insensitive' } },
+      { position:     { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const where: any = {};
+  if (status && status !== 'All') where.status = status;
+  if (Object.keys(empWhere).length) where.employee = empWhere;
+
+  const [total, records] = await Promise.all([
+    prisma.hROnboardingRecord.count({ where }),
+    prisma.hROnboardingRecord.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { startedAt: 'desc' },
+      include: {
+        employee: {
+          select: {
+            id: true, fullName: true, avatarUrl: true, position: true, employeeCode: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+        steps: { orderBy: { orderIndex: 'asc' } },
+      },
+    }),
+  ]);
+
+  return { total, page, limit, totalPages: Math.ceil(total / limit), records };
 }
 
 export async function getOnboardingRecord(employeeId: string) {

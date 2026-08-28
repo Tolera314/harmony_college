@@ -1789,6 +1789,21 @@ model HREmployee {
   bankAccount      String?
   taxNumber        String?
 
+  // Ethiopian national Fayda ID document
+  faydaIdUrl       String?
+  faydaIdFileSize  String?
+
+  // Academic credential certificate
+  certificateUrl     String?
+  certificateFileSize String?
+
+  // System role this employee will hold (links to the platform Role enum)
+  // Allowed for HR creation: INSTRUCTOR, DEPARTMENT_HEAD, REGISTRAR, FINANCE_OFFICER, HR_OFFICER
+  systemRole       String?   // mirrors Role enum value — enforced at service layer
+
+  // Course assignment (required when systemRole = INSTRUCTOR or DEPARTMENT_HEAD)
+  courseId         String?   // FK to the academic Course — optional, enforced conditionally
+
   // Emergency contact
   emergencyName     String?
   emergencyPhone    String?
@@ -1814,6 +1829,7 @@ model HREmployee {
   @@index([contractStatus])
   @@index([employmentType])
   @@index([isActive])
+  @@index([systemRole])
 }
 
 /// Leave request raised by an employee

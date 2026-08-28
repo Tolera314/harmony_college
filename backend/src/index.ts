@@ -104,14 +104,18 @@ const httpServer = http.createServer(app);
 const io = initSocket(httpServer, FRONTEND_URL);
 
 // ── Restore attendance auto-close timers on restart ───────────────────────────
-import('./services/attendance/attendanceService').then(svc => {
-  svc.restoreAutoCloseTimers().catch((err: unknown) => {
-    console.error('[startup] Failed to restore attendance auto-close timers:', err);
+// Delay 5 s to allow the Neon serverless DB connection pool to warm up first.
+setTimeout(() => {
+  import('./services/attendance/attendanceService').then(svc => {
+    svc.restoreAutoCloseTimers().catch((err: unknown) => {
+      console.error('[startup] Failed to restore attendance auto-close timers:', err);
+    });
   });
-});
+}, 5000);
 
 // ── HR: start daily contract expiry check ─────────────────────────────────────
-startContractExpiryJob();
+// Delay 6 s for the same reason — Neon wakes on first query, not on connect.
+setTimeout(() => startContractExpiryJob(), 6000);
 
 httpServer.listen(PORT, () => {
   console.log(`🚀  Harmony College API  →  http://localhost:${PORT}`);
