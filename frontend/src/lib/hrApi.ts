@@ -188,6 +188,21 @@ export interface HRNotificationApi {
   employee?: { id: string; fullName: string; avatarUrl: string | null } | null;
 }
 
+export interface HRDashboardSparklines {
+  /** Active employee count snapshot, oldest→newest, 6 months */
+  activeEmployees: number[];
+  /** Pending leave requests submitted, oldest→newest, 6 months */
+  pendingLeave: number[];
+  /** Performance reviews due, oldest→newest, 6 months */
+  reviewsDue: number[];
+  /** New hires, oldest→newest, 6 months */
+  newHires: number[];
+  /** Expiring contracts, oldest→newest, 6 months */
+  expiringContracts: number[];
+  /** Payroll net totals in ETB millions, oldest→newest, 6 months */
+  payrollNet: number[];
+}
+
 export interface HRDashboardData {
   kpis: {
     totalEmployees: number; activeEmployees: number; onLeave: number; terminated: number;
@@ -200,6 +215,8 @@ export interface HRDashboardData {
   pendingLeaveRequests: HRLeaveRequestApi[];
   expiringContractList: { id: string; fullName: string; avatarUrl: string | null; contractEndDate: string | null; position: string }[];
   recentAudit: HRAuditLogApi[];
+  /** Real 6-month historical data for KPI card sparklines */
+  sparklines: HRDashboardSparklines;
 }
 
 export interface PaginatedResponse<T> {
