@@ -68,19 +68,25 @@ router.get('/users/:id', async (req: AuthRequest, res) => {
 router.post('/users', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
-      fullName: z.string().min(2).max(100),
-      email:    z.string().email().optional().or(z.literal('')),
-      phone:    z.string().min(10).max(13).optional().or(z.literal('')),
+      fullName: z.string().min(2, 'Full name must be at least 2 characters long').max(100),
+      email:    z.string().email('Invalid email address').optional().or(z.literal('')),
+      phone:    z.string().max(20).optional().or(z.literal('')),
       password: z.string()
         .min(8, 'Password must be at least 8 characters long')
         .max(128, 'Password must be at most 128 characters long')
-        .regex(/^[A-Za-z0-9]+$/, 'Password must contain only letters and numbers')
         .regex(/[A-Za-z]/, 'Password must contain at least one letter')
         .regex(/[0-9]/, 'Password must contain at least one number'),
       role: z.nativeEnum(Role),
     });
     const parsed = schema.safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      const field = firstIssue?.path?.join('.');
+      const msg = firstIssue?.message ?? 'Validation failed';
+      const error = field ? `${field}: ${msg}` : msg;
+      res.status(400).json({ error, details: parsed.error.flatten() });
+      return;
+    }
     const { email, phone, ...rest } = parsed.data;
     ok(res, await svc.createStaffUser(
       { ...rest, email: email || undefined, phone: phone || undefined },
@@ -816,6 +822,80 @@ router.delete('/settings/sessions', async (req: AuthRequest, res) => {
       data:  { isRevoked: true },
     });
     ok(res, { success: true, revokedCount: count });
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ANALYTICS (institution-wide reports data)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/analytics', async (_req, res) => {
+  try { ok(res, await svc.getAdminAnalytics()); } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COURSE OFFERINGS LIST (read-only admin view)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/offerings', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await svc.listOfferings({
+      page, limit,
+      search:       qp.search,
+      departmentId: qp.departmentId,
+      semesterId:   qp.semesterId,
+      status:       qp.status,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SYSTEM HEALTH (admin-only — checks DB + backend response)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/system-health', async (_req, res) => {
+  const start = Date.now();
+  try {
+    // DB ping
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const dbMs = Date.now() - dbStart;
+
+    // Count active sessions as a proxy for active connections
+    const [sessions, users, students, offerings] = await Promise.all([
+      prisma.session.count({ where: { isRevoked: false, expiresAt: { gt: new Date() } } }),
+      prisma.user.count(),
+      prisma.studentRecord.count({ where: { status: 'ACTIVE' } }),
+      prisma.courseOffering.count({ where: { status: 'ACTIVE' } }),
+    ]);
+
+    ok(res, {
+      status: 'ok',
+      responseTimeMs: Date.now() - start,
+      services: [
+        { name: 'Database (PostgreSQL)', status: 'Healthy', responseTime: `${dbMs}ms`, detail: 'Connected' },
+        { name: 'API Server (Node.js)',  status: 'Healthy', responseTime: `${Date.now() - start}ms`, detail: 'Running' },
+        { name: 'Auth Service (JWT)',    status: 'Healthy', responseTime: '< 1ms', detail: 'Active' },
+      ],
+      stats: { activeSessions: sessions, totalUsers: users, activeStudents: students, activeOfferings: offerings },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(503).json({ status: 'degraded', error: e instanceof Error ? e.message : 'Health check failed' });
+  }
+});
+
+router.get('/transactions', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    const { listTransactions } = await import('../services/finance/foPaymentService');
+    ok(res, await listTransactions({
+      page, limit,
+      search: qp.search,
+      type:   qp.type,
+      status: qp.status,
+    }));
   } catch (e) { fail(res, e); }
 });
 

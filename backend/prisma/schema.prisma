@@ -60,6 +60,10 @@ enum AuditAction {
   PROFILE_COMPLETED
   SESSION_REVOKED
   OAUTH_LINKED
+  STAFF_INVITATION_CREATED
+  STAFF_INVITATION_RESENT
+  STAFF_INVITATION_REVOKED
+  STAFF_INVITATION_ACCEPTED
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -247,6 +251,10 @@ model User {
   dhAuditLogs          DepartmentHeadAuditLog[]
   // HR relation
   hrEmployee       HREmployee?
+
+  // Staff Invitation relations
+  sentInvitations    StaffInvitation[] @relation("SentInvitations")
+  acceptedInvitation StaffInvitation?  @relation("AcceptedInvitation")
 
   @@index([role])
   @@index([status])
@@ -502,6 +510,7 @@ model Department {
   studentRecords  StudentRecord[]
   departmentHeads DepartmentHeadRecord[]
   onboardingStudents StudentProfile[]
+  staffInvitations StaffInvitation[]
 
   @@index([code])
   @@index([isActive])
@@ -2099,4 +2108,40 @@ model HRContractRenewal {
   createdAt DateTime @default(now())
 
   @@index([employeeId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAFF INVITATION (Admin Provisioning)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model StaffInvitation {
+  id                 String     @id @default(uuid())
+  email              String
+  fullName           String
+  role               Role
+  departmentId       String
+  department         Department @relation(fields: [departmentId], references: [id])
+  positionTitle      String?
+  employeeId         String?
+  phone              String?
+  specialization     String?
+  tokenHash          String     @unique
+  expiresAt          DateTime
+  acceptedAt         DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  invitedByUserId    String
+  invitedByUser      User       @relation("SentInvitations", fields: [invitedByUserId], references: [id])
+
+  acceptedByUserId   String?    @unique
+  acceptedByUser     User?      @relation("AcceptedInvitation", fields: [acceptedByUserId], references: [id])
+
+  @@index([email])
+  @@index([tokenHash])
+  @@index([invitedByUserId])
+  @@index([departmentId])
+  @@index([role])
+  @@index([expiresAt])
 }

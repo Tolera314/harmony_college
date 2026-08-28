@@ -52,4 +52,19 @@ export class ConsoleEmailProvider implements EmailProvider {
     console.log(`────────────────────────────────────────────────\n`);
     return { success: true };
   }
+
+  async sendStaffInvitationEmail(
+    to: string,
+    params: { fullName: string; role: string; departmentName: string; invitationLink: string; expiresInHours: number }
+  ): Promise<{ success: boolean; error?: string }> {
+    console.log(`\n✉️  [STAFF INVITATION EMAIL] ──────────────────────`);
+    console.log(`   To:         ${to}`);
+    console.log(`   Name:       ${params.fullName}`);
+    console.log(`   Role:       ${params.role}`);
+    console.log(`   Department: ${params.departmentName}`);
+    console.log(`   Link:       ${params.invitationLink}`);
+    console.log(`   Expires:    ${params.expiresInHours} hours`);
+    console.log(`────────────────────────────────────────────────\n`);
+    return { success: true };
+  }
 }

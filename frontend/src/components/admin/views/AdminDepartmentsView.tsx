@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { Building2, Users, BookOpen, Plus, Edit } from 'lucide-react';
+import { Building2, Users, BookOpen, Plus, Edit, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { adminDepartmentsApi, ApiDepartment } from '../../../lib/adminApi';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
@@ -29,6 +29,16 @@ export const AdminDepartmentsView: React.FC = () => {
   const [editError, setEditError]     = useState('');
   const [editing, setEditing]         = useState(false);
   const [ef, setEf] = useState({ name: '', description: '', isActive: true });
+
+  // hide / show modal
+  const [toggleTarget, setToggleTarget] = useState<ApiDepartment | null>(null);
+  const [toggleError, setToggleError]   = useState('');
+  const [toggling, setToggling]         = useState(false);
+
+  // delete modal
+  const [deleteTarget, setDeleteTarget] = useState<ApiDepartment | null>(null);
+  const [deleteError, setDeleteError]   = useState('');
+  const [deleting, setDeleting]         = useState(false);
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -72,6 +82,37 @@ export const AdminDepartmentsView: React.FC = () => {
     finally { setEditing(false); }
   };
 
+  const handleConfirmToggle = async () => {
+    if (!toggleTarget) return;
+    setToggleError(''); setToggling(true);
+    try {
+      const newStatus = !toggleTarget.isActive;
+      await adminDepartmentsApi.update(toggleTarget.id, { isActive: newStatus });
+      showToast(`Department ${newStatus ? 'activated' : 'deactivated (hidden)'}`, 'success');
+      setToggleTarget(null);
+      fetchDepts();
+    } catch (e: any) {
+      setToggleError(e.message ?? 'Failed to update department status');
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteError(''); setDeleting(true);
+    try {
+      await adminDepartmentsApi.delete(deleteTarget.id);
+      showToast('Department deleted', 'success');
+      setDeleteTarget(null);
+      fetchDepts();
+    } catch (e: any) {
+      setDeleteError(e.message ?? 'Failed to delete department');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
@@ -99,12 +140,30 @@ export const AdminDepartmentsView: React.FC = () => {
                 <div className="w-10 h-10 rounded-xl bg-(--accent-gold-subtle) border border-(--accent-gold-border) flex items-center justify-center text-(--brand-gold) shrink-0">
                   <Building2 className="w-5 h-5" />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Badge variant={dept.isActive ? 'emerald' : 'glass'} className="text-[10px]">
+                <div className="flex items-center gap-1">
+                  <Badge variant={dept.isActive ? 'emerald' : 'glass'} className="text-[10px] mr-1">
                     {dept.isActive ? 'Active' : 'Inactive'}
                   </Badge>
-                  <button onClick={() => openEdit(dept)} className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors" aria-label="Edit department">
+                  <button
+                    onClick={() => openEdit(dept)}
+                    className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors"
+                    aria-label="Edit department"
+                    title="Edit Department">
                     <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { setToggleTarget(dept); setToggleError(''); }}
+                    className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold) transition-colors"
+                    aria-label={dept.isActive ? "Hide department" : "Show department"}
+                    title={dept.isActive ? "Hide Department (Deactivate)" : "Show Department (Activate)"}>
+                    {dept.isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    onClick={() => { setDeleteTarget(dept); setDeleteError(''); }}
+                    className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors"
+                    aria-label="Delete department"
+                    title="Delete Department">
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -169,6 +228,53 @@ export const AdminDepartmentsView: React.FC = () => {
             <Button variant="primary" type="submit" className="flex-1" disabled={editing}>{editing ? 'Saving...' : 'Save'}</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Hide / Show Confirmation Modal */}
+      <Modal
+        isOpen={!!toggleTarget}
+        onClose={() => setToggleTarget(null)}
+        title={toggleTarget?.isActive ? "Hide Department" : "Show Department"}
+        maxWidth="max-w-sm"
+      >
+        {toggleTarget && (
+          <div className="space-y-4 font-sans text-sm">
+            {toggleError && <InlineError message={toggleError} />}
+            <p className="text-(--text-secondary)">
+              Are you sure you want to {toggleTarget.isActive ? 'hide (deactivate)' : 'show (activate)'}{' '}
+              <span className="font-semibold text-(--text-primary)">{toggleTarget.name}</span> ({toggleTarget.code})?
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setToggleTarget(null)}>Cancel</Button>
+              <Button
+                variant={toggleTarget.isActive ? "danger" : "primary"}
+                className="flex-1"
+                disabled={toggling}
+                onClick={handleConfirmToggle}
+              >
+                {toggling ? 'Updating...' : toggleTarget.isActive ? 'Hide Department' : 'Show Department'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={`Delete: ${deleteTarget?.name}`} maxWidth="max-w-sm">
+        {deleteTarget && (
+          <div className="space-y-4 font-sans text-sm">
+            {deleteError && <InlineError message={deleteError} />}
+            <p className="text-(--text-secondary)">
+              Are you sure you want to delete <span className="font-semibold text-(--text-primary)">{deleteTarget.name}</span> ({deleteTarget.code})?
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+              <Button variant="danger" className="flex-1" disabled={deleting} onClick={handleDelete}>
+                {deleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </motion.div>
   );

@@ -34,4 +34,15 @@ export interface EmailProvider {
       body:          string;  // plain-text body, will be rendered as simple HTML
     }
   ): Promise<{ success: boolean; error?: string }>;
+
+  sendStaffInvitationEmail(
+    to: string,
+    params: {
+      fullName:       string;
+      role:           string;
+      departmentName: string;
+      invitationLink: string;
+      expiresInHours: number;
+    }
+  ): Promise<{ success: boolean; error?: string }>;
 }
