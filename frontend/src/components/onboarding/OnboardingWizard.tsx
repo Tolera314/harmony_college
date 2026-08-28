@@ -399,11 +399,21 @@ function OnboardingContextPanel({
 }
 
 const PROGRAMS = [
-  'Photography', 'Videography', 'Theatrical Art', 'Filmmaking',
-  'Music Instruments', 'Vocal Arts', 'Cubase Music Production',
-  'Graphic Design', 'Digital Marketing', 'Journalism',
-  'Information Technology (IT)', 'English', 'Arabic', 'French',
-  'Other Languages', 'Pharmacy',
+  'Photography & Videography',
+  'Theatrical Art & Filmmaking',
+  'Music Instruments & Vocal',
+  'Cubase Music Production',
+  'Graphic Design & Digital Marketing',
+  'Graphic Design',
+  'Digital Marketing',
+  'Journalism & Communication',
+  'Information Technology (IT)',
+  'Languages & Linguistics',
+  'Pharmacy',
+  'Accounting & Finance',
+  'Management',
+  'Marketing Management',
+  'Computer Science',
 ];
 
 const WIZARD_STEPS = [
@@ -521,7 +531,7 @@ function StepPersonal({ profile, errors, onChange }: {
           Gender <span style={{ color: 'var(--status-danger)' }}>*</span>
         </label>
         <div className="flex rounded-xl p-1.5 gap-1.5" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-default)' }}>
-          {['Male', 'Female', 'Prefer not to say'].map((g) => (
+          {['Male', 'Female'].map((g) => (
             <button key={g} type="button" onClick={() => onChange('gender', g)}
               className="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
               style={{
@@ -553,19 +563,27 @@ function StepAcademic({ profile, errors, onChange }: {
   errors: Partial<Record<keyof ProfileData, string>>;
   onChange: (key: keyof ProfileData, val: string) => void;
 }) {
+  // Ensure profile's current program is in the options list even if custom
+  const programOptions = React.useMemo(() => {
+    if (profile.program && !PROGRAMS.includes(profile.program)) {
+      return [profile.program, ...PROGRAMS];
+    }
+    return PROGRAMS;
+  }, [profile.program]);
+
   return (
     <div className="space-y-5">
-      <WizardSelect id="program" label="Program Applying For" value={profile.program}
+      <WizardSelect id="program" label="Program / Department" value={profile.program}
         onChange={(v) => onChange('program', v)} required error={errors.program}
-        icon={GraduationCap} options={PROGRAMS} />
+        icon={GraduationCap} options={programOptions} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <WizardSelect id="academicYear" label="Academic Year" value={profile.academicYear}
           onChange={(v) => onChange('academicYear', v)} required error={errors.academicYear}
           icon={Calendar}
-          options={['2024/2025', '2025/2026', '2026/2027']} />
+          options={['2024/2025', '2025/2026', '2026/2027', '2027/2028']} />
         <WizardSelect id="semester" label="Semester" value={profile.semester}
           onChange={(v) => onChange('semester', v)} icon={BookOpen}
-          options={['Semester I', 'Semester II']} />
+          options={['Semester I', 'Semester II', 'Semester III', 'Summer / Kiremt']} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <WizardInput id="matricResult" label="Matric / Grade 12 Result" value={profile.matricResult}
@@ -799,7 +817,7 @@ function SuccessScreen({ appNumber, onContinue }: { appNumber: string; onContinu
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85 }} className="w-full max-w-xs">
           <Button variant="gold" size="lg" className="w-full" onClick={onContinue}
             icon={<ArrowRight className="w-4 h-4" />}>
-            Discover Harmony College →
+            Go to Student Dashboard →
           </Button>
         </motion.div>
       </motion.div>
@@ -1020,6 +1038,12 @@ export function OnboardingWizard() {
         matricResult:  p.matricResult  || undefined,
         ministryResult:p.ministryResult|| undefined,
       });
+    } else if (step === 3) {
+      Object.assign(stepPayload, {
+        profilePictureUrl: p.profilePicturePreview || undefined,
+        faydaIdUrl:        faydaId.preview         || undefined,
+        transcriptUrl:     transcript.preview      || undefined,
+      });
     } else if (step === 4) {
       Object.assign(stepPayload, {
         emergencyName:         p.emergencyName         || undefined,
@@ -1099,6 +1123,8 @@ export function OnboardingWizard() {
         matricResult:         p.matricResult         || undefined,
         ministryResult:       p.ministryResult       || undefined,
         profilePictureUrl:    p.profilePicturePreview || undefined,
+        faydaIdUrl:           faydaId.preview         || undefined,
+        transcriptUrl:        transcript.preview      || undefined,
         emergencyName:        p.emergencyName         || undefined,
         emergencyRelationship:p.emergencyRelationship || undefined,
         emergencyPhone:       p.emergencyPhone        || undefined,
@@ -1148,7 +1174,7 @@ export function OnboardingWizard() {
           <div className="w-full max-w-lg rounded-2xl p-8 shadow-2xl"
             style={{ backgroundColor: 'var(--bg-modal)', border: '1px solid var(--accent-gold-border)', backdropFilter: 'blur(24px)' }}>
             <SuccessScreen appNumber={onboardingState.applicationNumber}
-              onContinue={() => router.push('/onboarding/about')} />
+              onContinue={() => router.push('/dashboard/student')} />
           </div>
         </div>
       </OnboardingBackground>
@@ -1164,15 +1190,15 @@ export function OnboardingWizard() {
           className="lg:hidden flex items-center justify-between px-5 py-3.5 border-b sticky top-0 z-30"
           style={{ backgroundColor: 'var(--bg-header)', borderColor: 'var(--border-subtle)', backdropFilter: 'blur(20px)' }}
         >
-          {/* Back to portal */}
+          {/* Back to dashboard */}
           <button
             type="button"
-            onClick={() => router.push('/welcome')}
+            onClick={() => router.push('/dashboard/student')}
             className="flex items-center gap-2 text-xs font-semibold font-sans transition-colors"
             style={{ color: 'var(--text-muted)' }}
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Portal</span>
+            <span>Dashboard</span>
           </button>
 
           {/* Mobile progress pill */}
@@ -1269,15 +1295,15 @@ export function OnboardingWizard() {
             />
           </div>
 
-          {/* Back to portal link */}
+          {/* Back to dashboard link */}
           <button
             type="button"
-            onClick={() => router.push('/welcome')}
+            onClick={() => router.push('/dashboard/student')}
             className="flex items-center gap-2 mt-4 pt-4 text-xs font-sans font-medium transition-colors group"
             style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-faint)' }}
           >
             <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-            <span className="group-hover:underline">Back to Welcome Portal</span>
+            <span className="group-hover:underline">Back to Student Dashboard</span>
           </button>
         </div>
 
@@ -1357,16 +1383,16 @@ export function OnboardingWizard() {
                   </Button>
                 )}
               </div>
-              {/* Save progress & return to portal */}
+              {/* Save progress & return to dashboard */}
               <div className="flex justify-center">
                 <button
                   type="button"
-                  onClick={() => router.push('/welcome')}
+                  onClick={() => router.push('/dashboard/student')}
                   className="flex items-center gap-1.5 text-xs font-sans transition-colors group"
                   style={{ color: 'var(--text-faint)' }}
                 >
                   <ArrowLeft className="w-3 h-3 transition-transform group-hover:-translate-x-0.5" />
-                  <span className="group-hover:underline">Save progress &amp; return to portal</span>
+                  <span className="group-hover:underline">Save progress &amp; return to Dashboard</span>
                 </button>
               </div>
             </div>

@@ -117,6 +117,23 @@ export async function middleware(req: NextRequest) {
     (session.role as string) === 'STUDENT' &&
     (session.profileCompleted as boolean | undefined) === false
   ) {
+    // Before bouncing to /welcome, check if the student was recently approved
+    // by attempting a silent token refresh from the backend database.
+    const { newAccessToken } = await silentRefresh(req);
+    if (newAccessToken) {
+      const refreshedSession = await verifyJWT(newAccessToken);
+      if (refreshedSession && (refreshedSession.profileCompleted as boolean | undefined) === true) {
+        const res = NextResponse.next();
+        res.cookies.set('accessToken', newAccessToken, {
+          httpOnly: true,
+          secure:   process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path:     '/',
+          maxAge:   3600,
+        });
+        return res;
+      }
+    }
     return NextResponse.redirect(new URL('/welcome', req.url));
   }
 

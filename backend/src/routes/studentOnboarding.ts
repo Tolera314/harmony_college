@@ -42,22 +42,40 @@ router.get('/departments', async (_req, res: Response): Promise<void> => {
   }
 });
 
-// ── GET /api/student/onboarding/prereqs ───────────────────────────────────────// Returns the two mandatory flags that gate dashboard access.
+// ── GET /api/student/onboarding/prereqs ───────────────────────────────────────
+// Returns the mandatory flags that gate dashboard access.
+// fullyApproved = true only when BOTH Finance Officer AND Registrar have approved.
 router.get('/prereqs', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.userId;
-    const profile = await prisma.studentProfile.findUnique({
-      where:  { userId },
-      select: {
-        registrationFeePaid:  true,
-        departmentSelected:   true,
-        selectedDepartmentId: true,
-      },
-    });
+
+    const [profile, application] = await Promise.all([
+      prisma.studentProfile.findUnique({
+        where:  { userId },
+        select: {
+          registrationFeePaid:      true,
+          departmentSelected:       true,
+          selectedDepartmentId:     true,
+          paymentVerifiedByFinance: true,
+        },
+      }),
+      prisma.application.findUnique({
+        where:  { userId },
+        select: { status: true },
+      }),
+    ]);
+
+    const paymentVerifiedByFinance = profile?.paymentVerifiedByFinance ?? false;
+    const registrarApproved        = application?.status === 'ACCEPTED';
+    const fullyApproved            = paymentVerifiedByFinance && registrarApproved;
+
     res.status(200).json({
-      feePaid:            profile?.registrationFeePaid  ?? false,
-      departmentSelected: profile?.departmentSelected   ?? false,
-      selectedDepartmentId: profile?.selectedDepartmentId ?? null,
+      feePaid:                  profile?.registrationFeePaid ?? false,
+      departmentSelected:       profile?.departmentSelected  ?? false,
+      selectedDepartmentId:     profile?.selectedDepartmentId ?? null,
+      paymentVerifiedByFinance,
+      registrarApproved,
+      fullyApproved,
     });
   } catch (err) {
     console.error('[onboarding/prereqs]', err);

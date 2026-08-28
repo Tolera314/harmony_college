@@ -62,6 +62,15 @@ export async function approveApplication(id: string, registrarUserId: string, co
     include: { department: true },
   });
 
+  // Check if Finance Officer has already verified the registration fee payment.
+  // If yes, BOTH approvals will be complete after this transaction, so we
+  // unlock the student's dashboard access (profileCompleted = true).
+  const studentProfile = await prisma.studentProfile.findUnique({
+    where:  { userId: app.userId },
+    select: { paymentVerifiedByFinance: true },
+  });
+  const financeApproved = studentProfile?.paymentVerifiedByFinance ?? false;
+
   return prisma.$transaction(async (tx) => {
     // 1. Update application status
     const updatedApp = await tx.application.update({
@@ -102,7 +111,15 @@ export async function approveApplication(id: string, registrarUserId: string, co
       }
     }
 
-    // 4. Audit log
+    // 4. Dual-approval gate — unlock Student Dashboard if Finance has also verified
+    if (financeApproved) {
+      await tx.user.update({
+        where: { id: app.userId },
+        data:  { profileCompleted: true },
+      });
+    }
+
+    // 5. Audit log
     await tx.registrarAuditLog.create({
       data: {
         userId: registrarUserId,
@@ -113,15 +130,19 @@ export async function approveApplication(id: string, registrarUserId: string, co
       },
     });
 
-    // 5. Notification
+    // 6. Notification
+    const notifMessage = financeApproved
+      ? `Congratulations! Your application to ${app.program} has been approved and your registration fee was verified. You can now access the Student Dashboard!`
+      : `Your application to ${app.program} has been approved. Once your registration fee is verified by Finance, you will have full access.`;
+
     await tx.notification.create({
       data: {
-        userId: app.userId,
-        title: 'Admission Approved',
-        message: `Congratulations! Your application to ${app.program} has been approved.`,
-        type: 'SUCCESS',
+        userId:     app.userId,
+        title:      financeApproved ? 'Admission Approved ✓ — Welcome!' : 'Admission Approved ✓',
+        message:    notifMessage,
+        type:       'SUCCESS',
         entityType: 'Application',
-        entityId: id,
+        entityId:   id,
       },
     });
 

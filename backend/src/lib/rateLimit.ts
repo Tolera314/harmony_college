@@ -9,14 +9,14 @@
 
 import rateLimit from 'express-rate-limit';
 
-/** 5 login attempts per 15 minutes per IP. */
+/** 10 login attempts per 5 minutes per IP. */
 export const loginLimiter = rateLimit({
-  windowMs:         15 * 60 * 1000,
-  max:              5,
+  windowMs:         5 * 60 * 1000,
+  max:              10,
   standardHeaders:  'draft-7',
   legacyHeaders:    false,
-  skipSuccessfulRequests: true, // Only count failed requests toward the limit
-  message: { error: 'Too many login attempts. Please wait 15 minutes before trying again.' },
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many login attempts. Please wait 5 minutes before trying again.' },
 });
 
 /** 10 registration attempts per hour per IP. */

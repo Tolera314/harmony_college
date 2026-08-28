@@ -82,7 +82,7 @@ export function ProfileCompletionBanner({ completionPct, applicationNumber }: Pr
       <Button
         variant="gold"
         size="sm"
-        onClick={() => router.push('/welcome')}
+        onClick={() => router.push('/onboarding')}
         icon={<ArrowRight className="w-3.5 h-3.5" />}
         className="shrink-0 whitespace-nowrap"
       >
@@ -115,10 +115,10 @@ export function LockedFeatureCard({ title, description, icon: Icon, reason }: Lo
         border: '1px solid var(--border-card)',
         opacity: 0.75,
       }}
-      onClick={() => router.push('/welcome')}
+      onClick={() => router.push('/onboarding')}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') router.push('/welcome'); }}
+      onKeyDown={(e) => { if (e.key === 'Enter') router.push('/onboarding'); }}
       aria-label={`${title} — locked. Complete your profile to unlock.`}
     >
       {/* Blur overlay */}

@@ -1,11 +1,11 @@
-'use client';
+;'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, BookOpen, Bell, Newspaper, Calendar,
   Image as ImageIcon, GraduationCap, User, Settings, LogOut,
-  ChevronRight, X, Menu, ShoppingBag, CreditCard
+  ChevronRight, X, Menu, ShoppingBag, CreditCard, Clock,
 } from 'lucide-react';
 import ThemeToggle from '@/src/components/ThemeToggle';
 import { MobileNav } from '@/src/components/layout/MobileNav';
@@ -49,6 +49,21 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
   const completion = state.profileCompletionPct;
   const name = state.account.fullName.split(' ')[0] || 'Student';
 
+  // Real prereq status — determines sidebar/CTA state.
+  // isApproved is only true when BOTH Finance Officer AND Registrar have approved.
+  const [isUnderReview, setIsUnderReview] = useState(false);
+  const [isApproved,    setIsApproved]    = useState(false);
+  useEffect(() => {
+    fetch('/api/student/onboarding/prereqs', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        if (d.fullyApproved) { setIsApproved(true); return; }
+        if (d.feePaid && d.departmentSelected) setIsUnderReview(true);
+      })
+      .catch(() => {});
+  }, []);
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
@@ -80,25 +95,40 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
 
         {/* Registration action card — sidebar */}
         <div
-          className="hidden xl:block mb-5 rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.02]"
-          onClick={() => window.location.href = '/onboarding/about'}
+          className="hidden xl:block mb-5 rounded-2xl p-4 transition-all"
+          onClick={() => !isApproved && !isUnderReview && (window.location.href = '/onboarding/about')}
           style={{
-            background: 'linear-gradient(135deg, var(--accent-gold-subtle) 0%, rgba(233,195,73,0.03) 100%)',
-            border: '1px solid var(--accent-gold-border)',
+            background: isApproved
+              ? 'linear-gradient(135deg, rgba(16,185,129,0.14) 0%, rgba(16,185,129,0.04) 100%)'
+              : isUnderReview
+                ? 'linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 100%)'
+                : 'linear-gradient(135deg, var(--accent-gold-subtle) 0%, rgba(233,195,73,0.03) 100%)',
+            border: `1px solid ${isApproved || isUnderReview ? 'rgba(16,185,129,0.35)' : 'var(--accent-gold-border)'}`,
+            cursor: isApproved || isUnderReview ? 'default' : 'pointer',
           }}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && (window.location.href = '/onboarding/about')}
+          role={isApproved || isUnderReview ? undefined : 'button'}
+          tabIndex={isApproved || isUnderReview ? undefined : 0}
+          onKeyDown={(e) => !isApproved && !isUnderReview && e.key === 'Enter' && (window.location.href = '/onboarding/about')}
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>
-              <CreditCard className="w-4 h-4" />
+              style={{
+                backgroundColor: isApproved || isUnderReview ? 'rgba(16,185,129,0.20)' : 'var(--brand-gold)',
+                color: isApproved || isUnderReview ? '#10B981' : 'var(--bg-base)',
+              }}>
+              {isApproved
+                ? <GraduationCap className="w-4 h-4" />
+                : isUnderReview
+                  ? <Clock className="w-4 h-4" />
+                  : <CreditCard className="w-4 h-4" />
+              }
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold font-sans truncate" style={{ color: 'var(--text-primary)' }}>Complete Registration</p>
-              <p className="text-[10px] font-sans" style={{ color: 'var(--text-muted)' }}>
-                Pay fee · Select department
+              <p className="text-[11px] font-semibold font-sans truncate" style={{ color: 'var(--text-primary)' }}>
+                {isApproved ? 'Approved ✓' : isUnderReview ? 'Under Review' : 'Complete Registration'}
+              </p>
+              <p className="text-[10px] font-sans" style={{ color: isApproved || isUnderReview ? '#10B981' : 'var(--text-muted)' }}>
+                {isApproved ? 'Go to your dashboard' : isUnderReview ? 'Awaiting approval' : 'Pay fee · Select department'}
               </p>
             </div>
           </div>
@@ -184,12 +214,14 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
         <div className="flex items-center gap-3">
           {completion < 100 ? (
             <Button
-              variant="gold"
+              variant={isApproved ? 'primary' : 'gold'}
               size="sm"
-              onClick={() => window.location.href = '/onboarding/about'}
+              onClick={() => isApproved
+                ? (window.location.href = '/dashboard/student')
+                : (window.location.href = '/onboarding/about')}
               className="hidden sm:flex"
             >
-              Complete Registration
+              {isApproved ? 'Go to Dashboard ✓' : isUnderReview ? 'Under Review…' : 'Complete Registration'}
             </Button>
           ) : (
             <Button
@@ -305,33 +337,66 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ delay: 1.2, duration: 0.4, type: 'spring' }}
         className="hidden lg:flex fixed bottom-6 right-6 z-40 items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl cursor-pointer"
-        style={{ background: 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))', boxShadow: '0 8px 32px rgba(233,195,73,0.35)' }}
-        onClick={() => window.location.href = '/onboarding/about'}
+        style={{
+          background: isApproved
+            ? 'linear-gradient(135deg, #059669, #10B981)'
+            : isUnderReview
+              ? 'rgba(16,185,129,0.15)'
+              : 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))',
+          border: isUnderReview && !isApproved ? '1px solid rgba(16,185,129,0.4)' : 'none',
+          boxShadow: isApproved || isUnderReview ? '0 8px 32px rgba(16,185,129,0.25)' : '0 8px 32px rgba(233,195,73,0.35)',
+        }}
+        onClick={() => isApproved ? (window.location.href = '/dashboard/student') : !isUnderReview && (window.location.href = '/onboarding/about')}
         role="button" tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && (window.location.href = '/onboarding/about')}
-        aria-label="Complete registration"
+        onKeyDown={(e) => e.key === 'Enter' && (isApproved ? (window.location.href = '/dashboard/student') : !isUnderReview && (window.location.href = '/onboarding/about'))}
+        aria-label={isApproved ? 'Go to dashboard' : isUnderReview ? 'Registration under review' : 'Complete registration'}
       >
-        <CreditCard className="w-4 h-4 text-black" />
+        {isApproved
+          ? <GraduationCap className="w-4 h-4 text-white" />
+          : isUnderReview
+            ? <Clock className="w-4 h-4" style={{ color: '#10B981' }} />
+            : <CreditCard className="w-4 h-4 text-black" />
+        }
         <div>
-          <p className="text-xs font-bold text-black leading-none">Complete Registration</p>
-          <p className="text-[10px] text-black/70 mt-0.5">Pay fee · Select department</p>
+          <p className="text-xs font-bold leading-none"
+            style={{ color: isUnderReview && !isApproved ? '#10B981' : isApproved ? 'white' : 'black' }}>
+            {isApproved ? 'Go to Dashboard ✓' : isUnderReview ? 'Under Review' : 'Complete Registration'}
+          </p>
+          <p className="text-[10px] mt-0.5"
+            style={{ color: isUnderReview && !isApproved ? 'rgba(16,185,129,0.7)' : isApproved ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }}>
+            {isApproved ? 'Dashboard is ready' : isUnderReview ? 'Awaiting approval' : 'Pay fee · Select department'}
+          </p>
         </div>
-        <ChevronRight className="w-4 h-4 text-black" />
+        {!isUnderReview && <ChevronRight className="w-4 h-4" style={{ color: isApproved ? 'white' : 'black' }} />}
       </motion.div>
 
       {/* ── Mobile sticky CTA ── */}
       <div className="md:hidden fixed bottom-18 left-3 right-3 z-40 pointer-events-none">
         <motion.button
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
-          onClick={() => window.location.href = '/onboarding/about'}
+          onClick={() => isApproved ? (window.location.href = '/dashboard/student') : !isUnderReview && (window.location.href = '/onboarding/about')}
           className="pointer-events-auto w-full flex items-center justify-between px-5 py-3 rounded-2xl shadow-2xl"
-          style={{ background: 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))', boxShadow: '0 4px 20px rgba(233,195,73,0.4)' }}
+          style={{
+            background: isApproved
+              ? 'linear-gradient(135deg, #059669, #10B981)'
+              : isUnderReview
+                ? 'rgba(16,185,129,0.15)'
+                : 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))',
+            border: isUnderReview && !isApproved ? '1px solid rgba(16,185,129,0.4)' : 'none',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          }}
         >
           <div>
-            <p className="text-xs font-bold text-black">Complete Registration</p>
-            <p className="text-[10px] text-black/70 mt-0.5">Pay fee · Select department</p>
+            <p className="text-xs font-bold"
+              style={{ color: isUnderReview && !isApproved ? '#10B981' : 'white' }}>
+              {isApproved ? 'Go to Dashboard ✓' : isUnderReview ? 'Under Review' : 'Complete Registration'}
+            </p>
+            <p className="text-[10px] mt-0.5"
+              style={{ color: isUnderReview && !isApproved ? 'rgba(16,185,129,0.7)' : 'rgba(255,255,255,0.7)' }}>
+              {isApproved ? 'Dashboard is ready' : isUnderReview ? 'Awaiting approval' : 'Pay fee · Select department'}
+            </p>
           </div>
-          <ChevronRight className="w-5 h-5 text-black" />
+          <ChevronRight className="w-5 h-5" style={{ color: isUnderReview && !isApproved ? '#10B981' : 'white' }} />
         </motion.button>
       </div>
 
