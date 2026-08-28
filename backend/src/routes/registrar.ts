@@ -1282,41 +1282,68 @@ router.get('/onboardings', async (req: AuthRequest, res) => {
     const { page, limit } = pageParams(qp);
     const skip = (page - 1) * limit;
 
-    const searchWhere: any = qp.search ? {
-      user: {
-        OR: [
-          { fullName: { contains: qp.search, mode: 'insensitive' } },
-          { email:    { contains: qp.search, mode: 'insensitive' } },
-          { phone:    { contains: qp.search, mode: 'insensitive' } },
-        ],
-      },
+    // Query ALL students (role=STUDENT), including those with no StudentProfile yet.
+    // StudentProfile is a left join — null means the student hasn't started onboarding.
+    const searchFilter: any = qp.search ? {
+      OR: [
+        { fullName: { contains: qp.search, mode: 'insensitive' } },
+        { email:    { contains: qp.search, mode: 'insensitive' } },
+        { phone:    { contains: qp.search, mode: 'insensitive' } },
+      ],
     } : {};
 
-    const feePaidFilter   = qp.feePaid   !== undefined ? { registrationFeePaid:  qp.feePaid   === 'true' } : {};
-    const deptFilter      = qp.deptSelected !== undefined ? { departmentSelected: qp.deptSelected === 'true' } : {};
-    const where = { ...searchWhere, ...feePaidFilter, ...deptFilter };
+    const where: any = { role: 'STUDENT', ...searchFilter };
 
-    const [total, profiles] = await Promise.all([
-      prisma.studentProfile.count({ where }),
-      prisma.studentProfile.findMany({
+    // Optional filter by payment/dept status (filter via profile)
+    if (qp.feePaid !== undefined) {
+      const paid = qp.feePaid === 'true';
+      where.studentProfile = paid
+        ? { registrationFeePaid: true }
+        : { OR: [{ registrationFeePaid: false }, { is: null }] };
+    }
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
         where, skip, take: limit,
         orderBy: { createdAt: 'desc' },
         select: {
-          userId:                   true,
-          registrationFeePaid:      true,
-          registrationFeePaidAt:    true,
-          departmentSelected:       true,
-          paymentVerifiedByFinance:  true,
-          paymentVerifiedAt:        true,
-          selectedDepartmentId:     true,
-          createdAt:                true,
-          user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
-          selectedDepartment: { select: { id: true, name: true, code: true } },
+          id:        true,
+          fullName:  true,
+          email:     true,
+          phone:     true,
+          createdAt: true,
+          studentProfile: {
+            select: {
+              registrationFeePaid:      true,
+              registrationFeePaidAt:    true,
+              departmentSelected:       true,
+              paymentVerifiedByFinance:  true,
+              paymentVerifiedAt:        true,
+              selectedDepartmentId:     true,
+              createdAt:                true,
+              selectedDepartment: { select: { id: true, name: true, code: true } },
+            },
+          },
         },
       }),
     ]);
 
-    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), onboardings: profiles });
+    // Normalise shape: always return the same fields whether profile exists or not
+    const onboardings = users.map(u => ({
+      userId:                   u.id,
+      registrationFeePaid:      u.studentProfile?.registrationFeePaid      ?? false,
+      registrationFeePaidAt:    u.studentProfile?.registrationFeePaidAt    ?? null,
+      departmentSelected:       u.studentProfile?.departmentSelected        ?? false,
+      paymentVerifiedByFinance:  u.studentProfile?.paymentVerifiedByFinance ?? false,
+      paymentVerifiedAt:        u.studentProfile?.paymentVerifiedAt         ?? null,
+      selectedDepartmentId:     u.studentProfile?.selectedDepartmentId      ?? null,
+      createdAt:                u.studentProfile?.createdAt ?? u.createdAt,
+      user:  { id: u.id, fullName: u.fullName, email: u.email, phone: u.phone, createdAt: u.createdAt },
+      selectedDepartment: u.studentProfile?.selectedDepartment ?? null,
+    }));
+
+    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), onboardings });
   } catch (e) { fail(res, e); }
 });
 

@@ -177,7 +177,7 @@ export default function StudentDashboardPage() {
   const [sessionExpired]                      = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen]   = useState(false);
   const [onboardingCompletion, setOnboardingCompletion] = useState(0);
-  const [applicationNumber]                   = useState('');
+  const [applicationNumber, setApplicationNumber]       = useState('');
   const { toast, show: showToast, hide: hideToast } = useToast();
 
   // ── Realtime socket ───────────────────────────────────────────────────────
@@ -214,10 +214,28 @@ export default function StudentDashboardPage() {
         const data = await res.json();
         if (!data.authenticated) { window.location.href = '/signin'; return; }
         const u = data.user;
-        if (u.role === 'STUDENT' && !u.profileCompleted) { window.location.href = '/welcome'; return; }
+        if (u.role === 'STUDENT' && !u.profileCompleted) {
+          try {
+            const prereqRes = await fetch('/api/student/onboarding/prereqs', { credentials: 'include' });
+            if (prereqRes.ok) {
+              const prereqs = await prereqRes.json();
+              if (!prereqs.fullyApproved) {
+                window.location.href = '/welcome';
+                return;
+              }
+            } else {
+              window.location.href = '/welcome';
+              return;
+            }
+          } catch {
+            window.location.href = '/welcome';
+            return;
+          }
+        }
         setOnboardingCompletion(u.profileCompletion ?? 0);
+        setApplicationNumber(`HC-${new Date().getFullYear()}-${u.id.slice(0, 6).toUpperCase()}`);
         if (u.fullName) setProfile(p => ({ ...p, name: u.fullName, email: u.email ?? p.email }));
-        if (u.profileCompleted) loadDashboard();
+        loadDashboard();
       } catch { /* keep static on network failure */ }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps

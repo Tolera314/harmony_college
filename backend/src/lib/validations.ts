@@ -87,7 +87,7 @@ export const patchProfileSchema = z.object({
                   .refine((d) => !isNaN(Date.parse(d)), 'Invalid date format')
                   .refine((d) => new Date(d) < new Date(), 'Date of birth must be in the past')
                   .optional(),
-  gender:       z.enum(['Male', 'Female', 'Prefer not to say']).optional(),
+  gender:       z.enum(['Male', 'Female']).optional(),
   region:       z.string().trim().max(100).optional(),
   city:         z.string().trim().min(1).max(100).optional(),
   address:      z.string().trim().min(1).max(500).optional(),
