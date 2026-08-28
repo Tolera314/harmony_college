@@ -31,6 +31,9 @@ export const CourseCatalog: React.FC = () => {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<CourseItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CourseItem | null>(null);
+  const [statusTarget, setStatusTarget] = useState<CourseItem | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [saving, setSaving]       = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -103,14 +106,28 @@ export const CourseCatalog: React.FC = () => {
     } finally { setSaving(false); }
   };
 
-  const handleToggleStatus = async (c: CourseItem) => {
-    const next = c.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    try {
-      await coursesApi.setStatus(c.id, next);
-      await load(page, search, deptFilter);
-    } catch { /* silently fail */ }
+  // Step 1: open confirmation dialog — prevents accidental status changes
+  const handleToggleStatus = (c: CourseItem) => {
+    setStatusError(null);
+    setStatusTarget(c);
   };
 
+  // Step 2: called after user confirms in the dialog
+  const confirmToggleStatus = async () => {
+    if (!statusTarget) return;
+    const next = statusTarget.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    setStatusLoading(true);
+    setStatusError(null);
+    try {
+      await coursesApi.setStatus(statusTarget.id, next);
+      setStatusTarget(null);
+      await load(page, search, deptFilter);
+    } catch (e: unknown) {
+      setStatusError(e instanceof Error ? e.message : 'Failed to update course status. Please try again.');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
   const handleExportCSV = () => {
     if (!data) return;
     const csv = ['Code,Name,Credits,Department,Status,Prerequisites']
@@ -344,6 +361,28 @@ export const CourseCatalog: React.FC = () => {
           </div>
         </form>
       </SlidePanel>
+
+      {/* ── Course Status Change Confirmation ─────────────────────────────────
+           Shown before toggling Active ↔ Inactive to prevent accidental changes.
+           The actual API call only fires when the user clicks Confirm.          */}
+      <ConfirmModal
+        isOpen={!!statusTarget}
+        onClose={() => { if (!statusLoading) { setStatusTarget(null); setStatusError(null); } }}
+        onConfirm={confirmToggleStatus}
+        title={statusTarget
+          ? `${statusTarget.status === 'ACTIVE' ? 'Deactivate' : 'Activate'} Course`
+          : 'Change Course Status'}
+        message={statusTarget
+          ? statusTarget.status === 'ACTIVE'
+            ? `Deactivating "${statusTarget.code} — ${statusTarget.name}" will hide it from new enrollments. Existing enrollments are not affected. You can reactivate it at any time.`
+            : `Activating "${statusTarget.code} — ${statusTarget.name}" will make it available for new enrollments.`
+          : ''}
+        warning={statusError ?? undefined}
+        confirmLabel={statusLoading
+          ? 'Updating…'
+          : statusTarget?.status === 'ACTIVE' ? 'Deactivate Course' : 'Activate Course'}
+        variant={statusTarget?.status === 'ACTIVE' ? 'danger' : 'warning'}
+      />
     </motion.div>
   );
 };
