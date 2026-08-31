@@ -56,12 +56,15 @@ const FULL_PROFILE = {
   dob:                  '2002-05-14',
   gender:               'Male',
   city:                 'Addis Ababa',
-  address:              'Bole Sub-City, Woreda 03',
-  program:              'Photography',
-  academicYear:         '2025/2026',
+  nationalId:           '1234567890123456',
+  program:              'Photography & Videography',
+  programType:          'TVET',
+  academicYear:         '2026/2027',
   semester:             'Semester I',
+  matricResult:         '420',
+  ministryResult:       'Pass',
   profilePictureUrl:    '/uploads/pic.jpg',
-  faydaIdUrl:           '/uploads/id.pdf',
+  transcriptUrl:        '/uploads/transcript.pdf',
   emergencyName:        'Solomon T.',
   emergencyPhone:       '+251911999001',
 };
@@ -357,6 +360,48 @@ describe('PATCH /api/student/profile', () => {
       .send(FULL_PROFILE);
 
     expect(res.body.profileCompletion).toBe(100);
+    await cleanup(user.id);
+  });
+
+  it('21. Rejects invalid nationalId (< 16 digits, > 16 digits, non-numeric) → 400', async () => {
+    const user    = await makeActiveStudent(`pp21-${Date.now()}`);
+    const cookies = await loginAndGetCookies(user.email!);
+
+    // Less than 16 digits
+    const resShort = await request(testApp)
+      .patch('/api/student/profile')
+      .set('Cookie', cookies)
+      .send({ nationalId: '12345' });
+    expect(resShort.status).toBe(400);
+
+    // More than 16 digits
+    const resLong = await request(testApp)
+      .patch('/api/student/profile')
+      .set('Cookie', cookies)
+      .send({ nationalId: '12345678901234567' });
+    expect(resLong.status).toBe(400);
+
+    // Non-numeric
+    const resLetters = await request(testApp)
+      .patch('/api/student/profile')
+      .set('Cookie', cookies)
+      .send({ nationalId: '123456789012345A' });
+    expect(resLetters.status).toBe(400);
+
+    await cleanup(user.id);
+  });
+
+  it('22. Accepts Cloudinary photo URL for profilePictureUrl', async () => {
+    const user    = await makeActiveStudent(`pp22-${Date.now()}`);
+    const cookies = await loginAndGetCookies(user.email!);
+
+    const res = await request(testApp)
+      .patch('/api/student/profile')
+      .set('Cookie', cookies)
+      .send({ profilePictureUrl: 'https://res.cloudinary.com/demo/image/upload/v1234567/profile.jpg' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.profile.profilePictureUrl).toBe('https://res.cloudinary.com/demo/image/upload/v1234567/profile.jpg');
     await cleanup(user.id);
   });
 });

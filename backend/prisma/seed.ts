@@ -191,7 +191,7 @@ async function main(): Promise<void> {
       endDate: new Date('2025-06-30'),
       isCurrent: false, isActive: true,
     },
-  });j
+  });
   const ay2025 = await prisma.academicYear.upsert({
     where: { name: '2025-2026' },
     update: {},
@@ -503,7 +503,6 @@ async function main(): Promise<void> {
     'C': { grade: 'C', pts: 2.0 },
   };
 
-  const enrollmentSeeds = [
   const enrollmentSeeds: { email: string; offeringKey: string; status: EnrollmentStatus; grade: null; override?: { reason: string; by: string } }[] = [
     { email: 'selam@test.local',  offeringKey: 'PV101-A', status: EnrollmentStatus.ACTIVE, grade: null },
     { email: 'yonas@test.local',  offeringKey: 'MU101-A', status: EnrollmentStatus.ACTIVE, grade: null },

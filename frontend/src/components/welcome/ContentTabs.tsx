@@ -368,8 +368,8 @@ export function SettingsTab({ state }: { state: OnboardingState }) {
 
   // Profile step definitions (mirrors wizard steps)
   const STEPS = [
-    { step: 1, label: 'Personal Information', fields: ['Nationality', 'Date of Birth', 'Gender', 'City', 'Address'],
-      done: !!(state.profile.nationality && state.profile.dob && state.profile.gender && state.profile.city && state.profile.address) },
+    { step: 1, label: 'Personal Information', fields: ['Nationality', 'Date of Birth', 'Gender', 'City', 'National ID'],
+      done: !!(state.profile.nationality && state.profile.dob && state.profile.gender && state.profile.city && state.profile.nationalId) },
     { step: 2, label: 'Academic Information', fields: ['Program', 'Academic Year', 'Semester', 'Matric Result'],
       done: !!(state.profile.program && state.profile.academicYear) },
     { step: 3, label: 'Document Uploads', fields: ['Profile Picture', 'Fayda / National ID', 'Transcript'],

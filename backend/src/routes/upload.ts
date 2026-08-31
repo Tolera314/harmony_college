@@ -59,15 +59,40 @@ const upload = multer({
   },
 });
 
+import { isCloudinaryConfigured, uploadToCloudinary } from '../lib/cloudinary';
+
 // ── POST /api/upload ──────────────────────────────────────────────────────────
 // authenticate is applied at mount point in index.ts
-router.post('/', upload.single('file'), (req: Request, res: Response): void => {
+router.post('/', upload.single('file'), async (req: Request, res: Response): Promise<void> => {
   if (!req.file) {
     res.status(400).json({ error: 'No file provided.' });
     return;
   }
-  const fileUrl = `/api/upload/${req.file.filename}`;
-  res.status(201).json({ success: true, fileUrl });
+
+  try {
+    const isImage = req.file.mimetype.startsWith('image/');
+    if (isImage && isCloudinaryConfigured()) {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const folder = (req.query['folder'] as string) || process.env.CLOUDINARY_FOLDER || 'harmony_college/profiles';
+      const result = await uploadToCloudinary(fileBuffer, folder);
+
+      // Clean up local temp file
+      fs.unlink(req.file.path, () => {});
+
+      res.status(201).json({
+        success: true,
+        fileUrl: result.secureUrl,
+        publicId: result.publicId,
+      });
+      return;
+    }
+
+    const fileUrl = `/api/upload/${req.file.filename}`;
+    res.status(201).json({ success: true, fileUrl });
+  } catch (err: unknown) {
+    console.error('File upload error:', err);
+    res.status(500).json({ error: 'Failed to upload file. Please try again.' });
+  }
 });
 
 // ── GET /api/upload/:file ─────────────────────────────────────────────────────

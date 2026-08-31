@@ -42,6 +42,28 @@ router.get('/departments', async (_req, res: Response): Promise<void> => {
   }
 });
 
+// ── GET /api/student/onboarding/programs ──────────────────────────────────────
+// Returns the active Harmony College programs from the database.
+router.get('/programs', async (_req, res: Response): Promise<void> => {
+  try {
+    const programs = await prisma.program.findMany({
+      where:   { isActive: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        durationYears: true,
+        department: { select: { id: true, name: true, code: true } },
+      },
+    });
+    res.status(200).json(programs);
+  } catch (err) {
+    console.error('[onboarding/programs]', err);
+    res.status(500).json({ error: 'Failed to load programs.' });
+  }
+});
+
 // ── GET /api/student/onboarding/prereqs ───────────────────────────────────────
 // Returns the mandatory flags that gate dashboard access.
 // fullyApproved = true only when BOTH Finance Officer AND Registrar have approved.

@@ -82,6 +82,27 @@ app.use('/api/finance-officer',    financeOfficerRouter);
 app.use('/api/attendance',         attendanceRouter);
 app.use('/api/ai',                 aiRouter);
 
+// Public programs list (no auth)
+app.get('/api/programs', async (_req, res) => {
+  try {
+    const { prisma } = await import('./lib/prisma');
+    const programs = await prisma.program.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        durationYears: true,
+        department: { select: { id: true, name: true, code: true } },
+      },
+    });
+    res.json(programs);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch programs' });
+  }
+});
+
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
   try {

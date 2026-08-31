@@ -62,7 +62,19 @@ export const dashboardApi = {
 export interface StudentListItem {
   id: string; studentId: string; status: string; yearLevel: number;
   gpa: number; totalCredits: number; admittedAt: string;
-  user: { id: string; fullName: string; email: string; phone: string };
+  user: {
+    id: string; fullName: string; email: string; phone: string;
+    studentProfile?: {
+      program?: string | null;
+      programType?: string | null;
+      shortProgramDuration?: string | null;
+      matricResult?: string | null;
+      ministryResult?: string | null;
+      transcriptUrl?: string | null;
+      profilePictureUrl?: string | null;
+      nationalId?: string | null;
+    } | null;
+  };
   program: { id: string; name: string; code: string };
   department: { id: string; name: string; code: string };
   _count: { enrollments: number };

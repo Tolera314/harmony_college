@@ -12,7 +12,6 @@ import { Button } from './ui/Button';
 import { SlidePanel } from './ui/SlidePanel';
 import { Card } from './ui/Card';
 import { EmptyState } from './ui/States';
-import { initialActiveCourses } from '../data/studentData';
 import type { StudentQuiz, Course, QuizQuestion } from '../types';
 import { studentDashApi } from '@/src/lib/studentApi';
 
@@ -20,16 +19,14 @@ interface StudentQuizzesViewProps {
   enrolledCourses?: Course[];
 }
 
-export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolledCourses }) => {
-  const [courses, setCourses] = useState<Course[]>(enrolledCourses && enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses);
-  const [selectedCourseId, setSelectedCourseId] = useState<string>(courses[0]?.id || '');
+export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolledCourses = [] }) => {
+  const [courses, setCourses] = useState<Course[]>(enrolledCourses);
+  const [selectedCourseId, setSelectedCourseId] = useState<string>(enrolledCourses[0]?.id || '');
 
   useEffect(() => {
-    if (enrolledCourses && enrolledCourses.length > 0) {
-      setCourses(enrolledCourses);
-      if (!selectedCourseId || !enrolledCourses.find(c => c.id === selectedCourseId)) {
-        setSelectedCourseId(enrolledCourses[0].id);
-      }
+    setCourses(enrolledCourses);
+    if (!enrolledCourses.find(c => c.id === selectedCourseId)) {
+      setSelectedCourseId(enrolledCourses[0]?.id || '');
     }
   }, [enrolledCourses, selectedCourseId]);
   

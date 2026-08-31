@@ -60,7 +60,7 @@ export async function getEnrolledCourses(studentRecordId: string) {
         a => a.status === 'PRESENT' || a.status === 'LATE',
       ).length;
       const attendanceRate =
-        totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 100;
+        totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : null;
 
       // Assignments for this course + student's submission status
       const assignments = await prisma.assignment.findMany({
