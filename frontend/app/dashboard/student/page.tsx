@@ -19,7 +19,6 @@ import { SettingsView } from '@/src/components/SettingsView';
 import { StudentAssignmentsView } from '@/src/components/StudentAssignmentsView';
 import { StudentQuizzesView } from '@/src/components/StudentQuizzesView';
 import { StudentAttendanceView } from '@/src/components/StudentAttendanceView';
-import { ChatView } from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { ProfileCompletionBanner, LockedFeatureCard } from '@/src/components/onboarding/ProfileCompletionBanner';
 import { AnimatePresence, motion } from 'motion/react';
@@ -449,8 +448,6 @@ export default function StudentDashboardPage() {
         return <SupportView profile={profile} />;
       case 'settings':
         return <SettingsView profile={profile} setProfile={setProfile} />;
-      case 'messages':
-        return <ChatView />;
       default:
         return null;
     }
@@ -462,7 +459,7 @@ export default function StudentDashboardPage() {
       <SessionExpiredOverlay isVisible={sessionExpired} onSignIn={() => { window.location.href = '/signin'; }} />
 
       <div className="min-h-screen flex overflow-hidden" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
-        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} profile={profile} onLogout={handleLogout} />
+        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} profile={profile} onLogout={handleLogout} showChat={false} />
 
         <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen flex-1 transition-all duration-300 overflow-y-auto max-w-full">
           <Header

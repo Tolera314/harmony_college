@@ -55,7 +55,6 @@ const defaultStudentTabLabels: Record<NavTab, string> = {
   degree_audit: 'Degree Audit',
   support:      'Support & Advising',
   settings:     'Settings & Preferences',
-  messages:     'Messages',
 };
 
 export const Header = <T extends string = NavTab>({

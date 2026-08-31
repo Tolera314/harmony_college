@@ -46,6 +46,7 @@ interface SidebarProps<T extends string = NavTab> {
   onLogout?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  showChat?: boolean;
 }
 
 const defaultStudentNavItems: GenericNavItem<NavTab>[] = [
@@ -68,7 +69,8 @@ export const Sidebar = <T extends string = NavTab>({
   portalTitle = 'College SIS',
   onLogout,
   collapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  showChat = true,
 }: SidebarProps<T>) => {
   const items = (navItems ?? defaultStudentNavItems) as GenericNavItem<T>[];
 
@@ -152,7 +154,7 @@ export const Sidebar = <T extends string = NavTab>({
       </nav>
 
       <div className="mt-auto border-t border-(--border-subtle) pt-4 space-y-1 shrink-0">
-        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
+        {showChat && <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />}
 
         {/* Marketplace shortcut */}
         <motion.a
