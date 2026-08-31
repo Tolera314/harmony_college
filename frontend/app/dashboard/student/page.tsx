@@ -14,22 +14,21 @@ import { MyTimetableView } from '@/src/components/MyTimetableView';
 import { GradesView } from '@/src/components/GradesView';
 import { FinancialsView } from '@/src/components/FinancialsView';
 import { DegreeAuditView } from '@/src/components/DegreeAuditView';
-import { SupportView } from '@/src/components/SupportView';
 import { SettingsView } from '@/src/components/SettingsView';
 import { StudentAssignmentsView } from '@/src/components/StudentAssignmentsView';
 import { StudentQuizzesView } from '@/src/components/StudentQuizzesView';
 import { StudentAttendanceView } from '@/src/components/StudentAttendanceView';
+import { StudentProfileView } from '@/src/components/StudentProfileView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { ProfileCompletionBanner, LockedFeatureCard } from '@/src/components/onboarding/ProfileCompletionBanner';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, BookOpen, ClipboardList, GraduationCap,
   CreditCard, BarChart3, HelpCircle, X, ChevronRight,
-  Settings, LogOut, CalendarCheck, CalendarDays,
+  Settings, LogOut, CalendarCheck, CalendarDays, UserCircle,
 } from 'lucide-react';
 import {
   initialStudentProfile,
-  initialActiveCourses,
   todayTimetable as staticTimetable,
   recentAlerts as staticAlerts,
   gradeHistory as staticGrades,
@@ -378,7 +377,7 @@ export default function StudentDashboardPage() {
     { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-4 h-4" /> },
     { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'degree_audit', label: 'Degree Audit',         icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'support',      label: 'Support & Advising',   icon: <HelpCircle className="w-4 h-4" /> },
+    { id: 'profile',      label: 'My Profile',           icon: <UserCircle className="w-4 h-4" /> },
   ];
 
   // ── renderView ────────────────────────────────────────────────────────────
@@ -389,11 +388,15 @@ export default function StudentDashboardPage() {
         return (
           <>
             {isProfileIncomplete && (
-              <ProfileCompletionBanner completionPct={onboardingCompletion} applicationNumber={applicationNumber} />
+              <ProfileCompletionBanner
+                completionPct={onboardingCompletion}
+                applicationNumber={applicationNumber}
+                onCompleteProfile={() => handleTabChange('profile')}
+              />
             )}
             <DashboardView
               profile={profile}
-              activeCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses}
+              activeCourses={enrolledCourses}
               timetable={timetable}
               alerts={alerts}
               setActiveTab={handleTabChange}
@@ -423,13 +426,13 @@ export default function StudentDashboardPage() {
         );
       case 'my_courses':
       case 'registration':
-        return <MyCoursesView enrolledCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses} setActiveTab={handleTabChange} />;
+        return <MyCoursesView enrolledCourses={enrolledCourses} setActiveTab={handleTabChange} programName={profile.major} />;
       case 'timetable':
         return <MyTimetableView />;
       case 'assignments':
-        return <StudentAssignmentsView enrolledCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses} setActiveTab={handleTabChange} />;
+        return <StudentAssignmentsView enrolledCourses={enrolledCourses} setActiveTab={handleTabChange} />;
       case 'quizzes':
-        return <StudentQuizzesView enrolledCourses={enrolledCourses.length > 0 ? enrolledCourses : initialActiveCourses} />;
+        return <StudentQuizzesView enrolledCourses={enrolledCourses} />;
       case 'attendance':
         return <StudentAttendanceView />;
       case 'grades':
@@ -444,10 +447,14 @@ export default function StudentDashboardPage() {
         return <FinancialsView profile={financialProfile} transactions={transactions} />;
       case 'degree_audit':
         return <DegreeAuditView profile={degreeProfile} requirements={degreeRequirements} setActiveTab={handleTabChange} />;
-      case 'support':
-        return <SupportView profile={profile} />;
       case 'settings':
         return <SettingsView profile={profile} setProfile={setProfile} />;
+      case 'profile':
+        return (
+          <StudentProfileView
+            onProfileUpdated={(pct) => setOnboardingCompletion(pct)}
+          />
+        );
       default:
         return null;
     }

@@ -36,7 +36,10 @@ const PROFILE_SELECT = {
   region:               true,
   city:                 true,
   address:              true,
+  nationalId:           true,
   program:              true,
+  programType:          true,
+  shortProgramDuration: true,
   academicYear:         true,
   semester:             true,
   matricResult:         true,
@@ -107,28 +110,33 @@ router.get('/profile', async (req: AuthRequest, res: Response): Promise<void> =>
     }
 
     // Merge existing profile data with pre-filled defaults from Application / StudentRecord / selectedDepartment
-    const mergedProfile = {
-      dob:                  profile?.dob                  ?? application?.dob                  ?? null,
-      gender:               profile?.gender               ?? application?.gender               ?? null,
-      nationality:          profile?.nationality          ?? application?.nationality          ?? 'Ethiopian',
-      region:               profile?.region               ?? null,
-      city:                 profile?.city                 ?? application?.city                 ?? null,
-      address:              profile?.address              ?? application?.address              ?? null,
-      program:              profile?.program              ?? studentRecord?.program?.name      ?? profile?.selectedDepartment?.name ?? application?.program ?? null,
-      academicYear:         profile?.academicYear         ?? application?.academicYear         ?? '2026/2027',
-      semester:             profile?.semester             ?? application?.semester             ?? 'Semester I',
-      matricResult:         profile?.matricResult         ?? null,
-      ministryResult:       profile?.ministryResult       ?? null,
-      profilePictureUrl:    profile?.profilePictureUrl    ?? null,
-      faydaIdUrl:           profile?.faydaIdUrl           ?? null,
-      transcriptUrl:        profile?.transcriptUrl        ?? null,
-      emergencyName:        profile?.emergencyName        ?? application?.emergencyContact     ?? null,
-      emergencyRelationship:profile?.emergencyRelationship?? null,
-      emergencyPhone:       profile?.emergencyPhone       ?? application?.phone                ?? null,
-      emergencyNotes:       profile?.emergencyNotes       ?? null,
-      createdAt:            profile?.createdAt            ?? new Date(),
-      updatedAt:            profile?.updatedAt            ?? new Date(),
-    };
+    const mergedProfile = profile
+      ? {
+          dob:                  profile.dob                  ?? application?.dob                  ?? null,
+          gender:               profile.gender               ?? application?.gender               ?? null,
+          nationality:          profile.nationality          ?? application?.nationality          ?? 'Ethiopian',
+          region:               profile.region               ?? null,
+          city:                 profile.city                 ?? application?.city                 ?? null,
+          address:              profile.address              ?? application?.address              ?? null,
+          nationalId:           profile.nationalId           ?? null,
+          program:              profile.program              ?? studentRecord?.program?.name      ?? profile.selectedDepartment?.name ?? application?.program ?? null,
+          programType:          profile.programType          ?? application?.programType          ?? null,
+          shortProgramDuration: profile.shortProgramDuration ?? application?.shortProgramDuration ?? null,
+          academicYear:         profile.academicYear         ?? application?.academicYear         ?? '2026/2027',
+          semester:             profile.semester             ?? application?.semester             ?? 'Semester I',
+          matricResult:         profile.matricResult         ?? null,
+          ministryResult:       profile.ministryResult       ?? null,
+          profilePictureUrl:    profile.profilePictureUrl    ?? null,
+          faydaIdUrl:           profile.faydaIdUrl           ?? null,
+          transcriptUrl:        profile.transcriptUrl        ?? null,
+          emergencyName:        profile.emergencyName        ?? application?.emergencyContact     ?? null,
+          emergencyRelationship:profile.emergencyRelationship?? null,
+          emergencyPhone:       profile.emergencyPhone       ?? application?.phone                ?? null,
+          emergencyNotes:       profile.emergencyNotes       ?? null,
+          createdAt:            profile.createdAt,
+          updatedAt:            profile.updatedAt,
+        }
+      : null;
 
     res.status(200).json({ profile: mergedProfile, user });
   } catch (err: unknown) {
@@ -164,13 +172,36 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
     // Explicitly exclude fields that must never come from the client
     delete profileData.userId;
 
+    if (profileData.program && typeof profileData.program === 'string') {
+      const matchedProg = await prisma.program.findFirst({
+        where: { name: { contains: (profileData.program as string).split('(')[0].trim(), mode: 'insensitive' } },
+        include: { department: true },
+      });
+      if (matchedProg) {
+        profileData.selectedDepartmentId = matchedProg.departmentId;
+        profileData.departmentSelected = true;
+      }
+    }
+
     // ── 2. Upsert StudentProfile ──────────────────────────────────────────────
     const savedProfile = await prisma.studentProfile.upsert({
       where:  { userId },
-      create: { userId, ...profileData },
+      create: { userId, academicYear: '2026/2027', ...profileData },
       update: { ...profileData },
       select: PROFILE_SELECT,
     });
+
+    // Also update application record if it exists so program change reflects everywhere
+    if (profileData.program || profileData.programType || profileData.shortProgramDuration) {
+      await prisma.application.updateMany({
+        where: { userId },
+        data: {
+          ...(profileData.program ? { program: profileData.program as string } : {}),
+          ...(profileData.programType ? { programType: profileData.programType as string } : {}),
+          ...(profileData.shortProgramDuration !== undefined ? { shortProgramDuration: profileData.shortProgramDuration as string | null } : {}),
+        },
+      });
+    }
 
     // ── 3. Calculate completion ───────────────────────────────────────────────
     const completion   = calculateProfileCompletion(savedProfile);
@@ -200,7 +231,7 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
       where: { id: userId },
       data: {
         profileCompletion: completion,
-        // profileCompleted is deliberately excluded — set only by dual-approval
+        ...(submit && isComplete ? { profileCompleted: true } : {}),
       },
       select: {
         id:               true,

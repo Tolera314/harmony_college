@@ -251,19 +251,42 @@ export const RegistrarStudentsView: React.FC = () => {
             {/* Academic Info */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Program',     val: selected.program?.name ?? '—' },
-                { label: 'Department',  val: selected.department?.name ?? '—' },
-                { label: 'Year Level',  val: `Year ${selected.yearLevel}` },
-                { label: 'Total Credits', val: `${selected.totalCredits} cr` },
-                { label: 'GPA',         val: selected.gpa?.toFixed(2) ?? '—' },
-                { label: 'Admitted',    val: selected.admittedAt ? new Date(selected.admittedAt).toLocaleDateString() : '—' },
+                { label: 'Selected Program',  val: selected.user?.studentProfile?.program || selected.program?.name || '—' },
+                { label: 'Program Type',      val: selected.user?.studentProfile?.programType ? `${selected.user.studentProfile.programType}${selected.user.studentProfile.shortProgramDuration ? ` (${selected.user.studentProfile.shortProgramDuration})` : ''}` : '—' },
+                { label: 'Department',        val: selected.department?.name ?? '—' },
+                { label: 'Year Level',        val: `Year ${selected.yearLevel}` },
+                { label: 'Total Credits',     val: `${selected.totalCredits} cr` },
+                { label: 'GPA',               val: selected.gpa?.toFixed(2) ?? '—' },
+                { label: 'Matric Result',     val: selected.user?.studentProfile?.matricResult || '—' },
+                { label: 'Ministry Result',   val: selected.user?.studentProfile?.ministryResult || '—' },
+                { label: 'National ID',       val: selected.user?.studentProfile?.nationalId || '—' },
+                { label: 'Admitted',          val: selected.admittedAt ? new Date(selected.admittedAt).toLocaleDateString() : '—' },
               ].map((item, i) => (
                 <div key={i} className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                   <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{item.label}</p>
-                  <p className="text-(--text-primary) text-xs mt-1 font-semibold">{item.val}</p>
+                  <p className="text-(--text-primary) text-xs mt-1 font-semibold truncate">{item.val}</p>
                 </div>
               ))}
             </div>
+
+            {/* Academic Transcript Document */}
+            {selected.user?.studentProfile?.transcriptUrl && (
+              <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle) flex items-center justify-between">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Academic Transcript</p>
+                  <p className="text-xs text-(--text-primary) font-semibold mt-0.5">Official Transcript Document</p>
+                </div>
+                <a
+                  href={selected.user.studentProfile.transcriptUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)' }}
+                >
+                  View Document
+                </a>
+              </div>
+            )}
 
             {/* Contact */}
             <div className="flex flex-col gap-2 bg-(--hover-overlay) p-3 rounded-xl border border-(--border-subtle)">

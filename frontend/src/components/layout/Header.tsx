@@ -53,8 +53,8 @@ const defaultStudentTabLabels: Record<NavTab, string> = {
   grades:       'Grades & Transcript',
   financials:   'Financials & Tuition',
   degree_audit: 'Degree Audit',
-  support:      'Support & Advising',
   settings:     'Settings & Preferences',
+  profile:      'My Profile',
 };
 
 export const Header = <T extends string = NavTab>({

@@ -80,6 +80,15 @@ async function resolveStudentRecord(userId: string): Promise<string> {
   return sr.id;
 }
 
+/** Resolves studentRecord.id from userId — returns null if not found */
+async function resolveStudentRecordOptional(userId: string): Promise<string | null> {
+  const sr = await prisma.studentRecord.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+  return sr?.id ?? null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
@@ -98,7 +107,8 @@ router.get('/', async (req: AuthRequest, res) => {
 
 router.get('/timetable', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) { ok(res, { slots: [], offeringIds: [] }); return; }
 
     // Active enrollments for this student
     const enrollments = await prisma.enrollment.findMany({
@@ -137,7 +147,8 @@ router.get('/timetable', async (req: AuthRequest, res) => {
 
 router.get('/courses', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) { ok(res, []); return; }
     ok(res, await coursesSvc.getEnrolledCourses(srId));
   } catch (e) { fail(res, e); }
 });
@@ -155,9 +166,14 @@ router.get('/courses/:offeringId', async (req: AuthRequest, res) => {
 // ASSIGNMENTS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ASSIGNMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
 router.get('/assignments', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) { ok(res, []); return; }
     const qp = q(req);
     const assignments = await assignSvc.listAssignments(srId, {
       status: qp.status,
@@ -210,7 +226,8 @@ router.post('/assignments/:id/submit', async (req: AuthRequest, res) => {
 
 router.get('/quizzes/:courseOfferingId', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) { ok(res, []); return; }
     ok(res, await quizSvc.listQuizzesForCourse(pid(req, 'courseOfferingId'), srId));
   } catch (e) { fail(res, e); }
 });
@@ -267,14 +284,25 @@ router.get('/quizzes/attempts/:attemptId/result', async (req: AuthRequest, res) 
 
 router.get('/grades', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) {
+      ok(res, { gpa: 0, totalCredits: 0, completedCredits: 0, records: [] });
+      return;
+    }
     ok(res, await gradesSvc.getGradeHistory(srId));
   } catch (e) { fail(res, e); }
 });
 
 router.get('/transcript', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) {
+      ok(res, {
+        student: { fullName: '', studentId: '', program: '', yearLevel: 1, gpa: 0, totalCredits: 0, admittedAt: null },
+        terms: [],
+      });
+      return;
+    }
     const data = await gradesSvc.getTranscriptData(srId);
     if (!data) { res.status(404).json({ error: 'Transcript data not found' }); return; }
     ok(res, data);
@@ -287,7 +315,11 @@ router.get('/transcript', async (req: AuthRequest, res) => {
 
 router.get('/financials', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) {
+      ok(res, { balance: 0, clearedForTerm: false, transactions: [] });
+      return;
+    }
     ok(res, await financialSvc.getFinancialSummary(srId));
   } catch (e) { fail(res, e); }
 });
@@ -319,7 +351,14 @@ router.post('/financials/pay', async (req: AuthRequest, res) => {
 
 router.get('/degree-audit', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) {
+      ok(res, {
+        progress: { completionPercentage: 0, completedCredits: 0, totalRequired: 0, cumulativeGPA: 0 },
+        categories: [],
+      });
+      return;
+    }
     const data = await degreeSvc.getDegreeAudit(srId);
     if (!data) { res.status(404).json({ error: 'Degree audit data not found' }); return; }
     ok(res, data);
@@ -332,7 +371,8 @@ router.get('/degree-audit', async (req: AuthRequest, res) => {
 
 router.get('/support/appointments', async (req: AuthRequest, res) => {
   try {
-    const srId = await resolveStudentRecord(req.user!.userId);
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) { ok(res, []); return; }
     ok(res, await supportSvc.getAppointments(srId));
   } catch (e) { fail(res, e); }
 });

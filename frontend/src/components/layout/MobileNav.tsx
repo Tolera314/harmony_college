@@ -10,7 +10,8 @@ import {
   CreditCard,
   BarChart3,
   HelpCircle,
-  UserCheck
+  UserCheck,
+  UserCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
@@ -33,7 +34,7 @@ const defaultStudentItems: GenericMobileNavItem<NavTab>[] = [
   { id: 'my_courses', label: 'Courses',   icon: <BookOpen className="w-5 h-5" /> },
   { id: 'timetable',  label: 'Timetable', icon: <CalendarDays className="w-5 h-5" /> },
   { id: 'grades',     label: 'Grades',    icon: <GraduationCap className="w-5 h-5" /> },
-  { id: 'support',    label: 'Advisor',   icon: <HelpCircle className="w-5 h-5" /> },
+  { id: 'profile',    label: 'Profile',   icon: <UserCircle className="w-5 h-5" /> },
 ];
 
 export const MobileNav = <T extends string = NavTab>({ activeTab, setActiveTab, items }: MobileNavProps<T>) => {

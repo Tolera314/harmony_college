@@ -28,8 +28,10 @@ interface BackendProfile {
   nationality?:          string | null;
   region?:               string | null;
   city?:                 string | null;
-  address?:              string | null;
+  nationalId?:           string | null;
   program?:              string | null;
+  programType?:          string | null;
+  shortProgramDuration?: string | null;
   academicYear?:         string | null;
   semester?:             string | null;
   matricResult?:         string | null;
@@ -38,7 +40,6 @@ interface BackendProfile {
   faydaIdUrl?:           string | null;
   transcriptUrl?:        string | null;
   emergencyName?:        string | null;
-  emergencyRelationship?:string | null;
   emergencyPhone?:       string | null;
   emergencyNotes?:       string | null;
 }
@@ -50,10 +51,12 @@ function mapToProfileData(bp: BackendProfile | null): ProfileData {
     gender:               bp?.gender              ?? '',
     region:               bp?.region              ?? '',
     city:                 bp?.city                ?? '',
-    address:              bp?.address             ?? '',
+    nationalId:           bp?.nationalId          ?? '',
     program:              bp?.program             ?? '',
-    academicYear:         bp?.academicYear        ?? '',
-    semester:             bp?.semester            ?? '',
+    programType:          bp?.programType         ?? '',
+    shortProgramDuration: bp?.shortProgramDuration ?? '',
+    academicYear:         bp?.academicYear        || '2026/2027',
+    semester:             bp?.semester            || 'Semester I',
     matricResult:         bp?.matricResult        ?? '',
     ministryResult:       bp?.ministryResult      ?? '',
     profilePictureName:   bp?.profilePictureUrl   ? 'Uploaded' : '',
@@ -61,7 +64,6 @@ function mapToProfileData(bp: BackendProfile | null): ProfileData {
     faydaIdName:          bp?.faydaIdUrl          ? 'Uploaded' : '',
     transcriptName:       bp?.transcriptUrl       ? 'Uploaded' : '',
     emergencyName:        bp?.emergencyName        ?? '',
-    emergencyRelationship:bp?.emergencyRelationship ?? '',
     emergencyPhone:       bp?.emergencyPhone       ?? '',
     emergencyNotes:       bp?.emergencyNotes       ?? '',
   };

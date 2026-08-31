@@ -365,12 +365,15 @@ model StudentProfile {
   region      String?
   city        String?
   address     String?
+  nationalId  String?
 
-  program        String?
-  academicYear   String?
-  semester       String?
-  matricResult   String?
-  ministryResult String?
+  program              String?
+  programType          String?
+  shortProgramDuration String?
+  academicYear         String?
+  semester             String?
+  matricResult         String?
+  ministryResult       String?
 
   profilePictureUrl String?
   faydaIdUrl        String?
@@ -407,19 +410,21 @@ model Application {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  fullName         String
-  dob              DateTime
-  age              Int
-  gender           String
-  nationality      String
-  emergencyContact String
-  phone            String
-  city             String
-  address          String
-  program          String
-  academicYear     String
-  semester         String
-  studyMode        String
+  fullName             String
+  dob                  DateTime
+  age                  Int
+  gender               String
+  nationality          String
+  emergencyContact     String
+  phone                String
+  city                 String
+  address              String
+  program              String
+  programType          String?
+  shortProgramDuration String?
+  academicYear         String
+  semester             String
+  studyMode            String
 
   status        ApplicationStatus @default(DRAFT)
   reviewComment String?
