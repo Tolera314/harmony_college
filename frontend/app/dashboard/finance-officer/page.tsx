@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { FONavTab, FONotification } from '@/src/types/finance';
@@ -22,7 +22,8 @@ import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView'
 import { ChatView }               from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
-import { getReconciliationEntries, getOutstandingAccounts } from '@/src/lib/foApi';
+import { getReconciliationEntries, getOutstandingAccounts, getNotifications as foGetNotifications, markNotificationRead as foMarkNotifRead, markAllNotificationsRead as foMarkAllNotifRead } from '@/src/lib/foApi';
+import { useNotifications } from '@/src/hooks/useNotifications';
 
 export default function FinanceOfficerPage() {
   const [activeTab,          setRawTab]       = useState<FONavTab>('overview');
@@ -35,7 +36,11 @@ export default function FinanceOfficerPage() {
   const [overdueCount,       setOverdueCount]  = useState(0);
   const { toast, show: showToast, hide: hideToast } = useToast();
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const { unreadCount } = useNotifications({
+    fetchFn:       () => foGetNotifications(),
+    markReadFn:    (id) => foMarkNotifRead(id),
+    markAllReadFn: () => foMarkAllNotifRead(),
+  });
 
   // Load live badge counts on mount
   useEffect(() => {

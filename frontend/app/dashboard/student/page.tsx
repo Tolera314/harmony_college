@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -22,6 +22,7 @@ import { StudentProfileView } from '@/src/components/StudentProfileView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { ProfileCompletionBanner, LockedFeatureCard } from '@/src/components/onboarding/ProfileCompletionBanner';
 import { AnimatePresence, motion } from 'motion/react';
+import { useNotifications } from '@/src/hooks/useNotifications';
 import {
   LayoutDashboard, BookOpen, ClipboardList, GraduationCap,
   CreditCard, BarChart3, HelpCircle, X, ChevronRight,
@@ -180,6 +181,16 @@ export default function StudentDashboardPage() {
 
   // ── Realtime socket ───────────────────────────────────────────────────────
   const { onGradePosted } = useSocket();
+
+  // ── Notification unread badge (real-time via socket + DB) ─────────────────
+  const { unreadCount: notifUnreadCount } = useNotifications({
+    fetchFn:       async () => {
+      const arr = await studentDashApi.getNotifications();
+      return { notifications: Array.isArray(arr) ? arr : [] };
+    },
+    markReadFn:    (id) => studentDashApi.markNotifRead(id),
+    markAllReadFn: () => studentDashApi.markAllRead(),
+  });
 
   // ── Real data state ───────────────────────────────────────────────────────
   const [dashboardData, setDashboardData]     = useState<DashboardData | null>(null);
@@ -474,6 +485,7 @@ export default function StudentDashboardPage() {
             setActiveTab={handleTabChange}
             profile={profile}
             alerts={alerts}
+            unreadCount={notifUnreadCount}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}

@@ -1417,3 +1417,37 @@ export { router as registrarRouter };
 export default router;
 
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS  (Registrar inbox — generic Notification table, userId-scoped)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET  /api/registrar/notifications?page&limit&unreadOnly
+router.get('/notifications', async (req: AuthRequest, res) => {
+  try {
+    const { listNotifications } = await import('../services/notificationService');
+    const qp = req.query as Record<string, string>;
+    ok(res, await listNotifications({
+      userId:     req.user!.userId,
+      page:       qp.page       ? parseInt(qp.page,  10) : 1,
+      limit:      qp.limit      ? parseInt(qp.limit, 10) : 20,
+      unreadOnly: qp.unreadOnly === 'true',
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// PATCH /api/registrar/notifications/:id/read
+router.patch('/notifications/:id/read', async (req: AuthRequest, res) => {
+  try {
+    const { markRead } = await import('../services/notificationService');
+    ok(res, await markRead(pid(req), req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// POST  /api/registrar/notifications/read-all
+router.post('/notifications/read-all', async (req: AuthRequest, res) => {
+  try {
+    const { markAllRead } = await import('../services/notificationService');
+    ok(res, await markAllRead(req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
