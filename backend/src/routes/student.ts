@@ -203,6 +203,33 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
       });
     }
 
+    // ── Update StudentRecord.programId + departmentId when program name changes ──
+    // This ensures the Registrar always sees the student's latest chosen program.
+    if (profileData.program) {
+      const programName = profileData.program as string;
+      // Find the Program row whose name matches (case-insensitive partial match)
+      const matchedProgram = await prisma.program.findFirst({
+        where: { name: { contains: programName, mode: 'insensitive' } },
+        select: { id: true, departmentId: true, name: true },
+      });
+
+      if (matchedProgram) {
+        const existingRecord = await prisma.studentRecord.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
+        if (existingRecord) {
+          await prisma.studentRecord.update({
+            where: { userId },
+            data: {
+              programId:    matchedProgram.id,
+              departmentId: matchedProgram.departmentId,
+            },
+          });
+        }
+      }
+    }
+
     // ── 3. Calculate completion ───────────────────────────────────────────────
     const completion   = calculateProfileCompletion(savedProfile);
     const isComplete   = isProfileComplete(savedProfile);
