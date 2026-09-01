@@ -63,13 +63,18 @@ export async function approveApplication(id: string, registrarUserId: string, co
   });
 
   // Check if Finance Officer has already verified the registration fee payment.
-  // If yes, BOTH approvals will be complete after this transaction, so we
-  // unlock the student's dashboard access (profileCompleted = true).
   const studentProfile = await prisma.studentProfile.findUnique({
     where:  { userId: app.userId },
     select: { paymentVerifiedByFinance: true },
   });
   const financeApproved = studentProfile?.paymentVerifiedByFinance ?? false;
+
+  // ── GATE: Finance Officer must approve before Registrar can approve ────────
+  if (!financeApproved) {
+    throw new Error(
+      'Finance approval required first. The Finance Officer must verify the student\'s registration fee payment before the Registrar can approve this application.'
+    );
+  }
 
   return prisma.$transaction(async (tx) => {
     // 1. Update application status
