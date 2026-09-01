@@ -1,4 +1,5 @@
-import { prisma } from '../../lib/prisma';
+﻿import { prisma }              from '../../lib/prisma';
+import { createNotification } from '../notificationService';
 
 const PROFILE_SELECT = {
   userId: true,
@@ -132,14 +133,13 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
       ? 'Your registration fee payment has been verified and your admission is approved. You can now access the Student Dashboard!'
       : "Your registration fee payment has been verified by the Finance Office. You now appear in the Registrar's admissions queue.";
 
-    await prisma.notification.create({
-      data: {
-        userId,
-        title:   registrarApproved ? 'Registration Complete ✓ — Welcome!' : 'Payment Verified ✓',
-        message,
-        type:    'SUCCESS',
-      },
-    });
+    createNotification({
+      userId,
+      title:   registrarApproved ? 'Registration Complete - Welcome!' : 'Payment Verified',
+      message,
+      type:    'SUCCESS',
+      actionTab: 'financials',
+    }).catch(() => {});
   } catch { /* ignore notification errors */ }
 
   return updated;
@@ -211,14 +211,13 @@ export async function recordStudentPayment(
 
   if (account.studentRecord?.userId) {
     try {
-      await prisma.notification.create({
-        data: {
-          userId: account.studentRecord.userId,
-          title: 'Payment Received ✓',
-          message: `Payment of ETB ${paymentData.amount.toLocaleString()} received via ${paymentData.paymentMethod}. Receipt ID: ${receiptId}`,
-          type: 'SUCCESS',
-        },
-      });
+      createNotification({
+        userId:    account.studentRecord.userId,
+        title:     'Payment Received',
+        message:   `Payment of ETB ${paymentData.amount.toLocaleString()} received via ${paymentData.paymentMethod}. Receipt ID: ${receiptId}`,
+        type:      'SUCCESS',
+        actionTab: 'financials',
+      }).catch(() => {});
     } catch { /* ignore notification errors */ }
   }
 

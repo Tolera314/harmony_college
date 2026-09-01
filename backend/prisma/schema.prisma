@@ -1012,15 +1012,21 @@ model Notification {
   userId     String
   title      String
   message    String
-  type       String   @default("INFO") // INFO, SUCCESS, WARNING, ERROR
+  /// INFO | SUCCESS | WARNING | ERROR | GRADE | SCHEDULE | ENROLLMENT | ANNOUNCEMENT | LEAVE | PAYROLL | FINANCE
+  type       String   @default("INFO")
   isRead     Boolean  @default(false)
   entityType String?
   entityId   String?
+  /// Optional deep-link tab name for the recipient's dashboard (e.g. "grades", "leave")
+  actionTab  String?
+  /// Timestamp when a socket push was attempted; null = not yet pushed
+  pushedAt   DateTime?
   createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([userId, isRead])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -30,6 +30,8 @@ import {
 } from '@/src/components/admin/views/AdminGenericViews';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
+import { useNotifications } from '@/src/hooks/useNotifications';
+import { adminNotificationsApi } from '@/src/lib/adminApi';
 
 export default function AdminDashboardPage() {
   const [activeTab,       setRawTab]       = useState<AdminNavTab>('overview');
@@ -80,7 +82,11 @@ export default function AdminDashboardPage() {
       .catch(() => { /* keep defaults */ });
   }, []);
 
-  const unreadCount = 0; // self-managed inside AdminNotificationsView
+  const { unreadCount } = useNotifications({
+    fetchFn:       () => adminNotificationsApi.list({ page: 1, limit: 20 }),
+    markReadFn:    (id) => adminNotificationsApi.markRead(id),
+    markAllReadFn: async () => { /* admin marks read one-by-one */ },
+  });
 
   const setActiveTab = (tab: AdminNavTab) => {
     if (tab === activeTab) return;

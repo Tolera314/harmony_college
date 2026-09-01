@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /api/student/onboarding — post-admission onboarding endpoints
  *
  * GET  /api/student/onboarding/prereqs
@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { Role } from '../types/auth';
+import { createNotification } from '../services/notificationService';
 
 const router = Router();
 router.use(authenticate, requireRole([Role.STUDENT]));
@@ -248,16 +249,18 @@ router.patch('/screenshot', async (req: AuthRequest, res: Response): Promise<voi
       });
       if (registrars.length > 0) {
         const student = await prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
-        await prisma.notification.createMany({
-          data: registrars.map(r => ({
+        // Fan-out: createNotification per registrar so each gets a socket push
+        await Promise.all(registrars.map(r =>
+          createNotification({
             userId:     r.id,
             title:      'New Registration Screenshot',
             message:    `${student?.fullName ?? 'A student'} has submitted their registration screenshot for review.`,
             type:       'INFO',
             entityType: 'Application',
             entityId:   app!.id,
-          })),
-        });
+            actionTab:  'admissions',
+          })
+        ));
       }
     } catch { /* notification failure must not fail the request */ }
 

@@ -397,6 +397,16 @@ export const notificationsApi = {
   markAllRead: () => Promise.resolve({ success: true }), // audit logs don't have read state; UI resets badge
 };
 
+// ── Registrar in-app notification inbox (Notification table, userId-scoped) ──
+export const registrarNotifApi = {
+  list:        (params: Record<string, unknown> = {}) =>
+    apiFetch<{ total: number; page: number; limit: number; totalPages: number; unreadCount: number; notifications: { id: string; title: string; message: string; type: string; isRead: boolean; actionTab: string | null; entityType: string | null; entityId: string | null; createdAt: string }[] }>(`/api/registrar/notifications${qs(params)}`),
+  markRead:    (id: string) =>
+    apiFetch<{ id: string; isRead: boolean }>(`/api/registrar/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllRead: () =>
+    apiFetch<{ updatedCount: number }>('/api/registrar/notifications/read-all', { method: 'POST' }),
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // GRADE SCALE (registrar-managed)
 // ═══════════════════════════════════════════════════════════════════════════
