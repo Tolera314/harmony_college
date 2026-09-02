@@ -110,6 +110,19 @@ router.get('/departments', async (_req, res) => {
   catch (e) { fail(res, e); }
 });
 
+// ── Courses (used in EmployeeFormPanel for INSTRUCTOR / DEPARTMENT_HEAD) ──────
+router.get('/courses/options', async (_req, res) => {
+  try {
+    const { prisma } = await import('../lib/prisma');
+    const courses = await prisma.course.findMany({
+      where:   { status: 'ACTIVE' },
+      select:  { id: true, code: true, name: true, creditHours: true, department: { select: { name: true } } },
+      orderBy: { code: 'asc' },
+    });
+    ok(res, courses);
+  } catch (e) { fail(res, e); }
+});
+
 // ── Employees ─────────────────────────────────────────────────────────────────
 router.get('/employees', async (req: AuthRequest, res) => {
   try {
@@ -121,6 +134,7 @@ router.get('/employees', async (req: AuthRequest, res) => {
       departmentId:   qp.departmentId,
       status:         qp.status,
       employmentType: qp.employmentType,
+      systemRole:     qp.systemRole,
     }));
   } catch (e) { fail(res, e); }
 });
@@ -151,19 +165,27 @@ router.post('/employees', async (req: AuthRequest, res) => {
       gender:         z.enum(['MALE', 'FEMALE']),
       email:          z.string().email(),
       phone:          z.string().optional(),
+      dateOfBirth:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      address:        z.string().max(500).optional(),
       position:       z.string().min(2).max(100),
       employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']),
+      systemRole:     z.string().max(30).optional(),
+      courseId:       z.string().uuid().optional(),
       hireDate:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD format'),
       contractEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       managerId:      z.string().uuid().optional(),
       education:      z.string().optional(),
       experienceYears: z.number().int().min(0).max(60).optional(),
       basicSalary:    z.number().min(0),
-      allowances:     z.number().min(0).default(0),
-      deductions:     z.number().min(0).default(0),
+      allowances:     z.number().min(0).optional(),
+      deductions:     z.number().min(0).optional(),
       nationalId:     z.string().optional(),
       bankAccount:    z.string().optional(),
       taxNumber:      z.string().optional(),
+      faydaIdUrl:         z.string().url().optional(),
+      faydaIdFileSize:    z.string().optional(),
+      certificateUrl:     z.string().url().optional(),
+      certificateFileSize: z.string().optional(),
       emergencyName:      z.string().optional(),
       emergencyPhone:     z.string().optional(),
       emergencyRelation:  z.string().optional(),
@@ -174,15 +196,17 @@ router.post('/employees', async (req: AuthRequest, res) => {
       res.status(422).json({ success: false, message: 'Validation failed', errors: parsed.error.flatten() });
       return;
     }
-    const actor = await resolveActorName(req);
-    ok(res, await employees.createEmployee(parsed.data as any, actor, req.user?.userId), 201);
+    const actor    = await resolveActorName(req);
+    const actorRole = req.user!.role as string;  // from JWT — never trusted from body
+    ok(res, await employees.createEmployee(parsed.data as any, actor, actorRole, req.user?.userId), 201);
   } catch (e) { fail(res, e, 400); }
 });
 
 router.patch('/employees/:id', async (req: AuthRequest, res) => {
   try {
-    const actor = await resolveActorName(req);
-    ok(res, await employees.updateEmployee(pid(req), req.body, actor, req.user?.userId));
+    const actor     = await resolveActorName(req);
+    const actorRole = req.user!.role as string;
+    ok(res, await employees.updateEmployee(pid(req), req.body, actor, actorRole, req.user?.userId));
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -423,9 +447,17 @@ router.delete('/documents/:id', async (req: AuthRequest, res) => {
 });
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
-router.get('/onboarding', async (_req, res) => {
-  try { ok(res, await onboarding.listOnboardingRecords()); }
-  catch (e) { fail(res, e); }
+router.get('/onboarding', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    ok(res, await onboarding.listOnboardingRecords({
+      page:  parseInt(qp.page  ?? '1',  10) || 1,
+      limit: Math.min(50, parseInt(qp.limit ?? '12', 10) || 12),
+      search:       qp.search,
+      departmentId: qp.departmentId,
+      status:       qp.status,
+    }));
+  } catch (e) { fail(res, e); }
 });
 
 router.get('/onboarding/:employeeId', async (req: AuthRequest, res) => {
@@ -480,9 +512,17 @@ router.post('/onboarding/:employeeId/complete', async (req: AuthRequest, res) =>
 // PATCH /api/hr/offboarding/:id/assets/:assetId
 // POST  /api/hr/offboarding/:id/finalize
 
-router.get('/offboarding', async (_req, res) => {
-  try { ok(res, await offboarding.listOffboarding()); }
-  catch (e) { fail(res, e); }
+router.get('/offboarding', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    ok(res, await offboarding.listOffboarding({
+      page:  parseInt(qp.page  ?? '1',  10) || 1,
+      limit: Math.min(50, parseInt(qp.limit ?? '12', 10) || 12),
+      search:       qp.search,
+      departmentId: qp.departmentId,
+      status:       qp.status,
+    }));
+  } catch (e) { fail(res, e); }
 });
 
 router.get('/offboarding/:employeeId', async (req: AuthRequest, res) => {

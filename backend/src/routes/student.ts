@@ -19,13 +19,8 @@ import {
 } from '../services/profileCompletion';
 import {
   Role,
-  AccountStatus,
   AuditAction,
 } from '../types/auth';
-import { signAccessToken, signRefreshToken } from '../lib/auth';
-import { randomBytes } from 'crypto';
-import bcrypt from 'bcryptjs';
-import { TOKEN_BCRYPT_ROUNDS, REFRESH_TOKEN_TTL_SECONDS } from '../types/auth';
 
 const router = Router();
 
@@ -41,7 +36,10 @@ const PROFILE_SELECT = {
   region:               true,
   city:                 true,
   address:              true,
+  nationalId:           true,
   program:              true,
+  programType:          true,
+  shortProgramDuration: true,
   academicYear:         true,
   semester:             true,
   matricResult:         true,
@@ -77,7 +75,7 @@ router.get('/profile', async (req: AuthRequest, res: Response): Promise<void> =>
   try {
     const userId = req.user!.userId;
 
-    const [user, profile] = await Promise.all([
+    const [user, profile, application, studentRecord] = await Promise.all([
       prisma.user.findUnique({
         where:  { id: userId },
         select: {
@@ -90,7 +88,19 @@ router.get('/profile', async (req: AuthRequest, res: Response): Promise<void> =>
       }),
       prisma.studentProfile.findUnique({
         where:  { userId },
-        select: PROFILE_SELECT,
+        include: {
+          selectedDepartment: { select: { id: true, name: true, code: true } },
+        },
+      }),
+      prisma.application.findUnique({
+        where:  { userId },
+      }),
+      prisma.studentRecord.findUnique({
+        where:  { userId },
+        include: {
+          program:    { select: { name: true } },
+          department: { select: { name: true, code: true } },
+        },
       }),
     ]);
 
@@ -99,7 +109,36 @@ router.get('/profile', async (req: AuthRequest, res: Response): Promise<void> =>
       return;
     }
 
-    res.status(200).json({ profile: profile ?? null, user });
+    // Merge existing profile data with pre-filled defaults from Application / StudentRecord / selectedDepartment
+    const mergedProfile = profile
+      ? {
+          dob:                  profile.dob                  ?? application?.dob                  ?? null,
+          gender:               profile.gender               ?? application?.gender               ?? null,
+          nationality:          profile.nationality          ?? application?.nationality          ?? 'Ethiopian',
+          region:               profile.region               ?? null,
+          city:                 profile.city                 ?? application?.city                 ?? null,
+          address:              profile.address              ?? application?.address              ?? null,
+          nationalId:           profile.nationalId           ?? null,
+          program:              profile.program              ?? studentRecord?.program?.name      ?? profile.selectedDepartment?.name ?? application?.program ?? null,
+          programType:          profile.programType          ?? application?.programType          ?? null,
+          shortProgramDuration: profile.shortProgramDuration ?? application?.shortProgramDuration ?? null,
+          academicYear:         profile.academicYear         ?? application?.academicYear         ?? '2026/2027',
+          semester:             profile.semester             ?? application?.semester             ?? 'Semester I',
+          matricResult:         profile.matricResult         ?? null,
+          ministryResult:       profile.ministryResult       ?? null,
+          profilePictureUrl:    profile.profilePictureUrl    ?? null,
+          faydaIdUrl:           profile.faydaIdUrl           ?? null,
+          transcriptUrl:        profile.transcriptUrl        ?? null,
+          emergencyName:        profile.emergencyName        ?? application?.emergencyContact     ?? null,
+          emergencyRelationship:profile.emergencyRelationship?? null,
+          emergencyPhone:       profile.emergencyPhone       ?? application?.phone                ?? null,
+          emergencyNotes:       profile.emergencyNotes       ?? null,
+          createdAt:            profile.createdAt,
+          updatedAt:            profile.updatedAt,
+        }
+      : null;
+
+    res.status(200).json({ profile: mergedProfile, user });
   } catch (err: unknown) {
     console.error('[student/profile GET]', err instanceof Error ? err.message : err);
     res.status(500).json({ error: 'Failed to load profile. Please try again.' });
@@ -133,13 +172,63 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
     // Explicitly exclude fields that must never come from the client
     delete profileData.userId;
 
+    if (profileData.program && typeof profileData.program === 'string') {
+      const matchedProg = await prisma.program.findFirst({
+        where: { name: { contains: (profileData.program as string).split('(')[0].trim(), mode: 'insensitive' } },
+        include: { department: true },
+      });
+      if (matchedProg) {
+        profileData.selectedDepartmentId = matchedProg.departmentId;
+        profileData.departmentSelected = true;
+      }
+    }
+
     // ── 2. Upsert StudentProfile ──────────────────────────────────────────────
     const savedProfile = await prisma.studentProfile.upsert({
       where:  { userId },
-      create: { userId, ...profileData },
+      create: { userId, academicYear: '2026/2027', ...profileData },
       update: { ...profileData },
       select: PROFILE_SELECT,
     });
+
+    // Also update application record if it exists so program change reflects everywhere
+    if (profileData.program || profileData.programType || profileData.shortProgramDuration) {
+      await prisma.application.updateMany({
+        where: { userId },
+        data: {
+          ...(profileData.program ? { program: profileData.program as string } : {}),
+          ...(profileData.programType ? { programType: profileData.programType as string } : {}),
+          ...(profileData.shortProgramDuration !== undefined ? { shortProgramDuration: profileData.shortProgramDuration as string | null } : {}),
+        },
+      });
+    }
+
+    // ── Update StudentRecord.programId + departmentId when program name changes ──
+    // This ensures the Registrar always sees the student's latest chosen program.
+    if (profileData.program) {
+      const programName = profileData.program as string;
+      // Find the Program row whose name matches (case-insensitive partial match)
+      const matchedProgram = await prisma.program.findFirst({
+        where: { name: { contains: programName, mode: 'insensitive' } },
+        select: { id: true, departmentId: true, name: true },
+      });
+
+      if (matchedProgram) {
+        const existingRecord = await prisma.studentRecord.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
+        if (existingRecord) {
+          await prisma.studentRecord.update({
+            where: { userId },
+            data: {
+              programId:    matchedProgram.id,
+              departmentId: matchedProgram.departmentId,
+            },
+          });
+        }
+      }
+    }
 
     // ── 3. Calculate completion ───────────────────────────────────────────────
     const completion   = calculateProfileCompletion(savedProfile);
@@ -158,14 +247,18 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
       }
     }
 
-    // ── 5. Update User.profileCompletion and User.profileCompleted ────────────
-    const shouldMarkComplete = submit && isComplete;
+    // ── 5. Update User.profileCompletion ─────────────────────────────────────
+    // NOTE: profileCompleted (the dashboard-access gate) is intentionally NOT
+    // set here. It is only set to true once BOTH the Finance Officer has
+    // verified the registration fee AND the Registrar has approved admission.
+    // Setting it here would allow students to bypass the approval gate simply
+    // by filling their profile.
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         profileCompletion: completion,
-        ...(shouldMarkComplete ? { profileCompleted: true } : {}),
+        ...(submit && isComplete ? { profileCompleted: true } : {}),
       },
       select: {
         id:               true,
@@ -182,47 +275,10 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
       },
     });
 
-    if (shouldMarkComplete) {
+    if (submit && isComplete) {
       await writeAudit(AuditAction.PROFILE_COMPLETED, userId, { profileCompletion: completion });
     }
 
-    // ── 6. If submission complete, issue fresh access token with updated profileCompleted
-    if (shouldMarkComplete) {
-      // Re-use the existing session (don't create a new one)
-      const session = await prisma.session.findFirst({
-        where:   { userId, isRevoked: false },
-        orderBy: { lastUsedAt: 'desc' },
-      });
-
-      if (session) {
-        const newAccessToken = await signAccessToken({
-          userId:           userId,
-          sessionId:        session.id,
-          email:            updatedUser.email ?? null,
-          role:             updatedUser.role,
-          status:           updatedUser.status,
-          profileCompleted: true,
-        });
-
-        const IS_PROD = process.env.NODE_ENV === 'production';
-        const accessSeconds = (() => {
-          const v = process.env.ACCESS_TOKEN_EXPIRES_IN ?? '1h';
-          const n = parseInt(v, 10);
-          if (isNaN(n)) return 3600;
-          if (v.endsWith('h')) return n * 3600;
-          if (v.endsWith('d')) return n * 86400;
-          if (v.endsWith('m')) return n * 60;
-          return n;
-        })();
-        res.cookie('accessToken', newAccessToken, {
-          httpOnly: true,
-          secure:   IS_PROD,
-          sameSite: 'lax',
-          maxAge:   accessSeconds * 1000,
-          path:     '/',
-        });
-      }
-    }
 
     // ── 7. Respond ────────────────────────────────────────────────────────────
     res.status(200).json({

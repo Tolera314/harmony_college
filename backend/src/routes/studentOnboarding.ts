@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /api/student/onboarding — post-admission onboarding endpoints
  *
  * GET  /api/student/onboarding/prereqs
@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { Role } from '../types/auth';
+import { createNotification } from '../services/notificationService';
 
 const router = Router();
 router.use(authenticate, requireRole([Role.STUDENT]));
@@ -42,22 +43,62 @@ router.get('/departments', async (_req, res: Response): Promise<void> => {
   }
 });
 
-// ── GET /api/student/onboarding/prereqs ───────────────────────────────────────// Returns the two mandatory flags that gate dashboard access.
+// ── GET /api/student/onboarding/programs ──────────────────────────────────────
+// Returns the active Harmony College programs from the database.
+router.get('/programs', async (_req, res: Response): Promise<void> => {
+  try {
+    const programs = await prisma.program.findMany({
+      where:   { isActive: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        durationYears: true,
+        department: { select: { id: true, name: true, code: true } },
+      },
+    });
+    res.status(200).json(programs);
+  } catch (err) {
+    console.error('[onboarding/programs]', err);
+    res.status(500).json({ error: 'Failed to load programs.' });
+  }
+});
+
+// ── GET /api/student/onboarding/prereqs ───────────────────────────────────────
+// Returns the mandatory flags that gate dashboard access.
+// fullyApproved = true only when BOTH Finance Officer AND Registrar have approved.
 router.get('/prereqs', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.userId;
-    const profile = await prisma.studentProfile.findUnique({
-      where:  { userId },
-      select: {
-        registrationFeePaid:  true,
-        departmentSelected:   true,
-        selectedDepartmentId: true,
-      },
-    });
+
+    const [profile, application] = await Promise.all([
+      prisma.studentProfile.findUnique({
+        where:  { userId },
+        select: {
+          registrationFeePaid:      true,
+          departmentSelected:       true,
+          selectedDepartmentId:     true,
+          paymentVerifiedByFinance: true,
+        },
+      }),
+      prisma.application.findUnique({
+        where:  { userId },
+        select: { status: true },
+      }),
+    ]);
+
+    const paymentVerifiedByFinance = profile?.paymentVerifiedByFinance ?? false;
+    const registrarApproved        = application?.status === 'ACCEPTED';
+    const fullyApproved            = paymentVerifiedByFinance && registrarApproved;
+
     res.status(200).json({
-      feePaid:            profile?.registrationFeePaid  ?? false,
-      departmentSelected: profile?.departmentSelected   ?? false,
-      selectedDepartmentId: profile?.selectedDepartmentId ?? null,
+      feePaid:                  profile?.registrationFeePaid ?? false,
+      departmentSelected:       profile?.departmentSelected  ?? false,
+      selectedDepartmentId:     profile?.selectedDepartmentId ?? null,
+      paymentVerifiedByFinance,
+      registrarApproved,
+      fullyApproved,
     });
   } catch (err) {
     console.error('[onboarding/prereqs]', err);
@@ -208,16 +249,18 @@ router.patch('/screenshot', async (req: AuthRequest, res: Response): Promise<voi
       });
       if (registrars.length > 0) {
         const student = await prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
-        await prisma.notification.createMany({
-          data: registrars.map(r => ({
+        // Fan-out: createNotification per registrar so each gets a socket push
+        await Promise.all(registrars.map(r =>
+          createNotification({
             userId:     r.id,
             title:      'New Registration Screenshot',
             message:    `${student?.fullName ?? 'A student'} has submitted their registration screenshot for review.`,
             type:       'INFO',
             entityType: 'Application',
             entityId:   app!.id,
-          })),
-        });
+            actionTab:  'admissions',
+          })
+        ));
       }
     } catch { /* notification failure must not fail the request */ }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useCallback,useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
@@ -14,9 +14,9 @@ import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { SkeletonCard, SkeletonTable, EmptyState, ErrorState, InlineError, useToast, ToastContainer } from '../../ui/States';
-import {
-  recordStudentPayment, getTransactions, reverseTransaction, getStudentAccounts
-} from '../../../lib/foApi';
+import { Transaction, PaymentMethod } from '../../../types/finance';
+
+import { recordStudentPayment, getTransactions, reverseTransaction, getPendingRegistrationPayments, getVerifiedRegistrationPayments, getStudentAccounts } from '../../../lib/foApi';
 
 function fmtETB(amount: number) {
   const abs = Math.abs(amount).toLocaleString('en-US', {
@@ -31,6 +31,163 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// ── Registration Fee Summary Card ─────────────────────────────────────────────
+interface RegFeeSummary {
+  totalStudents:     number;
+  paidCount:         number;
+  pendingCount:      number;   // paid but not yet verified by FO
+  verifiedCount:     number;
+  totalCollected:    number;   // verified × ETB 500
+  totalPending:      number;   // submitted but unverified × ETB 500
+  totalExpected:     number;   // all paid × ETB 500
+}
+const REG_FEE = 500; // ETB
+
+function RegistrationFeeSummaryCard() {
+  const [summary, setSummary] = useState<RegFeeSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [pending, verified] = await Promise.all([
+          getPendingRegistrationPayments({ limit: 1 }) as Promise<any>,
+          getVerifiedRegistrationPayments({ limit: 1 }) as Promise<any>,
+        ]);
+        const paidCount     = (pending.total ?? 0) + (verified.total ?? 0);
+        const verifiedCount = verified.total ?? 0;
+        const pendingCount  = pending.total  ?? 0;
+        setSummary({
+          totalStudents:  paidCount,
+          paidCount,
+          pendingCount,
+          verifiedCount,
+          totalCollected: verifiedCount * REG_FEE,
+          totalPending:   pendingCount  * REG_FEE,
+          totalExpected:  paidCount     * REG_FEE,
+        });
+      } catch { /* non-fatal */ }
+      finally { setLoading(false); }
+    };
+    load();
+  }, []);
+
+  const pct = summary && summary.paidCount > 0
+    ? Math.round((summary.verifiedCount / summary.paidCount) * 100)
+    : 0;
+
+  return (
+    <div className="rounded-2xl overflow-hidden border"
+      style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--accent-gold-border)' }}>
+      {/* Gold top strip */}
+      <div className="h-1 w-full"
+        style={{ background: 'linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold))' }} />
+
+      <div className="p-5 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-serif text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+              Registration Fee Summary
+            </p>
+            <p className="text-[11px] font-sans mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              ETB {REG_FEE.toLocaleString()} per student · one-time fee
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}>
+            <CreditCard className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-16 rounded-xl animate-pulse"
+                style={{ backgroundColor: 'var(--active-overlay)' }} />
+            ))}
+          </div>
+        ) : summary ? (
+          <>
+            {/* KPI grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Students Paid',    value: summary.paidCount,     unit: 'students', color: 'var(--text-primary)' },
+                { label: 'Verified by FO',   value: summary.verifiedCount, unit: 'students', color: 'var(--status-success)' },
+                { label: 'Awaiting Review',  value: summary.pendingCount,  unit: 'students', color: '#EAB308' },
+                { label: 'Total Collected',  value: `ETB ${summary.totalCollected.toLocaleString()}`, unit: '', color: 'var(--brand-gold)', large: true },
+              ].map((item: any) => (
+                <div key={item.label} className="p-3 rounded-xl"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+                    {item.label}
+                  </p>
+                  <p className={`font-mono font-bold mt-1.5 ${item.large ? 'text-sm' : 'text-2xl'}`}
+                    style={{ color: item.color }}>
+                    {item.value}
+                  </p>
+                  {item.unit && (
+                    <p className="font-sans text-[10px] mt-0.5" style={{ color: 'var(--text-faint)' }}>{item.unit}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Calculation breakdown */}
+            <div className="p-4 rounded-xl space-y-2.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-[10px] font-mono uppercase tracking-wider font-semibold"
+                style={{ color: 'var(--text-faint)' }}>Fee Calculation</p>
+              {[
+                { label: `Verified payments  (${summary.verifiedCount} × ETB ${REG_FEE})`,  value: `ETB ${summary.totalCollected.toLocaleString()}`,  color: 'var(--status-success)' },
+                { label: `Pending review     (${summary.pendingCount}  × ETB ${REG_FEE})`,   value: `ETB ${summary.totalPending.toLocaleString()}`,    color: '#EAB308' },
+                { label: `Total expected     (${summary.paidCount}     × ETB ${REG_FEE})`,   value: `ETB ${summary.totalExpected.toLocaleString()}`,   color: 'var(--text-primary)', bold: true },
+              ].map((row: any) => (
+                <div key={row.label} className={`flex items-center justify-between ${row.bold ? 'pt-2 border-t' : ''}`}
+                  style={row.bold ? { borderColor: 'var(--border-subtle)' } : {}}>
+                  <span className="font-mono text-xs" style={{ color: 'var(--text-muted)', whiteSpace: 'pre' }}>
+                    {row.label}
+                  </span>
+                  <span className={`font-mono text-sm ${row.bold ? 'font-bold' : 'font-semibold'}`}
+                    style={{ color: row.color }}>
+                    {row.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Progress bar */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <p className="font-sans text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Verification progress
+                </p>
+                <p className="font-mono text-xs font-bold" style={{ color: 'var(--brand-gold)' }}>{pct}%</p>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden"
+                style={{ backgroundColor: 'var(--border-default)' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="h-full rounded-full"
+                  style={{ background: 'linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold))' }}
+                />
+              </div>
+              <p className="font-sans text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                {summary.verifiedCount} of {summary.paidCount} paid registrations verified by Finance Officer
+              </p>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs font-sans py-4 text-center" style={{ color: 'var(--text-faint)' }}>
+            No registration payment data available.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 // ── Record Payment Modal ───────────────────────────────────────────────────────
 function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) {
   const [students, setStudents] = useState<any[]>([]);
@@ -81,6 +238,15 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
       setSubmitting(false);
     }
   };
+
+  const [studentAccounts, setStudentAccounts] = useState<any[]>([]);
+  useEffect(() => {
+    getStudentAccounts({ limit: 100 })
+      .then((d: any) => { if (d?.accounts) setStudentAccounts(d.accounts); })
+      .catch(() => {});
+  }, []);
+
+  const selected = studentAccounts.find((s: any) => s.id === form.studentId || s.studentRecordId === form.studentId);
 
   return (
     <SlidePanel isOpen onClose={onClose} title={<><Plus className="w-5 h-5 inline mr-2 text-(--brand-gold)" />Record Student Payment</>} subtitle="Finance Officer — Payments" width="max-w-xl">
@@ -253,6 +419,11 @@ export const FOPaymentsView: React.FC = () => {
           </div>
         }
       />
+
+      {loading && <div className="h-1 bg-(--accent-gold-subtle) rounded-full overflow-hidden"><div className="h-full bg-(--brand-gold) animate-pulse w-1/2" /></div>}
+
+      {/* Registration Fee Summary Card */}
+      <RegistrationFeeSummaryCard />
 
       {/* Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

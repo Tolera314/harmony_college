@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { Bell, CheckCheck, Filter } from 'lucide-react';
@@ -8,11 +8,12 @@ import { FOPageHeader } from '../FOPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { FONavTab, FONotification } from '../../../types/finance';
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../../lib/foApi';
 
 interface FONotificationsViewProps {
-  notifications: FONotification[];
-  onMarkRead: (id: string) => void;
-  onMarkAllRead: () => void;
+  notifications?: FONotification[];
+  onMarkRead?: (id: string) => void;
+  onMarkAllRead?: () => void;
   setActiveTab: (tab: FONavTab) => void;
 }
 
@@ -32,10 +33,35 @@ const typeEmoji: Record<FONotification['type'], string> = {
 };
 
 export const FONotificationsView: React.FC<FONotificationsViewProps> = ({
-  notifications, onMarkRead, onMarkAllRead, setActiveTab,
+  notifications: propNotifications, onMarkRead: propMarkRead,
+  onMarkAllRead: propMarkAllRead, setActiveTab,
 }) => {
-  const [filter, setFilter] = useState<FONotification['type'] | 'All'>('All');
+  const [notifs,  setNotifs]  = useState<FONotification[]>(propNotifications ?? []);
+  const [filter,  setFilter]  = useState<FONotification['type'] | 'All'>('All');
 
+  // Load real notifications on mount
+  useEffect(() => {
+    getNotifications()
+      .then((data: any) => {
+        if (data && Array.isArray(data.notifications)) setNotifs(data.notifications);
+        else if (data && Array.isArray(data)) setNotifs(data);
+      })
+      .catch(() => { /* keep default */ });
+  }, []);
+
+  const handleMarkRead = useCallback(async (id: string) => {
+    setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    try { await markNotificationRead(id); } catch { /* silent */ }
+    propMarkRead?.(id);
+  }, [propMarkRead]);
+
+  const handleMarkAllRead = useCallback(async () => {
+    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    try { await markAllNotificationsRead(); } catch { /* silent */ }
+    propMarkAllRead?.();
+  }, [propMarkAllRead]);
+
+  const notifications = notifs;
   const filtered = filter === 'All'
     ? notifications
     : notifications.filter((n) => n.type === filter);
@@ -58,7 +84,7 @@ export const FONotificationsView: React.FC<FONotificationsViewProps> = ({
         badge={unreadCount > 0 ? <Badge variant="gold">{unreadCount} new</Badge> : undefined}
         actions={
           unreadCount > 0 && (
-            <Button variant="ghost" size="sm" icon={<CheckCheck className="w-4 h-4" />} onClick={onMarkAllRead}>
+            <Button variant="ghost" size="sm" icon={<CheckCheck className="w-4 h-4" />} onClick={handleMarkAllRead}>
               Mark All Read
             </Button>
           )
@@ -94,7 +120,7 @@ export const FONotificationsView: React.FC<FONotificationsViewProps> = ({
             key={n.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            onClick={() => { onMarkRead(n.id); setActiveTab(n.tab); }}
+            onClick={() => { handleMarkRead(n.id); setActiveTab(n.tab); }}
             className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all hover:border-white/20 ${
               n.read
                 ? 'border-(--border-subtle) bg-transparent'

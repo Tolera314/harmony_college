@@ -365,12 +365,15 @@ model StudentProfile {
   region      String?
   city        String?
   address     String?
+  nationalId  String?
 
-  program        String?
-  academicYear   String?
-  semester       String?
-  matricResult   String?
-  ministryResult String?
+  program              String?
+  programType          String?
+  shortProgramDuration String?
+  academicYear         String?
+  semester             String?
+  matricResult         String?
+  ministryResult       String?
 
   profilePictureUrl String?
   faydaIdUrl        String?
@@ -407,19 +410,21 @@ model Application {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  fullName         String
-  dob              DateTime
-  age              Int
-  gender           String
-  nationality      String
-  emergencyContact String
-  phone            String
-  city             String
-  address          String
-  program          String
-  academicYear     String
-  semester         String
-  studyMode        String
+  fullName             String
+  dob                  DateTime
+  age                  Int
+  gender               String
+  nationality          String
+  emergencyContact     String
+  phone                String
+  city                 String
+  address              String
+  program              String
+  programType          String?
+  shortProgramDuration String?
+  academicYear         String
+  semester             String
+  studyMode            String
 
   status        ApplicationStatus @default(DRAFT)
   reviewComment String?
@@ -1007,15 +1012,21 @@ model Notification {
   userId     String
   title      String
   message    String
-  type       String   @default("INFO") // INFO, SUCCESS, WARNING, ERROR
+  /// INFO | SUCCESS | WARNING | ERROR | GRADE | SCHEDULE | ENROLLMENT | ANNOUNCEMENT | LEAVE | PAYROLL | FINANCE
+  type       String   @default("INFO")
   isRead     Boolean  @default(false)
   entityType String?
   entityId   String?
+  /// Optional deep-link tab name for the recipient's dashboard (e.g. "grades", "leave")
+  actionTab  String?
+  /// Timestamp when a socket push was attempted; null = not yet pushed
+  pushedAt   DateTime?
   createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([userId, isRead])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1798,6 +1809,21 @@ model HREmployee {
   bankAccount      String?
   taxNumber        String?
 
+  // Ethiopian national Fayda ID document
+  faydaIdUrl       String?
+  faydaIdFileSize  String?
+
+  // Academic credential certificate
+  certificateUrl     String?
+  certificateFileSize String?
+
+  // System role this employee will hold (links to the platform Role enum)
+  // Allowed for HR creation: INSTRUCTOR, DEPARTMENT_HEAD, REGISTRAR, FINANCE_OFFICER, HR_OFFICER
+  systemRole       String?   // mirrors Role enum value — enforced at service layer
+
+  // Course assignment (required when systemRole = INSTRUCTOR or DEPARTMENT_HEAD)
+  courseId         String?   // FK to the academic Course — optional, enforced conditionally
+
   // Emergency contact
   emergencyName     String?
   emergencyPhone    String?
@@ -1823,6 +1849,7 @@ model HREmployee {
   @@index([contractStatus])
   @@index([employmentType])
   @@index([isActive])
+  @@index([systemRole])
 }
 
 /// Leave request raised by an employee

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { ClipboardList, Search, X, Download, Filter, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
@@ -8,8 +8,8 @@ import { FOPageHeader } from '../FOPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
-import { foAuditLog } from '../../../data/financeData';
 import { FOAuditEntry } from '../../../types/finance';
+import { getAuditLogs } from '../../../lib/foApi';
 
 const statusConfig: Record<FOAuditEntry['status'], { icon: React.ReactNode; badge: 'emerald'|'amber'|'rose' }> = {
   Success: { icon: <CheckCircle2 className="w-3.5 h-3.5 text-(--status-success)" />, badge: 'emerald' },
@@ -18,33 +18,39 @@ const statusConfig: Record<FOAuditEntry['status'], { icon: React.ReactNode; badg
 };
 
 export const FOAuditLogView: React.FC = () => {
-  const [search, setSearch]       = useState('');
+  const [auditLog,     setAuditLog]     = useState<FOAuditEntry[]>([]);
+  const [total,        setTotal]        = useState(0);
+  const [search,       setSearch]       = useState('');
   const [moduleFilter, setModuleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<FOAuditEntry['status'] | 'All'>('All');
-  const [page, setPage]           = useState(1);
+  const [page,         setPage]         = useState(1);
   const PAGE_SIZE = 10;
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const modules = ['All', ...Array.from(new Set(foAuditLog.map((e) => e.module)))];
+  const loadLogs = useCallback(() => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      try {
+        const data: any = await getAuditLogs({ search: search || undefined, status: statusFilter !== 'All' ? statusFilter : undefined, page, limit: PAGE_SIZE });
+        if (data && Array.isArray(data.logs)) { setAuditLog(data.logs); setTotal(data.total ?? data.logs.length); }
+        else if (data && Array.isArray(data))  { setAuditLog(data); setTotal(data.length); }
+      } catch { /* keep default */ }
+    }, 280);
+  }, [search, statusFilter, page]);
+
+  useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  const modules = ['All', ...Array.from(new Set(auditLog.map((e) => e.module)))];
 
   const filtered = useMemo(() => {
-    let list = [...foAuditLog];
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((e) =>
-        e.action.toLowerCase().includes(q) ||
-        e.officerName.toLowerCase().includes(q) ||
-        (e.studentName ?? '').toLowerCase().includes(q) ||
-        e.module.toLowerCase().includes(q)
-      );
-    }
+    let list = [...auditLog];
     if (moduleFilter !== 'All') list = list.filter((e) => e.module === moduleFilter);
-    if (statusFilter !== 'All') list = list.filter((e) => e.status === statusFilter);
     list.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
     return list;
-  }, [search, moduleFilter, statusFilter]);
+  }, [auditLog, moduleFilter]);
 
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated  = filtered;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
@@ -63,9 +69,9 @@ export const FOAuditLogView: React.FC = () => {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Total Entries', value: foAuditLog.length, color: 'text-(--text-primary)' },
-          { label: 'Warnings',      value: foAuditLog.filter((e) => e.status === 'Warning').length, color: 'text-(--status-warning)' },
-          { label: 'Failed',        value: foAuditLog.filter((e) => e.status === 'Failed').length,  color: 'text-(--status-danger)'  },
+          { label: 'Total Entries', value: total, color: 'text-(--text-primary)' },
+          { label: 'Warnings',      value: auditLog.filter((e) => e.status === 'Warning').length, color: 'text-(--status-warning)' },
+          { label: 'Failed',        value: auditLog.filter((e) => e.status === 'Failed').length,  color: 'text-(--status-danger)'  },
         ].map((s) => (
           <div key={s.label} className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-4">
             <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{s.label}</p>

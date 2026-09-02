@@ -103,6 +103,20 @@ export interface MyScheduleChangedEvent {
   receivedAt: string;
 }
 
+// ── In-app notification push (notification:new) ───────────────────────────────
+/** Pushed to `user:${userId}` room every time a Notification row is created. */
+export interface NotificationPushEvent {
+  id:         string;
+  userId:     string;
+  title:      string;
+  message:    string;
+  type:       string;
+  actionTab:  string | null;
+  entityType: string | null;
+  entityId:   string | null;
+  createdAt:  string;
+}
+
 // ── Context shape ─────────────────────────────────────────────────────────────
 interface SocketContextValue {
   socket: Socket | null;
@@ -150,6 +164,8 @@ interface SocketContextValue {
   onTimetableConflict: (cb: (e: TimetableConflictPayload) => void) => () => void;
   /** Personal: sent to user:${userId} when their own schedule changes */
   onMyScheduleChanged: (cb: (e: MyScheduleChangedEvent) => void) => () => void;
+  /** In-app notification push — increments the unread badge in real time */
+  onNotification: (cb: (e: NotificationPushEvent) => void) => () => void;
 }
 
 // ── Default (no-op) context ───────────────────────────────────────────────────
@@ -178,6 +194,7 @@ const SocketContext = createContext<SocketContextValue>({
   onTimetableDeleted:  () => () => {},
   onTimetableConflict: () => () => {},
   onMyScheduleChanged: () => () => {},
+  onNotification:      () => () => {},
 });
 
 export function useSocket() { return useContext(SocketContext); }
@@ -269,6 +286,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const onTimetableDeleted  = makeSub<TimetableDeletedPayload>('timetable:deleted');
   const onTimetableConflict = makeSub<TimetableConflictPayload>('timetable:conflict');
   const onMyScheduleChanged = makeSub<MyScheduleChangedEvent>('timetable:my_schedule_changed');
+  // ── In-app notification subscription ─────────────────────────────────────
+  const onNotification = makeSub<NotificationPushEvent>('notification:new');
 
   return (
     <SocketContext.Provider value={{
@@ -289,6 +308,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       // timetable subs
       onTimetableCreated, onTimetableUpdated, onTimetableDeleted,
       onTimetableConflict, onMyScheduleChanged,
+      // notification push
+      onNotification,
     }}>
       {children}
     </SocketContext.Provider>

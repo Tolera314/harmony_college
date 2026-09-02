@@ -798,7 +798,7 @@ function GradeScaleTab() {
             </div>
             <div className="space-y-1">
               <label className={labelCls}>Grade Points</label>
-              <input required type="number" step="0.1" min="0" max="4" placeholder="4.0"
+              <input required type="number" step="0.01" min="0" max="5" placeholder="4.00"
                 value={addForm.gradePoints} onChange={e => setAddForm(f => ({ ...f, gradePoints: e.target.value }))}
                 className={inputCls} />
             </div>
@@ -853,7 +853,7 @@ function GradeScaleTab() {
                   <>
                     <td className="px-3 py-2 font-mono font-bold text-[#D4AF37]">{entry.letterGrade}</td>
                     <td className="px-3 py-2">
-                      <input type="number" step="0.1" min="0" max="4"
+                      <input type="number" step="0.01" min="0" max="5"
                         value={editForm.gradePoints ?? ''} onChange={e => setEditForm(f => ({ ...f, gradePoints: Number(e.target.value) }))}
                         className="w-16 bg-black/40 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:border-[#D4AF37]" />
                     </td>
@@ -896,7 +896,7 @@ function GradeScaleTab() {
                   // Read row
                   <>
                     <td className="px-3 py-2.5 font-mono font-bold text-[#D4AF37]">{entry.letterGrade}</td>
-                    <td className="px-3 py-2.5 font-mono font-semibold text-white">{entry.gradePoints.toFixed(1)}</td>
+                    <td className="px-3 py-2.5 font-mono font-semibold text-white">{entry.gradePoints.toFixed(2)}</td>
                     <td className="px-3 py-2.5 text-white/60">{entry.description ?? '—'}</td>
                     <td className="px-3 py-2.5">
                       <span className={`font-mono text-[10px] font-bold ${entry.isPassing ? 'text-green-400' : 'text-red-400'}`}>

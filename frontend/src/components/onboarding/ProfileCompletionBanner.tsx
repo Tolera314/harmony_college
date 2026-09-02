@@ -10,13 +10,14 @@ import { Button } from '@/src/components/ui/Button';
 interface ProfileCompletionBannerProps {
   completionPct: number;
   applicationNumber?: string;
+  onCompleteProfile?: () => void;
 }
 
 /**
  * Sticky banner shown at the top of the student dashboard
  * when the user's profile is not fully complete.
  */
-export function ProfileCompletionBanner({ completionPct, applicationNumber }: ProfileCompletionBannerProps) {
+export function ProfileCompletionBanner({ completionPct, applicationNumber, onCompleteProfile }: ProfileCompletionBannerProps) {
   const router = useRouter();
 
   if (completionPct >= 100) return null;
@@ -82,11 +83,11 @@ export function ProfileCompletionBanner({ completionPct, applicationNumber }: Pr
       <Button
         variant="gold"
         size="sm"
-        onClick={() => router.push('/welcome')}
+        onClick={() => onCompleteProfile ? onCompleteProfile() : router.push('/dashboard/student?tab=profile')}
         icon={<ArrowRight className="w-3.5 h-3.5" />}
         className="shrink-0 whitespace-nowrap"
       >
-        Continue
+        Complete Profile
       </Button>
     </motion.div>
   );
@@ -115,10 +116,10 @@ export function LockedFeatureCard({ title, description, icon: Icon, reason }: Lo
         border: '1px solid var(--border-card)',
         opacity: 0.75,
       }}
-      onClick={() => router.push('/welcome')}
+      onClick={() => router.push('/dashboard/student?tab=profile')}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') router.push('/welcome'); }}
+      onKeyDown={(e) => { if (e.key === 'Enter') router.push('/dashboard/student?tab=profile'); }}
       aria-label={`${title} — locked. Complete your profile to unlock.`}
     >
       {/* Blur overlay */}

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Student Assignment Service
  * Handles: listing assignments across all enrolled courses,
  * viewing a single assignment, submitting (file or text), retrieving feedback.
@@ -6,7 +6,8 @@
  * Security: every operation verifies the student is enrolled in the course
  * that owns the assignment before proceeding.
  */
-import { prisma } from '../../lib/prisma';
+import { prisma }              from '../../lib/prisma';
+import { createNotification } from '../notificationService';
 
 export async function listAssignments(
   studentRecordId: string,
@@ -266,14 +267,13 @@ export async function submitAssignment(data: {
       include: { user: { select: { fullName: true } } },
     });
     if (fullOffering?.instructor?.userId) {
-      await prisma.notification.create({
-        data: {
-          userId: fullOffering.instructor.userId,
-          title: `New Submission: ${fullOffering.course.code}`,
-          message: `${studentUser?.user.fullName ?? 'A student'} submitted an assignment.`,
-          type: 'ASSIGNMENT',
-        },
-      });
+      createNotification({
+        userId:    fullOffering.instructor.userId,
+        title:     `New Submission: ${fullOffering.course.code}`,
+        message:   `${studentUser?.user.fullName ?? 'A student'} submitted an assignment.`,
+        type:      'ANNOUNCEMENT',
+        actionTab: 'assignments',
+      }).catch(() => {});
     }
   } catch { /* ignore notification side-effect */ }
 

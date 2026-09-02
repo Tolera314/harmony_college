@@ -372,3 +372,30 @@ export function broadcastTimetableConflict(payload: {
     context: payload.context,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATION push helper
+// Sends a real-time in-app notification to a single user's personal room.
+// Called by notificationService immediately after writing the DB row.
+// Room: `user:${userId}` — every authenticated socket joins this on connect.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface NotificationPushPayload {
+  id:         string;
+  userId:     string;
+  title:      string;
+  message:    string;
+  type:       string;
+  actionTab:  string | null;
+  entityType: string | null;
+  entityId:   string | null;
+  createdAt:  string;
+}
+
+/**
+ * Push a single notification row to the target user's browser in real time.
+ * The client increments its unread badge without polling.
+ */
+export function pushNotification(payload: NotificationPushPayload): void {
+  _io?.to(`user:${payload.userId}`).emit('notification:new', payload);
+}

@@ -82,6 +82,27 @@ app.use('/api/finance-officer',    financeOfficerRouter);
 app.use('/api/attendance',         attendanceRouter);
 app.use('/api/ai',                 aiRouter);
 
+// Public programs list (no auth)
+app.get('/api/programs', async (_req, res) => {
+  try {
+    const { prisma } = await import('./lib/prisma');
+    const programs = await prisma.program.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        durationYears: true,
+        department: { select: { id: true, name: true, code: true } },
+      },
+    });
+    res.json(programs);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch programs' });
+  }
+});
+
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
   try {
@@ -106,14 +127,18 @@ const httpServer = http.createServer(app);
 const io = initSocket(httpServer, FRONTEND_URL);
 
 // ── Restore attendance auto-close timers on restart ───────────────────────────
-import('./services/attendance/attendanceService').then(svc => {
-  svc.restoreAutoCloseTimers().catch((err: unknown) => {
-    console.error('[startup] Failed to restore attendance auto-close timers:', err);
+// Delay 5 s to allow the Neon serverless DB connection pool to warm up first.
+setTimeout(() => {
+  import('./services/attendance/attendanceService').then(svc => {
+    svc.restoreAutoCloseTimers().catch((err: unknown) => {
+      console.error('[startup] Failed to restore attendance auto-close timers:', err);
+    });
   });
-});
+}, 5000);
 
 // ── HR: start daily contract expiry check ─────────────────────────────────────
-startContractExpiryJob();
+// Delay 6 s for the same reason — Neon wakes on first query, not on connect.
+setTimeout(() => startContractExpiryJob(), 6000);
 
 httpServer.listen(PORT, () => {
   console.log(`🚀  Harmony College API  →  http://localhost:${PORT}`);

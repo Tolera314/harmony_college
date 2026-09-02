@@ -2,140 +2,112 @@ import { prisma } from '../../lib/prisma';
 
 export interface AuditEntryData {
   actorUserId?: string | null;
-  actorName: string;
-  action: string;
-  module?: string | null;
-  studentId?: string | null;
+  actorName:    string;
+  action:       string;
+  module?:      string | null;
+  studentId?:   string | null;
   studentName?: string | null;
-  amount?: number | null;
+  amount?:      number | null;
   previousValue?: string | null;
-  newValue?: string | null;
-  status?: 'Success' | 'Warning' | 'Failed';
-  ipAddress?: string | null;
+  newValue?:      string | null;
+  status?:        'Success' | 'Warning' | 'Failed';
+  ipAddress?:     string | null;
 }
 
-export interface FOAuditStoreItem {
-  id: string;
-  date: string;
-  time: string;
-  actorUserId?: string | null;
-  actorName: string;
-  action: string;
-  module: string;
-  studentId: string | null;
-  studentName: string | null;
-  amount: number | null;
-  previousValue: string | null;
-  newValue: string | null;
-  status: 'Success' | 'Warning' | 'Failed';
-  ipAddress: string;
-  createdAt: Date;
-}
-
-const auditLogsStore: FOAuditStoreItem[] = [
-  {
-    id: 'AUD-FO-101',
-    date: new Date().toISOString().split('T')[0],
-    time: '08:30',
-    actorUserId: 'usr-fo-001',
-    actorName: 'Finance Officer',
-    action: 'Verified Registration Fee Payment',
-    module: 'Admissions & Verifications',
-    studentId: 'HC/2026/0012',
-    studentName: 'Abebe Bikila',
-    amount: 1500,
-    previousValue: 'Unverified',
-    newValue: 'Verified',
-    status: 'Success',
-    ipAddress: '192.168.1.45',
-    createdAt: new Date(),
-  },
-  {
-    id: 'AUD-FO-102',
-    date: new Date().toISOString().split('T')[0],
-    time: '09:15',
-    actorUserId: 'usr-fo-001',
-    actorName: 'Finance Officer',
-    action: 'Posted Tuition Payment',
-    module: 'Student Accounts',
-    studentId: 'HC/2026/0045',
-    studentName: 'Tigist Assefa',
-    amount: 18500,
-    previousValue: 'Outstanding: ETB 18,500',
-    newValue: 'Balance Cleared: ETB 0',
-    status: 'Success',
-    ipAddress: '192.168.1.45',
-    createdAt: new Date(),
-  },
-];
-
-export async function logFinanceAction(data: AuditEntryData): Promise<FOAuditStoreItem> {
-  const entry: FOAuditStoreItem = {
-    id: `AUD-FO-${Date.now().toString(36).toUpperCase()}`,
-    date: new Date().toISOString().split('T')[0],
-    time: new Date().toTimeString().split(' ')[0].slice(0, 5),
-    actorUserId: data.actorUserId || 'usr-fo-001',
-    actorName: data.actorName || 'Finance Officer',
-    action: data.action,
-    module: data.module || 'Finance',
-    studentId: data.studentId || null,
-    studentName: data.studentName || null,
-    amount: data.amount ?? null,
-    previousValue: data.previousValue ?? null,
-    newValue: data.newValue ?? null,
-    status: data.status || 'Success',
-    ipAddress: data.ipAddress || '127.0.0.1',
-    createdAt: new Date(),
-  };
-
-  auditLogsStore.unshift(entry);
+/**
+ * Writes a Finance Officer action to the shared AuditLog table.
+ * Uses PROFILE_COMPLETED action as a generic "custom event" carrier
+ * with metadata for the FO-specific fields, keeping the schema unchanged.
+ */
+export async function logFinanceAction(data: AuditEntryData) {
+  if (!data.actorUserId) return; // can't write without a user id
 
   try {
-    if (data.actorUserId) {
-      await prisma.auditLog.create({
-        data: {
-          userId: data.actorUserId,
-          action: 'PROFILE_COMPLETED',
-          metadata: {
-            financeAction: data.action,
-            amount: data.amount,
-            studentId: data.studentId,
-          },
+    await prisma.auditLog.create({
+      data: {
+        userId:   data.actorUserId,
+        action:   'PROFILE_COMPLETED',    // closest available enum value
+        metadata: {
+          financeAction:  data.action,
+          module:         data.module  ?? 'Finance',
+          studentId:      data.studentId  ?? null,
+          studentName:    data.studentName ?? null,
+          amount:         data.amount ?? null,
+          previousValue:  data.previousValue ?? null,
+          newValue:       data.newValue ?? null,
+          status:         data.status ?? 'Success',
+          actorName:      data.actorName,
         },
-      });
-    }
-  } catch { /* ignore db fallback errors */ }
-
-  return entry;
+        ipAddress: data.ipAddress?.slice(0, 45) ?? null,
+      },
+    });
+  } catch { /* audit must never crash the caller */ }
 }
 
-export async function getAuditLogs(params: { search?: string; status?: string; page?: number; limit?: number }) {
-  let filtered = [...auditLogsStore];
+export async function getAuditLogs(params: {
+  search?: string;
+  status?: string;
+  page?:   number;
+  limit?:  number;
+}) {
+  const page  = Math.max(1, params.page  ?? 1);
+  const limit = Math.min(100, Math.max(1, params.limit ?? 20));
+  const skip  = (page - 1) * limit;
+
+  // Finance audit logs are AuditLog rows whose metadata.financeAction exists
+  const where: any = {
+    action:   'PROFILE_COMPLETED',
+    metadata: { path: ['financeAction'], not: null },
+  };
 
   if (params.status) {
-    filtered = filtered.filter((a) => a.status === params.status);
+    where.metadata = { path: ['status'], equals: params.status };
   }
-  if (params.search) {
+
+  const [total, logs] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
+      where, skip, take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { fullName: true } } },
+    }),
+  ]);
+
+  const mapped = logs.map((l) => {
+    const meta = (l.metadata ?? {}) as Record<string, any>;
+    const d    = new Date(l.createdAt);
+    // Apply search filter client-side (Prisma JSON path search is limited)
+    return {
+      id:            l.id,
+      date:          d.toISOString().split('T')[0],
+      time:          d.toTimeString().split(' ')[0].slice(0, 5),
+      actorUserId:   l.userId,
+      actorName:     meta.actorName  ?? l.user?.fullName ?? 'Finance Officer',
+      action:        meta.financeAction ?? 'Finance Action',
+      module:        meta.module        ?? 'Finance',
+      studentId:     meta.studentId     ?? null,
+      studentName:   meta.studentName   ?? null,
+      amount:        meta.amount        ?? null,
+      previousValue: meta.previousValue ?? null,
+      newValue:      meta.newValue      ?? null,
+      status:        meta.status        ?? 'Success',
+      ipAddress:     l.ipAddress        ?? '—',
+      createdAt:     l.createdAt,
+    };
+  }).filter((l) => {
+    if (!params.search) return true;
     const s = params.search.toLowerCase();
-    filtered = filtered.filter(
-      (a) =>
-        a.action.toLowerCase().includes(s) ||
-        a.actorName.toLowerCase().includes(s) ||
-        (a.studentName && a.studentName.toLowerCase().includes(s))
+    return (
+      l.action.toLowerCase().includes(s)     ||
+      l.actorName.toLowerCase().includes(s)  ||
+      (l.studentName ?? '').toLowerCase().includes(s)
     );
-  }
-
-  const page = Math.max(1, params.page || 1);
-  const limit = Math.min(100, Math.max(1, params.limit || 20));
-  const skip = (page - 1) * limit;
-
-  const paginated = filtered.slice(skip, skip + limit);
+  });
 
   return {
-    total: filtered.length,
-    page,
-    limit,
-    totalPages: Math.ceil(filtered.length / limit),
-    auditLogs: paginated,
+    total:      mapped.length,   // post-filter count
+    page, limit,
+    totalPages: Math.ceil(mapped.length / limit),
+    logs:       mapped,
   };
 }

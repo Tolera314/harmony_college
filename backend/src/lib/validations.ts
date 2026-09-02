@@ -75,10 +75,17 @@ export type ResendVerifyInput = z.infer<typeof resendVerificationSchema>;
 // PHASE 5 — STUDENT PROFILE
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** File URLs must originate from the application's own upload endpoint. */
+/** File URLs must originate from the application's upload endpoint or Cloudinary. */
 const uploadUrlSchema = z
   .string()
-  .startsWith('/uploads/', 'File URL must be a valid upload path (starting with /uploads/)');
+  .refine(
+    (url) =>
+      url.startsWith('/uploads/') ||
+      url.startsWith('/api/upload/') ||
+      url.startsWith('https://res.cloudinary.com/') ||
+      url.startsWith('http://res.cloudinary.com/'),
+    'File URL must be a valid upload path or Cloudinary URL'
+  );
 
 export const patchProfileSchema = z.object({
   // ── Personal ──────────────────────────────────────────────────────────────
@@ -87,19 +94,26 @@ export const patchProfileSchema = z.object({
                   .refine((d) => !isNaN(Date.parse(d)), 'Invalid date format')
                   .refine((d) => new Date(d) < new Date(), 'Date of birth must be in the past')
                   .optional(),
-  gender:       z.enum(['Male', 'Female', 'Prefer not to say']).optional(),
+  gender:       z.enum(['Male', 'Female']).optional(),
   region:       z.string().trim().max(100).optional(),
   city:         z.string().trim().min(1).max(100).optional(),
-  address:      z.string().trim().min(1).max(500).optional(),
+  address:      z.string().trim().max(500).optional(),
+  nationalId:   z
+                  .string()
+                  .trim()
+                  .regex(/^\d{16}$/, 'National ID must be exactly 16 digits.')
+                  .optional(),
 
   // ── Academic ──────────────────────────────────────────────────────────────
-  program:      z.string().trim().min(1).max(200).optional(),
-  academicYear: z.string().trim().min(1).max(20).optional(),
-  semester:     z.string().trim().max(50).optional(),
-  matricResult: z.string().trim().max(100).optional(),
-  ministryResult: z.string().trim().max(100).optional(),
+  program:              z.string().trim().min(1).max(200).optional(),
+  programType:          z.enum(['TVET', 'Short Program']).optional(),
+  shortProgramDuration: z.enum(['2 Months', '4 Months']).optional().nullable(),
+  academicYear:         z.string().trim().min(1).max(20).optional(),
+  semester:             z.string().trim().max(50).optional(),
+  matricResult:         z.string().trim().max(100).optional(),
+  ministryResult:       z.string().trim().max(100).optional(),
 
-  // ── Documents (URLs from /api/upload) ─────────────────────────────────────
+  // ── Documents (URLs from /api/upload or Cloudinary) ─────────────────────────
   profilePictureUrl: uploadUrlSchema.optional(),
   faydaIdUrl:        uploadUrlSchema.optional(),
   transcriptUrl:     uploadUrlSchema.optional(),

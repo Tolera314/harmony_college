@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Harmony College — Department Head Service
  * ──────────────────────────────────────────
  * ALL department-scoped authorization is derived from the authenticated
@@ -6,7 +6,8 @@
  * NEVER trusted for authorization decisions.
  */
 
-import { prisma } from '../../lib/prisma';
+import { prisma }              from '../../lib/prisma';
+import { createNotification } from '../notificationService';
 import {
   Role,
   OfferingStatus,
@@ -441,16 +442,16 @@ export async function approveOffering(
         ipAddress:   ipAddress ?? null,
       },
     }),
-    prisma.notification.create({
-      data: {
-        userId,
-        title:   'Course Offering Approved',
-        message: `You approved a course offering (ID: ${offeringId}).`,
-        type:    'SUCCESS',
-      },
-    }),
   ]);
 
+  // Notify the DH actor — socket push so it lands immediately in their notification panel
+  createNotification({
+    userId,
+    title:     'Course Offering Approved',
+    message:   `You approved a course offering (ID: ${offeringId}).`,
+    type:      'SUCCESS',
+    actionTab: 'approvals',
+  }).catch(() => {});
   return updated;
 }
 

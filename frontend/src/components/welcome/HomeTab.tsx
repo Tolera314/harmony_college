@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowRight, BookOpen, FileText, Image as ImageIcon,
   Newspaper, Calendar, Phone, HelpCircle,
-  GraduationCap, CreditCard,
+  GraduationCap, CreditCard, Clock,
   Star, Quote,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -44,6 +44,24 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
 
   const latestNews = newsData.slice(0, 3);
   const featuredPrograms = schoolsData.slice(0, 4);
+
+  // Load real prereq status from backend
+  const [prereqs, setPrereqs] = useState<{
+    feePaid: boolean;
+    departmentSelected: boolean;
+    paymentVerifiedByFinance?: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/student/onboarding/prereqs', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setPrereqs(d); })
+      .catch(() => {});
+  }, []);
+
+  // Both steps done → under review; Finance Officer verified → approved
+  const isApproved    = prereqs?.paymentVerifiedByFinance === true;
+  const isUnderReview = !isApproved && prereqs !== null && prereqs.feePaid && prereqs.departmentSelected;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-12 space-y-10 max-w-5xl">
@@ -90,43 +108,105 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
                   </motion.p>
                 </div>
 
-              {/* ── Mandatory Action Card: Payment + Department ── */}
+              {/* ── Status Card: Under Review OR Complete Registration ── */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
                 className="max-w-sm"
               >
-                <div
-                  className="p-4 rounded-2xl space-y-3 cursor-pointer group transition-all hover:scale-[1.02]"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(233,195,73,0.14) 0%, rgba(233,195,73,0.04) 100%)',
-                    border: '1px solid var(--accent-gold-border)',
-                  }}
-                  onClick={() => window.location.href = '/onboarding/about'}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => e.key === 'Enter' && (window.location.href = '/onboarding/about')}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>
-                      <CreditCard className="w-4 h-4" />
+                {isApproved ? (
+                  /* ── APPROVED card ── */
+                  <div
+                    className="p-4 rounded-2xl space-y-3"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(16,185,129,0.14) 0%, rgba(16,185,129,0.05) 100%)',
+                      border: '1px solid rgba(16,185,129,0.45)',
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: 'rgba(16,185,129,0.20)', color: '#10B981' }}>
+                        <GraduationCap className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold font-sans" style={{ color: 'var(--text-primary)' }}>
+                          Registration Approved ✓
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: '#10B981' }} />
+                          <p className="text-[10px] font-mono" style={{ color: '#10B981' }}>Approved</p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold font-sans" style={{ color: 'var(--text-primary)' }}>
-                        Complete Registration
-                      </p>
-                      <p className="text-[10px] font-sans" style={{ color: 'var(--text-muted)' }}>
-                        Pay registration fee · Select department
-                      </p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 ml-auto shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: 'var(--brand-gold)' }} />
+                    <p className="text-[11px] font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      Your registration has been verified. You now have full access to your Student Dashboard.
+                    </p>
                   </div>
-                  <p className="text-[11px] font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                    These two steps unlock your Student Dashboard — messaging, courses, grades, and more.
-                  </p>
-                </div>
+                ) : isUnderReview ? (
+                  /* ── UNDER REVIEW card ── */
+                  <div
+                    className="p-4 rounded-2xl space-y-3"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 100%)',
+                      border: '1px solid rgba(16,185,129,0.35)',
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: 'rgba(16,185,129,0.15)', color: '#10B981' }}>
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold font-sans" style={{ color: 'var(--text-primary)' }}>
+                          Registration Under Review
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style={{ backgroundColor: '#10B981' }} />
+                          <p className="text-[10px] font-mono" style={{ color: '#10B981' }}>Under Review</p>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      Your registration has been submitted successfully and is currently under review by the school administration.
+                    </p>
+                    <p className="text-[11px] font-sans leading-relaxed" style={{ color: 'var(--text-faint)' }}>
+                      You will be notified once your registration is approved.
+                    </p>
+                  </div>
+                ) : (
+                  /* ── COMPLETE REGISTRATION card ── */
+                  <div
+                    className="p-4 rounded-2xl space-y-3 cursor-pointer group transition-all hover:scale-[1.02]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(233,195,73,0.14) 0%, rgba(233,195,73,0.04) 100%)',
+                      border: '1px solid var(--accent-gold-border)',
+                    }}
+                    onClick={() => window.location.href = '/onboarding/about'}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => e.key === 'Enter' && (window.location.href = '/onboarding/about')}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold font-sans" style={{ color: 'var(--text-primary)' }}>
+                          Complete Registration
+                        </p>
+                        <p className="text-[10px] font-sans" style={{ color: 'var(--text-muted)' }}>
+                          Pay registration fee · Select department
+                        </p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 ml-auto shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: 'var(--brand-gold)' }} />
+                    </div>
+                    <p className="text-[11px] font-sans leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      These two steps unlock your Student Dashboard — messaging, courses, grades, and more.
+                    </p>
+                  </div>
+                )}
               </motion.div>
 
                 <motion.div
@@ -135,14 +215,25 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
                   transition={{ duration: 0.5, delay: 0.3 }}
                   className="flex flex-wrap gap-3 pt-1"
                 >
-                  <Button
-                    variant="gold"
-                    size="lg"
-                    onClick={() => window.location.href = '/onboarding/about'}
-                    icon={<ArrowRight className="w-4 h-4" />}
-                  >
-                    Start Registration
-                  </Button>
+                  {isApproved ? (
+                    <Button
+                      variant="gold"
+                      size="lg"
+                      onClick={() => window.location.href = '/dashboard/student'}
+                      icon={<ArrowRight className="w-4 h-4" />}
+                    >
+                      Go to My Dashboard
+                    </Button>
+                  ) : !isUnderReview && (
+                    <Button
+                      variant="gold"
+                      size="lg"
+                      onClick={() => window.location.href = '/onboarding/about'}
+                      icon={<ArrowRight className="w-4 h-4" />}
+                    >
+                      Start Registration
+                    </Button>
+                  )}
                   <Button
                     variant="secondary"
                     size="lg"
@@ -161,10 +252,24 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
                 className="hidden sm:flex flex-col items-center gap-3"
               >
                 <div className="p-4 rounded-2xl text-center space-y-2"
-                  style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)', minWidth: 120 }}>
-                  <CreditCard className="w-8 h-8 mx-auto" style={{ color: 'var(--brand-gold)' }} />
-                  <p className="text-[10px] font-mono uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>Next Step</p>
-                  <p className="text-xs font-bold font-sans" style={{ color: 'var(--brand-gold)' }}>Pay & Select</p>
+                  style={{
+                    backgroundColor: isApproved ? 'rgba(16,185,129,0.12)' : isUnderReview ? 'rgba(16,185,129,0.10)' : 'var(--accent-gold-subtle)',
+                    border: `1px solid ${isApproved || isUnderReview ? 'rgba(16,185,129,0.35)' : 'var(--accent-gold-border)'}`,
+                    minWidth: 120,
+                  }}>
+                  {isApproved
+                    ? <GraduationCap className="w-8 h-8 mx-auto" style={{ color: '#10B981' }} />
+                    : isUnderReview
+                      ? <Clock className="w-8 h-8 mx-auto" style={{ color: '#10B981' }} />
+                      : <CreditCard className="w-8 h-8 mx-auto" style={{ color: 'var(--brand-gold)' }} />
+                  }
+                  <p className="text-[10px] font-mono uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+                    {isApproved ? 'Status' : isUnderReview ? 'Status' : 'Next Step'}
+                  </p>
+                  <p className="text-xs font-bold font-sans"
+                    style={{ color: isApproved || isUnderReview ? '#10B981' : 'var(--brand-gold)' }}>
+                    {isApproved ? 'Approved ✓' : isUnderReview ? 'Under Review' : 'Pay & Select'}
+                  </p>
                 </div>
                 <Badge variant="gold" className="text-[10px]">#{state.applicationNumber}</Badge>
               </motion.div>

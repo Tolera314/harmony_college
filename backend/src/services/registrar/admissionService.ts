@@ -1,4 +1,5 @@
-import { prisma } from '../../lib/prisma';
+﻿import { prisma }              from '../../lib/prisma';
+import { createNotification } from '../notificationService';
 import { ApplicationStatus, StudentStatus } from '@prisma/client';
 
 export interface AdmissionListQuery {
@@ -62,6 +63,20 @@ export async function approveApplication(id: string, registrarUserId: string, co
     include: { department: true },
   });
 
+  // Check if Finance Officer has already verified the registration fee payment.
+  const studentProfile = await prisma.studentProfile.findUnique({
+    where:  { userId: app.userId },
+    select: { paymentVerifiedByFinance: true },
+  });
+  const financeApproved = studentProfile?.paymentVerifiedByFinance ?? false;
+
+  // ── GATE: Finance Officer must approve before Registrar can approve ────────
+  if (!financeApproved) {
+    throw new Error(
+      'Finance approval required first. The Finance Officer must verify the student\'s registration fee payment before the Registrar can approve this application.'
+    );
+  }
+
   return prisma.$transaction(async (tx) => {
     // 1. Update application status
     const updatedApp = await tx.application.update({
@@ -102,7 +117,15 @@ export async function approveApplication(id: string, registrarUserId: string, co
       }
     }
 
-    // 4. Audit log
+    // 4. Dual-approval gate — unlock Student Dashboard if Finance has also verified
+    if (financeApproved) {
+      await tx.user.update({
+        where: { id: app.userId },
+        data:  { profileCompleted: true },
+      });
+    }
+
+    // 5. Audit log
     await tx.registrarAuditLog.create({
       data: {
         userId: registrarUserId,
@@ -113,17 +136,20 @@ export async function approveApplication(id: string, registrarUserId: string, co
       },
     });
 
-    // 5. Notification
-    await tx.notification.create({
-      data: {
-        userId: app.userId,
-        title: 'Admission Approved',
-        message: `Congratulations! Your application to ${app.program} has been approved.`,
-        type: 'SUCCESS',
-        entityType: 'Application',
-        entityId: id,
-      },
-    });
+    // 6. Notification
+    const notifMessage = financeApproved
+      ? `Congratulations! Your application to ${app.program} has been approved and your registration fee was verified. You can now access the Student Dashboard!`
+      : `Your application to ${app.program} has been approved. Once your registration fee is verified by Finance, you will have full access.`;
+
+    createNotification({
+      userId:     app.userId,
+      title:      financeApproved ? 'Admission Approved - Welcome!' : 'Admission Approved',
+      message:    notifMessage,
+      type:       'SUCCESS',
+      entityType: 'Application',
+      entityId:   id,
+      actionTab:  'dashboard',
+    }).catch(() => {});
 
     return updatedApp;
   });
@@ -151,16 +177,15 @@ export async function rejectApplication(id: string, registrarUserId: string, rea
       },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: app.userId,
-        title: 'Application Update',
-        message: `Your application has been reviewed. Reason: ${reason}`,
-        type: 'WARNING',
-        entityType: 'Application',
-        entityId: id,
-      },
-    });
+    createNotification({
+      userId:     app.userId,
+      title:      'Application Update',
+      message:    `Your application has been reviewed. Reason: ${reason}`,
+      type:       'WARNING',
+      entityType: 'Application',
+      entityId:   id,
+      actionTab:  'dashboard',
+    }).catch(() => {});
 
     return updatedApp;
   });
@@ -184,13 +209,15 @@ export async function requestCorrection(id: string, registrarUserId: string, com
     },
   });
 
-  await prisma.notification.create({
-    data: {
-      userId: app.userId, title: 'Action Required on Your Application',
-      message: `The registrar has requested a correction: ${comment}`,
-      type: 'WARNING', entityType: 'Application', entityId: id,
-    },
-  });
+  createNotification({
+    userId:     app.userId,
+    title:      'Action Required on Your Application',
+    message:    `The registrar has requested a correction: ${comment}`,
+    type:       'WARNING',
+    entityType: 'Application',
+    entityId:   id,
+    actionTab:  'dashboard',
+  }).catch(() => {});
 
   return updated;
 }

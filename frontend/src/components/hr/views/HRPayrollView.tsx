@@ -38,13 +38,15 @@ function SalaryField({ value }: { value: number }) {
 }
 
 export const HRPayrollView: React.FC = () => {
-  const [records,  setRecords]  = useState<HRPayrollRecordApi[]>([]);
-  const [selected, setSelected] = useState<HRPayrollRecordApi | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
-  const [saving,   setSaving]   = useState(false);
+  const [records,      setRecords]      = useState<HRPayrollRecordApi[]>([]);
+  const [selected,     setSelected]     = useState<HRPayrollRecordApi | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [saving,       setSaving]       = useState(false);
   const [approveModal, setApproveModal] = useState(false);
-  const [comment,  setComment]  = useState('');
+  const [comment,      setComment]      = useState('');
+  const [payslipPage,  setPayslipPage]  = useState(1);
+  const PAYSLIP_PER_PAGE = 15;
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -63,8 +65,10 @@ export const HRPayrollView: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   const selectRecord = async (id: string) => {
-    try { setSelected(await hrPayrollApi.getById(id)); }
-    catch { /* keep current */ }
+    try {
+      setSelected(await hrPayrollApi.getById(id));
+      setPayslipPage(1);  // reset payslip pagination when switching payroll period
+    } catch { /* keep current */ }
   };
 
   const handleApprove = async () => {
@@ -176,35 +180,69 @@ export const HRPayrollView: React.FC = () => {
           </Card>
 
           {/* Payslips */}
-          {selected.stage !== 'DRAFT' && selected.payslips && selected.payslips.length > 0 && (
-            <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay)">
-              <table className="w-full text-xs font-sans min-w-[700px]">
-                <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-                  <tr>{['Employee','Basic','Allowances','Bonus','Tax','Pension','Net Salary'].map(h => (
-                    <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted)">{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody className="divide-y divide-(--border-subtle)">
-                  {selected.payslips.slice(0, 10).map(entry => (
-                    <tr key={entry.id} className="hover:bg-(--hover-overlay) transition-colors">
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-2">
-                          <img src={entry.employee?.avatarUrl ?? '/tigist.png'} alt="" className="w-6 h-6 rounded-full border border-(--border-default) shrink-0" />
-                          <span className="font-semibold text-(--text-primary) text-xs">{entry.employee?.fullName?.split(' ').slice(-1)[0]}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5"><SalaryField value={entry.basicSalary} /></td>
-                      <td className="px-4 py-3.5"><SalaryField value={entry.allowances} /></td>
-                      <td className="px-4 py-3.5"><SalaryField value={entry.bonuses} /></td>
-                      <td className="px-4 py-3.5 font-mono text-xs text-(--status-danger)">-{entry.tax.toLocaleString()}</td>
-                      <td className="px-4 py-3.5 font-mono text-xs text-(--status-warning)">-{entry.pension.toLocaleString()}</td>
-                      <td className="px-4 py-3.5"><SalaryField value={entry.netSalary} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {selected.stage !== 'DRAFT' && selected.payslips && selected.payslips.length > 0 && (() => {
+            const allPayslips = selected.payslips;
+            const totalPayslips = allPayslips.length;
+            const totalPayslipPages = Math.ceil(totalPayslips / PAYSLIP_PER_PAGE);
+            const pagedPayslips = allPayslips.slice(
+              (payslipPage - 1) * PAYSLIP_PER_PAGE,
+              payslipPage * PAYSLIP_PER_PAGE,
+            );
+            return (
+              <div className="space-y-2">
+                {/* Payslip count + pagination header */}
+                <div className="flex items-center justify-between px-1">
+                  <p className="font-mono text-xs text-(--text-faint)">
+                    {totalPayslips} payslip{totalPayslips !== 1 ? 's' : ''} · showing {(payslipPage - 1) * PAYSLIP_PER_PAGE + 1}–{Math.min(payslipPage * PAYSLIP_PER_PAGE, totalPayslips)}
+                  </p>
+                  {totalPayslipPages > 1 && (
+                    <div className="flex gap-1">
+                      <button disabled={payslipPage === 1}
+                        onClick={() => setPayslipPage(p => Math.max(1, p - 1))}
+                        className="px-2 py-1 text-[10px] font-mono rounded-lg border border-(--border-default) bg-(--hover-overlay) disabled:opacity-40 hover:border-(--brand-gold)/50 transition-colors">
+                        ‹ Prev
+                      </button>
+                      <span className="px-2 py-1 text-[10px] font-mono text-(--text-faint)">
+                        {payslipPage}/{totalPayslipPages}
+                      </span>
+                      <button disabled={payslipPage === totalPayslipPages}
+                        onClick={() => setPayslipPage(p => Math.min(totalPayslipPages, p + 1))}
+                        className="px-2 py-1 text-[10px] font-mono rounded-lg border border-(--border-default) bg-(--hover-overlay) disabled:opacity-40 hover:border-(--brand-gold)/50 transition-colors">
+                        Next ›
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay)">
+                  <table className="w-full text-xs font-sans min-w-[700px]">
+                    <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
+                      <tr>{['Employee','Basic','Allowances','Bonus','Tax','Pension','Net Salary'].map(h => (
+                        <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted)">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-(--border-subtle)">
+                      {pagedPayslips.map(entry => (
+                        <tr key={entry.id} className="hover:bg-(--hover-overlay) transition-colors">
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2">
+                              <img src={entry.employee?.avatarUrl ?? '/tigist.png'} alt="" className="w-6 h-6 rounded-full border border-(--border-default) shrink-0" />
+                              <span className="font-semibold text-(--text-primary) text-xs truncate max-w-[120px]">{entry.employee?.fullName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5"><SalaryField value={entry.basicSalary} /></td>
+                          <td className="px-4 py-3.5"><SalaryField value={entry.allowances} /></td>
+                          <td className="px-4 py-3.5"><SalaryField value={entry.bonuses} /></td>
+                          <td className="px-4 py-3.5 font-mono text-xs text-(--status-danger)">-{entry.tax.toLocaleString()}</td>
+                          <td className="px-4 py-3.5 font-mono text-xs text-(--status-warning)">-{entry.pension.toLocaleString()}</td>
+                          <td className="px-4 py-3.5"><SalaryField value={entry.netSalary} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
 
           {selected.stage === 'LOCKED' && (
             <div className="flex items-center gap-3 p-4 bg-(--hover-overlay) border border-(--border-default) rounded-xl">

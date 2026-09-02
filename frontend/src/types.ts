@@ -55,9 +55,8 @@ export type NavTab =
   | 'grades'
   | 'financials'
   | 'degree_audit'
-  | 'support'
   | 'settings'
-  | 'messages';
+  | 'profile';
 
 export interface StudentProfile {
   name: string;

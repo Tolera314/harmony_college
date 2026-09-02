@@ -106,56 +106,79 @@ async function main(): Promise<void> {
 
   // ── 2. Departments ───────────────────────────────────────────────────────
   console.log('\n📁  Seeding departments...');
-  const deptCS = await prisma.department.upsert({
-    where: { code: 'CS' },
-    update: {},
-    create: { name: 'Computer Science', code: 'CS', description: 'Department of Computer Science and Engineering', isActive: true },
+  const deptPHOTO = await prisma.department.upsert({
+    where: { code: 'PHOTO' }, update: {},
+    create: { name: 'Photography & Visual Media', code: 'PHOTO', description: 'Photography, Videography & Visual Storytelling', isActive: true },
   });
-  const deptMATH = await prisma.department.upsert({
-    where: { code: 'MATH' },
-    update: {},
-    create: { name: 'Mathematics', code: 'MATH', description: 'Department of Mathematics and Statistics', isActive: true },
+  const deptFILM = await prisma.department.upsert({
+    where: { code: 'FILM' }, update: {},
+    create: { name: 'Theatrical Art & Filmmaking', code: 'FILM', description: 'Theatre, Acting, Directing & Independent Filmmaking', isActive: true },
   });
-  const deptMECH = await prisma.department.upsert({
-    where: { code: 'MECH' },
-    update: {},
-    create: { name: 'Mechanical Engineering', code: 'MECH', description: 'Department of Mechanical Engineering', isActive: true },
+  const deptMUSIC = await prisma.department.upsert({
+    where: { code: 'MUSIC' }, update: {},
+    create: { name: 'Music & Performing Arts', code: 'MUSIC', description: 'Instrumental Performance, Vocal Arts & Music Production', isActive: true },
   });
-  const deptBUS = await prisma.department.upsert({
-    where: { code: 'BUS' },
-    update: {},
-    create: { name: 'Business Administration', code: 'BUS', description: 'Department of Business Administration', isActive: true },
+  const deptDESIGN = await prisma.department.upsert({
+    where: { code: 'DESIGN' }, update: {},
+    create: { name: 'Design & Digital Marketing', code: 'DESIGN', description: 'Graphic Design, Brand Identity & Digital Marketing', isActive: true },
   });
-  const deptENG = await prisma.department.upsert({
-    where: { code: 'ENG' },
-    update: {},
-    create: { name: 'English Language', code: 'ENG', description: 'Department of English Language and Literature', isActive: true },
+  const deptMEDIA = await prisma.department.upsert({
+    where: { code: 'MEDIA' }, update: {},
+    create: { name: 'Media, Communication & Languages', code: 'MEDIA', description: 'Journalism, Media Reporting & Professional Languages', isActive: true },
   });
-  console.log('   ✓ 5 departments');
+  const deptIT = await prisma.department.upsert({
+    where: { code: 'IT' }, update: {},
+    create: { name: 'Information Technology', code: 'IT', description: 'IT, Networking, Software & Digital Systems', isActive: true },
+  });
+  const deptPHARM = await prisma.department.upsert({
+    where: { code: 'PHARM' }, update: {},
+    create: { name: 'Pharmacy & Health Sciences', code: 'PHARM', description: 'Pharmaceutical Sciences, Drug Dispensing & Clinical Practice', isActive: true },
+  });
+  console.log('   ✓ 7 departments');
 
   // ── 3. Programs ──────────────────────────────────────────────────────────
   console.log('📚  Seeding programs...');
-  const progCS = await prisma.program.upsert({
-    where: { code: 'BSCS' },
-    update: {},
-    create: { name: 'Computer Science (B.Sc.)', code: 'BSCS', durationYears: 4, totalCredits: 132, departmentId: deptCS.id },
+  const progPHOTO = await prisma.program.upsert({
+    where: { code: 'PVID' }, update: {},
+    create: { name: 'Photography & Videography', code: 'PVID', durationYears: 1, totalCredits: 60, departmentId: deptPHOTO.id },
   });
-  const progMECH = await prisma.program.upsert({
-    where: { code: 'BSME' },
-    update: {},
-    create: { name: 'Mechanical Engineering (B.Sc.)', code: 'BSME', durationYears: 4, totalCredits: 140, departmentId: deptMECH.id },
+  const progFILM = await prisma.program.upsert({
+    where: { code: 'TAF' }, update: {},
+    create: { name: 'Theatrical Art & Filmmaking', code: 'TAF', durationYears: 1, totalCredits: 60, departmentId: deptFILM.id },
   });
-  const progBUS = await prisma.program.upsert({
-    where: { code: 'BABA' },
-    update: {},
-    create: { name: 'Business Administration (B.A.)', code: 'BABA', durationYears: 4, totalCredits: 120, departmentId: deptBUS.id },
+  const progMUSIC = await prisma.program.upsert({
+    where: { code: 'MIV' }, update: {},
+    create: { name: 'Music Instruments & Vocal', code: 'MIV', durationYears: 1, totalCredits: 60, departmentId: deptMUSIC.id },
+  });
+  const progCUBASE = await prisma.program.upsert({
+    where: { code: 'CMP' }, update: {},
+    create: { name: 'Cubase Music Production', code: 'CMP', durationYears: 1, totalCredits: 60, departmentId: deptMUSIC.id },
+  });
+  const progGDES = await prisma.program.upsert({
+    where: { code: 'GDES' }, update: {},
+    create: { name: 'Graphic Design', code: 'GDES', durationYears: 1, totalCredits: 60, departmentId: deptDESIGN.id },
+  });
+  const progDMK = await prisma.program.upsert({
+    where: { code: 'DMKT' }, update: {},
+    create: { name: 'Digital Marketing', code: 'DMKT', durationYears: 1, totalCredits: 60, departmentId: deptDESIGN.id },
+  });
+  const progJOUR = await prisma.program.upsert({
+    where: { code: 'JOUR' }, update: {},
+    create: { name: 'Journalism', code: 'JOUR', durationYears: 1, totalCredits: 60, departmentId: deptMEDIA.id },
   });
   const progIT = await prisma.program.upsert({
-    where: { code: 'BSIT' },
-    update: {},
-    create: { name: 'Information Technology (B.Sc.)', code: 'BSIT', durationYears: 4, totalCredits: 128, departmentId: deptCS.id },
+    where: { code: 'BSIT' }, update: {},
+    create: { name: 'Information Technology (IT)', code: 'BSIT', durationYears: 1, totalCredits: 60, departmentId: deptIT.id },
   });
-  console.log('   ✓ 4 programs');
+  const progLANG = await prisma.program.upsert({
+    where: { code: 'LANG' }, update: {},
+    create: { name: 'Languages', code: 'LANG', durationYears: 1, totalCredits: 60, departmentId: deptMEDIA.id },
+  });
+  const progPHARM = await prisma.program.upsert({
+    where: { code: 'PHARM' }, update: {},
+    create: { name: 'Pharmacy', code: 'PHARM', durationYears: 2, totalCredits: 120, departmentId: deptPHARM.id },
+  });
+  console.log('   ✓ 10 programs (official Harmony College programs)');
 
   // ── 4. Academic Years & Semesters ────────────────────────────────────────
   console.log('📅  Seeding academic years & semesters...');
@@ -168,7 +191,7 @@ async function main(): Promise<void> {
       endDate: new Date('2025-06-30'),
       isCurrent: false, isActive: true,
     },
-  });j
+  });
   const ay2025 = await prisma.academicYear.upsert({
     where: { name: '2025-2026' },
     update: {},
@@ -255,27 +278,27 @@ async function main(): Promise<void> {
   const instr1 = await prisma.instructorRecord.upsert({
     where: { userId: users['instructor@test.local'] },
     update: {},
-    create: { userId: users['instructor@test.local'], employeeId: 'INS-2020-001', title: 'Dr.', specialization: 'Algorithms & Data Structures', departmentId: deptCS.id },
+    create: { userId: users['instructor@test.local'], employeeId: 'INS-2020-001', title: 'Ato', specialization: 'Photography & Visual Storytelling', departmentId: deptPHOTO.id },
   });
   const instr2 = await prisma.instructorRecord.upsert({
     where: { userId: users['instructor2@test.local'] },
     update: {},
-    create: { userId: users['instructor2@test.local'], employeeId: 'INS-2021-002', title: 'Prof.', specialization: 'Calculus & Analysis', departmentId: deptMATH.id },
+    create: { userId: users['instructor2@test.local'], employeeId: 'INS-2021-002', title: 'Prof.', specialization: 'Theatrical Arts & Filmmaking', departmentId: deptFILM.id },
   });
   const instr3 = await prisma.instructorRecord.upsert({
     where: { userId: users['instructor3@test.local'] },
     update: {},
-    create: { userId: users['instructor3@test.local'], employeeId: 'INS-2022-003', title: 'Dr.', specialization: 'Artificial Intelligence', departmentId: deptCS.id },
+    create: { userId: users['instructor3@test.local'], employeeId: 'INS-2022-003', title: 'Dr.', specialization: 'Music Production & Audio Engineering', departmentId: deptMUSIC.id },
   });
   const instr4 = await prisma.instructorRecord.upsert({
     where: { userId: users['instructor4@test.local'] },
     update: {},
-    create: { userId: users['instructor4@test.local'], employeeId: 'INS-2022-004', title: 'Dr.', specialization: 'Mechanical Systems', departmentId: deptMECH.id },
+    create: { userId: users['instructor4@test.local'], employeeId: 'INS-2022-004', title: 'Dr.', specialization: 'Graphic Design & Digital Marketing', departmentId: deptDESIGN.id },
   });
   const instr5 = await prisma.instructorRecord.upsert({
     where: { userId: users['instructor5@test.local'] },
     update: {},
-    create: { userId: users['instructor5@test.local'], employeeId: 'INS-2023-005', title: 'Ato', specialization: 'Business Strategy', departmentId: deptBUS.id },
+    create: { userId: users['instructor5@test.local'], employeeId: 'INS-2023-005', title: 'Ato', specialization: 'Information Technology', departmentId: deptIT.id },
   });
   console.log('   ✓ 5 instructor records');
 
@@ -287,119 +310,105 @@ async function main(): Promise<void> {
     create: {
       userId:       users['departmenthead@test.local'],
       employeeId:   'DH-2024-001',
-      title:        'Department Head & Associate Professor',
+      title:        'Department Head & Senior Instructor',
       isActive:     true,
-      departmentId: deptCS.id,
+      departmentId: deptPHOTO.id,
     },
   });
-  // Seed a few sample leave requests for CS faculty
   const dhRecord = await prisma.departmentHeadRecord.findUnique({
     where: { userId: users['departmenthead@test.local'] },
   });
   if (dhRecord) {
     const leaveSeeds = [
-      {
-        instructorId: instr1.id,
-        leaveType:    'CONFERENCE' as const,
-        startDate:    new Date('2026-09-15'),
-        endDate:      new Date('2026-09-19'),
-        durationDays: 5,
-        reason:       'Presenting research at the International Computer Science Conference in Nairobi.',
-        status:       'PENDING_DH' as const,
-      },
-      {
-        instructorId: instr3.id,
-        leaveType:    'MEDICAL' as const,
-        startDate:    new Date('2026-09-22'),
-        endDate:      new Date('2026-09-26'),
-        durationDays: 5,
-        reason:       'Medical procedure and recovery period. Doctor clearance attached.',
-        status:       'PENDING_DH' as const,
-      },
-      {
-        instructorId: instr1.id,
-        leaveType:    'RESEARCH' as const,
-        startDate:    new Date('2026-08-01'),
-        endDate:      new Date('2026-08-14'),
-        durationDays: 14,
-        reason:       'University-sponsored research collaboration at Addis Ababa University.',
-        status:       'DH_APPROVED' as const,
-        reviewedByDhId: dhRecord.id,
-        dhComment:    'Approved. Research collaboration benefits the department.',
-        dhReviewedAt: new Date('2026-07-25'),
-      },
+      { instructorId: instr1.id, leaveType: 'CONFERENCE' as const, startDate: new Date('2026-09-15'), endDate: new Date('2026-09-19'), durationDays: 5, reason: 'Presenting at the East Africa Creative Arts Conference.', status: 'PENDING_DH' as const },
+      { instructorId: instr3.id, leaveType: 'MEDICAL' as const,    startDate: new Date('2026-09-22'), endDate: new Date('2026-09-26'), durationDays: 5, reason: 'Medical procedure and recovery period.', status: 'PENDING_DH' as const },
+      { instructorId: instr1.id, leaveType: 'RESEARCH' as const,   startDate: new Date('2026-08-01'), endDate: new Date('2026-08-14'), durationDays: 14, reason: 'Research collaboration with Addis Ababa University media department.', status: 'DH_APPROVED' as const, reviewedByDhId: dhRecord.id, dhComment: 'Approved.', dhReviewedAt: new Date('2026-07-25') },
     ];
     for (const lr of leaveSeeds) {
-      const existing = await prisma.departmentLeaveRequest.findFirst({
-        where: { instructorId: lr.instructorId, startDate: lr.startDate },
-      });
-      if (!existing) {
-        await prisma.departmentLeaveRequest.create({ data: lr });
-      }
+      const existing = await prisma.departmentLeaveRequest.findFirst({ where: { instructorId: lr.instructorId, startDate: lr.startDate } });
+      if (!existing) await prisma.departmentLeaveRequest.create({ data: lr });
     }
   }
   console.log('   ✓ Department head record & sample leave requests');
 
-  // ── 7. Courses ───────────────────────────────────────────────────────────
+  // ── 7. Courses (Harmony College official programs) ────────────────────────
   console.log('📖  Seeding courses...');
   const courseData = [
-    { code: 'CS101', name: 'Introduction to Computer Science', creditHours: 4, deptId: deptCS.id, desc: 'Core algorithmic paradigms and Python programming.' },
-    { code: 'CS201', name: 'Data Structures & Algorithms', creditHours: 4, deptId: deptCS.id, desc: 'Stacks, queues, trees, graphs, and Big O analysis.' },
-    { code: 'CS302', name: 'Database Management Systems', creditHours: 3, deptId: deptCS.id, desc: 'SQL, transactions, schema normalization.' },
-    { code: 'CS401', name: 'Software Engineering', creditHours: 3, deptId: deptCS.id, desc: 'SDLC, agile, design patterns, testing.' },
-    { code: 'CS440', name: 'Artificial Intelligence', creditHours: 4, deptId: deptCS.id, desc: 'Machine learning, neural networks, search algorithms.' },
-    { code: 'CS450', name: 'Computer Networks', creditHours: 3, deptId: deptCS.id, desc: 'OSI model, TCP/IP, routing, security.' },
-    { code: 'MATH101', name: 'Calculus I', creditHours: 4, deptId: deptMATH.id, desc: 'Limits, derivatives, integrals.' },
-    { code: 'MATH201', name: 'Calculus II', creditHours: 3, deptId: deptMATH.id, desc: 'Techniques of integration, sequences, series.' },
-    { code: 'MATH302', name: 'Calculus III (Multivariable)', creditHours: 3, deptId: deptMATH.id, desc: 'Partial derivatives, multiple integrals, vector calculus.' },
-    { code: 'MATH210', name: 'Linear Algebra', creditHours: 3, deptId: deptMATH.id, desc: 'Matrices, determinants, eigenvalues, vector spaces.' },
-    { code: 'MECH101', name: 'Engineering Fundamentals', creditHours: 3, deptId: deptMECH.id, desc: 'Introduction to engineering design.' },
-    { code: 'MECH201', name: 'Engineering Statics', creditHours: 3, deptId: deptMECH.id, desc: 'Forces, moments, equilibrium of rigid bodies.' },
-    { code: 'MECH301', name: 'Thermodynamics', creditHours: 3, deptId: deptMECH.id, desc: 'Laws of thermodynamics, energy transfer.' },
-    { code: 'BUS101', name: 'Principles of Management', creditHours: 3, deptId: deptBUS.id, desc: 'Planning, organizing, leading, controlling.' },
-    { code: 'BUS201', name: 'Financial Accounting', creditHours: 3, deptId: deptBUS.id, desc: 'Balance sheets, income statements, cash flow.' },
-    { code: 'BUS301', name: 'Marketing Management', creditHours: 3, deptId: deptBUS.id, desc: 'Market analysis, branding, consumer behavior.' },
+    // Photography & Videography
+    { code: 'PV101',  name: 'Introduction to Photography',           creditHours: 4, deptId: deptPHOTO.id,  desc: 'Camera fundamentals, composition, lighting basics.' },
+    { code: 'PV201',  name: 'Videography & Content Production',      creditHours: 4, deptId: deptPHOTO.id,  desc: 'Video storytelling, editing with Premiere & DaVinci.' },
+    { code: 'PV301',  name: 'Commercial & Studio Photography',       creditHours: 3, deptId: deptPHOTO.id,  desc: 'Professional studio lighting, product & portrait photography.' },
+    // Theatrical Art & Filmmaking
+    { code: 'TF101',  name: 'Acting Fundamentals',                   creditHours: 4, deptId: deptFILM.id,   desc: 'Stage presence, character study, improvisation.' },
+    { code: 'TF201',  name: 'Film Direction & Scriptwriting',        creditHours: 4, deptId: deptFILM.id,   desc: 'Short film production, screenplay structure.' },
+    { code: 'TF301',  name: 'Independent Filmmaking',                creditHours: 3, deptId: deptFILM.id,   desc: 'Full pipeline: pre-production to final cut.' },
+    // Music
+    { code: 'MU101',  name: 'Music Theory & Ear Training',           creditHours: 3, deptId: deptMUSIC.id,  desc: 'Notation, intervals, chord construction.' },
+    { code: 'MU201',  name: 'Instrument Performance I',              creditHours: 4, deptId: deptMUSIC.id,  desc: 'Guitar, keyboard, bass or drums — individual track.' },
+    { code: 'MU301',  name: 'Cubase DAW & Music Production',         creditHours: 4, deptId: deptMUSIC.id,  desc: 'MIDI, mixing, mastering in Cubase.' },
+    { code: 'MU401',  name: 'Vocal Technique & Performance',         creditHours: 3, deptId: deptMUSIC.id,  desc: 'Breath control, range training, performance practice.' },
+    // Design & Marketing
+    { code: 'GD101',  name: 'Principles of Graphic Design',          creditHours: 4, deptId: deptDESIGN.id, desc: 'Typography, colour theory, layout — Adobe Illustrator.' },
+    { code: 'GD201',  name: 'Brand Identity & UI/UX Design',         creditHours: 3, deptId: deptDESIGN.id, desc: 'Logo systems, style guides, basic UX principles.' },
+    { code: 'DM101',  name: 'Digital Marketing Fundamentals',        creditHours: 3, deptId: deptDESIGN.id, desc: 'SEO, social media strategy, Google Ads basics.' },
+    { code: 'DM201',  name: 'Content Marketing & Analytics',         creditHours: 3, deptId: deptDESIGN.id, desc: 'Content calendars, campaign measurement, Meta Ads.' },
+    // Media & Languages
+    { code: 'JR101',  name: 'Introduction to Journalism',            creditHours: 3, deptId: deptMEDIA.id,  desc: 'News writing, interview technique, media ethics.' },
+    { code: 'JR201',  name: 'Broadcast & Digital Reporting',         creditHours: 3, deptId: deptMEDIA.id,  desc: 'Radio, TV, and online journalism practicum.' },
+    { code: 'LN101',  name: 'Professional English',                  creditHours: 3, deptId: deptMEDIA.id,  desc: 'Business communication, writing, and presentation.' },
+    { code: 'LN201',  name: 'French / Arabic Language I',            creditHours: 3, deptId: deptMEDIA.id,  desc: 'Introductory language track — French or Arabic.' },
+    // IT
+    { code: 'IT101',  name: 'Introduction to Information Technology', creditHours: 4, deptId: deptIT.id,    desc: 'Hardware, OS, networking fundamentals.' },
+    { code: 'IT201',  name: 'Computer Networking',                   creditHours: 3, deptId: deptIT.id,     desc: 'OSI model, TCP/IP, LAN/WAN setup.' },
+    { code: 'IT301',  name: 'Web Development Fundamentals',          creditHours: 3, deptId: deptIT.id,     desc: 'HTML, CSS, basic JavaScript.' },
+    // Pharmacy
+    { code: 'PH101',  name: 'Introduction to Pharmaceutical Sciences', creditHours: 4, deptId: deptPHARM.id, desc: 'Drug classification, pharmacology basics.' },
+    { code: 'PH201',  name: 'Drug Dispensing & Patient Care',        creditHours: 4, deptId: deptPHARM.id,  desc: 'Prescription workflows, patient counselling.' },
+    { code: 'PH301',  name: 'Clinical Pharmacy Practice',            creditHours: 3, deptId: deptPHARM.id,  desc: 'Hospital and community pharmacy practicum.' },
   ];
 
   const courseMap: Record<string, string> = {};
   for (const c of courseData) {
     const course = await prisma.course.upsert({
-      where: { code: c.code },
+      where:  { code: c.code },
       update: {},
       create: { code: c.code, name: c.name, creditHours: c.creditHours, departmentId: c.deptId, description: c.desc, status: CourseStatus.ACTIVE },
     });
     courseMap[c.code] = course.id;
   }
-  // Prerequisites
-  const prereqs = [
-    ['CS201', 'CS101'], ['CS302', 'CS201'], ['CS401', 'CS201'],
-    ['CS440', 'CS201'], ['CS440', 'MATH302'], ['CS450', 'CS201'],
-    ['MATH201', 'MATH101'], ['MATH302', 'MATH201'], ['MATH210', 'MATH101'],
-    ['MECH201', 'MATH101'], ['MECH301', 'MECH201'], ['BUS201', 'BUS101'],
+  // Simple prerequisite chains
+  const prereqs: [string, string][] = [
+    ['PV201','PV101'], ['PV301','PV201'],
+    ['TF201','TF101'], ['TF301','TF201'],
+    ['MU201','MU101'], ['MU301','MU101'], ['MU401','MU201'],
+    ['GD201','GD101'], ['DM201','DM101'],
+    ['JR201','JR101'], ['LN201','LN101'],
+    ['IT201','IT101'], ['IT301','IT201'],
+    ['PH201','PH101'], ['PH301','PH201'],
   ];
   for (const [cCode, pCode] of prereqs) {
     await prisma.coursePrerequisite.upsert({
-      where: { courseId_prerequisiteId: { courseId: courseMap[cCode], prerequisiteId: courseMap[pCode] } },
+      where:  { courseId_prerequisiteId: { courseId: courseMap[cCode], prerequisiteId: courseMap[pCode] } },
       update: {},
       create: { courseId: courseMap[cCode], prerequisiteId: courseMap[pCode] },
-    });
+    }).catch(() => {});
   }
   console.log(`   ✓ ${courseData.length} courses, ${prereqs.length} prerequisites`);
 
   // ── 8. Course Offerings (current semester) ───────────────────────────────
   console.log('🗓️   Seeding course offerings...');
   const offeringsData = [
-    { code: 'CS101', instrId: instr1.id, roomId: rA101.id, capacity: 60, section: 'A', status: OfferingStatus.SCHEDULED },
-    { code: 'CS201', instrId: instr1.id, roomId: rC204.id, capacity: 45, section: 'A', status: OfferingStatus.SCHEDULED },
-    { code: 'CS302', instrId: instr1.id, roomId: rA104.id, capacity: 40, section: 'A', status: OfferingStatus.SCHEDULED },
-    { code: 'CS440', instrId: instr3.id, roomId: rB302.id, capacity: 30, section: 'A', status: OfferingStatus.SCHEDULED },
-    { code: 'CS450', instrId: instr3.id, roomId: rC101.id, capacity: 50, section: 'A', status: OfferingStatus.DRAFT },
-    { code: 'MATH101', instrId: instr2.id, roomId: rA104.id, capacity: 50, section: 'A', status: OfferingStatus.SCHEDULED },
-    { code: 'MATH101', instrId: instr2.id, roomId: rA101.id, capacity: 60, section: 'B', status: OfferingStatus.INSTRUCTOR_ASSIGNED },
-    { code: 'MATH302', instrId: instr2.id, roomId: rC204.id, capacity: 40, section: 'A', status: OfferingStatus.SCHEDULED },
-    { code: 'MECH201', instrId: instr4.id, roomId: rB201.id, capacity: 35, section: 'A', status: OfferingStatus.CLOSED },
-    { code: 'BUS101', instrId: instr5.id, roomId: rC101.id, capacity: 55, section: 'A', status: OfferingStatus.SCHEDULED },
-    { code: 'BUS201', instrId: instr5.id, roomId: rA104.id, capacity: 45, section: 'A', status: OfferingStatus.DRAFT },
+    { code: 'PV101', instrId: instr1.id, roomId: rA101.id, capacity: 40, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'PV201', instrId: instr1.id, roomId: rC204.id, capacity: 35, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'TF101', instrId: instr2.id, roomId: rA104.id, capacity: 35, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'TF201', instrId: instr2.id, roomId: rB302.id, capacity: 30, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'MU101', instrId: instr3.id, roomId: rB201.id, capacity: 30, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'MU301', instrId: instr3.id, roomId: rLabL01.id, capacity: 25, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'GD101', instrId: instr4.id, roomId: rC101.id, capacity: 40, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'DM101', instrId: instr4.id, roomId: rA104.id, capacity: 35, section: 'A', status: OfferingStatus.DRAFT },
+    { code: 'IT101', instrId: instr5.id, roomId: rA101.id, capacity: 50, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'IT201', instrId: instr5.id, roomId: rLabL01.id, capacity: 25, section: 'A', status: OfferingStatus.SCHEDULED },
+    { code: 'PH101', instrId: instr2.id, roomId: rC204.id, capacity: 30, section: 'A', status: OfferingStatus.SCHEDULED },
   ];
 
   const offeringMap: Record<string, string> = {};
@@ -422,14 +431,15 @@ async function main(): Promise<void> {
   // ── 9. Timetable slots ───────────────────────────────────────────────────
   console.log('⏰  Seeding timetable slots...');
   const timetableData = [
-    { key: 'CS101-A', slots: [{ day: 0, start: '09:00', end: '10:30' }, { day: 2, start: '09:00', end: '10:30' }] },
-    { key: 'CS201-A', slots: [{ day: 1, start: '10:00', end: '11:30' }, { day: 3, start: '10:00', end: '11:30' }] },
-    { key: 'CS302-A', slots: [{ day: 0, start: '13:00', end: '14:30' }, { day: 2, start: '13:00', end: '14:30' }] },
-    { key: 'CS440-A', slots: [{ day: 2, start: '14:00', end: '15:30' }, { day: 4, start: '14:00', end: '15:30' }] },
-    { key: 'MATH101-A', slots: [{ day: 0, start: '11:00', end: '12:30' }, { day: 2, start: '11:00', end: '12:30' }] },
-    { key: 'MATH302-A', slots: [{ day: 1, start: '10:00', end: '11:30' }, { day: 3, start: '10:00', end: '11:30' }] },
-    { key: 'MECH201-A', slots: [{ day: 0, start: '16:00', end: '17:30' }, { day: 4, start: '16:00', end: '17:30' }] },
-    { key: 'BUS101-A', slots: [{ day: 1, start: '08:00', end: '09:30' }, { day: 3, start: '08:00', end: '09:30' }] },
+    { key: 'PV101-A', slots: [{ day: 0, start: '09:00', end: '10:30' }, { day: 2, start: '09:00', end: '10:30' }] },
+    { key: 'PV201-A', slots: [{ day: 1, start: '10:00', end: '11:30' }, { day: 3, start: '10:00', end: '11:30' }] },
+    { key: 'TF101-A', slots: [{ day: 0, start: '13:00', end: '14:30' }, { day: 2, start: '13:00', end: '14:30' }] },
+    { key: 'TF201-A', slots: [{ day: 2, start: '14:00', end: '15:30' }, { day: 4, start: '14:00', end: '15:30' }] },
+    { key: 'MU101-A', slots: [{ day: 0, start: '11:00', end: '12:30' }, { day: 2, start: '11:00', end: '12:30' }] },
+    { key: 'MU301-A', slots: [{ day: 1, start: '10:00', end: '11:30' }, { day: 3, start: '10:00', end: '11:30' }] },
+    { key: 'GD101-A', slots: [{ day: 0, start: '16:00', end: '17:30' }, { day: 4, start: '16:00', end: '17:30' }] },
+    { key: 'IT101-A', slots: [{ day: 1, start: '08:00', end: '09:30' }, { day: 3, start: '08:00', end: '09:30' }] },
+    { key: 'PH101-A', slots: [{ day: 1, start: '14:00', end: '15:30' }, { day: 4, start: '09:00', end: '10:30' }] },
   ];
   for (const t of timetableData) {
     if (!offeringMap[t.key]) continue;
@@ -448,13 +458,13 @@ async function main(): Promise<void> {
   // ── 10. Student Records & Profiles ───────────────────────────────────────
   console.log('🎓  Seeding student records...');
   const studentDefs = [
-    { email: 'student@test.local',  studentId: 'HC-2024-0001', progId: progCS.id,   deptId: deptCS.id,   year: 3, gpa: 3.72, credits: 92,  status: StudentStatus.ACTIVE,    dob: '2002-05-14', gender: 'Male',   city: 'Addis Ababa' },
-    { email: 'selam@test.local',    studentId: 'HC-2024-0012', progId: progCS.id,   deptId: deptCS.id,   year: 3, gpa: 3.92, credits: 88,  status: StudentStatus.ACTIVE,    dob: '2005-04-12', gender: 'Female', city: 'Addis Ababa' },
-    { email: 'yonas@test.local',    studentId: 'HC-2024-0015', progId: progMECH.id, deptId: deptMECH.id, year: 2, gpa: 2.85, credits: 56,  status: StudentStatus.ACTIVE,    dob: '2004-11-22', gender: 'Male',   city: 'Adama' },
-    { email: 'marta@test.local',    studentId: 'HC-2025-0912', progId: progBUS.id,  deptId: deptBUS.id,  year: 1, gpa: 3.15, credits: 28,  status: StudentStatus.ACTIVE,    dob: '2005-08-30', gender: 'Female', city: 'Hawassa' },
-    { email: 'kidus@test.local',    studentId: 'HC-2023-0182', progId: progCS.id,   deptId: deptCS.id,   year: 4, gpa: 1.95, credits: 104, status: StudentStatus.ON_LEAVE,  dob: '2003-01-15', gender: 'Male',   city: 'Bahir Dar' },
-    { email: 'tigist@test.local',   studentId: 'HC-2024-0034', progId: progIT.id,   deptId: deptCS.id,   year: 2, gpa: 3.45, credits: 60,  status: StudentStatus.ACTIVE,    dob: '2004-07-22', gender: 'Female', city: 'Dire Dawa' },
-    { email: 'dawit@test.local',    studentId: 'HC-2023-0095', progId: progBUS.id,  deptId: deptBUS.id,  year: 3, gpa: 3.10, credits: 84,  status: StudentStatus.SUSPENDED, dob: '2003-03-10', gender: 'Male',   city: 'Mekelle' },
+    { email: 'student@test.local',  studentId: 'HC-2024-0001', progId: progPHOTO.id,  deptId: deptPHOTO.id,  year: 1, gpa: 3.72, credits: 45,  status: StudentStatus.ACTIVE,    dob: '2002-05-14', gender: 'Male',   city: 'Addis Ababa' },
+    { email: 'selam@test.local',    studentId: 'HC-2024-0012', progId: progFILM.id,   deptId: deptFILM.id,   year: 1, gpa: 3.92, credits: 42,  status: StudentStatus.ACTIVE,    dob: '2005-04-12', gender: 'Female', city: 'Addis Ababa' },
+    { email: 'yonas@test.local',    studentId: 'HC-2024-0015', progId: progMUSIC.id,  deptId: deptMUSIC.id,  year: 1, gpa: 2.85, credits: 30,  status: StudentStatus.ACTIVE,    dob: '2004-11-22', gender: 'Male',   city: 'Adama' },
+    { email: 'marta@test.local',    studentId: 'HC-2025-0912', progId: progGDES.id,   deptId: deptDESIGN.id, year: 1, gpa: 3.15, credits: 20,  status: StudentStatus.ACTIVE,    dob: '2005-08-30', gender: 'Female', city: 'Hawassa' },
+    { email: 'kidus@test.local',    studentId: 'HC-2023-0182', progId: progPHOTO.id,  deptId: deptPHOTO.id,  year: 1, gpa: 1.95, credits: 55,  status: StudentStatus.ON_LEAVE,  dob: '2003-01-15', gender: 'Male',   city: 'Bahir Dar' },
+    { email: 'tigist@test.local',   studentId: 'HC-2024-0034', progId: progIT.id,     deptId: deptIT.id,     year: 1, gpa: 3.45, credits: 38,  status: StudentStatus.ACTIVE,    dob: '2004-07-22', gender: 'Female', city: 'Dire Dawa' },
+    { email: 'dawit@test.local',    studentId: 'HC-2023-0095', progId: progJOUR.id,   deptId: deptMEDIA.id,  year: 1, gpa: 3.10, credits: 50,  status: StudentStatus.SUSPENDED, dob: '2003-03-10', gender: 'Male',   city: 'Mekelle' },
   ];
 
   const studentRecordMap: Record<string, string> = {};
@@ -493,22 +503,12 @@ async function main(): Promise<void> {
     'C': { grade: 'C', pts: 2.0 },
   };
 
-  const enrollmentSeeds = [
-    // Selam — CS Year 3 (active current sem)
-    { email: 'selam@test.local', offeringKey: 'CS201-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'selam@test.local', offeringKey: 'CS302-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'selam@test.local', offeringKey: 'MATH302-A', status: EnrollmentStatus.FORCE_ADDED, grade: null, override: { reason: 'Prerequisite bypass approved by DH', by: users['registrar@test.local'] } },
-    // Yonas — MECH Year 2
-    { email: 'yonas@test.local', offeringKey: 'MATH101-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'yonas@test.local', offeringKey: 'MECH201-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    // Marta — BUS Year 1
-    { email: 'marta@test.local', offeringKey: 'BUS101-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    // Tigist — IT Year 2
-    { email: 'tigist@test.local', offeringKey: 'CS101-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'tigist@test.local', offeringKey: 'MATH101-B', status: EnrollmentStatus.ACTIVE, grade: null },
-    // Alexander — CS Year 3
-    { email: 'student@test.local', offeringKey: 'CS302-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'student@test.local', offeringKey: 'CS440-A', status: EnrollmentStatus.ACTIVE, grade: null },
+  const enrollmentSeeds: { email: string; offeringKey: string; status: EnrollmentStatus; grade: null; override?: { reason: string; by: string } }[] = [
+    { email: 'selam@test.local',  offeringKey: 'PV101-A', status: EnrollmentStatus.ACTIVE, grade: null },
+    { email: 'yonas@test.local',  offeringKey: 'MU101-A', status: EnrollmentStatus.ACTIVE, grade: null },
+    { email: 'marta@test.local',  offeringKey: 'GD101-A', status: EnrollmentStatus.ACTIVE, grade: null },
+    { email: 'tigist@test.local', offeringKey: 'IT101-A', status: EnrollmentStatus.ACTIVE, grade: null },
+    { email: 'tigist@test.local', offeringKey: 'IT201-A', status: EnrollmentStatus.ACTIVE, grade: null },
   ];
 
   for (const e of enrollmentSeeds) {
@@ -534,13 +534,13 @@ async function main(): Promise<void> {
   // ── 12. Admission Applications ───────────────────────────────────────────
   console.log('📋  Seeding admission applications...');
   const appSeeds = [
-    { email: 'selam@test.local',  fullName: 'Selam Alemayehu',  status: ApplicationStatus.ACCEPTED, prog: 'Computer Science (B.Sc.)',         gender: 'Female', dob: '2005-04-12', age: 21, city: 'Addis Ababa', phone: '+251911223344', studyMode: 'Regular' },
-    { email: 'yonas@test.local',  fullName: 'Yonas Kebede',    status: ApplicationStatus.ACCEPTED, prog: 'Mechanical Engineering (B.Sc.)',  gender: 'Male',   dob: '2004-11-22', age: 22, city: 'Adama',       phone: '+251911667788', studyMode: 'Regular' },
-    { email: 'marta@test.local',  fullName: 'Marta Hailu',     status: ApplicationStatus.ACCEPTED, prog: 'Business Administration (B.A.)', gender: 'Female', dob: '2005-08-30', age: 20, city: 'Hawassa',     phone: '+251911889900', studyMode: 'Regular' },
-    { email: 'kidus@test.local',  fullName: 'Kidus Tilahun',   status: ApplicationStatus.REJECTED, prog: 'Computer Science (B.Sc.)',       gender: 'Male',   dob: '2003-01-15', age: 23, city: 'Bahir Dar',   phone: '+251911443322', studyMode: 'Evening', reviewComment: 'Insufficient Matric scores (280/350).' },
-    { email: 'tigist@test.local', fullName: 'Tigist Bekele',   status: ApplicationStatus.ACCEPTED, prog: 'Information Technology (B.Sc.)', gender: 'Female', dob: '2004-07-22', age: 22, city: 'Dire Dawa',   phone: '+251911556677', studyMode: 'Regular' },
-    { email: 'dawit@test.local',  fullName: 'Dawit Alemu',     status: ApplicationStatus.ACCEPTED, prog: 'Business Administration (B.A.)', gender: 'Male',   dob: '2003-03-10', age: 23, city: 'Mekelle',     phone: '+251911334455', studyMode: 'Regular' },
-    { email: 'newstudent@test.local', fullName: 'New Student', status: ApplicationStatus.SUBMITTED, prog: 'Computer Science (B.Sc.)',      gender: 'Male',   dob: '2006-01-01', age: 20, city: 'Addis Ababa', phone: '+251911000099', studyMode: 'Regular' },
+    { email: 'selam@test.local',      fullName: 'Selam Alemayehu', status: ApplicationStatus.ACCEPTED, prog: 'Theatrical Art & Filmmaking',    gender: 'Female', dob: '2005-04-12', age: 21, city: 'Addis Ababa', phone: '+251911223344', studyMode: 'Regular' },
+    { email: 'yonas@test.local',      fullName: 'Yonas Kebede',    status: ApplicationStatus.ACCEPTED, prog: 'Music Instruments & Vocal',       gender: 'Male',   dob: '2004-11-22', age: 22, city: 'Adama',       phone: '+251911667788', studyMode: 'Regular' },
+    { email: 'marta@test.local',      fullName: 'Marta Hailu',     status: ApplicationStatus.ACCEPTED, prog: 'Graphic Design',                  gender: 'Female', dob: '2005-08-30', age: 20, city: 'Hawassa',     phone: '+251911889900', studyMode: 'Regular' },
+    { email: 'kidus@test.local',      fullName: 'Kidus Tilahun',   status: ApplicationStatus.REJECTED, prog: 'Photography & Videography',       gender: 'Male',   dob: '2003-01-15', age: 23, city: 'Bahir Dar',   phone: '+251911443322', studyMode: 'Evening', reviewComment: 'Insufficient Matric scores (280/350).' },
+    { email: 'tigist@test.local',     fullName: 'Tigist Bekele',   status: ApplicationStatus.ACCEPTED, prog: 'Information Technology (IT)',     gender: 'Female', dob: '2004-07-22', age: 22, city: 'Dire Dawa',   phone: '+251911556677', studyMode: 'Regular' },
+    { email: 'dawit@test.local',      fullName: 'Dawit Alemu',     status: ApplicationStatus.ACCEPTED, prog: 'Journalism',                      gender: 'Male',   dob: '2003-03-10', age: 23, city: 'Mekelle',     phone: '+251911334455', studyMode: 'Regular' },
+    { email: 'newstudent@test.local', fullName: 'New Student',     status: ApplicationStatus.SUBMITTED, prog: 'Photography & Videography',      gender: 'Male',   dob: '2006-01-01', age: 20, city: 'Addis Ababa', phone: '+251911000099', studyMode: 'Regular' },
   ];
 
   for (const a of appSeeds) {
@@ -665,9 +665,9 @@ async function main(): Promise<void> {
     { action: 'ADMISSION_APPROVED' as const, entity: 'Application', entityId: 'seed', desc: 'Admission approved for Selam Alemayehu' },
     { action: 'ADMISSION_APPROVED' as const, entity: 'Application', entityId: 'seed', desc: 'Admission approved for Marta Hailu' },
     { action: 'ADMISSION_REJECTED' as const, entity: 'Application', entityId: 'seed', desc: 'Admission rejected for Kidus Tilahun — insufficient scores' },
-    { action: 'COURSE_CREATED' as const,     entity: 'Course',       entityId: 'seed', desc: 'Course CS440 Artificial Intelligence created' },
-    { action: 'OFFERING_CREATED' as const,   entity: 'CourseOffering', entityId: 'seed', desc: 'Course offering CS101-A created for Semester I 2026' },
-    { action: 'ENROLLMENT_FORCE_ADDED' as const, entity: 'Enrollment', entityId: 'seed', desc: 'Force-added Selam Alemayehu to MATH302 — prerequisite bypass' },
+    { action: 'COURSE_CREATED' as const,     entity: 'Course',         entityId: 'seed', desc: 'Course PV101 Introduction to Photography created' },
+    { action: 'OFFERING_CREATED' as const,   entity: 'CourseOffering', entityId: 'seed', desc: 'Course offering PV101-A created for Semester I 2026' },
+    { action: 'ENROLLMENT_FORCE_ADDED' as const, entity: 'Enrollment', entityId: 'seed', desc: 'Force-added Selam Alemayehu to TF101 — direct enrolment' },
     { action: 'STUDENT_SUSPENDED' as const,  entity: 'StudentRecord', entityId: 'seed', desc: 'Student Dawit Alemu suspended pending review' },
   ];
   for (const al of auditSeeds) {
@@ -678,16 +678,15 @@ async function main(): Promise<void> {
   console.log('   ✓ registrar audit logs');
 
   // ── 18. Program Requirements ─────────────────────────────────────────────
-  await prisma.programRequirement.deleteMany({ where: { programId: progCS.id } });
+  await prisma.programRequirement.deleteMany({ where: { programId: progPHOTO.id } });
   await prisma.programRequirement.createMany({ data: [
-    { programId: progCS.id, category: 'CORE', description: 'Core CS courses', requiredCredits: 80, minimumGPA: 2.0 },
-    { programId: progCS.id, category: 'ELECTIVE', description: 'CS elective courses', requiredCredits: 20, minimumGPA: 2.0 },
-    { programId: progCS.id, category: 'GENERAL', description: 'General education requirements', requiredCredits: 32, minimumGPA: 2.0 },
+    { programId: progPHOTO.id, category: 'CORE',    description: 'Core Photography & Videography modules', requiredCredits: 45, minimumGPA: 2.0 },
+    { programId: progPHOTO.id, category: 'GENERAL', description: 'General skills and communication',        requiredCredits: 15, minimumGPA: 2.0 },
   ]});
-  await prisma.programRequirement.deleteMany({ where: { programId: progBUS.id } });
+  await prisma.programRequirement.deleteMany({ where: { programId: progIT.id } });
   await prisma.programRequirement.createMany({ data: [
-    { programId: progBUS.id, category: 'CORE', description: 'Core Business courses', requiredCredits: 72, minimumGPA: 2.0 },
-    { programId: progBUS.id, category: 'GENERAL', description: 'General education requirements', requiredCredits: 48, minimumGPA: 2.0 },
+    { programId: progIT.id, category: 'CORE',    description: 'Core IT modules',            requiredCredits: 45, minimumGPA: 2.0 },
+    { programId: progIT.id, category: 'GENERAL', description: 'General education modules',  requiredCredits: 15, minimumGPA: 2.0 },
   ]});
   console.log('   ✓ program requirements');
 
@@ -785,7 +784,7 @@ async function main(): Promise<void> {
 
   // ── 22. Today's Class Sessions (for live attendance testing) ─────────────
   console.log('📆  Seeding today\'s class sessions...');
-  const todayOfferingKeys = ['CS101-A', 'CS201-A', 'CS302-A'];
+  const todayOfferingKeys = ['PV101-A', 'TF101-A', 'IT101-A'];
   const now = new Date();
   const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 

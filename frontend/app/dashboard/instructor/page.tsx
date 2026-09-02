@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { InstructorNavTab } from '@/src/types/instructor';
@@ -24,7 +24,8 @@ import { InSettingsView }      from '@/src/components/instructor/views/InSetting
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChatView } from '@/src/components/chat/ChatView';
-import { instructorDashboardApi, instructorNotificationsApi, type ApiNotification, type DashboardData } from '@/src/lib/instructorApi';
+import { instructorDashboardApi, instructorNotificationsApi, type DashboardData } from '@/src/lib/instructorApi';
+import { useNotifications } from '@/src/hooks/useNotifications';
 
 // ── Fallback profile shape (populated from API) ───────────────────────────────
 const EMPTY_PROFILE = {
@@ -69,30 +70,27 @@ export default function InstructorDashboardPage() {
   // Real data
   const [dashData,       setDashData]     = useState<DashboardData | null>(null);
   const [dashLoading,    setDashLoading]  = useState(true);
-  const [notifications,  setNotifications] = useState<ApiNotification[]>([]); // full ApiNotification[]
-  const [unreadCount,    setUnreadCount]  = useState(0);
 
   const { toast, show: showToast, hide: hideToast } = useToast();
+
+  // ── Notifications via unified hook (fetches + real-time socket push) ─────
+  const {
+    items:       notifications,
+    unreadCount,
+    markRead:    handleMarkRead,
+    markAllRead: handleMarkAllRead,
+    reload:      reloadNotifications,
+  } = useNotifications({
+    fetchFn:       () => instructorNotificationsApi.list({ limit: 50 }),
+    markReadFn:    (id) => instructorNotificationsApi.markRead(id),
+    markAllReadFn: () => instructorNotificationsApi.markAllRead(),
+  });
 
   // ── Load dashboard data (profile + KPIs) ────────────────────────────────
   const loadDashboard = useCallback(async () => {
     try {
       const data = await instructorDashboardApi.get();
       setDashData(data);
-      // Adapt dashboard's slim notification shape to the full ApiNotification shape
-      const adapted: ApiNotification[] = data.notifications.map(n => ({
-        id:         n.id,
-        userId:     '',        // not returned by dashboard summary
-        title:      n.title,
-        message:    n.message,
-        type:       n.type,
-        isRead:     n.isRead,
-        entityType: null,
-        entityId:   null,
-        createdAt:  n.createdAt,
-      }));
-      setNotifications(adapted);
-      setUnreadCount(data.unreadNotifications);
     } catch (e) {
       // Dashboard load failed — show toast but don't crash
       showToast(e instanceof Error ? e.message : 'Failed to load dashboard', 'error');
@@ -103,18 +101,10 @@ export default function InstructorDashboardPage() {
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
-  // ── Load full notifications when tab opens ───────────────────────────────
-  const loadNotifications = useCallback(async () => {
-    try {
-      const res = await instructorNotificationsApi.list({ limit: 50 });
-      setNotifications(res.notifications);
-      setUnreadCount(res.unreadCount);
-    } catch { /* keep existing */ }
-  }, []);
-
+  // ── Reload full notifications when tab opens ──────────────────────────────
   useEffect(() => {
-    if (activeTab === 'notifications') loadNotifications();
-  }, [activeTab, loadNotifications]);
+    if (activeTab === 'notifications') reloadNotifications();
+  }, [activeTab, reloadNotifications]);
 
   // ── Keyboard shortcut Ctrl+K / Cmd+K ────────────────────────────────────
   useEffect(() => {
@@ -130,20 +120,6 @@ export default function InstructorDashboardPage() {
     setTabLoading(true);
     setTimeout(() => { setRawTab(tab); setTabLoading(false); }, 120);
   };
-
-  // ── Notification helpers ─────────────────────────────────────────────────
-  const handleMarkRead = useCallback(async (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
-    try { await instructorNotificationsApi.markRead(id); } catch { /* optimistic update stands */ }
-  }, []);
-
-  const handleMarkAllRead = useCallback(async () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    setUnreadCount(0);
-    try { await instructorNotificationsApi.markAllRead(); } catch { /* optimistic */ }
-  }, []);
-
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     window.location.href = '/signin';

@@ -36,6 +36,16 @@ export const RevenueLineChart: React.FC<RevenueLineChartProps> = ({
   const [animated, setAnimated] = useState(false);
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 80); return () => clearTimeout(t); }, []);
 
+  // Guard: render empty placeholder when no data is available yet
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center rounded-xl"
+        style={{ height, background: 'var(--hover-overlay)' }}>
+        <p className="font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>No data yet</p>
+      </div>
+    );
+  }
+
   const W = 560; const H = height;
   const pad = { top: 12, right: 24, bottom: showLabels ? 28 : 10, left: 40 };
   const iW = W - pad.left - pad.right;
@@ -131,6 +141,7 @@ interface GroupedBarChartProps { data: GroupedBarItem[]; height?: number; primar
 export const GroupedBarChart: React.FC<GroupedBarChartProps> = ({
   data, height = 160, primaryLabel = 'Revenue', secondaryLabel = 'Target',
 }) => {
+  if (!data || data.length === 0) return <div className="flex items-center justify-center rounded-xl" style={{ height, background: 'var(--hover-overlay)' }}><p className="font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>No data yet</p></div>;
   const W = 560; const H = height;
   const pad = { top: 20, right: 12, bottom: 28, left: 40 };
   const iW = W - pad.left - pad.right;
@@ -183,6 +194,7 @@ interface DonutSegment { label: string; value: number; color: string }
 interface DonutChartProps { segments: DonutSegment[]; total: number; centerLabel?: string; centerSub?: string }
 
 export const DonutChart: React.FC<DonutChartProps> = ({ segments, total, centerLabel, centerSub }) => {
+  if (!segments || segments.length === 0) return <div className="flex items-center justify-center rounded-full w-36 h-36 mx-auto" style={{ background: 'var(--hover-overlay)' }}><p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>No data</p></div>;
   const R = 58; const C = 72; const stroke = 16;
   const circ = 2 * Math.PI * R;
   let offset = 0;
@@ -236,7 +248,9 @@ interface HBarItem { label: string; value: number; max: number; color?: string; 
 
 export const HorizontalBarChart: React.FC<{ data: HBarItem[]; formatValue?: (v: number) => string }> = ({
   data, formatValue = fmtETB,
-}) => (
+}) => {
+  if (!data || data.length === 0) return <div className="py-8 text-center"><p className="font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>No data yet</p></div>;
+  return (
   <div className="space-y-3.5" aria-label="Horizontal bar chart">
     {data.map((d, i) => {
       const pct = Math.min(100, d.max > 0 ? (d.value / d.max) * 100 : 0);
@@ -263,7 +277,8 @@ export const HorizontalBarChart: React.FC<{ data: HBarItem[]; formatValue?: (v: 
       );
     })}
   </div>
-);
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // Vertical Bar Chart (daily collections)
@@ -272,6 +287,7 @@ interface BarItem { label: string; value: number; color?: string }
 export const VerticalBarChart: React.FC<{ data: BarItem[]; height?: number; formatValue?: (v: number) => string }> = ({
   data, height = 130, formatValue = fmtETB,
 }) => {
+  if (!data || data.length === 0) return <div className="flex items-center justify-center rounded-xl" style={{ height, background: 'var(--hover-overlay)' }}><p className="font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>No data yet</p></div>;
   const W = 540; const H = height;
   const pad = { top: 20, right: 8, bottom: 28, left: 8 };
   const iW = W - pad.left - pad.right;

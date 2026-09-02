@@ -1,12 +1,16 @@
-/**
+﻿/**
  * Harmony College — Admin User Management Service
  * ─────────────────────────────────────────────────
  * All business logic for admin user CRUD, sessions, stats, notifications,
  * departments, and programs. Routes delegate here; no Prisma in route handlers.
  */
 
-import { prisma } from '../../lib/prisma';
-import bcrypt from 'bcryptjs';
+import { prisma }                                  from '../../lib/prisma';
+import bcrypt                                      from 'bcryptjs';
+import {
+  createNotification   as _createNotification,
+  broadcastNotification as _broadcastNotification,
+} from '../notificationService';
 import {
   Role, AccountStatus, AuditAction,
   PASSWORD_BCRYPT_ROUNDS,
@@ -626,16 +630,16 @@ export async function createNotification(data: {
   entityType?: string;
   entityId?:   string;
 }) {
-  return prisma.notification.create({
-    data: {
-      userId:     data.userId,
-      title:      data.title,
-      message:    data.message,
-      type:       data.type       ?? 'INFO',
-      entityType: data.entityType ?? null,
-      entityId:   data.entityId   ?? null,
-    },
+  // Delegate to unified service — persists row AND pushes via socket
+  await _createNotification({
+    userId:     data.userId,
+    title:      data.title,
+    message:    data.message,
+    type:       data.type       ?? 'INFO',
+    entityType: data.entityType,
+    entityId:   data.entityId,
   });
+  return { userId: data.userId, title: data.title };
 }
 
 export async function broadcastNotification(data: {
@@ -646,30 +650,29 @@ export async function broadcastNotification(data: {
   entityType?: string;
   entityId?:   string;
 }) {
-  const where: any = { status: AccountStatus.ACTIVE };
-  if (data.role) where.role = data.role;
-
-  const users = await prisma.user.findMany({ where, select: { id: true } });
-
-  const result = await prisma.notification.createMany({
-    data: users.map(u => ({
-      userId:     u.id,
-      title:      data.title,
-      message:    data.message,
-      type:       data.type       ?? 'INFO',
-      entityType: data.entityType ?? null,
-      entityId:   data.entityId   ?? null,
-    })),
+  return _broadcastNotification({
+    title:      data.title,
+    message:    data.message,
+    type:       data.type,
+    role:       data.role,
+    entityType: data.entityType,
+    entityId:   data.entityId,
   });
-
-  return { sent: result.count };
 }
 
-export async function markNotificationRead(id: string) {
-  return prisma.notification.update({
-    where: { id },
+/**
+ * Mark a single notification as read.
+ * `actorUserId` is the ADMIN performing the action — for admin's own inbox.
+ * Uses updateMany with compound {id, userId} to prevent IDOR: a row not
+ * belonging to actorUserId silently matches 0 rows and we return 404.
+ */
+export async function markNotificationRead(id: string, actorUserId: string) {
+  const result = await prisma.notification.updateMany({
+    where: { id, userId: actorUserId },
     data:  { isRead: true },
   });
+  if (result.count === 0) throw new Error('Notification not found.');
+  return { id, isRead: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
