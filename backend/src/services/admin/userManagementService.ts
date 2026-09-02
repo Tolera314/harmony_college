@@ -17,6 +17,7 @@ import {
   STAFF_ROLES,
 } from '../../types/auth';
 import { StudentStatus, CourseStatus, ApplicationStatus, OfferingStatus } from '@prisma/client';
+import { approveApplication, rejectApplication } from '../registrar/admissionService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SAFE SELECT — never return passwordHash or refreshTokenHash
@@ -1708,6 +1709,13 @@ export async function updateAdmissionStatus(
   reviewerUserId: string,
   comment?: string
 ) {
+  if (status === ApplicationStatus.ACCEPTED) {
+    return approveApplication(id, reviewerUserId, comment);
+  }
+  if (status === ApplicationStatus.REJECTED) {
+    return rejectApplication(id, reviewerUserId, comment || 'Application rejected by Admin');
+  }
+
   const app = await prisma.application.findUnique({ where: { id }, select: { userId: true } });
   if (!app) throw new Error('Application not found');
 

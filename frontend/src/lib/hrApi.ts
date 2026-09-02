@@ -107,6 +107,7 @@ export interface HREmployeeApi {
   certificateUrl?: string | null;  certificateFileSize?: string | null;
   emergencyName: string | null; emergencyPhone: string | null; emergencyRelation: string | null;
   isActive: boolean; createdAt: string; updatedAt: string;
+  leaveRequests?: { id: string; leaveType: string; startDate: string; endDate: string; daysCount: number; status: string; submittedAt: string }[];
 }
 
 export interface HRLeaveRequestApi {

@@ -38,9 +38,19 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
       });
     }
 
-    // 2. Setup Super Admin
+    // 2. Cleanup existing test invitations and users
+    await prisma.staffInvitation.deleteMany({
+      where: {
+        OR: [
+          { email: { contains: '.test@harmony.edu.et' } },
+          { invitedByUser: { email: { contains: '.test@harmony.edu.et' } } },
+        ],
+      },
+    });
+    await prisma.user.deleteMany({ where: { email: { contains: '.test@harmony.edu.et' } } });
+
+    // 3. Setup Super Admin
     const saEmail = 'superadmin.inv.test@harmony.edu.et';
-    await prisma.user.deleteMany({ where: { email: saEmail } });
     superAdminUser = await prisma.user.create({
       data: {
         fullName:      'Super Admin Test',
@@ -61,9 +71,8 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
     });
     superAdminCookie = `accessToken=${saToken}`;
 
-    // 3. Setup Admin
+    // 4. Setup Admin
     const adminEmail = 'admin.inv.test@harmony.edu.et';
-    await prisma.user.deleteMany({ where: { email: adminEmail } });
     adminUser = await prisma.user.create({
       data: {
         fullName:      'Admin Test',

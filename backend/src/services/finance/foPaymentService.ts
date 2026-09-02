@@ -187,27 +187,33 @@ export async function recordStudentPayment(
 
   const receiptId = `REC-${Date.now().toString(36).toUpperCase()}`;
 
-  const [transaction, updatedAccount] = await prisma.$transaction([
-    prisma.financialTransaction.create({
-      data: {
-        financialAccountId: account.id,
-        type: 'PAYMENT',
-        amount: -Math.abs(paymentData.amount),
-        description: paymentData.description || `Payment via ${paymentData.paymentMethod}`,
-        category: paymentData.category || 'Tuition',
-        receiptId,
-        referenceId: paymentData.referenceNumber || null,
-        status: 'POSTED',
-      },
-    }),
-    prisma.financialAccount.update({
-      where: { id: account.id },
-      data: {
-        balance: account.balance - Math.abs(paymentData.amount),
-        lastUpdatedAt: new Date(),
-      },
-    }),
-  ]);
+  const createdTx = await prisma.financialTransaction.create({
+    data: {
+      financialAccountId: account.id,
+      type: 'PAYMENT',
+      amount: -Math.abs(paymentData.amount),
+      description: paymentData.description || `Payment via ${paymentData.paymentMethod}`,
+      category: paymentData.category || 'Payment',
+      receiptId,
+      referenceId: paymentData.referenceNumber || null,
+      status: 'POSTED',
+    },
+  });
+
+  const activeTxs = await prisma.financialTransaction.findMany({
+    where: { financialAccountId: account.id, status: 'POSTED' },
+    select: { amount: true },
+  });
+
+  const newBalance = activeTxs.reduce((sum, item) => sum + item.amount, 0);
+
+  const updatedAccount = await prisma.financialAccount.update({
+    where: { id: account.id },
+    data: {
+      balance: Math.round(newBalance * 100) / 100,
+      lastUpdatedAt: new Date(),
+    },
+  });
 
   if (account.studentRecord?.userId) {
     try {
@@ -221,7 +227,7 @@ export async function recordStudentPayment(
     } catch { /* ignore notification errors */ }
   }
 
-  return { transaction, account: updatedAccount, receiptId };
+  return { transaction: createdTx, account: updatedAccount, receiptId };
 }
 
 export async function listTransactions(params: {

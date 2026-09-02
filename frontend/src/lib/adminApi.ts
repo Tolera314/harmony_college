@@ -285,14 +285,25 @@ export const adminSessionsApi = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface AdminAuditLog {
-  id:        string;
-  action:    string;
-  userId:    string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-  metadata:  unknown;
-  createdAt: string;
-  user:      { fullName: string; email: string | null; role: string } | null;
+  id:          string;
+  action:      string;
+  module:      string;
+  actorName:   string;
+  actorEmail?: string | null;
+  actorRole?:  string | null;
+  actorUserId?: string | null;
+  ipAddress?:  string | null;
+  userAgent?:  string | null;
+  metadata?:   unknown;
+  createdAt:   string;
+  user?:       { fullName: string; email: string | null; role: string } | null;
+}
+
+export interface AdminAuditStats {
+  totalLogs:   number;
+  authLogs:    number;
+  financeLogs: number;
+  hrLogs:      number;
 }
 
 export interface AuditLogsResponse {
@@ -304,8 +315,148 @@ export interface AuditLogsResponse {
 }
 
 export const adminAuditApi = {
+  getStats: () => apiFetch<AdminAuditStats>('/api/admin/audit-logs/stats'),
   list: (params: Record<string, unknown> = {}) =>
     apiFetch<AuditLogsResponse>(`/api/admin/audit-logs${qs(params)}`),
+};
+
+// ── SECURITY CENTER ───────────────────────────────────────────────────────────
+
+export interface AdminSecurityStats {
+  activeSessions:   number;
+  lockedAccounts:   number;
+  failedLogins24h:  number;
+  mfaEnabledCount:  number;
+  totalUsers:       number;
+}
+
+export interface AdminSessionApi {
+  id:           string;
+  userId:       string;
+  userFullName: string;
+  userEmail:    string | null;
+  userRole:     string;
+  deviceInfo:   string;
+  ipAddress:    string;
+  lastUsedAt:   string;
+  createdAt:    string;
+  expiresAt:    string;
+}
+
+export interface AdminLockedAccountApi {
+  id:               string;
+  fullName:         string;
+  email:            string | null;
+  phone:            string | null;
+  role:             string;
+  accountStatus:    string;
+  failedLoginCount: number;
+  lockedUntil:      string | null;
+  updatedAt:        string;
+}
+
+export const adminSecurityApi = {
+  getStats: () => apiFetch<AdminSecurityStats>('/api/admin/security/stats'),
+
+  listSessions: (params: Record<string, unknown> = {}) =>
+    apiFetch<{ total: number; page: number; limit: number; totalPages: number; sessions: AdminSessionApi[] }>(
+      `/api/admin/security/sessions${qs(params)}`
+    ),
+
+  revokeSession: (id: string) =>
+    apiFetch<{ message: string }>(`/api/admin/security/sessions/${id}/revoke`, { method: 'POST' }),
+
+  listLockedAccounts: () =>
+    apiFetch<AdminLockedAccountApi[]>('/api/admin/security/locked-accounts'),
+
+  unlockUser: (id: string) =>
+    apiFetch<{ message: string }>(`/api/admin/security/users/${id}/unlock`, { method: 'POST' }),
+};
+
+// ── BACKUP & RECOVERY ────────────────────────────────────────────────────────
+
+export interface AdminBackupStats {
+  totalSnapshots:    number;
+  totalSizeBytes:    number;
+  totalSizeMB:       string;
+  lastBackupAt:      string | null;
+  maintenanceActive: boolean;
+  maintenanceReason?: string;
+}
+
+export interface AdminBackupSnapshot {
+  id:        string;
+  filename:  string;
+  type:      'FULL' | 'DATABASE' | 'DOCUMENTS';
+  sizeBytes: number;
+  status:    'COMPLETED' | 'FAILED';
+  createdAt: string;
+  createdBy: string;
+}
+
+export const adminBackupApi = {
+  getStats: () => apiFetch<AdminBackupStats>('/api/admin/backup/stats'),
+
+  listSnapshots: () => apiFetch<AdminBackupSnapshot[]>('/api/admin/backup/snapshots'),
+
+  triggerBackup: (type: 'FULL' | 'DATABASE' | 'DOCUMENTS' = 'FULL') =>
+    apiFetch<AdminBackupSnapshot>('/api/admin/backup/trigger', { method: 'POST', body: JSON.stringify({ type }) }),
+
+  getMaintenance: () => apiFetch<{ active: boolean; reason?: string }>('/api/admin/backup/maintenance'),
+
+  setMaintenance: (active: boolean, reason?: string) =>
+    apiFetch<{ active: boolean; reason?: string }>('/api/admin/backup/maintenance', { method: 'POST', body: JSON.stringify({ active, reason }) }),
+};
+
+// ── SYSTEM CONFIGURATION ──────────────────────────────────────────────────────
+
+export interface SystemConfigData {
+  identity: {
+    institutionName: string;
+    shortName:       string;
+    contactEmail:    string;
+    supportPhone:    string;
+    campusAddress:   string;
+    currency:        string;
+  };
+  academics: {
+    academicYear:          string;
+    currentSemester:       string;
+    maxCreditHours:        number;
+    defaultPassingGrade:   string;
+    allowLateRegistration: boolean;
+    addDropGraceDays:      number;
+  };
+  financials: {
+    defaultCreditHourFee:    number;
+    admissionApplicationFee: number;
+    paymentGraceDays:        number;
+    autoLockUnpaidAccounts:  boolean;
+  };
+  security: {
+    maxLoginAttempts:           number;
+    sessionTimeoutMinutes:      number;
+    requireMFA:                 boolean;
+    allowStaffSelfRegistration: boolean;
+  };
+  notifications: {
+    senderName:        string;
+    senderEmail:       string;
+    enableEmailNotifs: boolean;
+    enableSmsNotifs:   boolean;
+  };
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export const adminSystemConfigApi = {
+  get: () => apiFetch<SystemConfigData>('/api/admin/system-config'),
+
+  update: (data: Partial<SystemConfigData>) =>
+    apiFetch<SystemConfigData>('/api/admin/system-config', { method: 'PUT', body: JSON.stringify(data) }),
+
+  resetDefaults: () =>
+    apiFetch<SystemConfigData>('/api/admin/system-config/reset', { method: 'POST' }),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -899,3 +1050,472 @@ export interface AdminSystemHealth {
 export const adminSystemApi = {
   health: () => apiFetch<AdminSystemHealth>('/api/admin/system-health'),
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATTENDANCE (admin management & institution-wide analytics)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AdminAttendanceStats {
+  overallRate:        number | null;
+  todayRate:          number | null;
+  totalRecords:       number;
+  present:            number;
+  absent:             number;
+  late:               number;
+  excused:            number;
+  totalSessions:      number;
+  lowAttendanceCount: number;
+}
+
+export interface AdminAttendanceRecordItem {
+  id:               string;
+  status:           'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
+  method:           'MANUAL' | 'QR_CODE' | 'SELF_CHECKIN' | 'SYSTEM';
+  markedAt:         string;
+  markedBy:         string;
+  note:             string | null;
+  correctedAt:      string | null;
+  correctionReason: string | null;
+  student: {
+    id:         string;
+    studentId:  string;
+    fullName:   string;
+    email:      string | null;
+    department: { id: string; name: string; code: string } | null;
+    program:    { id: string; name: string; code: string } | null;
+  };
+  course: { id: string; name: string; code: string };
+  instructor: { id: string; fullName: string };
+  session: {
+    id:             string;
+    classSessionId: string;
+    date:           string;
+    startTime:      string;
+    endTime:        string;
+    title:          string | null;
+    room:           string | null;
+  };
+}
+
+export interface AdminAttendanceListResponse {
+  total:      number;
+  page:       number;
+  limit:      number;
+  totalPages: number;
+  records:    AdminAttendanceRecordItem[];
+}
+
+export interface AdminAttendanceRecordDetail {
+  id:               string;
+  status:           'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
+  method:           'MANUAL' | 'QR_CODE' | 'SELF_CHECKIN' | 'SYSTEM';
+  markedAt:         string;
+  markedBy:         string;
+  note:             string | null;
+  correctedAt:      string | null;
+  correctionReason: string | null;
+  student: {
+    id:         string;
+    studentId:  string;
+    userId:     string;
+    fullName:   string;
+    email:      string | null;
+    phone:      string | null;
+    department: { id: string; name: string; code: string } | null;
+    program:    { id: string; name: string; code: string } | null;
+  };
+  courseOffering: {
+    id:           string;
+    course:       { id: string; name: string; code: string };
+    instructor:   { id: string; fullName: string; email: string | null } | null;
+    department:   { id: string; name: string; code: string } | null;
+    academicYear: string;
+    semester:     string;
+    section:      string;
+  };
+  session: {
+    id:             string;
+    classSessionId: string;
+    date:           string;
+    startTime:      string;
+    endTime:        string;
+    title:          string | null;
+    room:           string | null;
+    status:         string;
+    lifecycle:      string;
+  };
+  corrections: {
+    id:        string;
+    oldStatus: string;
+    newStatus: string;
+    reason:    string;
+    changedBy: string;
+    changedAt: string;
+  }[];
+}
+
+export interface AdminAttendanceTrends {
+  period: string;
+  trends: { date: string; total: number; present: number; rate: number }[];
+  byDepartment: { id: string; name: string; code: string; total: number; present: number; rate: number | null }[];
+}
+
+export interface AdminLowAttendanceStudentItem {
+  student: {
+    id:         string;
+    studentId:  string;
+    user:       { fullName: string; email: string | null; phone: string | null };
+    department: { id: string; name: string; code: string } | null;
+    program:    { id: string; name: string; code: string } | null;
+  };
+  totalSessions:  number;
+  present:        number;
+  absent:         number;
+  late:           number;
+  excused:        number;
+  attendanceRate: number;
+}
+
+export interface AdminLowAttendanceResponse {
+  total:      number;
+  page:       number;
+  limit:      number;
+  totalPages: number;
+  threshold:  number;
+  students:   AdminLowAttendanceStudentItem[];
+}
+
+export interface AdminStudentAttendanceDetail {
+  student: {
+    id:         string;
+    studentId:  string;
+    fullName:   string;
+    email:      string | null;
+    phone:      string | null;
+    department: { id: string; name: string; code: string } | null;
+    program:    { id: string; name: string; code: string } | null;
+  };
+  overallRate:   number | null;
+  totalSessions: number;
+  present:       number;
+  absent:        number;
+  late:          number;
+  excused:       number;
+  courseBreakdown: {
+    courseOfferingId: string;
+    course:           { id: string; name: string; code: string };
+    instructorName:   string;
+    totalSessions:    number;
+    present:          number;
+    absent:           number;
+    rate:             number | null;
+  }[];
+  recentRecords: {
+    id:           string;
+    status:       string;
+    method:       string;
+    markedAt:     string;
+    note:         string | null;
+    course:       { id: string; name: string; code: string };
+    sessionDate:  string;
+    sessionTitle: string | null;
+  }[];
+}
+
+export interface AdminCourseAttendanceDetail {
+  offering: {
+    id:              string;
+    course:          { id: string; name: string; code: string };
+    department:      { id: string; name: string; code: string } | null;
+    instructor:      { id: string; fullName: string } | null;
+    academicYear:    string;
+    semester:        string;
+    section:         string;
+    enrollmentCount: number;
+  };
+  overallRate:  number | null;
+  totalRecords: number;
+  present:      number;
+  absent:       number;
+  late:         number;
+  excused:      number;
+  students: {
+    studentId:     string;
+    customId:      string;
+    fullName:      string;
+    email:         string | null;
+    totalSessions: number;
+    present:       number;
+    absent:        number;
+    rate:          number | null;
+  }[];
+  sessions: {
+    id:        string;
+    date:      string;
+    startTime: string;
+    endTime:   string;
+    title:     string | null;
+    room:      string | null;
+    status:    string;
+    attendanceSession: {
+      id:           string;
+      lifecycle:    string;
+      recordsCount: number;
+    } | null;
+  }[];
+}
+
+export interface AdminDepartmentAttendance {
+  id:           string;
+  name:         string;
+  code:         string;
+  totalRecords: number;
+  rate:         number | null;
+  programs: {
+    id:            string;
+    name:          string;
+    code:          string;
+    studentsCount: number;
+    totalRecords:  number;
+    rate:          number | null;
+  }[];
+}
+
+export const adminAttendanceApi = {
+  getStats: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminAttendanceStats>(`/api/admin/attendance/stats${qs(params)}`),
+
+  listRecords: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminAttendanceListResponse>(`/api/admin/attendance/records${qs(params)}`),
+
+  getRecordDetail: (id: string) =>
+    apiFetch<AdminAttendanceRecordDetail>(`/api/admin/attendance/records/${id}`),
+
+  correctRecord: (id: string, newStatus: string, reason: string) =>
+    apiFetch<{ id: string; status: string }>(`/api/admin/attendance/records/${id}/correct`, {
+      method: 'PATCH',
+      body: JSON.stringify({ newStatus, reason }),
+    }),
+
+  getTrends: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminAttendanceTrends>(`/api/admin/attendance/trends${qs(params)}`),
+
+  getLowAttendance: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminLowAttendanceResponse>(`/api/admin/attendance/low-attendance${qs(params)}`),
+
+  getStudentDetail: (studentId: string) =>
+    apiFetch<AdminStudentAttendanceDetail>(`/api/admin/attendance/students/${studentId}`),
+
+  getCourseDetail: (offeringId: string) =>
+    apiFetch<AdminCourseAttendanceDetail>(`/api/admin/attendance/courses/${offeringId}`),
+
+  getDepartmentAnalytics: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminDepartmentAttendance[]>(`/api/admin/attendance/departments${qs(params)}`),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FINANCE (admin management & institution-wide financial ledger)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AdminFinanceStats {
+  totalRevenue:        number;
+  totalOutstanding:    number;
+  totalCredits:        number;
+  totalTuitionCharged: number;
+  totalFeesCharged:    number;
+  totalScholarships:   number;
+  totalRefunds:        number;
+  clearedCount:        number;
+  unclearedCount:      number;
+  totalAccounts:       number;
+  totalTransactions:   number;
+}
+
+export interface AdminFinanceTransactionItem {
+  id:              string;
+  type:            'TUITION' | 'FEE' | 'SCHOLARSHIP' | 'GRANT' | 'PAYMENT' | 'REFUND' | 'PENALTY';
+  amount:          number;
+  description:     string;
+  category:        string;
+  receiptId:       string | null;
+  status:          'POSTED' | 'PENDING' | 'REVERSED';
+  referenceId:     string | null;
+  transactionDate: string;
+  createdAt:       string;
+  student: {
+    id:         string;
+    studentId:  string;
+    fullName:   string;
+    email:      string | null;
+    department: { id: string; name: string; code: string } | null;
+    program:    { id: string; name: string; code: string } | null;
+  };
+}
+
+export interface AdminTransactionsListResponse {
+  total:        number;
+  page:         number;
+  limit:        number;
+  totalPages:   number;
+  transactions: AdminFinanceTransactionItem[];
+}
+
+export interface AdminStudentFinancialAccountItem {
+  id:              string;
+  studentRecordId: string;
+  student: {
+    id:         string;
+    studentId:  string;
+    fullName:   string;
+    email:      string | null;
+    phone:      string | null;
+    department: { id: string; name: string; code: string } | null;
+    program:    { id: string; name: string; code: string } | null;
+  };
+  balance:        number;
+  clearedForTerm: string | null;
+  isCleared:      boolean;
+  lastUpdatedAt:  string;
+}
+
+export interface AdminStudentAccountsListResponse {
+  total:      number;
+  page:       number;
+  limit:      number;
+  totalPages: number;
+  accounts:   AdminStudentFinancialAccountItem[];
+}
+
+export interface AdminStudentFinancialDetail {
+  student: {
+    id:         string;
+    studentId:  string;
+    fullName:   string;
+    email:      string | null;
+    phone:      string | null;
+    department: { id: string; name: string; code: string } | null;
+    program:    { id: string; name: string; code: string } | null;
+  };
+  account: {
+    id:             string;
+    balance:        number;
+    clearedForTerm: string | null;
+    lastUpdatedAt:  string;
+  };
+  summary: {
+    totalCharges:  number;
+    totalPayments: number;
+    totalAid:      number;
+    balance:       number;
+    isCleared:     boolean;
+  };
+  transactions: {
+    id:              string;
+    type:            string;
+    amount:          number;
+    description:     string;
+    category:        string;
+    receiptId:       string | null;
+    status:          string;
+    referenceId:     string | null;
+    transactionDate: string;
+  }[];
+}
+
+export interface AdminFinanceTrends {
+  period: string;
+  trends: { date: string; payments: number; charges: number }[];
+}
+
+export const adminFinanceApi = {
+  getStats: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminFinanceStats>(`/api/admin/finance/stats${qs(params)}`),
+
+  listTransactions: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminTransactionsListResponse>(`/api/admin/finance/transactions${qs(params)}`),
+
+  postTransaction: (body: {
+    studentRecordId: string;
+    type: string;
+    amount: number;
+    description: string;
+    category?: string;
+    referenceId?: string;
+    transactionDate?: string;
+  }) =>
+    apiFetch<{ transaction: AdminFinanceTransactionItem; accountBalance: number }>(
+      '/api/admin/finance/transactions',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
+    ),
+
+  reverseTransaction: (id: string, reason: string) =>
+    apiFetch<{ transaction: AdminFinanceTransactionItem; accountBalance: number }>(
+      `/api/admin/finance/transactions/${id}/reverse`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ reason }),
+      }
+    ),
+
+  listAccounts: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminStudentAccountsListResponse>(`/api/admin/finance/accounts${qs(params)}`),
+
+  getStudentDetail: (studentId: string) =>
+    apiFetch<AdminStudentFinancialDetail>(`/api/admin/finance/accounts/student/${studentId}`),
+
+  updateClearance: (studentId: string, clearedForTerm: string | null) =>
+    apiFetch<{ clearedForTerm: string | null }>(
+      `/api/admin/finance/accounts/student/${studentId}/clearance`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ clearedForTerm }),
+      }
+    ),
+
+  getTrends: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminFinanceTrends>(`/api/admin/finance/trends${qs(params)}`),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOCUMENTS MODULE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AdminDocumentItem {
+  id: string;
+  title: string;
+  category: 'STUDENT_ADMISSION' | 'HR_STAFF' | 'FINANCIAL_RECEIPT' | 'INSTITUTIONAL';
+  fileUrl: string | null;
+  fileType: string;
+  fileSizeLabel?: string;
+  entityName: string;
+  entityId: string;
+  description: string;
+  uploadedAt: string;
+  metadata?: any;
+}
+
+export interface AdminDocumentStats {
+  totalDocuments: number;
+  studentDocs: number;
+  hrDocs: number;
+  financialReceipts: number;
+  institutionalDocs: number;
+}
+
+export interface AdminDocumentsListResponse {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  documents: AdminDocumentItem[];
+}
+
+export const adminDocumentsApi = {
+  getStats: () => apiFetch<AdminDocumentStats>('/api/admin/documents/stats'),
+  list: (params: Record<string, unknown> = {}) =>
+    apiFetch<AdminDocumentsListResponse>(`/api/admin/documents${qs(params)}`),
+};
+
