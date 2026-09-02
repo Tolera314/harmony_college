@@ -4,11 +4,13 @@
  * Runs once on startup, then every 24 hours.
  * Finds employees with contracts expiring within 60 days that have not
  * already been flagged as EXPIRING_SOON, updates their contractStatus,
- * creates an in-app HRNotification, and sends an email to all HR officers.
+ * creates an in-app notification (unified Notification table, module=HR),
+ * and sends an email to all HR officers.
  */
 
-import { prisma }          from '../../lib/prisma';
-import { getEmailProvider } from '../../lib/providers';
+import { prisma }              from '../../lib/prisma';
+import { getEmailProvider }   from '../../lib/providers';
+import { createNotification } from './hrNotificationService';
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // once per day
 const WARN_DAYS_AHEAD   = 60;
@@ -53,17 +55,15 @@ export async function runContractExpiryCheck(): Promise<void> {
         year: 'numeric', month: 'long', day: 'numeric',
       });
 
-      // In-app notifications for each HR officer
+      // In-app notifications for each HR officer (uses unified Notification table)
       for (const officer of hrOfficers) {
-        await prisma.hRNotification.create({
-          data: {
-            employeeId:      emp.id,
-            recipientUserId: officer.id,
-            type:            'CONTRACT',
-            title:           `Contract Expiring: ${emp.fullName}`,
-            message:         `${emp.fullName}'s contract expires on ${expiresOn}. Renewal action required within ${WARN_DAYS_AHEAD} days.`,
-            tab:             'employees',
-          },
+        await createNotification({
+          recipientUserId: officer.id,
+          employeeId:      emp.id,
+          type:            'CONTRACT',
+          title:           `Contract Expiring: ${emp.fullName}`,
+          message:         `${emp.fullName}'s contract expires on ${expiresOn}. Renewal action required within ${WARN_DAYS_AHEAD} days.`,
+          tab:             'employees',
         });
 
         // Email to HR officer

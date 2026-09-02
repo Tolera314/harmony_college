@@ -1012,12 +1012,16 @@ model Notification {
   userId     String
   title      String
   message    String
-  /// INFO | SUCCESS | WARNING | ERROR | GRADE | SCHEDULE | ENROLLMENT | ANNOUNCEMENT | LEAVE | PAYROLL | FINANCE
+  /// INFO | SUCCESS | WARNING | ERROR | GRADE | SCHEDULE | ENROLLMENT | ANNOUNCEMENT | LEAVE | PAYROLL | FINANCE | CONTRACT | ONBOARDING | PERFORMANCE
   type       String   @default("INFO")
+  /// Module namespace — keeps notifications from different domains in one table.
+  /// Values: ACADEMIC | HR | FINANCE | ADMIN | SYSTEM
+  /// HR notifications carry module = "HR" so they can be filtered separately from academic notifications.
+  module     String   @default("ACADEMIC")
   isRead     Boolean  @default(false)
   entityType String?
   entityId   String?
-  /// Optional deep-link tab name for the recipient's dashboard (e.g. "grades", "leave")
+  /// Optional deep-link tab name for the recipient's dashboard (e.g. "grades", "leave", "employees")
   actionTab  String?
   /// Timestamp when a socket push was attempted; null = not yet pushed
   pushedAt   DateTime?
@@ -1027,6 +1031,7 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@index([userId, isRead])
+  @@index([userId, module])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1736,15 +1741,6 @@ enum HRAuditStatus {
   FAILED
 }
 
-enum HRNotifType {
-  LEAVE
-  PAYROLL
-  PERFORMANCE
-  CONTRACT
-  ONBOARDING
-  SYSTEM
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HR MODELS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1840,7 +1836,7 @@ model HREmployee {
   documents        HRDocument[]
   onboardingRecord HROnboardingRecord?
   offboardingRecord HROffboardingRecord?
-  notifications    HRNotification[]
+
   salaryHistory    HRSalaryHistory[]
   contractRenewals HRContractRenewal[]
 
@@ -2069,23 +2065,6 @@ model HRAuditLog {
   @@index([status])
 }
 
-/// HR in-app notification
-model HRNotification {
-  id          String      @id @default(uuid())
-  employeeId  String?
-  employee    HREmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  recipientUserId String  // the HR officer's userId who receives this
-  type        HRNotifType
-  title       String
-  message     String      @db.Text
-  tab         String      // matches HRNavTab
-  isRead      Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-
-  @@index([recipientUserId])
-  @@index([isRead])
-  @@index([type])
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SALARY HISTORY (recommendation §1 — never lose previous salary when updated)

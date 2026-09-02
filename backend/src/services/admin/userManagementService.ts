@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Harmony College — Admin User Management Service
  * ─────────────────────────────────────────────────
  * All business logic for admin user CRUD, sessions, stats, notifications,
@@ -626,36 +626,42 @@ export async function createNotification(data: {
   title:       string;
   message:     string;
   type?:       string;
+  module?:     string;
   entityType?: string;
   entityId?:   string;
+  actionTab?:  string;
 }) {
-  // Delegate to unified service — persists row AND pushes via socket
   await _createNotification({
     userId:     data.userId,
     title:      data.title,
     message:    data.message,
     type:       data.type       ?? 'INFO',
+    module:     data.module     ?? 'ADMIN',
     entityType: data.entityType,
     entityId:   data.entityId,
+    actionTab:  data.actionTab,
   });
   return { userId: data.userId, title: data.title };
 }
-
 export async function broadcastNotification(data: {
   title:       string;
   message:     string;
   type?:       string;
+  module?:     string;
   role?:       Role;
   entityType?: string;
   entityId?:   string;
+  actionTab?:  string;
 }) {
   return _broadcastNotification({
     title:      data.title,
     message:    data.message,
     type:       data.type,
+    module:     data.module ?? 'ADMIN',
     role:       data.role,
     entityType: data.entityType,
     entityId:   data.entityId,
+    actionTab:  data.actionTab,
   });
 }
 
@@ -2173,4 +2179,3 @@ export async function listOfferings(q: OfferingListQuery) {
     })),
   };
 }
-
