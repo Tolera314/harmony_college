@@ -529,11 +529,12 @@ router.get('/notifications', async (req: AuthRequest, res) => {
 
 router.patch('/notifications/:id/read', async (req: AuthRequest, res) => {
   try {
-    const notif = await prisma.notification.findUnique({ where: { id: pid(req) } });
-    if (!notif || notif.userId !== req.user!.userId) {
-      res.status(404).json({ error: 'Notification not found' }); return;
-    }
-    ok(res, await prisma.notification.update({ where: { id: pid(req) }, data: { isRead: true } }));
+    const result = await prisma.notification.updateMany({
+      where: { id: pid(req), userId: req.user!.userId },
+      data:  { isRead: true },
+    });
+    if (result.count === 0) { res.status(404).json({ error: 'Notification not found' }); return; }
+    ok(res, { id: pid(req), isRead: true });
   } catch (e) { fail(res, e, 400); }
 });
 

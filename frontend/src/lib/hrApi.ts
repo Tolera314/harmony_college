@@ -45,7 +45,6 @@ export type HRDocumentCategory = 'CV' | 'CONTRACT' | 'NATIONAL_ID' | 'CERTIFICAT
 export type HROnboardingStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'ON_HOLD';
 export type HRAuditStatus    = 'SUCCESS' | 'WARNING' | 'FAILED';
 export type HRNotifType      = 'LEAVE' | 'PAYROLL' | 'PERFORMANCE' | 'CONTRACT' | 'ONBOARDING' | 'SYSTEM';
-
 // Helpers to map DB enums → display labels used by existing frontend components
 export const EMPLOYMENT_TYPE_LABEL: Record<HREmploymentType, string> = {
   FULL_TIME: 'Full-Time', PART_TIME: 'Part-Time', CONTRACT: 'Contract', INTERN: 'Intern',
@@ -184,9 +183,19 @@ export interface HRAuditLogApi {
 }
 
 export interface HRNotificationApi {
-  id: string; employeeId: string | null; type: HRNotifType;
-  title: string; message: string; tab: string; isRead: boolean; createdAt: string;
-  employee?: { id: string; fullName: string; avatarUrl: string | null } | null;
+  id:         string;
+  /** employeeId mapped from entityId in the unified Notification table */
+  employeeId: string | null;
+  /** HR notification type: LEAVE | PAYROLL | CONTRACT | ONBOARDING | PERFORMANCE | SYSTEM */
+  type:       HRNotifType;
+  title:      string;
+  message:    string;
+  /** Deep-link tab mapped from actionTab in the unified Notification table */
+  tab:        string;
+  isRead:     boolean;
+  createdAt:  string;
+  /** module is always 'HR' for these rows */
+  module:     string;
 }
 
 export interface HRDashboardSparklines {
