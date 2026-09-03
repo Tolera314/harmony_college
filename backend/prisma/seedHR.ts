@@ -17,14 +17,19 @@ async function main() {
 
   // ── 1. HR Departments ────────────────────────────────────────────────────
   const depts = await Promise.all([
-    prisma.hRDepartment.upsert({ where: { name: 'Theatrical Art & Digital Media' }, update: { budget: 1_800_000 }, create: { name: 'Theatrical Art & Digital Media', budget: 1_800_000 } }),
-    prisma.hRDepartment.upsert({ where: { name: 'Computer Science & Engineering'  }, update: { budget: 2_400_000 }, create: { name: 'Computer Science & Engineering',  budget: 2_400_000 } }),
+    prisma.hRDepartment.upsert({ where: { name: 'Theatrical Art & Filmmaking'      }, update: { budget: 1_800_000 }, create: { name: 'Theatrical Art & Filmmaking',      budget: 1_800_000 } }),
+    prisma.hRDepartment.upsert({ where: { name: 'Information Technology'           }, update: { budget: 2_400_000 }, create: { name: 'Information Technology',           budget: 2_400_000 } }),
+    prisma.hRDepartment.upsert({ where: { name: 'Photography & Visual Media'       }, update: { budget: 1_500_000 }, create: { name: 'Photography & Visual Media',       budget: 1_500_000 } }),
+    prisma.hRDepartment.upsert({ where: { name: 'Music & Performing Arts'          }, update: { budget: 1_600_000 }, create: { name: 'Music & Performing Arts',          budget: 1_600_000 } }),
+    prisma.hRDepartment.upsert({ where: { name: 'Design & Digital Marketing'       }, update: { budget: 1_700_000 }, create: { name: 'Design & Digital Marketing',       budget: 1_700_000 } }),
+    prisma.hRDepartment.upsert({ where: { name: 'Media, Communication & Languages' }, update: { budget: 1_400_000 }, create: { name: 'Media, Communication & Languages', budget: 1_400_000 } }),
+    prisma.hRDepartment.upsert({ where: { name: 'Pharmacy & Health Sciences'       }, update: { budget: 2_100_000 }, create: { name: 'Pharmacy & Health Sciences',       budget: 2_100_000 } }),
     prisma.hRDepartment.upsert({ where: { name: 'Human Resources'                 }, update: { budget:   600_000 }, create: { name: 'Human Resources',                 budget:   600_000 } }),
     prisma.hRDepartment.upsert({ where: { name: 'Finance & Accounting'            }, update: { budget:   900_000 }, create: { name: 'Finance & Accounting',            budget:   900_000 } }),
     prisma.hRDepartment.upsert({ where: { name: 'Registrar & Student Affairs'     }, update: { budget:   750_000 }, create: { name: 'Registrar & Student Affairs',     budget:   750_000 } }),
     prisma.hRDepartment.upsert({ where: { name: 'Library & Research Services'     }, update: { budget:   480_000 }, create: { name: 'Library & Research Services',     budget:   480_000 } }),
   ]);
-  const [dArt, dCS, dHR, dFin, dReg, dLib] = depts;
+  const [dArt, dCS, dPhoto, dMusic, dDesign, dMedia, dPharm, dHR, dFin, dReg, dLib] = depts;
   console.log('  ✓ Departments');
 
   // ── 2. HR Employees ──────────────────────────────────────────────────────
