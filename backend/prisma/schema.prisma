@@ -460,39 +460,124 @@ model Document {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CHAT MODELS
+// INTERNAL MESSAGING SYSTEM
+// Spec: message.md — staff-only, role-based, real-time
 // ─────────────────────────────────────────────────────────────────────────────
 
+enum ConversationType {
+  DIRECT
+  GROUP
+  DEPARTMENT
+  OFFICIAL
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum MessagePriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
 model Conversation {
-  id        String   @id @default(uuid())
-  isGroup   Boolean  @default(false)
-  name      String?
-  createdAt DateTime @default(now())
+  id           String           @id @default(uuid())
+  type         ConversationType @default(DIRECT)
+  name         String?
+  description  String?          @db.Text
+  createdById  String?
+  departmentId String?
+  priority     MessagePriority  @default(NORMAL)
+  requiresAck  Boolean          @default(false)
+  expiresAt    DateTime?
+  lastMessageAt DateTime?
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   participants ConversationParticipant[]
   messages     Message[]
+
+  @@index([type])
+  @@index([departmentId])
+  @@index([lastMessageAt])
+  @@index([isActive])
 }
 
 model ConversationParticipant {
-  conversationId String
-  userId         String
-  lastReadAt     DateTime?
+  conversationId    String
+  userId            String
+  participantRole   String   @default("MEMBER")
+  joinedAt          DateTime @default(now())
+  leftAt            DateTime?
+  lastReadAt        DateTime?
+  lastReadMessageId String?
+  isMuted           Boolean  @default(false)
+  isPinned          Boolean  @default(false)
+  isArchived        Boolean  @default(false)
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([conversationId, userId])
+  @@index([userId])
+  @@index([userId, isArchived])
 }
 
 model Message {
-  id             String   @id @default(uuid())
+  id             String        @id @default(uuid())
   conversationId String
   senderId       String
-  content        String   @db.VarChar(4000)
-  createdAt      DateTime @default(now())
+  content        String        @db.Text
+  messageType    String        @default("TEXT")
+  status         MessageStatus @default(SENT)
+  replyToId      String?
+  replyTo        Message?      @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]     @relation("MessageReplies")
+  editedAt       DateTime?
+  editedById     String?
+  deletedAt      DateTime?
+  deletedById    String?
+  isDeleted      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  attachments  MessageAttachment[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([conversationId, isDeleted])
+}
+
+model MessageAttachment {
+  id               String   @id @default(uuid())
+  messageId        String
+  originalFileName String
+  storedFileName   String
+  mimeType         String
+  fileSize         Int
+  storagePath      String
+  uploadedAt       DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model MessageAcknowledgment {
+  id             String   @id @default(uuid())
+  messageId      String
+  userId         String
+  acknowledgedAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

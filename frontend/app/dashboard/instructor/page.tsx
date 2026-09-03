@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { InstructorNavTab } from '@/src/types/instructor';
@@ -23,7 +23,7 @@ import { InAuditLogView }      from '@/src/components/instructor/views/InAuditLo
 import { InSettingsView }      from '@/src/components/instructor/views/InSettingsView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChatView } from '@/src/components/chat/ChatView';
+import { MessagingView } from '@/src/components/messaging/MessagingView';
 import { instructorDashboardApi, instructorNotificationsApi, type DashboardData } from '@/src/lib/instructorApi';
 import { useNotifications } from '@/src/hooks/useNotifications';
 
@@ -185,7 +185,7 @@ export default function InstructorDashboardPage() {
         );
       case 'audit_log':      return <InAuditLogView />;
       case 'settings':       return <InSettingsView profile={profile} />;
-      case 'messages':       return <ChatView />;
+      case 'messages':       return <MessagingView />;
       default:               return null;
     }
   };

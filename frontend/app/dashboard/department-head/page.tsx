@@ -19,6 +19,7 @@ import { DHNotificationsView } from '@/src/components/dh/views/DHNotificationsVi
 import { DHAuditLogView }      from '@/src/components/dh/views/DHAuditLogView';
 import { DHSettingsView }      from '@/src/components/dh/views/DHSettingsView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
+import { MessagingView }       from '@/src/components/messaging/MessagingView';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   hodProfileApi, hodDashboardApi, hodNotificationsApi,
@@ -180,6 +181,8 @@ export default function DepartmentHeadPage() {
         return <DHAuditLogView />;
       case 'settings':
         return <DHSettingsView profile={profile} />;
+      case 'messages':
+        return <MessagingView />;
       default:
         return null;
     }
