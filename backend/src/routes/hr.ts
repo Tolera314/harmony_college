@@ -217,6 +217,21 @@ router.patch('/employees/:id/deactivate', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e, 400); }
 });
 
+router.post('/employees/:id/invite', async (req: AuthRequest, res) => {
+  try {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket.remoteAddress ?? null;
+    const result = await employees.inviteEmployee(pid(req), req.user!.userId, ip);
+    ok(res, result);
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.post('/employees/:id/resend-invite', async (req: AuthRequest, res) => {
+  try {
+    const result = await employees.resendEmployeeInvite(pid(req), req.user!.userId);
+    ok(res, result);
+  } catch (e) { fail(res, e, 400); }
+});
+
 // ── Salary History ────────────────────────────────────────────────────────────
 // GET  /api/hr/employees/:id/salary-history
 // POST /api/hr/employees/:id/salary-history

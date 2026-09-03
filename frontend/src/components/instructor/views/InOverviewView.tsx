@@ -18,6 +18,8 @@ interface InOverviewViewProps {
   profile:     InstructorProfile;
   dashData:    DashboardData | null;
   setActiveTab: (tab: InstructorNavTab) => void;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+  onProgramTypeChange?: (pt: 'TVET' | 'SHORT_PROGRAM') => void;
 }
 
 const attColor = (r: number) =>
@@ -31,10 +33,16 @@ const lifecycleLabel = (lc: string | null) => {
   return null;
 };
 
-export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashData, setActiveTab }) => {
+export const InOverviewView: React.FC<InOverviewViewProps> = ({
+  profile,
+  dashData,
+  setActiveTab,
+  programType = 'TVET',
+  onProgramTypeChange,
+}) => {
   if (!dashData) return <SkeletonPage />;
 
-  const { kpis, todaySessions, attendanceTrend, notifications, instructor } = dashData;
+  const { kpis, todaySessions, attendanceTrend, notifications, instructor, academicContext } = dashData;
 
   const hasActiveSession = todaySessions.some(s => s.attendanceSessionLifecycle === 'OPEN');
   const unreadCount      = notifications.filter(n => !n.isRead).length;
@@ -42,7 +50,7 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
   const attendLine = (attendanceTrend.length > 0 ? attendanceTrend : [75, 78, 80, 82, 80, 85, 88, 90])
     .map((v, i) => ({ label: `Wk${i + 1}`, value: v }));
 
-  const currentSemester = dashData.instructor.department?.name ?? '';
+  const hasBothContexts = Boolean(academicContext?.hasTVET && academicContext?.hasShortProgram);
 
   return (
     <motion.div
@@ -57,15 +65,53 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
         <div className="absolute top-0 right-0 w-72 h-72 bg-[#E9C349]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
           <div className="space-y-2.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[11px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" />
-              {instructor.department.name} · Active
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[11px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" />
+                {instructor.department.name} · Active Faculty
+              </div>
+
+              {/* Academic Context Switcher or Badge */}
+              {hasBothContexts ? (
+                <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-black/60 border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => onProgramTypeChange?.('TVET')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      programType === 'TVET'
+                        ? 'bg-[#E9C349] text-black font-bold shadow'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    [ TVET ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onProgramTypeChange?.('SHORT_PROGRAM')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      programType === 'SHORT_PROGRAM'
+                        ? 'bg-[#E9C349] text-black font-bold shadow'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    [ Short Program ]
+                  </button>
+                </div>
+              ) : (
+                <Badge variant="amber" className="text-xs font-mono uppercase tracking-wider">
+                  {programType === 'SHORT_PROGRAM' ? 'Short Program Context (2/4 Months)' : 'TVET Context'}
+                </Badge>
+              )}
             </div>
+
             <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
               Welcome, {instructor.fullName.split(' ').pop()}.
             </h2>
             <p className="font-sans text-sm text-(--text-muted) max-w-lg">
-              {instructor.specialization ?? instructor.title} · {instructor.department.name}
+              {instructor.specialization ?? instructor.title} · {instructor.department.name} ·{' '}
+              <strong className="text-white">
+                {programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} Department Duties
+              </strong>
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
               {hasActiveSession && (

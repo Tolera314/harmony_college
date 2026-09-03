@@ -6,7 +6,7 @@ import { Router, Response, Request } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
-import { Role, ApplicationStatus, StudentStatus, CourseStatus, OfferingStatus, EnrollmentStatus } from '@prisma/client';
+import { Role, ApplicationStatus, StudentStatus, CourseStatus, OfferingStatus, EnrollmentStatus, AccountStatus } from '@prisma/client';
 import * as dashboard from '../services/registrar/dashboardService';
 import * as students  from '../services/registrar/studentService';
 import * as admissions from '../services/registrar/admissionService';
@@ -274,21 +274,6 @@ router.post('/departments', async (req: AuthRequest, res) => {
       },
     });
 
-    // Also sync to HRDepartment (TVET departments only)
-    if (programType === 'TVET') {
-      await prisma.hRDepartment.upsert({
-        where: { id: dept.id },
-        update: { name: dept.name, isActive: true },
-        create: { id: dept.id, name: dept.name, isActive: true },
-      }).catch(async () => {
-        await prisma.hRDepartment.upsert({
-          where: { name: dept.name },
-          update: { isActive: true },
-          create: { id: dept.id, name: dept.name, isActive: true },
-        }).catch(() => {});
-      });
-    }
-
     ok(res, dept, 201);
   } catch (e) { fail(res, e, 400); }
 });
@@ -304,12 +289,6 @@ router.patch('/departments/:id/toggle-status', async (req: AuthRequest, res) => 
       where: { id },
       data: { isActive: !existing.isActive },
     });
-
-    // Sync to HRDepartment
-    await prisma.hRDepartment.updateMany({
-      where: { OR: [{ id }, { name: existing.name }] },
-      data: { isActive: updated.isActive },
-    }).catch(() => {});
 
     ok(res, updated);
   } catch (e) { fail(res, e, 400); }
@@ -362,6 +341,28 @@ router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
       },
     });
 
+    // Auto-ensure InstructorRecord exists for all active users with role INSTRUCTOR
+    const activeInstructorUsers = await prisma.user.findMany({
+      where: { role: Role.INSTRUCTOR, status: AccountStatus.ACTIVE },
+      include: { instructorRecord: true },
+    });
+    for (const u of activeInstructorUsers) {
+      if (!u.instructorRecord) {
+        const defaultDept = await prisma.department.findFirst({ where: { isActive: true } });
+        if (defaultDept) {
+          await prisma.instructorRecord.create({
+            data: {
+              userId: u.id,
+              employeeId: `INS-${u.id.slice(0, 6).toUpperCase()}`,
+              title: 'Instructor',
+              departmentId: defaultDept.id,
+              isActive: true,
+            },
+          }).catch(() => {});
+        }
+      }
+    }
+
     // Real registered instructors ONLY
     const instructors = await prisma.instructorRecord.findMany({
       where: { isActive: true },
@@ -387,6 +388,7 @@ router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
           offeringId: offering?.id ?? null,
           instructorId: offering?.instructorId ?? null,
           instructor: offering?.instructor ?? null,
+          shortProgramDuration: offering?.shortProgramDuration ?? null,
           capacity: offering?.capacity ?? 40,
           section: offering?.section ?? 'A',
           status: offering?.status ?? 'UNASSIGNED',
@@ -561,11 +563,12 @@ router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
       courseId: z.string().uuid(),
       semesterId: z.string().uuid(),
       instructorId: z.string().uuid().nullable(),
+      shortProgramDuration: z.enum(['2 Months', '4 Months']).nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
 
-    const { courseId, semesterId, instructorId } = parsed.data;
+    const { courseId, semesterId, instructorId, shortProgramDuration } = parsed.data;
 
     const course = await prisma.course.findUnique({ where: { id: courseId }, select: { programType: true } });
     if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
@@ -590,6 +593,7 @@ router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
         where: { id: offering.id },
         data: {
           instructorId: instructorId,
+          shortProgramDuration: shortProgramDuration !== undefined ? shortProgramDuration : offering.shortProgramDuration,
           status: instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
         },
       });
@@ -600,6 +604,7 @@ router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
           semesterId,
           instructorId: instructorId,
           programType: course.programType,
+          shortProgramDuration: shortProgramDuration ?? (course.programType === 'SHORT_PROGRAM' ? '2 Months' : null),
           capacity: 40,
           section: 'A',
           status: instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
@@ -620,6 +625,21 @@ router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
 
     ok(res, result);
   } catch (e) { fail(res, e, 400); }
+});
+
+// GET /api/registrar/instructors — all real registered instructors from HR/Staff
+router.get('/instructors', async (_req: AuthRequest, res) => {
+  try {
+    const instructors = await prisma.instructorRecord.findMany({
+      where: { isActive: true },
+      include: {
+        user: { select: { id: true, fullName: true, email: true, phone: true } },
+        department: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { user: { fullName: 'asc' } },
+    });
+    ok(res, instructors);
+  } catch (e) { fail(res, e); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

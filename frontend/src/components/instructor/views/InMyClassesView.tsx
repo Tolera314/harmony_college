@@ -14,6 +14,7 @@ import { instructorClassesApi, type ClassOffering } from '../../../lib/instructo
 
 interface InMyClassesViewProps {
   setActiveTab: (tab: InstructorNavTab) => void;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
 const statusVariant = (s: string): 'emerald' | 'amber' | 'rose' | 'glass' => {
@@ -35,7 +36,7 @@ const statusLabel = (s: string) => {
   return map[s] ?? s;
 };
 
-export const InMyClassesView: React.FC<InMyClassesViewProps> = ({ setActiveTab }) => {
+export const InMyClassesView: React.FC<InMyClassesViewProps> = ({ setActiveTab, programType }) => {
   const [offerings, setOfferings] = useState<ClassOffering[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
@@ -44,14 +45,14 @@ export const InMyClassesView: React.FC<InMyClassesViewProps> = ({ setActiveTab }
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const data = await instructorClassesApi.list();
+      const data = await instructorClassesApi.list(programType);
       setOfferings(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load classes');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [programType]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -126,6 +127,21 @@ export const InMyClassesView: React.FC<InMyClassesViewProps> = ({ setActiveTab }
                       <Badge variant={statusVariant(o.status)} className="text-[10px]">
                         {statusLabel(o.status)}
                       </Badge>
+                      {o.programType && (
+                        <Badge variant={o.programType === 'TVET' ? 'info' : 'amber'} className="text-[10px]">
+                          {o.programType === 'TVET' ? 'TVET' : 'Short Program'}
+                        </Badge>
+                      )}
+                      {o.shortProgramDuration && (
+                        <Badge variant="amber" className="text-[10px] font-mono">
+                          {o.shortProgramDuration}
+                        </Badge>
+                      )}
+                      {o.department?.name && (
+                        <Badge variant="glass" className="text-[10px]">
+                          {o.department.name}
+                        </Badge>
+                      )}
                       {o.semester.isCurrent && (
                         <Badge variant="emerald" className="text-[10px]">Current</Badge>
                       )}

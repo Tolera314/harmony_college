@@ -23,6 +23,10 @@ import crypto from 'crypto';
 import { prisma } from '../../lib/prisma';
 import { getEmailProvider } from '../../lib/providers';
 import { writeHRAudit } from './hrAuditService';
+import { Role, AccountStatus } from '@prisma/client';
+import { INVITATION_LIFETIME_HOURS } from '../../services/invitationService';
+// Shared constant — keep in sync
+const INVITE_EXPIRY_HOURS = INVITATION_LIFETIME_HOURS ?? 48;
 
 // ── Role rules ────────────────────────────────────────────────────────────────
 
@@ -127,21 +131,58 @@ export async function listEmployees(q: EmployeeListQuery) {
     }),
   ]);
 
+  // Determine invitation status for each employee (PENDING | ACCEPTED | EXPIRED | NONE)
+  const allEmails = employees.map(e => e.email.toLowerCase());
+  const invitations = allEmails.length > 0 ? await prisma.staffInvitation.findMany({
+    where: { email: { in: allEmails } },
+    orderBy: { createdAt: 'desc' },
+    select: { email: true, acceptedAt: true, revokedAt: true, expiresAt: true },
+  }) : [];
+
+  // Latest invitation per email
+  const latestInvByEmail = new Map<string, { acceptedAt: Date | null; revokedAt: Date | null; expiresAt: Date }>();
+  for (const inv of invitations) {
+    if (!latestInvByEmail.has(inv.email)) latestInvByEmail.set(inv.email, inv);
+  }
+
   // Strip all sensitive/document fields from list view — only returned via /full endpoint
   const safe = employees.map(({
     nationalId: _ni, bankAccount: _ba, taxNumber: _tn,
     faydaIdUrl: _fid, faydaIdFileSize: _ffs,
     certificateUrl: _cu, certificateFileSize: _cfs,
     ...rest
-  }) => rest);
+  }) => {
+    const inv = latestInvByEmail.get(rest.email.toLowerCase());
+    let invitationStatus: 'NONE' | 'PENDING' | 'ACCEPTED' | 'EXPIRED' = 'NONE';
+    if (inv) {
+      if (inv.acceptedAt) invitationStatus = 'ACCEPTED';
+      else if (inv.revokedAt) invitationStatus = 'NONE';
+      else if (inv.expiresAt <= new Date()) invitationStatus = 'EXPIRED';
+      else invitationStatus = 'PENDING';
+    }
+    return { ...rest, invitationStatus };
+  });
 
   return { total, page, limit, totalPages: Math.ceil(total / limit), employees: safe };
 }
 
 // ── Get by ID ─────────────────────────────────────────────────────────────────
 
+async function getInvitationStatusForEmail(email: string): Promise<'NONE' | 'PENDING' | 'ACCEPTED' | 'EXPIRED'> {
+  const inv = await prisma.staffInvitation.findFirst({
+    where: { email: email.toLowerCase() },
+    orderBy: { createdAt: 'desc' },
+    select: { acceptedAt: true, revokedAt: true, expiresAt: true },
+  });
+  if (!inv) return 'NONE';
+  if (inv.acceptedAt) return 'ACCEPTED';
+  if (inv.revokedAt) return 'NONE';
+  if (inv.expiresAt <= new Date()) return 'EXPIRED';
+  return 'PENDING';
+}
+
 export async function getEmployeeById(id: string) {
-  return prisma.hREmployee.findUnique({
+  const emp = await prisma.hREmployee.findUnique({
     where: { id },
     include: {
       department: true,
@@ -163,11 +204,14 @@ export async function getEmployeeById(id: string) {
       },
     },
   });
+  if (!emp) return null;
+  const invitationStatus = await getInvitationStatusForEmail(emp.email);
+  return { ...emp, invitationStatus };
 }
 
 /** Full detail including ALL sensitive fields. HR roles only — guarded at route level. */
 export async function getEmployeeByIdFull(id: string) {
-  return prisma.hREmployee.findUnique({
+  const emp = await prisma.hREmployee.findUnique({
     where: { id },
     include: {
       department: true,
@@ -189,6 +233,9 @@ export async function getEmployeeByIdFull(id: string) {
       },
     },
   });
+  if (!emp) return null;
+  const invitationStatus = await getInvitationStatusForEmail(emp.email);
+  return { ...emp, invitationStatus };
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────
@@ -320,82 +367,199 @@ export async function createEmployee(
     } as any,
   });
 
-  // ── Account activation email ──────────────────────────────────────────────
-  let activationLink: string | null = null;
-  if (data.systemRole) {
-    try {
-      // Find matching academic department
-      const academicDept = await prisma.department.findFirst({
-        where: {
-          OR: [
-            { id: data.departmentId },
-            { name: { equals: dept.name, mode: 'insensitive' } },
-          ],
-        },
-        select: { id: true, name: true },
-      });
-
-      if (academicDept) {
-        const rawToken = crypto.randomBytes(32).toString('hex');
-        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-        const expiresInHours = 48;
-        const expiresAt = new Date(Date.now() + expiresInHours * 3600 * 1000);
-
-        // Revoke any previous pending invitations for this email
-        await prisma.staffInvitation.updateMany({
-          where: { email: data.email.trim().toLowerCase(), acceptedAt: null, revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
-
-        let invitingUserId = actorUserId;
-        if (!invitingUserId) {
-          const adminUser = await prisma.user.findFirst({
-            where: { role: { in: ['HR_OFFICER', 'ADMIN', 'SUPER_ADMIN'] } },
-            select: { id: true },
-          });
-          invitingUserId = adminUser?.id;
-        }
-
-        if (invitingUserId) {
-          await prisma.staffInvitation.create({
-            data: {
-              email:           data.email.trim().toLowerCase(),
-              fullName:        data.fullName.trim(),
-              role:            data.systemRole as any,
-              departmentId:    academicDept.id,
-              positionTitle:   resolvedPosition,
-              employeeId:      data.employeeCode,
-              phone:           data.phone ?? null,
-              tokenHash,
-              expiresAt,
-              invitedByUserId: invitingUserId,
-            },
-          });
-        }
-
-        const appBaseUrl = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-        activationLink = `${appBaseUrl}/activate-account?token=${rawToken}`;
-
-        await getEmailProvider().sendAccountActivationEmail(data.email.trim().toLowerCase(), {
-          fullName:       data.fullName.trim(),
-          role:           data.systemRole,
-          position:       resolvedPosition,
-          departmentName: academicDept.name,
-          activationLink,
-          expiresInHours,
-        });
-
-        console.log(`[HR Registration] Account activation email dispatched to ${data.email} for role ${data.systemRole}`);
-      }
-    } catch (emailErr) {
-      console.error('[HR Registration] Failed to send activation email:', emailErr);
-    }
-  }
+  // NOTE: Invitation is NOT sent automatically on creation.
+  // HR must explicitly click "Invite" in the employee Actions column.
+  console.log(`[HR] Employee ${data.fullName} (${data.employeeCode}) created. Invitation must be sent manually.`);
 
   return {
     ...employee,
-    activationLink,
+    invitationStatus: 'NONE' as const,
   };
+}
+
+// ── Send Invitation to HR Employee ────────────────────────────────────────────
+
+/**
+ * Sends a secure, time-limited account activation invitation to an HR employee.
+ * The employee must already exist in HREmployee. No duplicate accounts are created.
+ * Returns the invitation link (for logging) and whether the email succeeded.
+ */
+export async function inviteEmployee(
+  employeeId: string,
+  actorUserId: string,
+  ipAddress?: string | null,
+) {
+  const employee = await prisma.hREmployee.findUnique({
+    where: { id: employeeId },
+    include: { department: { select: { name: true } } },
+  });
+  if (!employee) throw new Error('Employee not found');
+  if (!employee.email) throw new Error('Employee has no registered email address');
+  if (!employee.systemRole) throw new Error('Employee has no system role assigned. Edit the employee to assign a role before sending an invitation.');
+
+  const normalizedEmail = employee.email.trim().toLowerCase();
+
+  // Check if employee already has an active (non-expired, non-revoked) invitation
+  const existingPending = await prisma.staffInvitation.findFirst({
+    where: {
+      email:      normalizedEmail,
+      acceptedAt: null,
+      revokedAt:  null,
+      expiresAt:  { gt: new Date() },
+    },
+  });
+  if (existingPending) {
+    throw new Error(`An active invitation is already pending for ${normalizedEmail}. Use "Resend Invite" to send a new one.`);
+  }
+
+  // Check if user account already exists and is active
+  const existingUser = await prisma.user.findFirst({
+    where: { email: normalizedEmail },
+    select: { id: true, status: true },
+  });
+  if (existingUser && existingUser.status === AccountStatus.ACTIVE) {
+    throw new Error(`${normalizedEmail} already has an active account. No invitation needed.`);
+  }
+
+  // Find the actor user id (must exist as invitedByUser FK in StaffInvitation)
+  let invitingUserId = actorUserId;
+  if (!invitingUserId) {
+    const adminUser = await prisma.user.findFirst({
+      where: { role: { in: [Role.HR_OFFICER, Role.ADMIN, Role.SUPER_ADMIN] } },
+      select: { id: true },
+    });
+    if (!adminUser) throw new Error('Could not determine inviting user. Please ensure you are logged in.');
+    invitingUserId = adminUser.id;
+  }
+
+  // Resolve the academic department (StaffInvitation requires an academic Department FK)
+  const academicDept = await prisma.department.findFirst({
+    where: {
+      OR: [
+        { name: { equals: employee.department.name, mode: 'insensitive' } },
+        { id: employee.departmentId },
+      ],
+      isActive: true,
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, name: true },
+  });
+
+  // If no academic dept found, use the first active TVET dept as fallback
+  const deptForInvitation = academicDept ?? await prisma.department.findFirst({
+    where: { isActive: true },
+    select: { id: true, name: true },
+  });
+  if (!deptForInvitation) throw new Error('No active department found. Cannot send invitation.');
+
+  // Revoke any previous expired/revoked invitations (cleanup)
+  await prisma.staffInvitation.updateMany({
+    where: { email: normalizedEmail, acceptedAt: null },
+    data: { revokedAt: new Date() },
+  });
+
+  // Generate secure token
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + INVITE_EXPIRY_HOURS * 3600 * 1000);
+
+  // Create invitation record
+  await prisma.staffInvitation.create({
+    data: {
+      email:           normalizedEmail,
+      fullName:        employee.fullName.trim(),
+      role:            employee.systemRole as any,
+      departmentId:    deptForInvitation.id,
+      positionTitle:   employee.position,
+      employeeId:      employee.employeeCode,
+      phone:           employee.phone ?? null,
+      tokenHash,
+      expiresAt,
+      invitedByUserId: invitingUserId,
+    },
+  });
+
+  // Build activation link
+  const appBaseUrl = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const activationLink = `${appBaseUrl}/activate-account?token=${rawToken}`;
+
+  console.log(`\n========================================================================`);
+  console.log(`🎓 [ACCOUNT ACTIVATION LINK GENERATED]`);
+  console.log(`   Recipient: ${employee.fullName} <${normalizedEmail}>`);
+  console.log(`   Role:      ${employee.systemRole}`);
+  console.log(`   Link:      ${activationLink}`);
+  console.log(`========================================================================\n`);
+
+  // Send invitation email
+  const emailResult = await getEmailProvider().sendAccountActivationEmail(normalizedEmail, {
+    fullName:       employee.fullName.trim(),
+    role:           employee.systemRole,
+    position:       employee.position,
+    departmentName: deptForInvitation.name,
+    activationLink,
+    expiresInHours: INVITE_EXPIRY_HOURS,
+  });
+
+  if (!emailResult.success) {
+    // Revoke the invitation we just created so HR can retry cleanly
+    await prisma.staffInvitation.updateMany({
+      where: { tokenHash },
+      data: { revokedAt: new Date() },
+    });
+    throw new Error(`Failed to send invitation email: ${emailResult.error ?? 'Unknown mail provider error'}`);
+  }
+
+  console.log(`[HR Invite] Invitation sent to ${normalizedEmail} (${employee.employeeCode}) for role ${employee.systemRole}. Link: ${activationLink}`);
+
+  await writeHRAudit({
+    actorUserId,
+    actorName: 'HR Officer',
+    action:    'Invitation Sent',
+    employeeName: employee.fullName,
+    module:    'Employees',
+    description: `Activation invitation sent to ${normalizedEmail} for role ${employee.systemRole}.`,
+    status:    'SUCCESS',
+  });
+
+  return { success: true, email: normalizedEmail, activationLink, expiresInHours: INVITE_EXPIRY_HOURS };
+}
+
+// ── Resend Invitation to HR Employee ──────────────────────────────────────────
+
+/**
+ * Resends an invitation to an employee who was already invited but hasn't activated yet.
+ * Revokes old token and issues a fresh 48-hour token.
+ */
+export async function resendEmployeeInvite(
+  employeeId: string,
+  actorUserId: string,
+) {
+  const employee = await prisma.hREmployee.findUnique({
+    where: { id: employeeId },
+    include: { department: { select: { name: true } } },
+  });
+  if (!employee) throw new Error('Employee not found');
+  if (!employee.email) throw new Error('Employee has no registered email address');
+  if (!employee.systemRole) throw new Error('Employee has no system role assigned.');
+
+  const normalizedEmail = employee.email.trim().toLowerCase();
+
+  // Check already activated
+  const accepted = await prisma.staffInvitation.findFirst({
+    where: { email: normalizedEmail, acceptedAt: { not: null } },
+  });
+  if (accepted) {
+    throw new Error(`${normalizedEmail} has already accepted an invitation and activated their account.`);
+  }
+
+  // Revoke all existing pending invitations
+  await prisma.staffInvitation.updateMany({
+    where: { email: normalizedEmail, acceptedAt: null },
+    data: { revokedAt: new Date() },
+  });
+
+  // Now call inviteEmployee (which will create a fresh token and send email)
+  return inviteEmployee(employeeId, actorUserId);
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────
@@ -549,26 +713,7 @@ export async function deactivateEmployee(id: string, actorName: string, actorUse
 // ── Departments ───────────────────────────────────────────────────────────────
 
 export async function getDepartments() {
-  // Sync real academic departments defined in the system (prisma.department) to prisma.hRDepartment
-  const academicDepts = await prisma.department.findMany({
-    where: { isActive: true },
-    orderBy: { name: 'asc' },
-  });
-
-  for (const ad of academicDepts) {
-    await prisma.hRDepartment.upsert({
-      where: { id: ad.id },
-      update: { name: ad.name, isActive: ad.isActive },
-      create: { id: ad.id, name: ad.name, isActive: ad.isActive },
-    }).catch(async () => {
-      await prisma.hRDepartment.upsert({
-        where: { name: ad.name },
-        update: { isActive: ad.isActive },
-        create: { id: ad.id, name: ad.name, isActive: ad.isActive },
-      }).catch(() => {});
-    });
-  }
-
+  // Return active HR organizational departments (separate from academic TVET / Short Program departments)
   return prisma.hRDepartment.findMany({
     where: {
       isActive: true,

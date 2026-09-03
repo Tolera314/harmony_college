@@ -19,7 +19,10 @@ import {
   type DepartmentStructureResponse,
 } from '@/src/lib/registrarApi';
 
-export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType = 'TVET' }) => {
+export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType: propProgramType = 'TVET' }) => {
+  const [activeProgramType, setActiveProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>(propProgramType);
+  const [selectedDuration, setSelectedDuration] = useState<'ALL' | '2 Months' | '4 Months'>('ALL');
+
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [structure, setStructure] = useState<DepartmentStructureResponse | null>(null);
@@ -29,6 +32,11 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
   const [loadingStructure, setLoadingStructure] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Sync prop change
+  useEffect(() => {
+    setActiveProgramType(propProgramType);
+  }, [propProgramType]);
 
   // Search & filter
   const [deptSearch, setDeptSearch] = useState('');
@@ -47,6 +55,7 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
   const [newCourseName, setNewCourseName] = useState('');
   const [newCourseCredits, setNewCourseCredits] = useState(3);
   const [newCourseDesc, setNewCourseDesc] = useState('');
+  const [newCourseDuration, setNewCourseDuration] = useState<'2 Months' | '4 Months'>('2 Months');
   const [newCourseInstructorId, setNewCourseInstructorId] = useState<string>('');
   const [creatingCourse, setCreatingCourse] = useState(false);
 
@@ -71,12 +80,12 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  // 1. Load departments filtered strictly by programType
+  // 1. Load departments filtered strictly by activeProgramType
   const loadDepartments = useCallback(async () => {
     setLoadingDepts(true);
     setError(null);
     try {
-      const list = await departmentsApi.list(programType);
+      const list = await departmentsApi.list(activeProgramType);
       setDepartments(list);
       // Select first active department if none selected
       if (list.length > 0) {
@@ -91,13 +100,13 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
     } finally {
       setLoadingDepts(false);
     }
-  }, [programType]);
+  }, [activeProgramType]);
 
   useEffect(() => {
     setSelectedDeptId(null);
     setStructure(null);
     loadDepartments();
-  }, [programType]);
+  }, [activeProgramType, loadDepartments]);
 
   // 2. Load structure for selected department & semester
   const loadStructure = useCallback(async (deptId: string, semId?: string) => {
@@ -143,7 +152,7 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
         name: addDeptName.trim(),
         code: addDeptCode.trim().toUpperCase(),
         description: addDeptDesc.trim() || undefined,
-        programType,
+        programType: activeProgramType,
       });
       setDepartments(prev => [...prev, created]);
       setSelectedDeptId(created.id);
@@ -151,7 +160,7 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
       setAddDeptName('');
       setAddDeptCode('');
       setAddDeptDesc('');
-      showToast(`${programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} department "${created.name}" created successfully`);
+      showToast(`${activeProgramType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} department "${created.name}" created successfully`);
     } catch (e: any) {
       showToast(e.message ?? 'Failed to create department', 'error');
     } finally {
@@ -238,7 +247,7 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
   };
 
   // 6. Assign or change instructor for a course
-  const handleAssignInstructor = async (courseId: string, instructorId: string | null) => {
+  const handleAssignInstructor = async (courseId: string, instructorId: string | null, shortProgramDuration?: string | null) => {
     if (!selectedSemesterId || selectedSemesterId === 'current') {
       showToast('Please select a specific semester to assign an instructor.', 'error');
       return;
@@ -249,6 +258,7 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
         courseId,
         semesterId: selectedSemesterId,
         instructorId,
+        shortProgramDuration: shortProgramDuration ?? (activeProgramType === 'SHORT_PROGRAM' ? '2 Months' : null),
       });
       showToast(instructorId ? 'Instructor assigned successfully' : 'Instructor unassigned');
       if (selectedDeptId) {
@@ -258,6 +268,31 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
       showToast(e.message ?? 'Failed to update instructor assignment', 'error');
     } finally {
       setAssigningMap(prev => ({ ...prev, [courseId]: false }));
+    }
+  };
+
+  // 6b. Set / update course duration for Short Program
+  const handleSetCourseDuration = async (course: DepartmentStructureResponse['courses'][0], duration: string) => {
+    if (!selectedSemesterId || selectedSemesterId === 'current') {
+      showToast('Please select a specific semester to update duration.', 'error');
+      return;
+    }
+    setAssigningMap(prev => ({ ...prev, [course.id]: true }));
+    try {
+      await departmentsApi.assignInstructor({
+        courseId: course.id,
+        semesterId: selectedSemesterId,
+        instructorId: course.instructorId,
+        shortProgramDuration: duration,
+      });
+      showToast(`Course duration set to ${duration}`);
+      if (selectedDeptId) {
+        await loadStructure(selectedDeptId, selectedSemesterId);
+      }
+    } catch (e: any) {
+      showToast(e.message ?? 'Failed to update duration', 'error');
+    } finally {
+      setAssigningMap(prev => ({ ...prev, [course.id]: false }));
     }
   };
 
@@ -321,6 +356,55 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
           </div>
         }
       />
+
+      {/* TVET vs Short Program Academic Level Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-[#E9C349]/15 border border-[#E9C349]/30 text-[#E9C349]">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white">Academic Level Selection</h3>
+              <Badge variant="amber">{activeProgramType === 'TVET' ? 'TVET Academic Structure' : 'Short Program Academic Structure'}</Badge>
+            </div>
+            <p className="text-xs text-zinc-400 mt-0.5">Separate academic departments with unified, non-duplicated faculty assignments</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 p-1.5 bg-white/5 border border-white/10 rounded-xl self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => {
+              if (activeProgramType !== 'TVET') {
+                setActiveProgramType('TVET');
+              }
+            }}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeProgramType === 'TVET'
+                ? 'bg-[#E9C349] text-black shadow-md font-bold'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            [ TVET ]
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (activeProgramType !== 'SHORT_PROGRAM') {
+                setActiveProgramType('SHORT_PROGRAM');
+              }
+            }}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeProgramType === 'SHORT_PROGRAM'
+                ? 'bg-[#E9C349] text-black shadow-md font-bold'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            [ Short Program ]
+          </button>
+        </div>
+      </div>
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -540,6 +624,32 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
             </div>
           </div>
 
+          {/* Duration Selector Tabs for Short Program */}
+          {activeProgramType === 'SHORT_PROGRAM' && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-bold">Short Program Duration:</span>
+                <span className="text-xs text-zinc-400">Filter courses by duration period</span>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {(['ALL', '2 Months', '4 Months'] as const).map(dur => (
+                  <button
+                    key={dur}
+                    type="button"
+                    onClick={() => setSelectedDuration(dur)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                      selectedDuration === dur
+                        ? 'bg-[#E9C349] text-black border-[#E9C349] shadow'
+                        : 'bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10'
+                    }`}
+                  >
+                    {dur === 'ALL' ? 'All Durations' : dur}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Courses & Assigned Instructors Table */}
           {loadingStructure ? (
             <SkeletonTable />
@@ -566,6 +676,9 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
                   <tr>
                     <th className="px-4 py-3.5">Course</th>
                     <th className="px-4 py-3.5">Credits</th>
+                    {activeProgramType === 'SHORT_PROGRAM' && (
+                      <th className="px-4 py-3.5">Duration</th>
+                    )}
                     <th className="px-4 py-3.5">Section</th>
                     <th className="px-4 py-3.5">Assigned Instructor</th>
                     <th className="px-4 py-3.5">Allocation Action</th>
@@ -573,7 +686,12 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {structure?.courses.map(course => {
+                  {structure?.courses
+                    .filter(course => {
+                      if (activeProgramType !== 'SHORT_PROGRAM' || selectedDuration === 'ALL') return true;
+                      return (course.shortProgramDuration || '2 Months') === selectedDuration;
+                    })
+                    .map(course => {
                     const isAssigning = assigningMap[course.id] ?? false;
                     const assignedInstructor = course.instructor;
 
@@ -596,6 +714,20 @@ export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROG
                         <td className="px-4 py-3.5 font-mono text-zinc-300">
                           {course.creditHours} cr
                         </td>
+
+                        {/* Duration for Short Program */}
+                        {activeProgramType === 'SHORT_PROGRAM' && (
+                          <td className="px-4 py-3.5 font-mono">
+                            <select
+                              value={course.shortProgramDuration || '2 Months'}
+                              onChange={(e) => handleSetCourseDuration(course, e.target.value)}
+                              className="px-2.5 py-1 bg-black/60 border border-white/10 rounded-lg text-xs font-mono text-[#E9C349] focus:outline-none focus:border-[#E9C349]"
+                            >
+                              <option value="2 Months">2 Months</option>
+                              <option value="4 Months">4 Months</option>
+                            </select>
+                          </td>
+                        )}
 
                         {/* Section */}
                         <td className="px-4 py-3.5 font-mono text-zinc-400">

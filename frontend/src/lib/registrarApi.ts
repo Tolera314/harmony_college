@@ -458,6 +458,7 @@ export interface DepartmentStructureResponse {
       title: string;
       user: { id: string; fullName: string; email: string; avatarUrl: string | null };
     } | null;
+    shortProgramDuration?: string | null;
     capacity: number;
     section: string;
     status: string;
@@ -486,7 +487,7 @@ export const departmentsApi = {
     apiFetch<any>(`/api/registrar/courses/${courseId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteCourse: (courseId: string) =>
     apiFetch<any>(`/api/registrar/courses/${courseId}`, { method: 'DELETE' }),
-  assignInstructor: (data: { courseId: string; semesterId: string; instructorId: string | null }) =>
+  assignInstructor: (data: { courseId: string; semesterId: string; instructorId: string | null; shortProgramDuration?: string | null }) =>
     apiFetch<any>('/api/registrar/offerings/assign-instructor', { method: 'POST', body: JSON.stringify(data) }),
 };
 

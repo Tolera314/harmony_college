@@ -125,14 +125,27 @@ export async function updateInstructorProfile(
 // DASHBOARD / OVERVIEW
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getDashboardStats(userId: string) {
+export async function getDashboardStats(userId: string, requestedProgramType?: 'TVET' | 'SHORT_PROGRAM') {
   const instructor = await resolveInstructor(userId);
 
-  // All active offerings for this instructor
-  const offerings = await prisma.courseOffering.findMany({
+  // Check all offerings to discover assigned academic contexts
+  const allOfferings = await prisma.courseOffering.findMany({
     where: { instructorId: instructor.id },
+    select: { id: true, programType: true, shortProgramDuration: true },
+  });
+
+  const hasTVET = allOfferings.some(o => o.programType === 'TVET');
+  const hasShortProgram = allOfferings.some(o => o.programType === 'SHORT_PROGRAM');
+  const effectiveProgramType = requestedProgramType || (hasTVET ? 'TVET' : (hasShortProgram ? 'SHORT_PROGRAM' : 'TVET'));
+
+  // Active offerings for this instructor filtered by academic context
+  const offerings = await prisma.courseOffering.findMany({
+    where: {
+      instructorId: instructor.id,
+      programType: effectiveProgramType as any,
+    },
     include: {
-      course: { select: { code: true, name: true, creditHours: true } },
+      course: { select: { code: true, name: true, creditHours: true, department: { select: { id: true, name: true } } } },
       semester: { select: { id: true, name: true, isCurrent: true, academicYear: { select: { name: true } } } },
       room: { select: { name: true, building: true } },
       _count: {
@@ -166,10 +179,18 @@ export async function getDashboardStats(userId: string) {
   const todaySessions = await prisma.classSession.findMany({
     where: {
       date: { gte: startOfDay, lte: endOfDay },
-      courseOffering: { instructorId: instructor.id },
+      courseOffering: {
+        instructorId: instructor.id,
+        programType: effectiveProgramType as any,
+      },
     },
     include: {
-      courseOffering: { include: { course: { select: { code: true, name: true } }, room: { select: { name: true, building: true } } } },
+      courseOffering: {
+        include: {
+          course: { select: { code: true, name: true } },
+          room: { select: { name: true, building: true } },
+        },
+      },
       attendanceSession: { select: { id: true, lifecycle: true } },
     },
     orderBy: { startTime: 'asc' },
@@ -179,14 +200,22 @@ export async function getDashboardStats(userId: string) {
   const activeSessions = await prisma.attendanceSession.count({
     where: {
       lifecycle: 'OPEN',
-      classSession: { courseOffering: { instructorId: instructor.id } },
+      classSession: {
+        courseOffering: {
+          instructorId: instructor.id,
+          programType: effectiveProgramType as any,
+        },
+      },
     },
   });
 
   // Pending assignments (published, not yet closed, for instructor's offerings)
   const pendingAssignments = await prisma.assignment.count({
     where: {
-      courseOffering: { instructorId: instructor.id },
+      courseOffering: {
+        instructorId: instructor.id,
+        programType: effectiveProgramType as any,
+      },
       status: AssignmentStatus.PUBLISHED,
       dueDate: { gte: now },
     },
@@ -195,7 +224,12 @@ export async function getDashboardStats(userId: string) {
   // Ungraded submissions
   const ungradedSubmissions = await prisma.assignmentSubmission.count({
     where: {
-      assignment: { courseOffering: { instructorId: instructor.id } },
+      assignment: {
+        courseOffering: {
+          instructorId: instructor.id,
+          programType: effectiveProgramType as any,
+        },
+      },
       status: SubmissionStatus.SUBMITTED,
       score: null,
     },
@@ -240,6 +274,11 @@ export async function getDashboardStats(userId: string) {
       phone: instructor.user.phone,
       department: instructor.department,
     },
+    academicContext: {
+      activeProgramType: effectiveProgramType,
+      hasTVET,
+      hasShortProgram,
+    },
     kpis: {
       classesToday: todaySessions.length,
       studentsTaught: allStudentIds.size,
@@ -279,13 +318,21 @@ export async function getDashboardStats(userId: string) {
 // MY CLASSES
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getMyClasses(userId: string) {
+export async function getMyClasses(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const instructor = await resolveInstructor(userId);
 
   const offerings = await prisma.courseOffering.findMany({
-    where: { instructorId: instructor.id },
+    where: {
+      instructorId: instructor.id,
+      ...(programType ? { programType: programType as any } : {}),
+    },
     include: {
-      course: { select: { id: true, code: true, name: true, description: true, creditHours: true } },
+      course: {
+        select: {
+          id: true, code: true, name: true, description: true, creditHours: true,
+          department: { select: { id: true, name: true } },
+        },
+      },
       semester: {
         select: {
           id: true, name: true, isCurrent: true,
@@ -317,6 +364,9 @@ export async function getMyClasses(userId: string) {
     status: o.status,
     capacity: o.capacity,
     enrolled: o._count.enrollments,
+    programType: o.programType,
+    shortProgramDuration: o.shortProgramDuration,
+    department: o.course.department,
     course: {
       id: o.course.id,
       code: o.course.code,

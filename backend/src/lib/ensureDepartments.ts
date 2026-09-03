@@ -304,19 +304,6 @@ export async function ensureRealDepartments() {
         }
       }
     }
-
-    // Sync to HRDepartment
-    await prisma.hRDepartment.upsert({
-      where: { id: tvetDept.id },
-      update: { name: dept.name, isActive: true },
-      create: { id: tvetDept.id, name: dept.name, isActive: true },
-    }).catch(async () => {
-      await prisma.hRDepartment.upsert({
-        where: { name: dept.name },
-        update: { isActive: true },
-        create: { name: dept.name, isActive: true },
-      }).catch(() => {});
-    });
   }
 
   // 4. Upsert 10 Real Departments for SHORT_PROGRAM

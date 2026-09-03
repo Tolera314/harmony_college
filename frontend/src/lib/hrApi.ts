@@ -101,6 +101,8 @@ export interface HREmployeeApi {
   // System role and course (for INSTRUCTOR/DEPARTMENT_HEAD)
   systemRole?: string | null;
   courseId?:   string | null;
+  // Invitation status for account activation
+  invitationStatus?: 'NONE' | 'PENDING' | 'ACCEPTED' | 'EXPIRED';
   // Document URLs (sensitive — only in /full endpoint)
   faydaIdUrl?: string | null;      faydaIdFileSize?: string | null;
   certificateUrl?: string | null;  certificateFileSize?: string | null;
@@ -280,6 +282,12 @@ export const hrEmployeesApi = {
 
   deactivate: (id: string) =>
     apiFetch<HREmployeeApi>(`/employees/${id}/deactivate`, { method: 'PATCH' }),
+
+  invite: (id: string) =>
+    apiFetch<{ success: boolean; email: string; activationLink: string; expiresInHours: number }>(`/employees/${id}/invite`, { method: 'POST' }),
+
+  resendInvite: (id: string) =>
+    apiFetch<{ success: boolean; email: string; activationLink: string; expiresInHours: number }>(`/employees/${id}/resend-invite`, { method: 'POST' }),
 };
 
 // ── Leave ─────────────────────────────────────────────────────────────────────

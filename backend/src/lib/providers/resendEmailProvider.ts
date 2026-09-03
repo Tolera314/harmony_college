@@ -20,17 +20,32 @@ export class ResendEmailProvider implements EmailProvider {
   }
 
   private async send(to: string, subject: string, html: string, text: string): Promise<{ success: boolean; error?: string }> {
-    if (!this.apiKey) return { success: false, error: 'RESEND_API_KEY is not configured.' };
+    if (!this.apiKey) return { success: false, error: 'RESEND_API_KEY environment variable is not configured in backend/.env.' };
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.apiKey}` },
         body:    JSON.stringify({ from: this.from, to: [to], subject, html, text }),
       });
-      if (!res.ok) { const t = await res.text(); return { success: false, error: `Resend ${res.status}: ${t.slice(0,200)}` }; }
+      if (!res.ok) {
+        const raw = await res.text();
+        let message = raw;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.message) message = parsed.message;
+        } catch { /* raw text fallback */ }
+        console.error(`[ResendEmailProvider] HTTP ${res.status} error for recipient "${to}":`, message);
+        return { success: false, error: `Resend error (${res.status}): ${message}` };
+      }
       return { success: true };
-    } catch (err: unknown) {
-      return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+    } catch (err: any) {
+      const cause = err?.cause ? ` (${err.cause.code || err.cause.message || String(err.cause)})` : '';
+      const detail = `${err?.message || 'Network request failed'}${cause}`;
+      console.error(`[ResendEmailProvider] Network error connecting to https://api.resend.com:`, err);
+      return {
+        success: false,
+        error: `Could not reach Resend mail server (${detail}). Please verify internet connectivity, DNS, or firewall settings.`,
+      };
     }
   }
 

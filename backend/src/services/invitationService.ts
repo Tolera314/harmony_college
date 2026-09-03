@@ -6,7 +6,7 @@ import { Role, AccountStatus, AuditAction, StaffInvitation } from '@prisma/clien
 import { STAFF_ROLES } from '../types/auth';
 
 const PASSWORD_BCRYPT_ROUNDS = 12;
-const INVITATION_LIFETIME_HOURS = 48;
+export const INVITATION_LIFETIME_HOURS = 48;
 
 export interface CreateInvitationInput {
   fullName:       string;
