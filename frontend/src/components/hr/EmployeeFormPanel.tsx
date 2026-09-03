@@ -7,30 +7,24 @@
  *   mode="create"  — empty form, POST /api/hr/employees
  *   mode="edit"    — pre-populated form, PATCH /api/hr/employees/:id
  *
- * Role rules (enforced here AND in backend):
- *   - STUDENT, ADMIN, SUPER_ADMIN cannot be selected
- *   - INSTRUCTOR / DEPARTMENT_HEAD → courseId is REQUIRED
- *   - All other roles → course field hidden
- *
- * Required uploads (create only):
- *   - Certificate (PDF/image)
- *   - Fayda ID (PDF/image)
- *   Files POST to /api/upload, receive { fileUrl } back.
- *   Existing URLs shown in edit mode (not re-required unless replacing).
+ * Registration Fields:
+ *   - Personal Information: Full Name, Email, Phone, Gender, Address, FAN (Fayda Identification Number)
+ *   - Employment Details: Department (from real system departments), System Role, Employment Type, Hire Date, Contract End Date, Education, Experience
+ *   - Documents: Certificate upload (PDF/image)
+ *   - Salary & Banking: Basic Salary (ETB), Allowances (ETB), Deductions (ETB), Bank Account
+ *   - Emergency Contact: Name, Phone, Relation
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
-  Upload, CheckCircle2, AlertCircle, Eye, EyeOff, X,
+  Upload, CheckCircle2, AlertCircle, X,
 } from 'lucide-react';
 import { SlidePanel } from '../ui/SlidePanel';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
 import {
-  hrEmployeesApi, hrDepartmentsApi, hrCoursesApi,
-  type HREmployeeApi, type HRDepartmentApi, type HRCourseOption,
+  hrEmployeesApi, hrDepartmentsApi,
+  type HREmployeeApi, type HRDepartmentApi,
   EMPLOYMENT_TYPE_LABEL,
 } from '../../lib/hrApi';
 
@@ -43,8 +37,6 @@ const ALLOWED_SYSTEM_ROLES = [
   { value: 'FINANCE_OFFICER', label: 'Finance Officer' },
   { value: 'HR_OFFICER',      label: 'HR Officer' },
 ] as const;
-
-const COURSE_REQUIRED_ROLES = new Set(['INSTRUCTOR', 'DEPARTMENT_HEAD']);
 
 // ── File upload helper ────────────────────────────────────────────────────────
 
@@ -176,49 +168,58 @@ export interface EmployeeFormData {
   email:        string;
   phone:        string;
   gender:       'MALE' | 'FEMALE';
-  dateOfBirth:  string;
   address:      string;
+  // FAN / National ID (Fayda Identification Number)
+  nationalId:   string;
+
   // Employment
   departmentId:   string;
-  position:       string;
-  employmentType: string;
   systemRole:     string;
-  courseId:       string;
+  employmentType: string;
   hireDate:       string;
   contractEndDate: string;
   managerId:      string;
   education:      string;
   experienceYears: number;
-  // Salary
+
+  // Salary & Banking
   basicSalary:  number;
   allowances:   number;
   deductions:   number;
-  // Sensitive
-  nationalId:   string;
   bankAccount:  string;
-  taxNumber:    string;
+
   // Documents (URLs from /api/upload)
-  faydaIdUrl:         string;
-  faydaIdFileSize:    string;
   certificateUrl:     string;
   certificateFileSize: string;
+
   // Emergency
   emergencyName:     string;
   emergencyPhone:    string;
   emergencyRelation: string;
+
+  // Preserved edit fields (not displayed)
+  dateOfBirth?:  string;
+  taxNumber?:    string;
+  faydaIdUrl?:   string;
+  faydaIdFileSize?: string;
+  position?:     string;
 }
 
 const EMPTY: EmployeeFormData = {
   fullName: '', email: '', phone: '', gender: 'MALE',
-  dateOfBirth: '', address: '',
-  departmentId: '', position: '', employmentType: 'FULL_TIME',
-  systemRole: '', courseId: '',
+  address: '',
+  nationalId: '', // FAN (Fayda Identification Number)
+
+  departmentId: '',
+  systemRole: '',
+  employmentType: 'FULL_TIME',
   hireDate: new Date().toISOString().slice(0, 10),
   contractEndDate: '', managerId: '',
   education: '', experienceYears: 0,
+
   basicSalary: 0, allowances: 0, deductions: 0,
-  nationalId: '', bankAccount: '', taxNumber: '',
-  faydaIdUrl: '', faydaIdFileSize: '',
+  bankAccount: '',
+
   certificateUrl: '', certificateFileSize: '',
   emergencyName: '', emergencyPhone: '', emergencyRelation: '',
 };
@@ -238,17 +239,13 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
 }) => {
   const [form,     setForm]     = useState<EmployeeFormData>(EMPTY);
   const [depts,    setDepts]    = useState<HRDepartmentApi[]>([]);
-  const [courses,  setCourses]  = useState<HRCourseOption[]>([]);
   const [saving,   setSaving]   = useState(false);
   const [errors,   setErrors]   = useState<Partial<Record<keyof EmployeeFormData | 'root', string>>>({});
 
-  const courseRequired = COURSE_REQUIRED_ROLES.has(form.systemRole.toUpperCase());
-
-  // ── Load departments + courses once ────────────────────────────────────────
+  // ── Load real departments from backend ──────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
     hrDepartmentsApi.list().then(setDepts).catch(() => {});
-    hrCoursesApi.list().then(setCourses).catch(() => {});
   }, [isOpen]);
 
   // ── Populate form when editing ──────────────────────────────────────────────
@@ -260,15 +257,11 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
         email:        employee.email,
         phone:        employee.phone        ?? '',
         gender:       employee.gender,
-        dateOfBirth:  employee.dateOfBirth
-          ? new Date(employee.dateOfBirth).toISOString().slice(0, 10)
-          : '',
         address:      employee.address      ?? '',
+        nationalId:   employee.nationalId   ?? '',
         departmentId: employee.departmentId,
-        position:     employee.position,
-        employmentType: employee.employmentType,
         systemRole:   employee.systemRole   ?? '',
-        courseId:     employee.courseId     ?? '',
+        employmentType: employee.employmentType,
         hireDate:     new Date(employee.hireDate).toISOString().slice(0, 10),
         contractEndDate: employee.contractEndDate
           ? new Date(employee.contractEndDate).toISOString().slice(0, 10)
@@ -279,16 +272,18 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
         basicSalary:  employee.basicSalary,
         allowances:   employee.allowances,
         deductions:   employee.deductions,
-        nationalId:   employee.nationalId   ?? '',
         bankAccount:  employee.bankAccount  ?? '',
-        taxNumber:    employee.taxNumber    ?? '',
-        faydaIdUrl:       employee.faydaIdUrl       ?? '',
-        faydaIdFileSize:  employee.faydaIdFileSize   ?? '',
         certificateUrl:   employee.certificateUrl    ?? '',
         certificateFileSize: employee.certificateFileSize ?? '',
         emergencyName:     employee.emergencyName    ?? '',
         emergencyPhone:    employee.emergencyPhone   ?? '',
         emergencyRelation: employee.emergencyRelation ?? '',
+        // preserved fields
+        position:    employee.position,
+        dateOfBirth: employee.dateOfBirth ? new Date(employee.dateOfBirth).toISOString().slice(0, 10) : undefined,
+        taxNumber:   employee.taxNumber ?? undefined,
+        faydaIdUrl:  employee.faydaIdUrl ?? undefined,
+        faydaIdFileSize: employee.faydaIdFileSize ?? undefined,
       });
     } else if (mode === 'create') {
       setForm(EMPTY);
@@ -305,25 +300,19 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
   const validate = (): boolean => {
     const errs: typeof errors = {};
 
-    if (!form.fullName.trim())   errs.fullName    = 'Full name is required';
-    if (!form.email.trim())      errs.email       = 'Email is required';
+    if (!form.fullName.trim())   errs.fullName     = 'Full name is required';
+    if (!form.email.trim())      errs.email        = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Invalid email format';
     if (!form.departmentId)      errs.departmentId = 'Department is required';
-    if (!form.position.trim())   errs.position    = 'Position is required';
-    if (!form.hireDate)          errs.hireDate    = 'Hire date is required';
+    if (!form.hireDate)          errs.hireDate     = 'Hire date is required';
 
-    if (form.basicSalary < 0)    errs.basicSalary = 'Cannot be negative';
-    if (form.allowances  < 0)    errs.allowances  = 'Cannot be negative';
-    if (form.deductions  < 0)    errs.deductions  = 'Cannot be negative';
-
-    if (courseRequired && !form.courseId)
-      errs.courseId = `Course is required for ${form.systemRole}`;
+    if (form.basicSalary < 0)    errs.basicSalary  = 'Cannot be negative';
+    if (form.allowances  < 0)    errs.allowances   = 'Cannot be negative';
+    if (form.deductions  < 0)    errs.deductions   = 'Cannot be negative';
 
     if (mode === 'create') {
       if (!form.certificateUrl)
-        errs.certificateUrl = 'Certificate upload is required';
-      if (!form.faydaIdUrl)
-        errs.faydaIdUrl = 'Fayda ID upload is required';
+        errs.certificateUrl = 'Certificate document is required';
     }
 
     if (form.contractEndDate && form.contractEndDate < form.hireDate)
@@ -348,32 +337,30 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
     setSaving(true); setErrors({});
 
     try {
+      const roleObj = ALLOWED_SYSTEM_ROLES.find(r => r.value === form.systemRole);
+      const computedPosition = roleObj?.label ?? (form.systemRole ? form.systemRole : (form.position || 'Staff Member'));
+
       const payload: Record<string, unknown> = {
-        fullName:     form.fullName.trim(),
-        email:        form.email.trim(),
-        phone:        form.phone     || null,
-        gender:       form.gender,
-        dateOfBirth:  form.dateOfBirth || null,
-        address:      form.address   || null,
-        departmentId: form.departmentId,
-        position:     form.position.trim(),
+        fullName:       form.fullName.trim(),
+        email:          form.email.trim(),
+        phone:          form.phone     || null,
+        gender:         form.gender,
+        address:        form.address   || null,
+        nationalId:     form.nationalId || null,
+        departmentId:   form.departmentId,
+        position:       computedPosition,
         employmentType: form.employmentType,
-        systemRole:   form.systemRole || null,
-        courseId:     (courseRequired && form.courseId) ? form.courseId : null,
-        hireDate:     form.hireDate,
+        systemRole:     form.systemRole || null,
+        hireDate:       form.hireDate,
         contractEndDate: form.contractEndDate || null,
-        managerId:    form.managerId   || null,
-        education:    form.education   || null,
+        managerId:      form.managerId   || null,
+        education:      form.education   || null,
         experienceYears: form.experienceYears,
-        basicSalary:  form.basicSalary,
-        allowances:   form.allowances,
-        deductions:   form.deductions,
-        nationalId:   form.nationalId  || null,
-        bankAccount:  form.bankAccount || null,
-        taxNumber:    form.taxNumber   || null,
-        faydaIdUrl:       form.faydaIdUrl       || null,
-        faydaIdFileSize:  form.faydaIdFileSize   || null,
-        certificateUrl:   form.certificateUrl    || null,
+        basicSalary:    form.basicSalary,
+        allowances:     form.allowances,
+        deductions:     form.deductions,
+        bankAccount:    form.bankAccount || null,
+        certificateUrl: form.certificateUrl || null,
         certificateFileSize: form.certificateFileSize || null,
         emergencyName:     form.emergencyName    || null,
         emergencyPhone:    form.emergencyPhone   || null,
@@ -410,8 +397,8 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
     <SlidePanel
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'create' ? 'Add New Employee' : `Edit: ${employee?.fullName ?? ''}`}
-      subtitle={mode === 'create' ? 'HR · Employee Registration' : 'HR · Employee Management'}
+      title={mode === 'create' ? 'Add New Employee / Instructor' : `Edit: ${employee?.fullName ?? ''}`}
+      subtitle={mode === 'create' ? 'HR · Employee & Faculty Registration' : 'HR · Employee Management'}
       width="max-w-2xl"
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full">
@@ -452,11 +439,11 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
                 <option value="FEMALE">Female</option>
               </select>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-(--text-secondary)">Date of Birth</label>
-              <input type="date" value={form.dateOfBirth}
-                onChange={e => set('dateOfBirth', e.target.value)}
-                max={new Date().toISOString().slice(0, 10)} className={sel} />
+            <div>
+              <Input label="FAN (Fayda Identification Number)"
+                placeholder="FAN-XXXX-XXXX-XXXX"
+                value={form.nationalId}
+                onChange={e => set('nationalId', e.target.value)} />
             </div>
             <div>
               <Input label="Address" value={form.address}
@@ -479,55 +466,17 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
               </select>
               {fieldErr('departmentId')}
             </div>
-            <div>
-              <Input label="Position Title" required value={form.position}
-                onChange={e => set('position', e.target.value)}
-                error={errors.position} />
-            </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-(--text-secondary)">System Role</label>
-              <select value={form.systemRole} onChange={e => {
-                set('systemRole', e.target.value);
-                // Clear course if new role doesn't need it
-                if (!COURSE_REQUIRED_ROLES.has(e.target.value.toUpperCase())) {
-                  set('courseId', '');
-                }
-              }} className={sel}>
+              <select value={form.systemRole} onChange={e => set('systemRole', e.target.value)} className={sel}>
                 <option value="">— No platform role —</option>
                 {ALLOWED_SYSTEM_ROLES.map(r => (
                   <option key={r.value} value={r.value}>{r.label}</option>
                 ))}
               </select>
-              <p className="text-[10px] text-(--text-faint)">The platform login role this employee will have.</p>
+              <p className="text-[10px] text-(--text-faint)">Identifies the employee or instructor role in the system.</p>
             </div>
-
-            {/* Course — conditional, shown only for INSTRUCTOR / DEPARTMENT_HEAD */}
-            {courseRequired && (
-              <AnimatePresence>
-                <motion.div
-                  key="course-field"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-1.5 overflow-hidden"
-                >
-                  <label className="text-xs font-semibold text-(--text-secondary)">
-                    Course <span className="text-(--status-danger)" aria-hidden="true">*</span>
-                    <Badge variant="amber" className="ml-2 text-[9px]">Required for {form.systemRole}</Badge>
-                  </label>
-                  <select value={form.courseId}
-                    onChange={e => set('courseId', e.target.value)}
-                    className={errors.courseId ? selErr : sel}>
-                    <option value="">— Select Course —</option>
-                    {courses.map(c => (
-                      <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-                    ))}
-                  </select>
-                  {fieldErr('courseId')}
-                </motion.div>
-              </AnimatePresence>
-            )}
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-(--text-secondary)">
@@ -551,16 +500,6 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
               {fieldErr('hireDate')}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-(--text-secondary)">Contract End Date</label>
-              <input type="date" value={form.contractEndDate}
-                onChange={e => set('contractEndDate', e.target.value)}
-                min={form.hireDate || undefined}
-                className={errors.contractEndDate ? selErr : sel} />
-              {fieldErr('contractEndDate')}
-              <p className="text-[10px] text-(--text-faint)">Leave empty for permanent contracts.</p>
-            </div>
-
             <div>
               <Input label="Education / Qualifications" value={form.education}
                 onChange={e => set('education', e.target.value)} />
@@ -574,9 +513,9 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
 
           {/* ── Required documents ───────────────────────────────────────── */}
           {sectionHeader(`Documents ${mode === 'create' ? '(Required)' : ''}`)}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <FileUploadField
-              label="Certificate"
+              label="Certificate Document"
               required={mode === 'create' && !form.certificateUrl}
               accept=".pdf,.jpg,.jpeg,.png"
               existing={mode === 'edit' ? form.certificateUrl : null}
@@ -586,21 +525,10 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
                 set('certificateFileSize', f?.size ?? '');
               }}
             />
-            <FileUploadField
-              label="Fayda ID"
-              required={mode === 'create' && !form.faydaIdUrl}
-              accept=".pdf,.jpg,.jpeg,.png"
-              existing={mode === 'edit' ? form.faydaIdUrl : null}
-              error={errors.faydaIdUrl}
-              onUploaded={f => {
-                set('faydaIdUrl',      f?.url  ?? '');
-                set('faydaIdFileSize', f?.size ?? '');
-              }}
-            />
           </div>
 
           {/* ── Salary ───────────────────────────────────────────────────── */}
-          {sectionHeader('Salary (ETB)')}
+          {sectionHeader('Salary & Banking (ETB)')}
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Input label="Basic Salary" required type="number" min="0"
@@ -629,20 +557,10 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
             </div>
           )}
 
-          {/* ── Sensitive / banking ──────────────────────────────────────── */}
-          {sectionHeader('Sensitive Information')}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <Input label="National ID" value={form.nationalId}
-                onChange={e => set('nationalId', e.target.value)} />
-            </div>
-            <div>
-              <Input label="Bank Account" value={form.bankAccount}
+              <Input label="Bank Account Number" value={form.bankAccount}
                 onChange={e => set('bankAccount', e.target.value)} />
-            </div>
-            <div>
-              <Input label="Tax Number" value={form.taxNumber}
-                onChange={e => set('taxNumber', e.target.value)} />
             </div>
           </div>
 
@@ -670,11 +588,9 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-(--text-secondary)">Employee Status</label>
-                  <select value={form.position /* placeholder — actual below */}
-                    className={sel} disabled>
-                    <option>Use Deactivate button to change status</option>
+                  <select value="" className={sel} disabled>
+                    <option>Use Deactivate button in employee list to change status</option>
                   </select>
-                  <p className="text-[10px] text-(--text-faint)">Use the Deactivate action in the employee list to change status.</p>
                 </div>
               </div>
             </>
@@ -689,7 +605,7 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
           <Button type="submit" variant="gold" disabled={saving}>
             {saving
               ? (mode === 'create' ? 'Creating…' : 'Saving…')
-              : (mode === 'create' ? 'Create Employee' : 'Save Changes')}
+              : (mode === 'create' ? 'Register Employee / Instructor' : 'Save Changes')}
           </Button>
         </div>
       </form>

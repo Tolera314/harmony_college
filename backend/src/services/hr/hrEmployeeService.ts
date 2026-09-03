@@ -40,8 +40,16 @@ const FORBIDDEN_ROLES = new Set([
   'SUPER_ADMIN',
 ]);
 
-/** Roles that REQUIRE a courseId at creation/update. */
-const COURSE_REQUIRED_ROLES = new Set(['INSTRUCTOR', 'DEPARTMENT_HEAD']);
+function formatRoleName(role: string): string {
+  const map: Record<string, string> = {
+    INSTRUCTOR: 'Instructor',
+    DEPARTMENT_HEAD: 'Department Head',
+    REGISTRAR: 'Registrar',
+    FINANCE_OFFICER: 'Finance Officer',
+    HR_OFFICER: 'HR Officer',
+  };
+  return map[role.toUpperCase()] || role;
+}
 
 /**
  * Validate that the creating actor is allowed to assign the given systemRole.
@@ -66,20 +74,12 @@ function assertRolePermission(systemRole: string, actorRole: string): void {
 }
 
 /**
- * Validate course requirement:
- * - If role requires a course → courseId must be provided
- * - If role does NOT require a course → ignore/clear courseId
+ * Resolve optional courseId if provided. Course selection is not required at registration.
  */
-function resolveCourseId(systemRole: string, courseId?: string | null): string | null {
-  if (COURSE_REQUIRED_ROLES.has(systemRole.toUpperCase())) {
-    if (!courseId || courseId.trim() === '') {
-      throw new Error(
-        `Role ${systemRole} requires a course assignment. Please select a course.`
-      );
-    }
+function resolveCourseId(courseId?: string | null): string | null {
+  if (courseId && courseId.trim() !== '') {
     return courseId.trim();
   }
-  // Not a teaching role — always null regardless of what was submitted
   return null;
 }
 
@@ -201,10 +201,10 @@ export async function createEmployee(
     phone?:         string;
     dateOfBirth?:   string;
     address?:       string;
-    position:       string;
+    position?:      string;
     employmentType: string;
     systemRole?:    string;   // the platform Role this employee will have
-    courseId?:      string;   // required when systemRole ∈ COURSE_REQUIRED_ROLES
+    courseId?:      string;   // optional course assignment
     hireDate:       string;
     contractEndDate?: string;
     managerId?:     string;
@@ -234,25 +234,16 @@ export async function createEmployee(
     assertRolePermission(data.systemRole, actorRole);
   }
 
-  // ── Course validation ────────────────────────────────────────────────────
-  const resolvedCourseId = data.systemRole
-    ? resolveCourseId(data.systemRole, data.courseId)
-    : null;
+  // ── Course resolution (optional at HR creation stage) ───────────────────
+  const resolvedCourseId = resolveCourseId(data.courseId);
 
   // ── Salary validation ────────────────────────────────────────────────────
   if (data.basicSalary < 0)   throw new Error('Basic salary cannot be negative');
   if ((data.allowances ?? 0) < 0) throw new Error('Allowances cannot be negative');
   if ((data.deductions ?? 0) < 0) throw new Error('Deductions cannot be negative');
 
-  // ── Certificate required validation ─────────────────────────────────────
-  // Certificate and Fayda ID are validated here as business rules.
-  // (Upload must have already succeeded before calling createEmployee.)
-  if (!data.certificateUrl) {
-    throw new Error('Certificate document is required for employee registration.');
-  }
-  if (!data.faydaIdUrl) {
-    throw new Error('Fayda ID document is required for employee registration.');
-  }
+  // ── Position fallback ───────────────────────────────────────────────────
+  const resolvedPosition = data.position?.trim() || (data.systemRole ? formatRoleName(data.systemRole) : 'Staff Member');
 
   // ── Uniqueness checks ────────────────────────────────────────────────────
   const [codeExists, emailExists] = await Promise.all([
@@ -277,7 +268,7 @@ export async function createEmployee(
       phone:          data.phone   ?? null,
       dateOfBirth:    data.dateOfBirth ? new Date(data.dateOfBirth) : null,
       address:        data.address ?? null,
-      position:       data.position,
+      position:       resolvedPosition,
       employmentType: data.employmentType as any,
       systemRole:     data.systemRole ?? null,
       courseId:       resolvedCourseId,
@@ -381,15 +372,10 @@ export async function updateEmployee(
     assertRolePermission(data.systemRole, actorRole);
   }
 
-  // Course validation on update
+  // Course resolution on update
   let resolvedCourseId: string | null | undefined = undefined;
-  if ('systemRole' in data && data.systemRole) {
-    resolvedCourseId = resolveCourseId(data.systemRole, data.courseId ?? undefined);
-  } else if ('courseId' in data) {
-    // No systemRole change — validate course against existing role
-    if (employee.systemRole) {
-      resolvedCourseId = resolveCourseId(employee.systemRole, data.courseId ?? undefined);
-    }
+  if ('courseId' in data) {
+    resolvedCourseId = resolveCourseId(data.courseId ?? undefined);
   }
 
   // Salary validation
@@ -486,8 +472,36 @@ export async function deactivateEmployee(id: string, actorName: string, actorUse
 // ── Departments ───────────────────────────────────────────────────────────────
 
 export async function getDepartments() {
+  // Sync real academic departments defined in the system (prisma.department) to prisma.hRDepartment
+  const academicDepts = await prisma.department.findMany({
+    where: { isActive: true },
+    orderBy: { name: 'asc' },
+  });
+
+  for (const ad of academicDepts) {
+    await prisma.hRDepartment.upsert({
+      where: { id: ad.id },
+      update: { name: ad.name, isActive: ad.isActive },
+      create: { id: ad.id, name: ad.name, isActive: ad.isActive },
+    }).catch(async () => {
+      await prisma.hRDepartment.upsert({
+        where: { name: ad.name },
+        update: { isActive: ad.isActive },
+        create: { id: ad.id, name: ad.name, isActive: ad.isActive },
+      }).catch(() => {});
+    });
+  }
+
   return prisma.hRDepartment.findMany({
-    where:   { isActive: true },
+    where: {
+      isActive: true,
+      name: {
+        notIn: [
+          'Theatrical Art & Digital Media',
+          'Computer Science & Engineering',
+        ],
+      },
+    },
     include: { _count: { select: { employees: { where: { status: 'ACTIVE' } } } } },
     orderBy: { name: 'asc' },
   });
