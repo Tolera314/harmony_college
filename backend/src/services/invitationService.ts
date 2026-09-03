@@ -6,7 +6,7 @@ import { Role, AccountStatus, AuditAction, StaffInvitation } from '@prisma/clien
 import { STAFF_ROLES } from '../types/auth';
 
 const PASSWORD_BCRYPT_ROUNDS = 12;
-const INVITATION_LIFETIME_HOURS = 48;
+export const INVITATION_LIFETIME_HOURS = 48;
 
 export interface CreateInvitationInput {
   fullName:       string;
@@ -347,6 +347,12 @@ export async function acceptStaffInvitation(
         },
       });
     }
+
+    // Connect HREmployee record if registered via HR
+    await tx.hREmployee.updateMany({
+      where: { email: inv.email },
+      data: { userId: user.id },
+    });
 
     // 6. Update invitation to accepted state
     await tx.staffInvitation.update({

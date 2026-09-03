@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { InstructorNavTab } from '@/src/types/instructor';
@@ -70,6 +70,7 @@ export default function InstructorDashboardPage() {
   // Real data
   const [dashData,       setDashData]     = useState<DashboardData | null>(null);
   const [dashLoading,    setDashLoading]  = useState(true);
+  const [academicProgramType, setAcademicProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -87,17 +88,39 @@ export default function InstructorDashboardPage() {
   });
 
   // ── Load dashboard data (profile + KPIs) ────────────────────────────────
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (pt?: 'TVET' | 'SHORT_PROGRAM') => {
     try {
-      const data = await instructorDashboardApi.get();
+      const targetPt = pt ?? academicProgramType;
+      const data = await instructorDashboardApi.get(targetPt);
       setDashData(data);
+      if (data.academicContext) {
+        if (data.academicContext.hasShortProgram && !data.academicContext.hasTVET) {
+          setAcademicProgramType('SHORT_PROGRAM');
+        } else if (data.academicContext.hasTVET && !data.academicContext.hasShortProgram) {
+          setAcademicProgramType('TVET');
+        }
+      }
     } catch (e) {
       // Dashboard load failed — show toast but don't crash
       showToast(e instanceof Error ? e.message : 'Failed to load dashboard', 'error');
     } finally {
       setDashLoading(false);
     }
-  }, []);
+  }, [academicProgramType]);
+
+  const handleProgramTypeChange = async (pt: 'TVET' | 'SHORT_PROGRAM') => {
+    if (pt === academicProgramType) return;
+    setAcademicProgramType(pt);
+    setDashLoading(true);
+    try {
+      const data = await instructorDashboardApi.get(pt);
+      setDashData(data);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to switch academic context', 'error');
+    } finally {
+      setDashLoading(false);
+    }
+  };
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
@@ -164,8 +187,8 @@ export default function InstructorDashboardPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':       return <InOverviewView profile={profile} dashData={dashData} setActiveTab={setActiveTab} />;
-      case 'my_classes':     return <InMyClassesView setActiveTab={setActiveTab} />;
+      case 'overview':       return <InOverviewView profile={profile} dashData={dashData} setActiveTab={setActiveTab} programType={academicProgramType} onProgramTypeChange={handleProgramTypeChange} />;
+      case 'my_classes':     return <InMyClassesView setActiveTab={setActiveTab} programType={academicProgramType} />;
       case 'schedule':       return <InScheduleView setActiveTab={setActiveTab} />;
       case 'attendance':     return <InAttendanceView />;
       case 'students':       return <InStudentsView />;
@@ -216,6 +239,42 @@ export default function InstructorDashboardPage() {
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
+            {/* Academic Context Switcher Banner if Instructor has responsibilities across both TVET & Short Program */}
+            {dashData?.academicContext?.hasTVET && dashData?.academicContext?.hasShortProgram && (
+              <div className="mb-6 p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-bold">Academic Assignment Context:</span>
+                  <span className="text-xs text-zinc-300">
+                    Currently viewing <strong className="text-white">{academicProgramType === 'TVET' ? 'TVET' : 'Short Program'}</strong> responsibilities
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => handleProgramTypeChange('TVET')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      academicProgramType === 'TVET'
+                        ? 'bg-[#E9C349] text-black shadow-md font-bold'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    [ TVET ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleProgramTypeChange('SHORT_PROGRAM')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      academicProgramType === 'SHORT_PROGRAM'
+                        ? 'bg-[#E9C349] text-black shadow-md font-bold'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    [ Short Program ]
+                  </button>
+                </div>
+              </div>
+            )}
+
             {dashLoading && activeTab === 'overview' ? (
               <SkeletonPage />
             ) : (

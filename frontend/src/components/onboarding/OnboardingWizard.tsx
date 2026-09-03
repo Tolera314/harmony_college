@@ -27,6 +27,7 @@ import {
   type ProfileData,
   type OnboardingState,
 } from '@/src/lib/onboardingStore';
+import { HARMONY_PROGRAMS } from '@/src/lib/harmonyPrograms';
 
 // ── College Context Data ──────────────────────────────────────────────────────
 
@@ -398,23 +399,7 @@ function OnboardingContextPanel({
   );
 }
 
-const PROGRAMS = [
-  'Photography & Videography',
-  'Theatrical Art & Filmmaking',
-  'Music Instruments & Vocal',
-  'Cubase Music Production',
-  'Graphic Design & Digital Marketing',
-  'Graphic Design',
-  'Digital Marketing',
-  'Journalism & Communication',
-  'Information Technology (IT)',
-  'Languages & Linguistics',
-  'Pharmacy',
-  'Accounting & Finance',
-  'Management',
-  'Marketing Management',
-  'Computer Science',
-];
+const PROGRAMS: string[] = [...HARMONY_PROGRAMS];
 
 const WIZARD_STEPS = [
   { id: 1, label: 'Personal',   sublabel: 'Info'     },

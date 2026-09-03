@@ -67,4 +67,22 @@ export class SendGridEmailProvider implements EmailProvider {
       `Hello ${params.fullName},\n\nYou have been invited to join Harmony College as ${params.role} (${params.departmentName}).\nAccept your invitation: ${params.invitationLink} (expires in ${params.expiresInHours} hours).\nIf unexpected, contact administrator support.`,
     );
   }
+
+  async sendAccountActivationEmail(
+    to: string,
+    params: {
+      fullName:       string;
+      role:           string;
+      position:       string;
+      departmentName: string;
+      activationLink: string;
+      expiresInHours: number;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    return this.send(
+      to,
+      'Activate Your Harmony College Account',
+      `Welcome to Harmony College\n\nDear ${params.fullName},\n\nYour Harmony College institutional account has been created for your position as ${params.position} (${params.role}) in the ${params.departmentName} department.\n\nTo activate your account and establish your password, visit:\n${params.activationLink}\n\nThis link is secure and expires in ${params.expiresInHours} hours.\n\nHarmony College HR Office`,
+    );
+  }
 }

@@ -209,7 +209,7 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
       .finally(() => setLoadingStudents(false));
   }, []);
 
-  const selected = students.find((s) => s.studentRecordId === form.studentId || s.id === form.studentId);
+  const selectedStudent = students.find((s) => s.studentRecordId === form.studentId || s.id === form.studentId);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -224,7 +224,7 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
     setSubmitting(true);
     try {
       await recordStudentPayment({
-        studentRecordId: selected?.studentRecordId || form.studentId,
+        studentRecordId: selectedStudent?.studentRecordId || selected?.studentRecordId || form.studentId,
         amount: Number(form.amount),
         paymentMethod: form.method as any,
         referenceNumber: form.reference.trim() || undefined,

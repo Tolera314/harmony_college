@@ -77,6 +77,8 @@ export interface StudentProfile {
   expectedGraduation: string;
   advisorName: string;
   advisorEmail: string;
+  programType?: string;
+  shortProgramDuration?: string;
 }
 
 export interface Assignment {

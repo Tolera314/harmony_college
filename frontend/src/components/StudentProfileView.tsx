@@ -81,35 +81,10 @@ const EMPTY_PROFILE: ProfileData = {
 const PROGRAMS = HARMONY_PROGRAMS as readonly string[];
 const SEMESTERS = ['Semester I', 'Semester II', 'Semester III', 'Summer / Kiremt'];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function computeCompletion(p: ProfileData, transcriptPreview?: string): number {
-  const fields: (keyof ProfileData)[] = [
-    'nationality', 'dob', 'gender', 'city', 'nationalId',
-    'program', 'programType',
-    'matricResult', 'ministryResult',
-    'profilePicturePreview',
-    'emergencyName', 'emergencyPhone',
-  ];
-  let filled = 0;
-  for (const f of fields) {
-    if (f === 'nationalId') {
-      if (p.nationalId && /^\d{16}$/.test(p.nationalId.trim())) filled++;
-    } else if (f === 'programType') {
-      if (p.programType === 'TVET') {
-        filled++;
-      } else if (p.programType === 'Short Program') {
-        if (p.shortProgramDuration === '2 Months' || p.shortProgramDuration === '4 Months') filled++;
-      }
-    } else if (p[f]) {
-      filled++;
-    }
-  }
-  // Check transcript upload
-  if (transcriptPreview || p.transcriptName) filled++;
-
-  const totalPossible = fields.length + 1; // +1 for transcript
-  return Math.round((filled / totalPossible) * 100);
-}
+// ── Required fields (must match backend profileCompletion.ts exactly) ─────────
+// We do NOT compute completion locally. The percentage is ALWAYS the backend's
+// authoritative value from data.profileCompletion in API responses.
+// This eliminates all frontend ↔ backend calculation mismatches.
 
 // ── Form inputs ───────────────────────────────────────────────────────────────
 function Field({
@@ -431,19 +406,24 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
   const [profile,     setProfile]     = useState<ProfileData>(EMPTY_PROFILE);
   const [step,        setStep]        = useState(1);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
-  const [saving,      setSaving]      = useState(false);
+  // saveStatus: the ONLY thing that changes the UI save indicator
+  const [saveStatus,  setSaveStatus]  = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError,   setSaveError]   = useState('');
   const [submitted,   setSubmitted]   = useState(false);
+  // completion is ONLY ever set from backend responses — never from local state
   const [completion,  setCompletion]  = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [fullName,    setFullName]    = useState('');
   const [appNumber,   setAppNumber]   = useState('');
 
+  // Request counter — prevents stale responses from overwriting newer completion values
+  const saveSeq = React.useRef(0);
+
   // Upload states
   const [profilePic,  setProfilePic]  = useState<UploadState>(emptyUpload());
   const [transcript,  setTranscript]  = useState<UploadState>(emptyUpload());
 
-  // Load existing profile on mount
+  // ── Load existing profile on mount ────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -456,6 +436,7 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
           if (me.user) {
             setFullName(me.user.fullName ?? '');
             setAppNumber(`HC-${new Date().getFullYear()}-${me.user.id.slice(0, 6).toUpperCase()}`);
+            // Use backend's authoritative completion on load
             setCompletion(me.user.profileCompletion ?? 0);
           }
         }
@@ -486,7 +467,11 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
               emergencyNotes:        bp.emergencyNotes        ?? '',
             };
             setProfile(loaded);
-            setCompletion(computeCompletion(loaded, bp.transcriptUrl));
+            // Prefer the backend's completion from /api/student/profile response
+            // (it's already set from /api/auth/me above; only override if explicitly returned)
+            if (typeof pd.profileCompletion === 'number') {
+              setCompletion(pd.profileCompletion);
+            }
             if (bp.profilePictureUrl) setProfilePic({ file: null, preview: bp.profilePictureUrl, uploading: false, error: '' });
             if (bp.transcriptUrl)     setTranscript( { file: null, preview: bp.transcriptUrl,     uploading: false, error: '' });
           }
@@ -496,50 +481,60 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
     })();
   }, []);
 
+  // ── setField — only updates profile form state, NEVER touches completion ──
   const setField = useCallback((k: keyof ProfileData, v: string) => {
-    setProfile(prev => {
-      const next = { ...prev, [k]: v };
-      setCompletion(computeCompletion(next, transcript.preview));
-      return next;
-    });
+    setProfile(prev => ({ ...prev, [k]: v }));
     setErrors(e => { const n = { ...e }; delete n[k]; return n; });
-  }, [transcript.preview]);
+    // Clear 'saved' badge when user edits again
+    setSaveStatus(s => s === 'saved' ? 'idle' : s);
+  }, []);
 
-  // Upload file → /api/upload (Cloudinary for photos) → PATCH /api/student/profile
+  // ── patchProfile — calls backend, uses seq to reject stale responses ────────
+  const patchProfile = useCallback(async (patch: Record<string, unknown>): Promise<number | null> => {
+    const seq = ++saveSeq.current;
+    setSaveStatus('saving');
+    try {
+      const res = await fetch('/api/student/profile', {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Save failed.');
+      // Only apply if this is still the latest request
+      if (seq === saveSeq.current && typeof data.profileCompletion === 'number') {
+        setCompletion(data.profileCompletion);
+        onProfileUpdated?.(data.profileCompletion);
+      }
+      if (seq === saveSeq.current) setSaveStatus('saved');
+      return typeof data.profileCompletion === 'number' ? data.profileCompletion : null;
+    } catch (err) {
+      if (seq === saveSeq.current) {
+        setSaveStatus('error');
+        setSaveError(err instanceof Error ? err.message : 'Save failed. Please try again.');
+      }
+      return null;
+    }
+  }, [onProfileUpdated]);
+
+  // ── File upload ───────────────────────────────────────────────────────────
   const uploadFile = async (file: File): Promise<string | null> => {
     const form = new FormData();
     form.append('file', file);
     try {
       const res = await fetch('/api/upload', { method: 'POST', credentials: 'include', body: form });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Upload failed.');
-      }
+      if (!res.ok) throw new Error(data.error || 'Upload failed.');
       return (data.fileUrl as string) || null;
-    } catch (err: unknown) {
+    } catch (err) {
       console.error('File upload error:', err);
       return null;
-    }
-  };
-
-  const patchProfile = async (patch: Record<string, unknown>) => {
-    const res = await fetch('/api/student/profile', {
-      method: 'PATCH', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const pct = data.profileCompletion ?? completion;
-      setCompletion(pct);
-      onProfileUpdated?.(pct);
     }
   };
 
   const handleFileChange = (type: 'profilePic' | 'transcript') => async (file: File) => {
     const setter = type === 'profilePic' ? setProfilePic : setTranscript;
 
-    // Validate image format & size client-side
     if (type === 'profilePic') {
       const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!validTypes.includes(file.type)) {
@@ -564,11 +559,10 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
     setter({ file, preview: fileUrl, uploading: false, error: '' });
 
     if (type === 'profilePic') {
-      setField('profilePictureName', file.name);
-      setField('profilePicturePreview', fileUrl);
+      setProfile(prev => ({ ...prev, profilePictureName: file.name, profilePicturePreview: fileUrl }));
       await patchProfile({ profilePictureUrl: fileUrl });
     } else {
-      setField('transcriptName', file.name);
+      setProfile(prev => ({ ...prev, transcriptName: file.name }));
       await patchProfile({ transcriptUrl: fileUrl });
     }
   };
@@ -576,33 +570,37 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
   const handleRemove = (type: 'profilePic' | 'transcript') => () => {
     if (type === 'profilePic') {
       setProfilePic(emptyUpload());
-      setField('profilePictureName', '');
-      setField('profilePicturePreview', '');
+      setProfile(prev => ({ ...prev, profilePictureName: '', profilePicturePreview: '' }));
       patchProfile({ profilePictureUrl: null });
     } else {
       setTranscript(emptyUpload());
-      setField('transcriptName', '');
+      setProfile(prev => ({ ...prev, transcriptName: '' }));
       patchProfile({ transcriptUrl: null });
     }
   };
 
-  // Auto-save current step to backend
+  // ── Auto-save step → backend, completion comes back from response ─────────
   const autoSave = async (s: number) => {
     const payload: Record<string, unknown> = {};
     if (s === 1) {
       ['nationality', 'dob', 'gender', 'region', 'city', 'nationalId'].forEach(k => {
-        if (profile[k as keyof ProfileData]) payload[k] = profile[k as keyof ProfileData];
+        const v = profile[k as keyof ProfileData];
+        if (v) payload[k] = v;
       });
     } else if (s === 2) {
       ['program', 'programType', 'shortProgramDuration', 'academicYear', 'semester', 'matricResult', 'ministryResult'].forEach(k => {
-        if (profile[k as keyof ProfileData] !== undefined) payload[k] = profile[k as keyof ProfileData];
+        const v = profile[k as keyof ProfileData];
+        if (v !== undefined && v !== '') payload[k] = v;
       });
+      // Explicitly null shortProgramDuration when TVET
+      if (profile.programType === 'TVET') payload.shortProgramDuration = null;
     } else if (s === 3) {
       if (profile.profilePicturePreview) payload.profilePictureUrl = profile.profilePicturePreview;
-      if (transcript.preview) payload.transcriptUrl = transcript.preview;
+      if (transcript.preview)            payload.transcriptUrl     = transcript.preview;
     } else if (s === 4) {
       ['emergencyName', 'emergencyPhone', 'emergencyNotes'].forEach(k => {
-        if (profile[k as keyof ProfileData]) payload[k] = profile[k as keyof ProfileData];
+        const v = profile[k as keyof ProfileData];
+        if (v) payload[k] = v;
       });
     }
     if (Object.keys(payload).length > 0) await patchProfile(payload);
@@ -643,59 +641,38 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
 
   const handleNext = async () => {
     if (!validate()) return;
-    setSaving(true);
     await autoSave(step);
-    setSaving(false);
-    setStep(s => Math.min(4, s + 1));
+    // Only advance if the save didn't error
+    if (saveStatus !== 'error') setStep(s => Math.min(4, s + 1));
   };
 
   const handlePrev = () => { setStep(s => Math.max(1, s - 1)); setErrors({}); };
 
   const handleSubmit = async () => {
     if (!validate()) return;
-    setSaving(true); setSaveError('');
-    try {
-      const res = await fetch('/api/student/profile', {
-        method: 'PATCH', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nationality: profile.nationality || undefined,
-          dob: profile.dob || undefined,
-          gender: profile.gender || undefined,
-          region: profile.region || undefined,
-          city: profile.city || undefined,
-          nationalId: profile.nationalId || undefined,
-          program: profile.program || undefined,
-          programType: profile.programType || undefined,
-          shortProgramDuration: profile.programType === 'Short Program' ? profile.shortProgramDuration || undefined : null,
-          academicYear: profile.academicYear || DEFAULT_ACADEMIC_YEAR,
-          semester: profile.semester || undefined,
-          matricResult: profile.matricResult || undefined,
-          ministryResult: profile.ministryResult || undefined,
-          profilePictureUrl: profile.profilePicturePreview || undefined,
-          transcriptUrl: transcript.preview || undefined,
-          emergencyName: profile.emergencyName || undefined,
-          emergencyPhone: profile.emergencyPhone || undefined,
-          emergencyNotes: profile.emergencyNotes || undefined,
-          submit: true,
-        }),
-      });
-      const data = await res.json();
-      if (res.status === 422) {
-        const missing: string[] = data.missingFields ?? [];
-        setSaveError(`Please complete: ${missing.join(', ')}.`);
-        return;
-      }
-      if (!res.ok) { setSaveError(data.error ?? 'Save failed.'); return; }
-      const pct = data.profileCompletion ?? completion;
-      setCompletion(pct);
-      onProfileUpdated?.(pct);
-      setSubmitted(true);
-    } catch {
-      setSaveError('Network error. Please try again.');
-    } finally {
-      setSaving(false);
-    }
+    setSaveError('');
+    const pct = await patchProfile({
+      nationality:         profile.nationality         || undefined,
+      dob:                 profile.dob                 || undefined,
+      gender:              profile.gender              || undefined,
+      region:              profile.region              || undefined,
+      city:                profile.city                || undefined,
+      nationalId:          profile.nationalId          || undefined,
+      program:             profile.program             || undefined,
+      programType:         profile.programType         || undefined,
+      shortProgramDuration: profile.programType === 'Short Program' ? profile.shortProgramDuration || undefined : null,
+      academicYear:        profile.academicYear        || DEFAULT_ACADEMIC_YEAR,
+      semester:            profile.semester            || undefined,
+      matricResult:        profile.matricResult        || undefined,
+      ministryResult:      profile.ministryResult      || undefined,
+      profilePictureUrl:   profile.profilePicturePreview || undefined,
+      transcriptUrl:       transcript.preview          || undefined,
+      emergencyName:       profile.emergencyName       || undefined,
+      emergencyPhone:      profile.emergencyPhone      || undefined,
+      emergencyNotes:      profile.emergencyNotes      || undefined,
+      submit: true,
+    });
+    if (pct !== null) setSubmitted(true);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -710,6 +687,7 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
   }
 
   const isUploadingActive = profilePic.uploading || transcript.uploading;
+  const isSaving = saveStatus === 'saving';
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-12 space-y-8 max-w-3xl">
@@ -745,6 +723,24 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
           {appNumber && (
             <p className="text-[10px] font-mono mt-1" style={{ color: 'var(--text-faint)' }}>
               Application: {appNumber}
+            </p>
+          )}
+          {/* Save status indicator — single source of truth */}
+          {saveStatus === 'saving' && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="w-3 h-3 border-2 border-t-[var(--brand-gold)] border-white/10 rounded-full animate-spin inline-block" />
+              <span className="text-[11px] font-mono" style={{ color: 'var(--brand-gold)' }}>Saving…</span>
+            </div>
+          )}
+          {saveStatus === 'saved' && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--status-success)' }} />
+              <span className="text-[11px] font-mono" style={{ color: 'var(--status-success)' }}>Saved</span>
+            </div>
+          )}
+          {saveStatus === 'error' && (
+            <p className="text-[11px] font-mono mt-2" style={{ color: 'var(--status-danger)' }}>
+              ✗ {saveError || 'Save failed'}
             </p>
           )}
           {/* Progress bar */}
@@ -859,11 +855,11 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
                   size="md"
                   className="flex-1"
                   onClick={handleNext}
-                  disabled={saving || isUploadingActive}
-                  icon={saving
+                  disabled={saveStatus === 'saving' || isUploadingActive}
+                  icon={saveStatus === 'saving'
                     ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     : <ArrowRight className="w-4 h-4" />}>
-                  {saving ? 'Saving…' : 'Save & Continue'}
+                  {saveStatus === 'saving' ? 'Saving…' : 'Save & Continue'}
                 </Button>
               ) : (
                 <Button
@@ -871,11 +867,11 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
                   size="md"
                   className="flex-1"
                   onClick={handleSubmit}
-                  disabled={saving || isUploadingActive}
-                  icon={saving
+                  disabled={saveStatus === 'saving' || isUploadingActive}
+                  icon={saveStatus === 'saving'
                     ? <span className="w-4 h-4 border-2 border-[var(--bg-base)]/30 border-t-[var(--bg-base)] rounded-full animate-spin" />
                     : <CheckCircle2 className="w-4 h-4" />}>
-                  {saving ? 'Saving…' : 'Save Profile'}
+                  {saveStatus === 'saving' ? 'Saving…' : 'Save Profile'}
                 </Button>
               )}
             </div>

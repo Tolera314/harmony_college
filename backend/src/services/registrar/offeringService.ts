@@ -12,15 +12,17 @@ export interface OfferingListQuery {
   page: number; limit: number;
   search?: string; semesterId?: string;
   status?: OfferingStatus; courseId?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
 export async function listOfferings(q: OfferingListQuery) {
-  const { page, limit, search, semesterId, status, courseId } = q;
+  const { page, limit, search, semesterId, status, courseId, programType } = q;
   const skip = (page - 1) * limit;
   const where: any = {};
   if (status) where.status = status;
   if (semesterId) where.semesterId = semesterId;
   if (courseId) where.courseId = courseId;
+  if (programType) where.programType = programType;
   if (search) {
     where.OR = [
       { course: { code: { contains: search, mode: 'insensitive' } } },

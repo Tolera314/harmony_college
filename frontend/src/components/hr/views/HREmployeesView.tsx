@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Users, Search, Download, Eye, EyeOff, UserX, Edit, Plus,
-  Phone, Mail, AlertTriangle,
+  Phone, Mail, AlertTriangle, Send, CheckCircle2, RotateCw, Loader2, Check,
 } from 'lucide-react';
 import {
   hrEmployeesApi, hrDepartmentsApi,
@@ -99,6 +99,10 @@ export const HREmployeesView: React.FC = () => {
   const [loadingFull,      setLoadingFull]      = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<HREmployeeApi | null>(null);
 
+  // invitation action state
+  const [invitingId,     setInvitingId]     = useState<string | null>(null);
+  const [inviteMessage,  setInviteMessage]  = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // ── Shared form panel state ─────────────────────────────────────────────────
   const [formPanelOpen,    setFormPanelOpen]    = useState(false);
   const [formPanelMode,    setFormPanelMode]    = useState<'create' | 'edit'>('create');
@@ -174,6 +178,44 @@ export const HREmployeesView: React.FC = () => {
     finally { setDeactivateTarget(null); }
   };
 
+  // ── Invite & Resend Actions ────────────────────────────────────────────────
+  const handleInvite = async (emp: HREmployeeApi) => {
+    if (!emp.email || !emp.email.trim()) {
+      setInviteMessage({ type: 'error', text: `Cannot invite ${emp.fullName}: Employee has no registered email address.` });
+      return;
+    }
+    if (!emp.systemRole) {
+      setInviteMessage({ type: 'error', text: `Cannot invite ${emp.fullName}: Please edit the employee to assign a system role first.` });
+      return;
+    }
+
+    setInvitingId(emp.id);
+    setInviteMessage(null);
+    try {
+      await hrEmployeesApi.invite(emp.id);
+      setEmpList(prev => prev.map(e => e.id === emp.id ? { ...e, invitationStatus: 'PENDING' } : e));
+      setInviteMessage({ type: 'success', text: `Account invitation email successfully sent to ${emp.email} for ${emp.fullName}.` });
+    } catch (e: any) {
+      setInviteMessage({ type: 'error', text: e?.message || 'Failed to send invitation email.' });
+    } finally {
+      setInvitingId(null);
+    }
+  };
+
+  const handleResendInvite = async (emp: HREmployeeApi) => {
+    setInvitingId(emp.id);
+    setInviteMessage(null);
+    try {
+      await hrEmployeesApi.resendInvite(emp.id);
+      setEmpList(prev => prev.map(e => e.id === emp.id ? { ...e, invitationStatus: 'PENDING' } : e));
+      setInviteMessage({ type: 'success', text: `Account invitation email successfully resent to ${emp.email} for ${emp.fullName}.` });
+    } catch (e: any) {
+      setInviteMessage({ type: 'error', text: e?.message || 'Failed to resend invitation email.' });
+    } finally {
+      setInvitingId(null);
+    }
+  };
+
   const filterSel = 'px-3 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)';
 
   if (loading) return <SkeletonPage />;
@@ -232,6 +274,31 @@ export const HREmployeesView: React.FC = () => {
         </div>
       </div>
 
+      {/* ── Invite Feedback Toast/Banner ───────────────────────────────── */}
+      {inviteMessage && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 text-xs font-sans transition-all ${
+          inviteMessage.type === 'success'
+            ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+            : 'bg-rose-500/10 border-rose-500/25 text-rose-300'
+        }`}>
+          <div className="flex items-center gap-2">
+            {inviteMessage.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{inviteMessage.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setInviteMessage(null)}
+            className="text-(--text-faint) hover:text-white text-xs px-2 py-0.5 rounded-md hover:bg-(--hover-overlay) transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* ── Table ───────────────────────────────────────────────────────── */}
       <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
         <table className="w-full text-left text-xs sm:text-sm font-sans min-w-[960px]">
@@ -287,7 +354,78 @@ export const HREmployeesView: React.FC = () => {
                 <td className="px-4 py-3.5">{contractBadge(emp.contractStatus)}</td>
                 <td className="px-4 py-3.5">{statusBadge(emp.status)}</td>
                 <td className="px-4 py-3.5">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Invite Button / Status */}
+                    {(() => {
+                      const isInviting = invitingId === emp.id;
+                      const status = emp.invitationStatus ?? 'NONE';
+
+                      if (status === 'ACCEPTED') {
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg"
+                            title="Account Activated & Active"
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            Active
+                          </span>
+                        );
+                      }
+
+                      if (status === 'PENDING') {
+                        return (
+                          <div className="inline-flex items-center gap-1">
+                            <span
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-(--brand-gold) bg-(--brand-gold)/10 border border-(--brand-gold)/20 px-2 py-1 rounded-lg"
+                              title="Invitation sent and pending account activation"
+                            >
+                              <Check className="w-3 h-3 text-(--brand-gold)" />
+                              Invited
+                            </span>
+                            <button
+                              type="button"
+                              title="Resend account invitation email"
+                              onClick={() => handleResendInvite(emp)}
+                              disabled={isInviting}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-(--text-muted) hover:text-(--brand-gold) hover:bg-(--hover-overlay) px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              {isInviting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCw className="w-3 h-3" />}
+                              <span className="hidden xl:inline">Resend</span>
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      if (status === 'EXPIRED') {
+                        return (
+                          <button
+                            type="button"
+                            title="Invitation link expired. Click to resend."
+                            onClick={() => handleResendInvite(emp)}
+                            disabled={isInviting}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            {isInviting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCw className="w-3 h-3" />}
+                            Resend Invite
+                          </button>
+                        );
+                      }
+
+                      // Default: 'NONE' (Not invited yet)
+                      return (
+                        <button
+                          type="button"
+                          title={emp.systemRole ? "Send Harmony College account invitation" : "Edit employee to assign a system role before inviting"}
+                          onClick={() => handleInvite(emp)}
+                          disabled={isInviting}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-(--brand-gold) hover:text-white bg-(--brand-gold)/10 hover:bg-(--brand-gold)/25 border border-(--brand-gold)/30 px-2.5 py-1 rounded-lg transition-all shadow-xs disabled:opacity-50"
+                        >
+                          {isInviting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Invite
+                        </button>
+                      );
+                    })()}
+
                     <button title="View Profile" onClick={() => openProfile(emp)}
                       className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary) transition-colors">
                       <Eye className="w-4 h-4" />

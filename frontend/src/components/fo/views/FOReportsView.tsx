@@ -32,6 +32,10 @@ export const FOReportsView: React.FC = () => {
   const [methodBreakdown,  setMethodBreakdown]  = useState<any[]>([]);
   const [departments,      setDepartments]      = useState<any[]>([]);
   const [agedReceivables,  setAgedReceivables]  = useState<any[]>([]);
+  const [dailyData,        setDailyData]        = useState<{ label: string; value: number }[]>([]);
+  const [academicYear,     setAcademicYear]     = useState<string>(`${new Date().getFullYear()}–${new Date().getFullYear() + 1}`);
+  const [revenueYoYPct,    setRevenueYoYPct]    = useState<number | null>(null);
+  const [collectionsYoYPct,setCollectionsYoYPct]= useState<number | null>(null);
   const [kpis,             setKpis]             = useState<any>({});
 
   // Load summary on tab change
@@ -42,6 +46,10 @@ export const FOReportsView: React.FC = () => {
         if (data.monthlyRevenue    && Array.isArray(data.monthlyRevenue))    setMonthlyRevenue(data.monthlyRevenue);
         if (data.methodBreakdown   && Array.isArray(data.methodBreakdown))   setMethodBreakdown(data.methodBreakdown);
         if (data.departments       && Array.isArray(data.departments))       setDepartments(data.departments);
+        if (data.dailyCollections  && Array.isArray(data.dailyCollections))  setDailyData(data.dailyCollections);
+        if (data.academicYearLabel)                                          setAcademicYear(data.academicYearLabel);
+        if (data.revenueYoYPct !== undefined)                                setRevenueYoYPct(data.revenueYoYPct);
+        if (data.collectionsYoYPct !== undefined)                            setCollectionsYoYPct(data.collectionsYoYPct);
         if (data.kpis)                                                        setKpis((p: any) => ({ ...p, ...data.kpis }));
       })
       .catch(() => { /* keep defaults */ });
@@ -92,14 +100,14 @@ export const FOReportsView: React.FC = () => {
     if (activeReport === 'revenue') {
       downloadPDF(
         'Revenue by Period Report',
-        `${kpis.totalRevenueSemester.toLocaleString()} ETB total · Fall 2024`,
+        `${kpis.totalRevenueSemester?.toLocaleString() ?? totalRevenue.toLocaleString()} ETB total · ${academicYear}`,
         ['Month', 'Revenue (ETB)', 'Target (ETB)', 'Collections (ETB)', 'Variance'],
         monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString(), (m.revenue - m.target > 0 ? '+' : '') + (m.revenue - m.target).toLocaleString()])
       );
     } else if (activeReport === 'department') {
       downloadPDF(
         'Revenue by Department Report',
-        'Fall 2024 · All Colleges',
+        `${academicYear} · All Departments`,
         ['Department', 'Code', 'Students', 'Revenue (ETB)', 'Outstanding (ETB)'],
         departments.map((d) => [d.name, d.code, d.studentCount, d.totalRevenue.toLocaleString(), d.outstandingBalance.toLocaleString()])
       );
@@ -134,14 +142,14 @@ export const FOReportsView: React.FC = () => {
     if (activeReport === 'revenue') {
       printTable(
         'Revenue by Period Report',
-        'Academic Year 2024–2025',
+        `Academic Year ${academicYear}`,
         ['Month', 'Revenue (ETB)', 'Target (ETB)', 'Collections (ETB)', 'Variance'],
         monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString(), (m.revenue - m.target > 0 ? '+' : '') + (m.revenue - m.target).toLocaleString()])
       );
     } else if (activeReport === 'department') {
       printTable(
         'Revenue by Department',
-        'Fall 2024 · All Colleges',
+        `${academicYear} · All Departments`,
         ['Department', 'Code', 'Students', 'Revenue (ETB)', 'Outstanding (ETB)'],
         departments.map((d) => [d.name, d.code, d.studentCount, d.totalRevenue.toLocaleString(), d.outstandingBalance.toLocaleString()])
       );
@@ -151,7 +159,7 @@ export const FOReportsView: React.FC = () => {
         `${agedReceivables.length} accounts`,
         ['Student', 'Department', 'Outstanding (ETB)', 'Risk'],
         agedReceivables.map((s: any) => [
-          s.studentName, s.department ?? '', `ETB ${(s.balance ?? 0).toLocaleString()}`, 'High',
+          s.studentName, s.department ?? '', `ETB ${(s.balance ?? 0).toLocaleString()}`, s.riskLevel ?? 'Medium',
         ])
       );
     } else if (activeReport === 'payment_methods') {
@@ -190,21 +198,40 @@ export const FOReportsView: React.FC = () => {
   }));
   const donutSegments     = methodBreakdown.map((p: any) => ({ label: p.method, value: p.amount, color: p.color }));
   const totalAmount       = methodBreakdown.reduce((s: number, p: any) => s + p.amount, 0);
-  const dailyData: { label: string; value: number }[] = [];
   const groupedBarData    = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.revenue ?? 0, secondary: m.target ?? 0 }));
   const cashFlowBars      = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.collections ?? 0, secondary: m.revenue ?? 0 }));
 
   const totalRevenue    = monthlyRevenue.reduce((s, m) => s + m.revenue, 0);
   const totalCollected  = monthlyRevenue.reduce((s, m) => s + m.collections, 0);
   const totalOutstanding = departments.reduce((s, d) => s + d.outstandingBalance, 0);
-  const collectionRate  = ((totalCollected / totalRevenue) * 100).toFixed(1);
+  const collectionRate  = totalRevenue > 0 ? ((totalCollected / totalRevenue) * 100).toFixed(1) : '0.0';
 
   // ── Summary KPI strip ───────────────────────────────────────────────────────
   const summaryKpis = [
-    { label: 'YTD Revenue',     value: `ETB ${fmtETB(totalRevenue)}`,    trend: '+8.4%',  up: true  },
-    { label: 'YTD Collections', value: `ETB ${fmtETB(totalCollected)}`,  trend: '+7.1%',  up: true  },
-    { label: 'Collection Rate', value: `${collectionRate}%`,              trend: '+1.2pp', up: true  },
-    { label: 'Total Outstanding', value: `ETB ${fmtETB(totalOutstanding)}`, trend: '-3.2%', up: false },
+    {
+      label: 'YTD Revenue',
+      value: `ETB ${fmtETB(totalRevenue)}`,
+      trend: revenueYoYPct !== null ? `${revenueYoYPct >= 0 ? '+' : ''}${revenueYoYPct}% YoY` : `${academicYear} Baseline`,
+      up: revenueYoYPct !== null ? revenueYoYPct >= 0 : true,
+    },
+    {
+      label: 'YTD Collections',
+      value: `ETB ${fmtETB(totalCollected)}`,
+      trend: collectionsYoYPct !== null ? `${collectionsYoYPct >= 0 ? '+' : ''}${collectionsYoYPct}% YoY` : `${academicYear} Baseline`,
+      up: collectionsYoYPct !== null ? collectionsYoYPct >= 0 : true,
+    },
+    {
+      label: 'Collection Rate',
+      value: `${collectionRate}%`,
+      trend: totalRevenue > 0 ? `${collectionRate}% realized` : 'Pending revenue',
+      up: Number(collectionRate) >= 70,
+    },
+    {
+      label: 'Total Outstanding',
+      value: `ETB ${fmtETB(totalOutstanding)}`,
+      trend: totalOutstanding > 0 ? 'Action required' : 'All accounts settled',
+      up: totalOutstanding === 0,
+    },
   ];
 
   return (
@@ -230,7 +257,7 @@ export const FOReportsView: React.FC = () => {
             <p className="font-mono text-xl font-bold text-(--text-primary) mt-1">{k.value}</p>
             <div className={`flex items-center gap-1 mt-1 ${k.up ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>
               {k.up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              <span className="font-sans text-xs">{k.trend} YoY</span>
+              <span className="font-sans text-xs">{k.trend}</span>
             </div>
           </div>
         ))}
@@ -257,9 +284,15 @@ export const FOReportsView: React.FC = () => {
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <h3 className="font-serif text-lg font-bold text-(--text-primary)">Monthly Revenue vs Target</h3>
-                <p className="font-sans text-xs text-(--text-faint) mt-0.5">Academic Year 2024–2025</p>
+                <p className="font-sans text-xs text-(--text-faint) mt-0.5">Academic Year {academicYear}</p>
               </div>
-              <Badge variant="emerald">+8.4% YTD</Badge>
+              {revenueYoYPct !== null ? (
+                <Badge variant={revenueYoYPct >= 0 ? "emerald" : "rose"}>
+                  {revenueYoYPct >= 0 ? '+' : ''}{revenueYoYPct}% YoY
+                </Badge>
+              ) : (
+                <Badge variant="emerald">{academicYear} Active</Badge>
+              )}
             </div>
             <GroupedBarChart data={groupedBarData} height={180} primaryLabel="Revenue" secondaryLabel="Target" />
           </Card>
@@ -420,8 +453,8 @@ export const FOReportsView: React.FC = () => {
                       <p className="font-mono text-[10px] text-(--text-faint)">{s.studentId}</p>
                     </td>
                     <td className="py-3 pr-4 font-sans text-xs text-(--text-secondary) max-w-[130px]"><span className="truncate block">{s.programName ?? s.department ?? 'N/A'}</span></td>
-                    <td className="py-3 pr-4 font-mono text-sm text-(--text-secondary)">—</td>
-                    <td className="py-3 pr-4 font-mono text-sm text-(--status-success)">—</td>
+                    <td className="py-3 pr-4 font-mono text-sm text-(--text-secondary)">ETB {fmtETB(s.totalCharged ?? s.charged ?? 0)}</td>
+                    <td className="py-3 pr-4 font-mono text-sm text-(--status-success)">ETB {fmtETB(s.totalPaid ?? s.paid ?? 0)}</td>
                     <td className="py-3 pr-4 font-mono text-sm font-bold text-(--status-danger)">ETB {fmtETB(s.balance ?? s.outstanding ?? 0)}</td>
                     <td className="py-3">
                       <span className={`font-mono text-xs font-bold ${

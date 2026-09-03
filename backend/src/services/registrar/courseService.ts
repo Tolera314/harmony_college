@@ -63,7 +63,7 @@ export async function createCourse(data: {
   creditHours: number; departmentId: string; prerequisiteIds?: string[];
 }, registrarUserId: string) {
   const code = data.code.trim().toUpperCase();
-  const existing = await prisma.course.findUnique({ where: { code } });
+  const existing = await prisma.course.findFirst({ where: { code, programType: 'TVET' } });
   if (existing) throw new Error(`Course code ${code} already exists`);
 
   const dept = await prisma.department.findUnique({ where: { id: data.departmentId } });

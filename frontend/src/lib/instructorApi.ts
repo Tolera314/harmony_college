@@ -108,6 +108,11 @@ export interface DashboardNotification {
 
 export interface DashboardData {
   instructor:          InstructorProfileData & { department: { id: string; name: string; code: string } };
+  academicContext?: {
+    activeProgramType: 'TVET' | 'SHORT_PROGRAM';
+    hasTVET: boolean;
+    hasShortProgram: boolean;
+  };
   kpis:                DashboardKPIs;
   todaySessions:       TodaySession[];
   attendanceTrend:     number[];
@@ -138,6 +143,9 @@ export interface ClassOffering {
   status:   string;
   capacity: number;
   enrolled: number;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+  shortProgramDuration?: string | null;
+  department?: { id: string; name: string };
   course: {
     id:          string;
     code:        string;
@@ -376,13 +384,13 @@ export const instructorProfileApi = {
 };
 
 export const instructorDashboardApi = {
-  get: () =>
-    apiFetch<DashboardData>(`${BASE}/dashboard`),
+  get: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<DashboardData>(`${BASE}/dashboard${programType ? `?programType=${programType}` : ''}`),
 };
 
 export const instructorClassesApi = {
-  list: () =>
-    apiFetch<ClassOffering[]>(`${BASE}/classes`),
+  list: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<ClassOffering[]>(`${BASE}/classes${programType ? `?programType=${programType}` : ''}`),
 
   timetable: () =>
     apiFetch<ScheduleSlot[]>(`${BASE}/timetable`),

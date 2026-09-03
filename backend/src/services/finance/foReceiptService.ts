@@ -56,8 +56,24 @@ export async function listReceipts(params: {
     ];
   }
 
-  const [total, transactions] = await Promise.all([
+  const [total, sumAgg, digitalCount, transactions] = await Promise.all([
     prisma.financialTransaction.count({ where }),
+    prisma.financialTransaction.aggregate({
+      where,
+      _sum: { amount: true },
+    }),
+    prisma.financialTransaction.count({
+      where: {
+        ...where,
+        OR: [
+          { referenceId: { not: null } },
+          { category: { in: ['Telebirr', 'Chapa', 'Bank Transfer', 'Electronic'] } },
+          { description: { contains: 'telebirr', mode: 'insensitive' } },
+          { description: { contains: 'chapa', mode: 'insensitive' } },
+          { description: { contains: 'bank', mode: 'insensitive' } },
+        ],
+      },
+    }),
     prisma.financialTransaction.findMany({
       where,
       skip,
@@ -79,10 +95,16 @@ export async function listReceipts(params: {
     }),
   ]);
 
+  const totalAmount = Math.abs(sumAgg._sum.amount ?? 0);
+  const digital = Math.min(total, digitalCount);
+  const printed = Math.max(0, total - digital);
+
   const receipts = transactions.map((tx) => {
     const student = tx.financialAccount.studentRecord;
     const amount  = Math.abs(tx.amount);
     const dateObj = new Date(tx.transactionDate);
+    const method  = detectPaymentMethod(tx.description, tx.category, tx.referenceId);
+    const isDigital = method !== 'Cash';
 
     return {
       id:                  tx.id,
@@ -91,7 +113,7 @@ export async function listReceipts(params: {
       studentName:         student.user.fullName,
       studentProgramName:  student.program?.name ?? 'Undergraduate Degree',
       amount,
-      paymentMethod:       detectPaymentMethod(tx.description, tx.category, tx.referenceId),
+      paymentMethod:       method,
       referenceNumber:     tx.referenceId ?? 'N/A',
       cashierId:           'FO-001',
       cashierName:         'Finance Officer',
@@ -100,12 +122,27 @@ export async function listReceipts(params: {
       description:         tx.description,
       items:               [{ label: tx.category ?? 'Tuition Payment', amount }],
       qrCode:              `HC-VERIFY-${tx.receiptId ?? tx.id}`,
-      printed:             true,
-      shared:              false,
+      printed:             !isDigital,
+      shared:              isDigital,
     };
   });
 
-  return { total, page, limit, totalPages: Math.ceil(total / limit), receipts };
+  return {
+    total,
+    totalAmount,
+    printedCount: printed,
+    digitalCount: digital,
+    stats: {
+      totalReceipts: total,
+      totalAmount,
+      printedCount: printed,
+      digitalCount: digital,
+    },
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    receipts,
+  };
 }
 
 // ── Get receipt detail ────────────────────────────────────────────────────────
@@ -136,6 +173,8 @@ export async function getReceiptDetail(idOrReceiptNumber: string) {
   const student = tx.financialAccount.studentRecord;
   const amount  = Math.abs(tx.amount);
   const dateObj = new Date(tx.transactionDate);
+  const method = detectPaymentMethod(tx.description, tx.category, tx.referenceId);
+  const isDigital = method !== 'Cash';
 
   return {
     id:                  tx.id,
@@ -144,7 +183,7 @@ export async function getReceiptDetail(idOrReceiptNumber: string) {
     studentName:         student.user.fullName,
     studentProgramName:  student.program?.name ?? 'Undergraduate Degree',
     amount,
-    paymentMethod:       detectPaymentMethod(tx.description, tx.category, tx.referenceId),
+    paymentMethod:       method,
     referenceNumber:     tx.referenceId ?? 'N/A',
     cashierId:           'FO-001',
     cashierName:         'Finance Officer',
@@ -153,7 +192,7 @@ export async function getReceiptDetail(idOrReceiptNumber: string) {
     description:         tx.description,
     items:               [{ label: tx.category ?? 'Tuition Payment', amount }],
     qrCode:              `HC-VERIFY-${tx.receiptId ?? tx.id}`,
-    printed:             true,
-    shared:              false,
+    printed:             !isDigital,
+    shared:              isDigital,
   };
 }
