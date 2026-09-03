@@ -246,7 +246,7 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
       .catch(() => {});
   }, []);
 
-  const selected = studentAccounts.find((s: any) => s.id === form.studentId || s.studentRecordId === form.studentId);
+  const selectedStudent = studentAccounts.find((s: any) => s.id === form.studentId || s.studentRecordId === form.studentId);
 
   return (
     <SlidePanel isOpen onClose={onClose} title={<><Plus className="w-5 h-5 inline mr-2 text-(--brand-gold)" />Record Student Payment</>} subtitle="Finance Officer — Payments" width="max-w-xl">
@@ -272,16 +272,16 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
         </div>
 
         {/* Balance hint */}
-        {selected && (
+        {selectedStudent && (
           <div className="p-3 bg-[#E9C349]/5 border border-(--accent-gold-border) rounded-xl flex items-center justify-between">
             <div>
               <p className="font-sans text-xs text-(--text-secondary)">Current Outstanding Balance</p>
-              <p className={`font-mono text-lg font-bold ${selected.balance > 0 ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>
-                {fmtETB(selected.balance ?? 0)}
+              <p className={`font-mono text-lg font-bold ${selectedStudent.balance > 0 ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>
+                {fmtETB(selectedStudent.balance ?? 0)}
               </p>
             </div>
-            <Badge variant={selected.balance > 0 ? 'rose' : 'emerald'}>
-              {selected.isCleared ? 'Cleared' : 'Uncleared'}
+            <Badge variant={selectedStudent.balance > 0 ? 'rose' : 'emerald'}>
+              {selectedStudent.isCleared ? 'Cleared' : 'Uncleared'}
             </Badge>
           </div>
         )}

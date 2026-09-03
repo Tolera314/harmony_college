@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { FONavTab, FONotification } from '@/src/types/finance';
@@ -19,7 +19,7 @@ import { FOReconciliationView }  from '@/src/components/fo/views/FOReconciliatio
 import { FONotificationsView }   from '@/src/components/fo/views/FONotificationsView';
 import { FOAuditLogView }        from '@/src/components/fo/views/FOAuditLogView';
 import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView';
-import { ChatView }               from '@/src/components/chat/ChatView';
+import { MessagingView }               from '@/src/components/messaging/MessagingView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
 import { getReconciliationEntries, getOutstandingAccounts, getNotifications as foGetNotifications, markNotificationRead as foMarkNotifRead, markAllNotificationsRead as foMarkAllNotifRead } from '@/src/lib/foApi';
@@ -93,7 +93,7 @@ export default function FinanceOfficerPage() {
       );
       case 'audit_log':        return <FOAuditLogView />;
       case 'settings':         return <FOSettingsView />;
-      case 'messages':         return <ChatView />;
+      case 'messages':         return <MessagingView />;
       default:                 return null;
     }
   };

@@ -10,6 +10,7 @@ import authRouter           from './routes/auth';
 import uploadRouter         from './routes/upload';
 import advisorRouter        from './routes/advisor';
 import chatRouter           from './routes/chat';
+import messagesRouter       from './routes/messages';
 import studentRouter        from './routes/student';
 import registrarRouter      from './routes/registrar';
 import studentDashRouter    from './routes/studentDashboard';
@@ -28,6 +29,7 @@ import {
   loginLimiter, registerLimiter, refreshLimiter,
   verifyLimiter, resendLimiter, verifyStatusLimiter,
   forgotPasswordLimiter, resetPasswordLimiter,
+  sendMessageLimiter, listConversationsLimiter,
 } from './lib/rateLimit';
 import { authenticate } from './middleware/auth';
 
@@ -63,12 +65,16 @@ app.use('/api/auth/forgot-password',          forgotPasswordLimiter);
 app.use('/api/auth/forgot-password/phone-otp', resetPasswordLimiter);
 app.use('/api/auth/reset-password',           resetPasswordLimiter);
 app.use('/api/auth/reset-password/validate',  verifyStatusLimiter);
+// ── Messaging rate limits ─────────────────────────────────────────────────────
+app.use('/api/messages/conversations',        listConversationsLimiter);
+app.use('/api/messages/conversations/:id/messages', sendMessageLimiter);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth',               authRouter);
 app.use('/api/upload',             authenticate, uploadRouter);
 app.use('/api/advisor',            authenticate, advisorRouter);
 app.use('/api/chat',               chatRouter);
+app.use('/api/messages',           messagesRouter);
 app.use('/api/student',            studentRouter);
 app.use('/api/student/onboarding', studentOnboarding);
 app.use('/api/student/dashboard',  studentDashRouter);

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNotifications } from '@/src/hooks/useNotifications';
-import { ChatView } from '@/src/components/chat/ChatView';
+import { MessagingView } from '@/src/components/messaging/MessagingView';
 import {
   ClipboardList, BookOpen, GraduationCap, FileText,
   Users, ShieldAlert, ChevronRight, Calendar, Send,
@@ -253,7 +253,7 @@ export default function RegistrarDashboardPage() {
       case 'announcements':return <AnnouncementsManager />;
       case 'audit_logs':   return <AuditLogsTimeline />;
       case 'settings':     return <RegistrarSettings initialTab="account" />;
-      case 'messages':     return <ChatView />;
+      case 'messages':     return <MessagingView />;
       default:             return null;
     }
   };

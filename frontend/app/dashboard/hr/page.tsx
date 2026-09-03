@@ -22,7 +22,7 @@ import { HRSettingsView }      from '@/src/components/hr/views/HRSettingsView';
 import { HRSalaryHistoryView } from '@/src/components/hr/views/HRSalaryHistoryView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChatView } from '@/src/components/chat/ChatView';
+import { MessagingView } from '@/src/components/messaging/MessagingView';
 import { hrNotificationsApi, type HRNotificationApi } from '@/src/lib/hrApi';
 import { useNotifications } from '@/src/hooks/useNotifications';
 
@@ -127,7 +127,7 @@ export default function HRDashboardPage() {
       );
       case 'audit_log':     return <HRAuditLogView />;
       case 'settings':      return <HRSettingsView profile={profile as any} />;
-      case 'messages':      return <ChatView />;
+      case 'messages':      return <MessagingView />;
       default:              return null;
     }
   };

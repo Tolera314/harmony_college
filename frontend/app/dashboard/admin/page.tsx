@@ -23,7 +23,7 @@ import { AdminNotificationsView } from '@/src/components/admin/views/AdminNotifi
 import { AdminAuditLogsView }  from '@/src/components/admin/views/AdminAuditLogsView';
 import { AdminSettingsView }   from '@/src/components/admin/views/AdminSettingsView';
 import { AdminSystemConfigView } from '@/src/components/admin/views/AdminSystemConfigView';
-import { ChatView } from '@/src/components/chat/ChatView';
+import { MessagingView } from '@/src/components/messaging/MessagingView';
 import {
   AdminRegistrarView, AdminAttendanceView, AdminFinanceView,
   AdminHRView, AdminDocumentsView, AdminReportsView,
@@ -135,7 +135,7 @@ export default function AdminDashboardPage() {
         />
       );
       case 'settings':      return <AdminSettingsView />;
-      case 'messages':      return <ChatView />;
+      case 'messages':      return <MessagingView />;
       default:              return null;
     }
   };
