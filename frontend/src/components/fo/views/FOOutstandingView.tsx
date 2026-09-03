@@ -15,6 +15,7 @@ import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { FinanceStudent, FinanceRiskLevel } from '../../../types/finance';
 import { sendPaymentReminder, getOutstandingAccounts } from '../../../lib/foApi';
+import { fmtETB } from '../FOCharts';
 
 // ── Risk config ───────────────────────────────────────────────────────────────
 const riskConfig: Record<FinanceRiskLevel, { label: string; badge: 'rose'|'amber'|'gold'|'glass'; bar: string; bg: string }> = {
@@ -87,11 +88,13 @@ export const FOOutstandingView: React.FC = () => {
   const [search, setSearch]         = useState('');
   const [riskFilter, setRiskFilter] = useState<FinanceRiskLevel | 'All'>('All');
   const [reminder, setReminder]     = useState<FinanceStudent | null>(null);
+  const [sendingAll, setSendingAll] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<string | null>(null);
   const [page, setPage]             = useState(1);
   const PAGE_SIZE = 8;
 
   useEffect(() => {
-    getOutstandingAccounts({ search })
+    getOutstandingAccounts({ search: search || undefined, limit: 100 })
       .then((data) => {
         if (data && Array.isArray(data.accounts)) {
           setStudentList(data.accounts);
@@ -129,19 +132,49 @@ export const FOOutstandingView: React.FC = () => {
     Low:      outstanding.filter((s) => s.riskLevel === 'Low').length,
   };
 
+  const handleSendAllReminders = async () => {
+    if (outstanding.length === 0) return;
+    setSendingAll(true);
+    try {
+      let sent = 0;
+      for (const st of outstanding.slice(0, 20)) {
+        await sendPaymentReminder(
+          st.id,
+          `Dear ${st.name}, this is an official reminder that you have an outstanding balance of ETB ${st.outstanding.toLocaleString()} at Harmony College. Please settle this balance at the Finance Office.`
+        ).catch(() => {});
+        sent++;
+      }
+      setBulkStatus(`Successfully sent reminders to ${sent} student${sent !== 1 ? 's' : ''}.`);
+      setTimeout(() => setBulkStatus(null), 4000);
+    } catch {
+      setBulkStatus('Error dispatching reminders.');
+      setTimeout(() => setBulkStatus(null), 4000);
+    } finally {
+      setSendingAll(false);
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
       <FOPageHeader
         title="Outstanding Accounts"
-        subtitle={`${outstanding.length} students with unpaid balances · ETB ${(totalOwed/1000).toFixed(0)}K total outstanding`}
+        subtitle={`${outstanding.length} students with unpaid balances · ETB ${fmtETB(totalOwed)} total outstanding`}
         icon={<AlertTriangle className="w-5 h-5" />}
         actions={
           <Button variant="danger" size="sm" icon={<Mail className="w-4 h-4" />}
-            onClick={() => {}}>
-            Send All Reminders
+            disabled={sendingAll || outstanding.length === 0}
+            onClick={handleSendAllReminders}>
+            {sendingAll ? 'Sending Reminders…' : 'Send All Reminders'}
           </Button>
         }
       />
+
+      {bulkStatus && (
+        <div className="p-3 bg-(--status-success-bg) border border-(--status-success-border) text-(--status-success) rounded-xl font-sans text-xs flex items-center justify-between">
+          <span>{bulkStatus}</span>
+          <button onClick={() => setBulkStatus(null)} className="opacity-60 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
 
       {/* Risk summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

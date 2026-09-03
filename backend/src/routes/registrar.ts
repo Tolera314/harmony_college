@@ -207,6 +207,287 @@ router.patch('/courses/:id/status', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// DEPARTMENTS & ASSIGN INSTRUCTOR ACADEMIC STRUCTURE
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/registrar/departments — list all departments with course/instructor counts
+router.get('/departments', async (_req, res) => {
+  try {
+    const depts = await prisma.department.findMany({
+      orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: {
+            courses: true,
+            instructors: { where: { isActive: true } },
+          },
+        },
+      },
+    });
+    ok(res, depts);
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/departments — create a new department
+router.post('/departments', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name: z.string().min(2).max(100),
+      code: z.string().min(2).max(15),
+      description: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    const codeUpper = parsed.data.code.trim().toUpperCase();
+    const nameTrim = parsed.data.name.trim();
+
+    const existing = await prisma.department.findFirst({
+      where: { OR: [{ name: nameTrim }, { code: codeUpper }] },
+    });
+    if (existing) { res.status(400).json({ error: 'A department with this name or code already exists.' }); return; }
+
+    const dept = await prisma.department.create({
+      data: {
+        name: nameTrim,
+        code: codeUpper,
+        description: parsed.data.description?.trim() ?? null,
+        isActive: true,
+      },
+    });
+
+    // Also sync to HRDepartment
+    await prisma.hRDepartment.upsert({
+      where: { id: dept.id },
+      update: { name: dept.name, isActive: true },
+      create: { id: dept.id, name: dept.name, isActive: true },
+    }).catch(async () => {
+      await prisma.hRDepartment.upsert({
+        where: { name: dept.name },
+        update: { isActive: true },
+        create: { id: dept.id, name: dept.name, isActive: true },
+      }).catch(() => {});
+    });
+
+    ok(res, dept, 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/registrar/departments/:id/toggle-status — hide/show department
+router.patch('/departments/:id/toggle-status', async (req: AuthRequest, res) => {
+  try {
+    const id = pid(req);
+    const existing = await prisma.department.findUnique({ where: { id } });
+    if (!existing) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    const updated = await prisma.department.update({
+      where: { id },
+      data: { isActive: !existing.isActive },
+    });
+
+    // Sync to HRDepartment
+    await prisma.hRDepartment.updateMany({
+      where: { OR: [{ id }, { name: existing.name }] },
+      data: { isActive: updated.isActive },
+    }).catch(() => {});
+
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// GET /api/registrar/departments/:id/structure — academic structure for department
+router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
+  try {
+    const deptId = pid(req);
+    const qp = q(req);
+
+    const dept = await prisma.department.findUnique({
+      where: { id: deptId },
+    });
+    if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    // List active semesters
+    const semesters = await prisma.semester.findMany({
+      where: { isActive: true },
+      include: { academicYear: { select: { name: true } } },
+      orderBy: [{ startDate: 'desc' }],
+    });
+
+    // Determine target semester
+    let targetSemesterId = qp.semesterId as string | undefined;
+    if (!targetSemesterId || targetSemesterId === 'current') {
+      const current = semesters.find(s => s.isCurrent) ?? semesters[0];
+      targetSemesterId = current?.id;
+    }
+
+    // Courses belonging to this department
+    const coursesList = await prisma.course.findMany({
+      where: { departmentId: deptId, status: CourseStatus.ACTIVE },
+      orderBy: { code: 'asc' },
+      include: {
+        offerings: {
+          where: targetSemesterId ? { semesterId: targetSemesterId } : undefined,
+          include: {
+            instructor: {
+              include: {
+                user: { select: { id: true, fullName: true, email: true } },
+              },
+            },
+            timetables: true,
+          },
+        },
+      },
+    });
+
+    // Real registered instructors ONLY
+    const instructors = await prisma.instructorRecord.findMany({
+      where: { isActive: true },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        department: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { user: { fullName: 'asc' } },
+    });
+
+    ok(res, {
+      department: dept,
+      semesters,
+      selectedSemesterId: targetSemesterId,
+      courses: coursesList.map(c => {
+        const offering = c.offerings[0] ?? null;
+        return {
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          creditHours: c.creditHours,
+          description: c.description,
+          offeringId: offering?.id ?? null,
+          instructorId: offering?.instructorId ?? null,
+          instructor: offering?.instructor ?? null,
+          capacity: offering?.capacity ?? 40,
+          section: offering?.section ?? 'A',
+          status: offering?.status ?? 'UNASSIGNED',
+        };
+      }),
+      instructors,
+    });
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/departments/:id/courses — add course belonging to that department
+router.post('/departments/:id/courses', async (req: AuthRequest, res) => {
+  try {
+    const departmentId = pid(req);
+    const schema = z.object({
+      code: z.string().min(2).max(20),
+      name: z.string().min(3).max(200),
+      description: z.string().optional(),
+      creditHours: z.number().int().min(1).max(10).default(3),
+      semesterId: z.string().uuid().optional(),
+      instructorId: z.string().uuid().nullable().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    const codeUpper = parsed.data.code.trim().toUpperCase();
+
+    const existing = await prisma.course.findUnique({ where: { code: codeUpper } });
+    if (existing) { res.status(400).json({ error: `Course code ${codeUpper} already exists.` }); return; }
+
+    const course = await prisma.course.create({
+      data: {
+        code: codeUpper,
+        name: parsed.data.name.trim(),
+        description: parsed.data.description?.trim() ?? null,
+        creditHours: parsed.data.creditHours,
+        departmentId,
+        status: CourseStatus.ACTIVE,
+      },
+    });
+
+    // If semesterId is provided, optionally create initial offering with assigned instructor
+    if (parsed.data.semesterId) {
+      await prisma.courseOffering.create({
+        data: {
+          courseId: course.id,
+          semesterId: parsed.data.semesterId,
+          instructorId: parsed.data.instructorId ?? null,
+          capacity: 40,
+          section: 'A',
+          status: parsed.data.instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
+        },
+      });
+    }
+
+    ok(res, course, 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// POST /api/registrar/offerings/assign-instructor — assign registered instructor to course in semester
+router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      courseId: z.string().uuid(),
+      semesterId: z.string().uuid(),
+      instructorId: z.string().uuid().nullable(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    const { courseId, semesterId, instructorId } = parsed.data;
+
+    if (instructorId) {
+      const inst = await prisma.instructorRecord.findUnique({
+        where: { id: instructorId },
+        select: { id: true, isActive: true },
+      });
+      if (!inst || !inst.isActive) {
+        res.status(400).json({ error: 'Instructor not found or inactive.' });
+        return;
+      }
+    }
+
+    let offering = await prisma.courseOffering.findFirst({
+      where: { courseId, semesterId },
+    });
+
+    if (offering) {
+      offering = await prisma.courseOffering.update({
+        where: { id: offering.id },
+        data: {
+          instructorId: instructorId,
+          status: instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
+        },
+      });
+    } else {
+      offering = await prisma.courseOffering.create({
+        data: {
+          courseId,
+          semesterId,
+          instructorId: instructorId,
+          capacity: 40,
+          section: 'A',
+          status: instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
+        },
+      });
+    }
+
+    const result = await prisma.courseOffering.findUnique({
+      where: { id: offering.id },
+      include: {
+        instructor: {
+          include: {
+            user: { select: { id: true, fullName: true, email: true } },
+          },
+        },
+      },
+    });
+
+    ok(res, result);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // COURSE OFFERINGS
 // ══════════════════════════════════════════════════════════════════════════════
 router.get('/offerings', async (req: AuthRequest, res) => {

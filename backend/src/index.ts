@@ -138,7 +138,10 @@ setTimeout(() => {
 
 // ── HR: start daily contract expiry check ─────────────────────────────────────
 // Delay 6 s for the same reason — Neon wakes on first query, not on connect.
-setTimeout(() => startContractExpiryJob(), 6000);
+setTimeout(() => {
+  startContractExpiryJob();
+  import('./lib/ensureDepartments').then(m => m.ensureRealDepartments().catch(console.error));
+}, 6000);
 
 httpServer.listen(PORT, () => {
   console.log(`🚀  Harmony College API  →  http://localhost:${PORT}`);

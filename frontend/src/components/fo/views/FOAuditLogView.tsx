@@ -10,6 +10,7 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { FOAuditEntry } from '../../../types/finance';
 import { getAuditLogs } from '../../../lib/foApi';
+import { exportToExcel } from '../../../lib/exportUtils';
 
 const statusConfig: Record<FOAuditEntry['status'], { icon: React.ReactNode; badge: 'emerald'|'amber'|'rose' }> = {
   Success: { icon: <CheckCircle2 className="w-3.5 h-3.5 text-(--status-success)" />, badge: 'emerald' },
@@ -26,6 +27,23 @@ export const FOAuditLogView: React.FC = () => {
   const [page,         setPage]         = useState(1);
   const PAGE_SIZE = 10;
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const handleExportCSV = () => {
+    exportToExcel(
+      auditLog.map((log) => ({
+        'Timestamp': `${log.date} ${log.time}`,
+        'Officer': log.officerName,
+        'Action': log.action,
+        'Module': log.module,
+        'Status': log.status,
+        'Amount (ETB)': log.amount ?? '',
+        'Student': log.studentName ?? log.studentId ?? '',
+        'Previous Value': log.previousValue ?? '',
+        'New Value': log.newValue ?? '',
+      })),
+      'finance-officer-audit-log'
+    );
+  };
 
   const loadLogs = useCallback(() => {
     clearTimeout(timer.current);
@@ -60,7 +78,7 @@ export const FOAuditLogView: React.FC = () => {
         icon={<ClipboardList className="w-5 h-5" />}
         actions={
           <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />}
-            onClick={() => {}}>
+            onClick={handleExportCSV}>
             Export CSV
           </Button>
         }

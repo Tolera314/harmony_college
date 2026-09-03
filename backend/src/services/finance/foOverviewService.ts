@@ -356,6 +356,7 @@ export async function getOverviewData() {
 
   return {
     kpis: {
+      totalRevenue:              totalRevenueSemester,
       totalRevenueSemester,
       totalCollections:          totalRevenueSemester,
       totalOutstanding,

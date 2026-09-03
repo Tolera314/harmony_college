@@ -19,7 +19,9 @@
  *    certificateUrl) are stripped from the list endpoint.
  */
 
+import crypto from 'crypto';
 import { prisma } from '../../lib/prisma';
+import { getEmailProvider } from '../../lib/providers';
 import { writeHRAudit } from './hrAuditService';
 
 // ── Role rules ────────────────────────────────────────────────────────────────
@@ -254,7 +256,7 @@ export async function createEmployee(
   if (emailExists) throw new Error(`Email ${data.email} is already in use`);
 
   // ── Department exists ────────────────────────────────────────────────────
-  const dept = await prisma.hRDepartment.findUnique({ where: { id: data.departmentId }, select: { id: true } });
+  const dept = await prisma.hRDepartment.findUnique({ where: { id: data.departmentId }, select: { id: true, name: true } });
   if (!dept) throw new Error('Department not found');
 
   // ── Create ───────────────────────────────────────────────────────────────
@@ -318,7 +320,82 @@ export async function createEmployee(
     } as any,
   });
 
-  return employee;
+  // ── Account activation email ──────────────────────────────────────────────
+  let activationLink: string | null = null;
+  if (data.systemRole) {
+    try {
+      // Find matching academic department
+      const academicDept = await prisma.department.findFirst({
+        where: {
+          OR: [
+            { id: data.departmentId },
+            { name: { equals: dept.name, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true, name: true },
+      });
+
+      if (academicDept) {
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+        const expiresInHours = 48;
+        const expiresAt = new Date(Date.now() + expiresInHours * 3600 * 1000);
+
+        // Revoke any previous pending invitations for this email
+        await prisma.staffInvitation.updateMany({
+          where: { email: data.email.trim().toLowerCase(), acceptedAt: null, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+
+        let invitingUserId = actorUserId;
+        if (!invitingUserId) {
+          const adminUser = await prisma.user.findFirst({
+            where: { role: { in: ['HR_OFFICER', 'ADMIN', 'SUPER_ADMIN'] } },
+            select: { id: true },
+          });
+          invitingUserId = adminUser?.id;
+        }
+
+        if (invitingUserId) {
+          await prisma.staffInvitation.create({
+            data: {
+              email:           data.email.trim().toLowerCase(),
+              fullName:        data.fullName.trim(),
+              role:            data.systemRole as any,
+              departmentId:    academicDept.id,
+              positionTitle:   resolvedPosition,
+              employeeId:      data.employeeCode,
+              phone:           data.phone ?? null,
+              tokenHash,
+              expiresAt,
+              invitedByUserId: invitingUserId,
+            },
+          });
+        }
+
+        const appBaseUrl = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        activationLink = `${appBaseUrl}/activate-account?token=${rawToken}`;
+
+        await getEmailProvider().sendAccountActivationEmail(data.email.trim().toLowerCase(), {
+          fullName:       data.fullName.trim(),
+          role:           data.systemRole,
+          position:       resolvedPosition,
+          departmentName: academicDept.name,
+          activationLink,
+          expiresInHours,
+        });
+
+        console.log(`[HR Registration] Account activation email dispatched to ${data.email} for role ${data.systemRole}`);
+      }
+    } catch (emailErr) {
+      console.error('[HR Registration] Failed to send activation email:', emailErr);
+    }
+  }
+
+  return {
+    ...employee,
+    activationLink,
+  };
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────

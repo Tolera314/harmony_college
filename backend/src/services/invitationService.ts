@@ -348,6 +348,12 @@ export async function acceptStaffInvitation(
       });
     }
 
+    // Connect HREmployee record if registered via HR
+    await tx.hREmployee.updateMany({
+      where: { email: inv.email },
+      data: { userId: user.id },
+    });
+
     // 6. Update invitation to accepted state
     await tx.staffInvitation.update({
       where: { id: inv.id },

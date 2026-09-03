@@ -138,7 +138,22 @@ router.get('/profile', async (req: AuthRequest, res: Response): Promise<void> =>
         }
       : null;
 
-    res.status(200).json({ profile: mergedProfile, user });
+    // Check if student is assigned to an instructor/course
+    const hasAssignedInstructor = await prisma.enrollment.findFirst({
+      where: {
+        studentRecord: { userId },
+        status: { in: ['ACTIVE', 'FORCE_ADDED'] },
+        courseOffering: { instructorId: { not: null } },
+      },
+    });
+    const isDepartmentLocked = !!hasAssignedInstructor;
+
+    res.status(200).json({
+      profile: mergedProfile,
+      user,
+      isDepartmentLocked,
+      lockReason: isDepartmentLocked ? 'You have been assigned to an instructor/course. Department is locked.' : null,
+    });
   } catch (err: unknown) {
     console.error('[student/profile GET]', err instanceof Error ? err.message : err);
     res.status(500).json({ error: 'Failed to load profile. Please try again.' });
@@ -171,6 +186,41 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
 
     // Explicitly exclude fields that must never come from the client
     delete profileData.userId;
+
+    // Check if student has been assigned to an instructor/course before allowing department change
+    if (profileData.program || profileData.selectedDepartmentId) {
+      const studentRecord = await prisma.studentRecord.findUnique({
+        where: { userId },
+        include: {
+          enrollments: {
+            where: {
+              status: { in: ['ACTIVE', 'FORCE_ADDED'] },
+              courseOffering: { instructorId: { not: null } },
+            },
+          },
+        },
+      });
+
+      const isAssigned = (studentRecord?.enrollments?.length ?? 0) > 0;
+      if (isAssigned) {
+        const curProfile = await prisma.studentProfile.findUnique({
+          where: { userId },
+          select: { program: true, selectedDepartmentId: true },
+        });
+
+        const isChanging =
+          (profileData.program && curProfile?.program && curProfile.program !== profileData.program) ||
+          (profileData.selectedDepartmentId && curProfile?.selectedDepartmentId && curProfile.selectedDepartmentId !== profileData.selectedDepartmentId);
+
+        if (isChanging) {
+          res.status(403).json({
+            error: 'Department change is locked because you have already been assigned to an instructor/course. Please contact the Registrar.',
+            isDepartmentLocked: true,
+          });
+          return;
+        }
+      }
+    }
 
     if (profileData.program && typeof profileData.program === 'string') {
       const matchedProg = await prisma.program.findFirst({
@@ -224,6 +274,16 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
             data: {
               programId:    matchedProgram.id,
               departmentId: matchedProgram.departmentId,
+            },
+          });
+
+          // Drop any prior enrollments from old department to avoid duplication
+          await prisma.enrollment.deleteMany({
+            where: {
+              studentRecordId: existingRecord.id,
+              courseOffering: {
+                course: { departmentId: { not: matchedProgram.departmentId } },
+              },
             },
           });
         }

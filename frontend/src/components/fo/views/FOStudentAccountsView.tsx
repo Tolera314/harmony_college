@@ -140,7 +140,7 @@ export const FOStudentAccountsView: React.FC = () => {
   const pageSize = 8;
 
   useEffect(() => {
-    getStudentAccounts({ search, paymentStatus: statusFilter !== 'All' ? statusFilter : undefined })
+    getStudentAccounts({ search: search || undefined, paymentStatus: statusFilter !== 'All' ? statusFilter : undefined, limit: 100 })
       .then((data) => {
         if (data && Array.isArray(data.accounts)) {
           setStudentList(data.accounts);

@@ -67,12 +67,11 @@ export async function createNotification(
       title:      input.title,
       message:    input.message,
       type:       input.type      ?? 'INFO',
-      module:     input.module    ?? 'ACADEMIC',
       entityType: input.entityType ?? null,
       entityId:   input.entityId   ?? null,
       actionTab:  input.actionTab  ?? null,
       pushedAt:   null,
-    },
+    } as any,
   });
 
   // Real-time push — best-effort, never throws
@@ -199,9 +198,9 @@ export async function listNotifications(q: NotificationListQuery) {
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, userId: true, title: true, message: true,
-        type: true, isRead: true, actionTab: true, module: true,
+        type: true, isRead: true, actionTab: true,
         entityType: true, entityId: true, createdAt: true,
-      },
+      } as any,
     }),
     prisma.notification.count({ where: { userId: q.userId, isRead: false } }),
   ]);

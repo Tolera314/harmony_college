@@ -1,4 +1,4 @@
-﻿/**
+/**
  * /api/student/onboarding — post-admission onboarding endpoints
  *
  * GET  /api/student/onboarding/prereqs
@@ -92,6 +92,20 @@ router.get('/prereqs', async (req: AuthRequest, res: Response): Promise<void> =>
     const registrarApproved        = application?.status === 'ACCEPTED';
     const fullyApproved            = paymentVerifiedByFinance && registrarApproved;
 
+    // Check if student has been assigned to an instructor/course
+    const studentRecord = await prisma.studentRecord.findUnique({
+      where: { userId },
+      include: {
+        enrollments: {
+          where: {
+            status: { in: ['ACTIVE', 'FORCE_ADDED'] },
+            courseOffering: { instructorId: { not: null } },
+          },
+        },
+      },
+    });
+    const isDepartmentLocked = (studentRecord?.enrollments?.length ?? 0) > 0;
+
     res.status(200).json({
       feePaid:                  profile?.registrationFeePaid ?? false,
       departmentSelected:       profile?.departmentSelected  ?? false,
@@ -99,6 +113,8 @@ router.get('/prereqs', async (req: AuthRequest, res: Response): Promise<void> =>
       paymentVerifiedByFinance,
       registrarApproved,
       fullyApproved,
+      isDepartmentLocked,
+      lockReason: isDepartmentLocked ? 'You have been assigned to an instructor/course. Department is locked.' : null,
     });
   } catch (err) {
     console.error('[onboarding/prereqs]', err);
@@ -295,6 +311,27 @@ router.patch('/department', async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
+    // ── Check if department is locked (student assigned to instructor/course) ──
+    const studentRecord = await prisma.studentRecord.findUnique({
+      where: { userId },
+      include: {
+        enrollments: {
+          where: {
+            status: { in: ['ACTIVE', 'FORCE_ADDED'] },
+            courseOffering: { instructorId: { not: null } },
+          },
+        },
+      },
+    });
+
+    if (studentRecord && studentRecord.enrollments.length > 0) {
+      res.status(403).json({
+        error: 'Department is locked because you have been assigned to an instructor/course. Please contact the Registrar.',
+        isDepartmentLocked: true,
+      });
+      return;
+    }
+
     // Upsert StudentProfile with the chosen department
     await prisma.studentProfile.upsert({
       where:  { userId },
@@ -308,6 +345,32 @@ router.patch('/department', async (req: AuthRequest, res: Response): Promise<voi
         departmentSelected:   true,
       },
     });
+
+    // Update StudentRecord if it exists, aligning to the new department
+    if (studentRecord) {
+      const defaultProg = await prisma.program.findFirst({
+        where: { departmentId: dept.id, isActive: true },
+        select: { id: true },
+      });
+
+      await prisma.studentRecord.update({
+        where: { id: studentRecord.id },
+        data: {
+          departmentId: dept.id,
+          ...(defaultProg ? { programId: defaultProg.id } : {}),
+        },
+      });
+
+      // Remove student from old department offerings to avoid duplication
+      await prisma.enrollment.deleteMany({
+        where: {
+          studentRecordId: studentRecord.id,
+          courseOffering: {
+            course: { departmentId: { not: dept.id } },
+          },
+        },
+      });
+    }
 
     res.status(200).json({ success: true, department: dept });
   } catch (err) {
