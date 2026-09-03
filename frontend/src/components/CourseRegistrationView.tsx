@@ -104,8 +104,10 @@ export const CourseRegistrationView: React.FC<Props> = ({ profile }) => {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      // 1. Fetch offerings
-      const res = await apiFetch<any>('/api/registrar/offerings?limit=200&currentSemester=true');
+      const progType = (profile?.programType === 'Short Program' || profile?.programType === 'SHORT_PROGRAM') ? 'SHORT_PROGRAM' : 'TVET';
+
+      // 1. Fetch offerings scoped to student's programType
+      const res = await apiFetch<any>(`/api/registrar/offerings?limit=200&currentSemester=true&programType=${progType}`);
       const items: OfferingDisplay[] = (res.offerings ?? []).map(mapOffering);
       setOfferings(items);
 
@@ -122,7 +124,7 @@ export const CourseRegistrationView: React.FC<Props> = ({ profile }) => {
       try {
         const [prereqsRes, deptsRes] = await Promise.all([
           apiFetch<any>('/api/student/onboarding/prereqs'),
-          apiFetch<any[]>('/api/student/onboarding/departments'),
+          apiFetch<any[]>(`/api/student/onboarding/departments?programType=${progType}`),
         ]);
         setRealDepartments(deptsRes);
         setIsDeptLocked(prereqsRes.isDepartmentLocked ?? false);
@@ -137,15 +139,20 @@ export const CourseRegistrationView: React.FC<Props> = ({ profile }) => {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load course offerings');
     } finally { setLoading(false); }
-  }, []);
+  }, [profile?.programType]);
 
   const handleDepartmentChange = async (newDeptId: string) => {
     if (!newDeptId) return;
     setSavingDept(true);
     try {
+      const progType = (profile?.programType === 'Short Program' || profile?.programType === 'SHORT_PROGRAM') ? 'SHORT_PROGRAM' : 'TVET';
       const res = await apiFetch<any>('/api/student/onboarding/department', {
         method: 'PATCH',
-        body: JSON.stringify({ departmentId: newDeptId }),
+        body: JSON.stringify({
+          departmentId: newDeptId,
+          programType: progType,
+          shortProgramDuration: profile?.shortProgramDuration ?? undefined,
+        }),
       });
       showToast(`Department successfully changed to ${res.department.name}`);
       setCurrentDept(res.department);

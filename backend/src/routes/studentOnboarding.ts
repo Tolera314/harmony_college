@@ -27,14 +27,14 @@ const router = Router();
 router.use(authenticate, requireRole([Role.STUDENT]));
 
 // ── GET /api/student/onboarding/departments ───────────────────────────────────
-// Public list of active departments — used by the onboarding form.
-// Accessible to any authenticated student (no admin role needed).
-router.get('/departments', async (_req, res: Response): Promise<void> => {
+// Returns active departments filtered by programType (default: TVET).
+router.get('/departments', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const programType = (req.query.programType as string) === 'SHORT_PROGRAM' ? 'SHORT_PROGRAM' : 'TVET';
     const departments = await prisma.department.findMany({
-      where:   { isActive: true },
+      where:   { isActive: true, programType: programType as any },
       orderBy: { name: 'asc' },
-      select:  { id: true, name: true, code: true, description: true },
+      select:  { id: true, name: true, code: true, description: true, programType: true },
     });
     res.status(200).json(departments);
   } catch (err) {
@@ -288,12 +288,15 @@ router.patch('/screenshot', async (req: AuthRequest, res: Response): Promise<voi
 });
 
 // ── PATCH /api/student/onboarding/department ─────────────────────────────────
+// Accepts: { departmentId, programType, shortProgramDuration? }
 router.patch('/department', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.userId;
 
     const parsed = z.object({
-      departmentId: z.string().uuid(),
+      departmentId:         z.string().uuid(),
+      programType:          z.enum(['TVET', 'SHORT_PROGRAM']).default('TVET'),
+      shortProgramDuration: z.enum(['2 Months', '4 Months']).optional(),
     }).safeParse(req.body);
 
     if (!parsed.success) {
@@ -301,13 +304,21 @@ router.patch('/department', async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    // Verify the department exists
-    const dept = await prisma.department.findUnique({
-      where:  { id: parsed.data.departmentId },
-      select: { id: true, name: true },
+    const { departmentId, programType, shortProgramDuration } = parsed.data;
+
+    // Enforce: Short Program must have duration
+    if (programType === 'SHORT_PROGRAM' && !shortProgramDuration) {
+      res.status(400).json({ error: 'Short Program requires a duration (2 Months or 4 Months).' });
+      return;
+    }
+
+    // Verify the department exists and belongs to the correct programType
+    const dept = await prisma.department.findFirst({
+      where:  { id: departmentId, programType: programType as any },
+      select: { id: true, name: true, programType: true },
     });
     if (!dept) {
-      res.status(404).json({ error: 'Department not found.' });
+      res.status(404).json({ error: `Department not found in ${programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'}.` });
       return;
     }
 
@@ -332,21 +343,25 @@ router.patch('/department', async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    // Upsert StudentProfile with the chosen department
+    // Upsert StudentProfile with chosen department, programType and duration
     await prisma.studentProfile.upsert({
       where:  { userId },
       create: {
         userId,
-        selectedDepartmentId: parsed.data.departmentId,
-        departmentSelected:   true,
+        selectedDepartmentId:  departmentId,
+        departmentSelected:    true,
+        programType:           programType,
+        shortProgramDuration:  programType === 'SHORT_PROGRAM' ? (shortProgramDuration ?? null) : null,
       },
       update: {
-        selectedDepartmentId: parsed.data.departmentId,
-        departmentSelected:   true,
+        selectedDepartmentId:  departmentId,
+        departmentSelected:    true,
+        programType:           programType,
+        shortProgramDuration:  programType === 'SHORT_PROGRAM' ? (shortProgramDuration ?? null) : null,
       },
     });
 
-    // Update StudentRecord if it exists, aligning to the new department
+    // Update StudentRecord if it exists
     if (studentRecord) {
       const defaultProg = await prisma.program.findFirst({
         where: { departmentId: dept.id, isActive: true },
@@ -356,7 +371,9 @@ router.patch('/department', async (req: AuthRequest, res: Response): Promise<voi
       await prisma.studentRecord.update({
         where: { id: studentRecord.id },
         data: {
-          departmentId: dept.id,
+          departmentId:         dept.id,
+          programType:          programType as any,
+          shortProgramDuration: programType === 'SHORT_PROGRAM' ? (shortProgramDuration ?? null) : null,
           ...(defaultProg ? { programId: defaultProg.id } : {}),
         },
       });

@@ -22,6 +22,11 @@ enum Role {
   STUDENT
 }
 
+enum ProgramType {
+  TVET
+  SHORT_PROGRAM
+}
+
 enum AccountStatus {
   ACTIVE
   PENDING_VERIFICATION
@@ -500,11 +505,12 @@ model Message {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Department {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  code        String  @unique
+  id          String      @id @default(uuid())
+  name        String
+  code        String
+  programType ProgramType @default(TVET)
   description String?
-  isActive    Boolean @default(true)
+  isActive    Boolean     @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -517,6 +523,9 @@ model Department {
   onboardingStudents StudentProfile[]
   staffInvitations StaffInvitation[]
 
+  @@unique([name, programType])
+  @@unique([code, programType])
+  @@index([programType])
   @@index([code])
   @@index([isActive])
 }
@@ -566,6 +575,7 @@ model Semester {
   name           String // "Semester I", "Semester II"
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  programType    ProgramType  @default(TVET)
 
   startDate         DateTime
   endDate           DateTime
@@ -580,17 +590,19 @@ model Semester {
 
   offerings CourseOffering[]
 
-  @@unique([academicYearId, name])
+  @@unique([academicYearId, name, programType])
+  @@index([programType])
   @@index([isCurrent])
 }
 
 model Course {
   id          String       @id @default(uuid())
-  code        String       @unique
+  code        String
   name        String
   description String?
   creditHours Int          @default(3)
   status      CourseStatus @default(ACTIVE)
+  programType ProgramType  @default(TVET)
 
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
@@ -603,6 +615,8 @@ model Course {
   offerings      CourseOffering[]
   programCourses ProgramCourse[]
 
+  @@unique([code, programType])
+  @@index([programType])
   @@index([code])
   @@index([departmentId])
   @@index([status])
@@ -702,6 +716,9 @@ model StudentRecord {
   studentId String        @unique // e.g. HC-2024-0012
   status    StudentStatus @default(ACTIVE)
 
+  programType          ProgramType @default(TVET)
+  shortProgramDuration String?     // "2 Months" | "4 Months"
+
   programId    String
   program      Program    @relation(fields: [programId], references: [id])
   departmentId String
@@ -727,6 +744,7 @@ model StudentRecord {
   advisorAppointments    AdvisorAppointment[]
   notificationPreference StudentNotificationPreference?
 
+  @@index([programType])
   @@index([studentId])
   @@index([programId])
   @@index([departmentId])
@@ -738,12 +756,14 @@ model StudentRecord {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model CourseOffering {
-  id         String         @id @default(uuid())
-  courseId   String
-  course     Course         @relation(fields: [courseId], references: [id])
-  semesterId String
-  semester   Semester       @relation(fields: [semesterId], references: [id])
-  status     OfferingStatus @default(DRAFT)
+  id                   String         @id @default(uuid())
+  courseId             String
+  course               Course         @relation(fields: [courseId], references: [id])
+  semesterId           String
+  semester             Semester       @relation(fields: [semesterId], references: [id])
+  status               OfferingStatus @default(DRAFT)
+  programType          ProgramType    @default(TVET)
+  shortProgramDuration String?
 
   instructorId String?
   instructor   InstructorRecord? @relation(fields: [instructorId], references: [id])
@@ -764,6 +784,7 @@ model CourseOffering {
   classSessions ClassSession[]
 
   @@unique([courseId, semesterId, section])
+  @@index([programType])
   @@index([semesterId])
   @@index([courseId])
   @@index([instructorId])

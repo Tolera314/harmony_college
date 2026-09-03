@@ -10,6 +10,7 @@
 
 import { Router, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { ProgramType } from '@prisma/client';
 import { patchProfileSchema } from '../lib/validations';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import {
@@ -242,26 +243,52 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
     });
 
     // Also update application record if it exists so program change reflects everywhere
-    if (profileData.program || profileData.programType || profileData.shortProgramDuration) {
+    if (profileData.program || profileData.programType || profileData.shortProgramDuration !== undefined) {
+      const isShort = profileData.programType === 'Short Program' || profileData.programType === 'SHORT_PROGRAM';
       await prisma.application.updateMany({
         where: { userId },
         data: {
           ...(profileData.program ? { program: profileData.program as string } : {}),
           ...(profileData.programType ? { programType: profileData.programType as string } : {}),
-          ...(profileData.shortProgramDuration !== undefined ? { shortProgramDuration: profileData.shortProgramDuration as string | null } : {}),
+          shortProgramDuration: isShort ? (profileData.shortProgramDuration as string | null) : null,
         },
       });
     }
 
-    // ── Update StudentRecord.programId + departmentId when program name changes ──
-    // This ensures the Registrar always sees the student's latest chosen program.
-    if (profileData.program) {
-      const programName = profileData.program as string;
-      // Find the Program row whose name matches (case-insensitive partial match)
-      const matchedProgram = await prisma.program.findFirst({
-        where: { name: { contains: programName, mode: 'insensitive' } },
-        select: { id: true, departmentId: true, name: true },
+    // ── Update StudentRecord.programType, duration, programId + departmentId ──
+    // This ensures the Registrar always sees the student's isolated academic records.
+    if (profileData.program || profileData.programType || profileData.shortProgramDuration !== undefined) {
+      const isShort = profileData.programType === 'Short Program' || profileData.programType === 'SHORT_PROGRAM' || (savedProfile.programType === 'Short Program');
+      const targetProgType = isShort ? ProgramType.SHORT_PROGRAM : ProgramType.TVET;
+      const targetDuration = isShort ? (profileData.shortProgramDuration as string ?? savedProfile.shortProgramDuration ?? '2 Months') : null;
+
+      const programName = (profileData.program as string) || savedProfile.program || '';
+      const cleanProgName = programName.split('(')[0].trim();
+
+      // Find the exact active department for this program and programType first!
+      let matchedDept = await prisma.department.findFirst({
+        where: {
+          isActive: true,
+          programType: targetProgType,
+          name: { contains: cleanProgName, mode: 'insensitive' },
+        },
+        select: { id: true, name: true },
       });
+
+      let matchedProgram = matchedDept ? await prisma.program.findFirst({
+        where: { departmentId: matchedDept.id, isActive: true },
+        select: { id: true, departmentId: true, name: true },
+      }) : null;
+
+      if (!matchedProgram) {
+        matchedProgram = await prisma.program.findFirst({
+          where: {
+            name: { contains: cleanProgName, mode: 'insensitive' },
+            department: { programType: targetProgType, isActive: true },
+          },
+          select: { id: true, departmentId: true, name: true },
+        });
+      }
 
       if (matchedProgram) {
         const existingRecord = await prisma.studentRecord.findUnique({
@@ -272,17 +299,22 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
           await prisma.studentRecord.update({
             where: { userId },
             data: {
+              programType: targetProgType,
+              shortProgramDuration: targetDuration,
               programId:    matchedProgram.id,
               departmentId: matchedProgram.departmentId,
             },
           });
 
-          // Drop any prior enrollments from old department to avoid duplication
+          // Drop any prior enrollments from wrong department or wrong programType to avoid data mixing
           await prisma.enrollment.deleteMany({
             where: {
               studentRecordId: existingRecord.id,
               courseOffering: {
-                course: { departmentId: { not: matchedProgram.departmentId } },
+                OR: [
+                  { course: { departmentId: { not: matchedProgram.departmentId } } },
+                  { programType: { not: targetProgType } },
+                ],
               },
             },
           });

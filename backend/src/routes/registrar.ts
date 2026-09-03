@@ -48,8 +48,11 @@ function pageParams(query: Q) {
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════════
-router.get('/dashboard', async (_req, res) => {
-  try { ok(res, await dashboard.getDashboardStats()); } catch (e) { fail(res, e); }
+router.get('/dashboard', async (req: AuthRequest, res) => {
+  try {
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await dashboard.getDashboardStats(programType));
+  } catch (e) { fail(res, e); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -61,6 +64,7 @@ router.get('/students', async (req: AuthRequest, res) => {
     ok(res, await students.listStudents({
       page, limit,
       search:       qp.search,
+      programType:  qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
       programId:    qp.programId,
       departmentId: qp.departmentId,
       status:       qp.status as StudentStatus | undefined,
@@ -210,10 +214,16 @@ router.patch('/courses/:id/status', async (req: AuthRequest, res) => {
 // DEPARTMENTS & ASSIGN INSTRUCTOR ACADEMIC STRUCTURE
 // ══════════════════════════════════════════════════════════════════════════════
 
-// GET /api/registrar/departments — list all departments with course/instructor counts
-router.get('/departments', async (_req, res) => {
+// GET /api/registrar/departments — list departments filtered by programType
+router.get('/departments', async (req: AuthRequest, res) => {
   try {
+    const qp = q(req);
+    const programType = qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
     const depts = await prisma.department.findMany({
+      where: {
+        isActive: true,
+        ...(programType ? { programType } : {}),
+      },
       orderBy: { name: 'asc' },
       include: {
         _count: {
@@ -228,46 +238,56 @@ router.get('/departments', async (_req, res) => {
   } catch (e) { fail(res, e); }
 });
 
-// POST /api/registrar/departments — create a new department
+// POST /api/registrar/departments — create a new department scoped to programType
 router.post('/departments', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       name: z.string().min(2).max(100),
       code: z.string().min(2).max(15),
       description: z.string().optional(),
+      programType: z.enum(['TVET', 'SHORT_PROGRAM']).default('TVET'),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
 
     const codeUpper = parsed.data.code.trim().toUpperCase();
     const nameTrim = parsed.data.name.trim();
+    const programType = parsed.data.programType as any;
 
     const existing = await prisma.department.findFirst({
-      where: { OR: [{ name: nameTrim }, { code: codeUpper }] },
+      where: { name: nameTrim, programType },
     });
-    if (existing) { res.status(400).json({ error: 'A department with this name or code already exists.' }); return; }
+    if (existing) { res.status(400).json({ error: `A ${programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} department with this name already exists.` }); return; }
+
+    const existingCode = await prisma.department.findFirst({
+      where: { code: codeUpper, programType },
+    });
+    if (existingCode) { res.status(400).json({ error: `A ${programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} department with this code already exists.` }); return; }
 
     const dept = await prisma.department.create({
       data: {
         name: nameTrim,
         code: codeUpper,
+        programType,
         description: parsed.data.description?.trim() ?? null,
         isActive: true,
       },
     });
 
-    // Also sync to HRDepartment
-    await prisma.hRDepartment.upsert({
-      where: { id: dept.id },
-      update: { name: dept.name, isActive: true },
-      create: { id: dept.id, name: dept.name, isActive: true },
-    }).catch(async () => {
+    // Also sync to HRDepartment (TVET departments only)
+    if (programType === 'TVET') {
       await prisma.hRDepartment.upsert({
-        where: { name: dept.name },
-        update: { isActive: true },
+        where: { id: dept.id },
+        update: { name: dept.name, isActive: true },
         create: { id: dept.id, name: dept.name, isActive: true },
-      }).catch(() => {});
-    });
+      }).catch(async () => {
+        await prisma.hRDepartment.upsert({
+          where: { name: dept.name },
+          update: { isActive: true },
+          create: { id: dept.id, name: dept.name, isActive: true },
+        }).catch(() => {});
+      });
+    }
 
     ok(res, dept, 201);
   } catch (e) { fail(res, e, 400); }
@@ -295,7 +315,7 @@ router.patch('/departments/:id/toggle-status', async (req: AuthRequest, res) => 
   } catch (e) { fail(res, e, 400); }
 });
 
-// GET /api/registrar/departments/:id/structure — academic structure for department
+// GET /api/registrar/departments/:id/structure — academic structure for department (programType-scoped)
 router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
   try {
     const deptId = pid(req);
@@ -306,9 +326,9 @@ router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
     });
     if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
 
-    // List active semesters
+    // List active semesters scoped to this department's programType
     const semesters = await prisma.semester.findMany({
-      where: { isActive: true },
+      where: { isActive: true, programType: dept.programType },
       include: { academicYear: { select: { name: true } } },
       orderBy: [{ startDate: 'desc' }],
     });
@@ -320,13 +340,16 @@ router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
       targetSemesterId = current?.id;
     }
 
-    // Courses belonging to this department
+    // Courses belonging to this department (always scoped by dept → programType is implicit)
     const coursesList = await prisma.course.findMany({
       where: { departmentId: deptId, status: CourseStatus.ACTIVE },
       orderBy: { code: 'asc' },
       include: {
         offerings: {
-          where: targetSemesterId ? { semesterId: targetSemesterId } : undefined,
+          where: {
+            programType: dept.programType,
+            ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
+          },
           include: {
             instructor: {
               include: {
@@ -374,7 +397,7 @@ router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
-// POST /api/registrar/departments/:id/courses — add course belonging to that department
+// POST /api/registrar/departments/:id/courses — add course (inherits dept programType)
 router.post('/departments/:id/courses', async (req: AuthRequest, res) => {
   try {
     const departmentId = pid(req);
@@ -389,10 +412,13 @@ router.post('/departments/:id/courses', async (req: AuthRequest, res) => {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
 
+    const dept = await prisma.department.findUnique({ where: { id: departmentId }, select: { id: true, programType: true } });
+    if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
+
     const codeUpper = parsed.data.code.trim().toUpperCase();
 
-    const existing = await prisma.course.findUnique({ where: { code: codeUpper } });
-    if (existing) { res.status(400).json({ error: `Course code ${codeUpper} already exists.` }); return; }
+    const existing = await prisma.course.findFirst({ where: { code: codeUpper, programType: dept.programType } });
+    if (existing) { res.status(400).json({ error: `Course code ${codeUpper} already exists in ${dept.programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'}.` }); return; }
 
     const course = await prisma.course.create({
       data: {
@@ -401,17 +427,19 @@ router.post('/departments/:id/courses', async (req: AuthRequest, res) => {
         description: parsed.data.description?.trim() ?? null,
         creditHours: parsed.data.creditHours,
         departmentId,
+        programType: dept.programType,
         status: CourseStatus.ACTIVE,
       },
     });
 
-    // If semesterId is provided, optionally create initial offering with assigned instructor
+    // If semesterId provided, create initial offering with same programType as department
     if (parsed.data.semesterId) {
       await prisma.courseOffering.create({
         data: {
           courseId: course.id,
           semesterId: parsed.data.semesterId,
           instructorId: parsed.data.instructorId ?? null,
+          programType: dept.programType,
           capacity: 40,
           section: 'A',
           status: parsed.data.instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
@@ -423,7 +451,110 @@ router.post('/departments/:id/courses', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e, 400); }
 });
 
-// POST /api/registrar/offerings/assign-instructor — assign registered instructor to course in semester
+// PATCH /api/registrar/courses/:id — edit course details
+router.patch('/courses/:id', async (req: AuthRequest, res) => {
+  try {
+    const courseId = pid(req);
+    const schema = z.object({
+      code: z.string().min(2).max(20).optional(),
+      name: z.string().min(3).max(200).optional(),
+      description: z.string().nullable().optional(),
+      creditHours: z.number().int().min(1).max(10).optional(),
+      status: z.nativeEnum(CourseStatus).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) {
+      res.status(404).json({ error: 'Course not found' });
+      return;
+    }
+
+    if (parsed.data.code) {
+      const newCode = parsed.data.code.trim().toUpperCase();
+      if (newCode !== course.code) {
+        const conflict = await prisma.course.findFirst({
+          where: { code: newCode, programType: course.programType, id: { not: courseId } },
+        });
+        if (conflict) {
+          res.status(400).json({
+            error: `Course code ${newCode} already exists in ${course.programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'}.`,
+          });
+          return;
+        }
+      }
+    }
+
+    const updated = await prisma.course.update({
+      where: { id: courseId },
+      data: {
+        ...(parsed.data.code ? { code: parsed.data.code.trim().toUpperCase() } : {}),
+        ...(parsed.data.name ? { name: parsed.data.name.trim() } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description?.trim() ?? null } : {}),
+        ...(parsed.data.creditHours ? { creditHours: parsed.data.creditHours } : {}),
+        ...(parsed.data.status ? { status: parsed.data.status } : {}),
+      },
+    });
+
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// DELETE /api/registrar/courses/:id — delete a course (allows deleting test courses)
+router.delete('/courses/:id', async (req: AuthRequest, res) => {
+  try {
+    const courseId = pid(req);
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        offerings: {
+          include: {
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      res.status(404).json({ error: 'Course not found' });
+      return;
+    }
+
+    const totalEnrollments = course.offerings.reduce((sum, o) => sum + o.enrollments.length, 0);
+    if (totalEnrollments > 0) {
+      res.status(400).json({
+        error: `Cannot delete course "${course.name}" (${course.code}): it has ${totalEnrollments} student enrollment(s). Drop enrollments first.`,
+      });
+      return;
+    }
+
+    const offeringIds = course.offerings.map(o => o.id);
+    if (offeringIds.length > 0) {
+      await prisma.timetableSlot.deleteMany({ where: { courseOfferingId: { in: offeringIds } } });
+      await prisma.assignment.deleteMany({ where: { courseOfferingId: { in: offeringIds } } });
+      await prisma.quiz.deleteMany({ where: { courseOfferingId: { in: offeringIds } } });
+      await prisma.classSession.deleteMany({ where: { courseOfferingId: { in: offeringIds } } });
+      await prisma.courseOffering.deleteMany({ where: { id: { in: offeringIds } } });
+    }
+
+    await prisma.coursePrerequisite.deleteMany({
+      where: { OR: [{ courseId }, { prerequisiteId: courseId }] },
+    });
+    await prisma.programCourse.deleteMany({
+      where: { courseId },
+    });
+
+    await prisma.course.delete({ where: { id: courseId } });
+
+    ok(res, { success: true, message: `Course "${course.name}" (${course.code}) deleted successfully.` });
+  } catch (e) { fail(res, e, 400); }
+});
+
+// POST /api/registrar/offerings/assign-instructor — assign instructor (inherits course programType)
 router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
@@ -435,6 +566,9 @@ router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
 
     const { courseId, semesterId, instructorId } = parsed.data;
+
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { programType: true } });
+    if (!course) { res.status(404).json({ error: 'Course not found' }); return; }
 
     if (instructorId) {
       const inst = await prisma.instructorRecord.findUnique({
@@ -465,6 +599,7 @@ router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
           courseId,
           semesterId,
           instructorId: instructorId,
+          programType: course.programType,
           capacity: 40,
           section: 'A',
           status: instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
@@ -495,10 +630,11 @@ router.get('/offerings', async (req: AuthRequest, res) => {
     const qp = q(req); const { page, limit } = pageParams(qp);
     ok(res, await offerings.listOfferings({
       page, limit,
-      search:     qp.search,
-      semesterId: qp.semesterId,
-      status:     qp.status as OfferingStatus | undefined,
-      courseId:   qp.courseId,
+      search:      qp.search,
+      semesterId:  qp.semesterId,
+      status:      qp.status as OfferingStatus | undefined,
+      courseId:    qp.courseId,
+      programType: qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });

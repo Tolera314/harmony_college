@@ -1,7 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { ApplicationStatus, StudentStatus, CourseStatus, OfferingStatus, EnrollmentStatus, RegistrarAction } from '@prisma/client';
 
-export async function getDashboardStats() {
+export async function getDashboardStats(programType?: 'TVET' | 'SHORT_PROGRAM') {
   const [
     pendingAdmissions,
     activeStudents,
@@ -15,12 +15,42 @@ export async function getDashboardStats() {
     upcomingEvents,
     offeringCapacity,
   ] = await Promise.all([
-    prisma.application.count({ where: { status: { in: [ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW] } } }),
-    prisma.studentRecord.count({ where: { status: StudentStatus.ACTIVE } }),
-    prisma.program.count({ where: { isActive: true } }),
-    prisma.course.count({ where: { status: CourseStatus.ACTIVE } }),
-    prisma.courseOffering.count({ where: { status: { in: [OfferingStatus.SCHEDULED, OfferingStatus.ACTIVE] } } }),
-    prisma.enrollment.count({ where: { status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] } } }),
+    prisma.application.count({
+      where: {
+        status: { in: [ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW] },
+        ...(programType ? { programType: programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET' } : {}),
+      },
+    }),
+    prisma.studentRecord.count({
+      where: {
+        status: StudentStatus.ACTIVE,
+        ...(programType ? { programType } : {}),
+      },
+    }),
+    prisma.program.count({
+      where: {
+        isActive: true,
+        ...(programType ? { department: { programType } } : {}),
+      },
+    }),
+    prisma.course.count({
+      where: {
+        status: CourseStatus.ACTIVE,
+        ...(programType ? { programType } : {}),
+      },
+    }),
+    prisma.courseOffering.count({
+      where: {
+        status: { in: [OfferingStatus.SCHEDULED, OfferingStatus.ACTIVE] },
+        ...(programType ? { programType } : {}),
+      },
+    }),
+    prisma.enrollment.count({
+      where: {
+        status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] },
+        ...(programType ? { studentRecord: { programType } } : {}),
+      },
+    }),
     prisma.transcriptRequest.count({ where: { status: { in: ['PENDING', 'PROCESSING'] as any } } }),
     prisma.graduationAudit.count({ where: { status: 'PENDING' as any } }),
 
@@ -38,7 +68,10 @@ export async function getDashboardStats() {
     }),
 
     prisma.courseOffering.findMany({
-      where: { status: { in: [OfferingStatus.SCHEDULED, OfferingStatus.ACTIVE] } },
+      where: {
+        status: { in: [OfferingStatus.SCHEDULED, OfferingStatus.ACTIVE] },
+        ...(programType ? { programType } : {}),
+      },
       select: {
         capacity: true,
         _count: { select: { enrollments: { where: { status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] } } } } },

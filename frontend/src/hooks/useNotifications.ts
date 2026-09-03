@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 /**
  * useNotifications — role-agnostic in-app notification hook
@@ -110,13 +110,25 @@ export function useNotifications({
   // Track mounted state so async callbacks don't update unmounted component
   const mounted = useRef(true);
 
+  // Keep latest callback references so inline arrow functions in caller components
+  // never trigger infinite re-render loops
+  const fetchFnRef = useRef(fetchFn);
+  const markReadFnRef = useRef(markReadFn);
+  const markAllReadFnRef = useRef(markAllReadFn);
+
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+    markReadFnRef.current = markReadFn;
+    markAllReadFnRef.current = markAllReadFn;
+  });
+
   const { onNotification } = useSocket();
 
   // ── Initial fetch ─────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchFn();
+      const res = await fetchFnRef.current();
       if (!mounted.current) return;
       setItems((res.notifications ?? []).slice(0, maxItems).map(normalise));
     } catch {
@@ -124,7 +136,7 @@ export function useNotifications({
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, [fetchFn, maxItems]);
+  }, [maxItems]);
 
   useEffect(() => {
     mounted.current = true;
@@ -157,20 +169,20 @@ export function useNotifications({
   // ── Mark one read (optimistic) ────────────────────────────────────────────
   const markRead = useCallback((id: string) => {
     setItems(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    markReadFn(id).catch(() => {
+    markReadFnRef.current(id).catch(() => {
       // Roll back on failure
       setItems(prev => prev.map(n => n.id === id ? { ...n, isRead: false } : n));
     });
-  }, [markReadFn]);
+  }, []);
 
   // ── Mark all read (optimistic) ────────────────────────────────────────────
   const markAllRead = useCallback(() => {
     setItems(prev => prev.map(n => ({ ...n, isRead: true })));
-    markAllReadFn().catch(() => {
+    markAllReadFnRef.current().catch(() => {
       // Re-fetch to restore truth on failure
       reload();
     });
-  }, [markAllReadFn, reload]);
+  }, [reload]);
 
   return { items, unreadCount, loading, markRead, markAllRead, reload };
 }

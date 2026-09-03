@@ -8,7 +8,7 @@ import {
   ClipboardList, BookOpen, GraduationCap, FileText,
   Users, ShieldAlert, ChevronRight, Calendar, Send,
   ShieldCheck, Grid, LayoutDashboard, Clock, BarChart3,
-  Settings, X, LogOut, UserCheck,
+  Settings, X, LogOut, UserCheck, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import { Sidebar, GenericNavItem } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
@@ -125,11 +125,29 @@ export default function RegistrarDashboardPage() {
   const [profile,       setProfile]  = useState<RegistrarProfile | null>(null);
   const [auditLogs,     setAuditLogs] = useState<RegistrarNotification[]>([]);
 
+  // ── TVET / Short Program switch — persisted across page navigation ─────────
+  const [registrarProgramType, setRegistrarProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('registrar_program_type');
+      if (saved === 'TVET' || saved === 'SHORT_PROGRAM') return saved;
+    }
+    return 'TVET';
+  });
+
+  const setProgramType = (pt: 'TVET' | 'SHORT_PROGRAM') => {
+    setRegistrarProgramType(pt);
+    localStorage.setItem('registrar_program_type', pt);
+  };
+
   // ── Real-time notification badge ────────────────────────────────────────────
+  const fetchNotifs = useCallback(() => registrarNotifApi.list({ limit: 20 }), []);
+  const markNotifRead = useCallback((id: string) => registrarNotifApi.markRead(id), []);
+  const markAllNotifsRead = useCallback(() => registrarNotifApi.markAllRead(), []);
+
   const { unreadCount } = useNotifications({
-    fetchFn:       () => registrarNotifApi.list({ limit: 20 }),
-    markReadFn:    (id) => registrarNotifApi.markRead(id),
-    markAllReadFn: () => registrarNotifApi.markAllRead(),
+    fetchFn:       fetchNotifs,
+    markReadFn:    markNotifRead,
+    markAllReadFn: markAllNotifsRead,
   });
 
 
@@ -217,9 +235,9 @@ export default function RegistrarDashboardPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'dashboard':         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} />;
-      case 'students':          return <RegistrarStudentsView />;
-      case 'assign_instructor': return <AssignInstructorView />;
+      case 'dashboard':         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} programType={registrarProgramType} />;
+      case 'students':          return <RegistrarStudentsView programType={registrarProgramType} />;
+      case 'assign_instructor': return <AssignInstructorView programType={registrarProgramType} />;
       case 'onboardings':       return <RegistrarOnboardingsView />;
       case 'admissions':   return <AdmissionsManagement />;
       case 'catalog':      return <CourseCatalog />;
@@ -296,9 +314,43 @@ export default function RegistrarDashboardPage() {
 
           {/* Page content */}
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
+
+            {/* ── Program Type Switcher ── */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-(--bg-secondary) border border-(--border-default) shadow-sm">
+                <button
+                  id="reg-switch-tvet"
+                  onClick={() => setProgramType('TVET')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    registrarProgramType === 'TVET'
+                      ? 'bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black shadow-md scale-[1.02]'
+                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                  }`}
+                >
+                  {registrarProgramType === 'TVET' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                  🎓 TVET
+                </button>
+                <button
+                  id="reg-switch-sp"
+                  onClick={() => setProgramType('SHORT_PROGRAM')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    registrarProgramType === 'SHORT_PROGRAM'
+                      ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md scale-[1.02]'
+                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                  }`}
+                >
+                  {registrarProgramType === 'SHORT_PROGRAM' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                  ⏱ Short Program
+                </button>
+              </div>
+              <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">
+                {registrarProgramType === 'TVET' ? 'Viewing TVET academic data' : 'Viewing Short Program academic data'}
+              </span>
+            </div>
+
             <AnimatePresence mode="wait">
               <motion.div
-                key={activeTab}
+                key={`${activeTab}-${registrarProgramType}`}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -15 }}

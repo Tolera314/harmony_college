@@ -699,10 +699,10 @@ export async function createDepartment(data: {
   code:         string;
   description?: string;
 }) {
-  const nameConflict = await prisma.department.findUnique({ where: { name: data.name }, select: { id: true } });
+  const nameConflict = await prisma.department.findFirst({ where: { name: data.name }, select: { id: true } });
   if (nameConflict) throw new Error('A department with this name already exists.');
 
-  const codeConflict = await prisma.department.findUnique({ where: { code: data.code }, select: { id: true } });
+  const codeConflict = await prisma.department.findFirst({ where: { code: data.code }, select: { id: true } });
   if (codeConflict) throw new Error('A department with this code already exists.');
 
   return prisma.department.create({
@@ -1379,7 +1379,7 @@ export async function createCourse(data: {
   status?:          CourseStatus;
   prerequisiteIds?: string[];
 }) {
-  const exists = await prisma.course.findUnique({ where: { code: data.code.trim().toUpperCase() } });
+  const exists = await prisma.course.findFirst({ where: { code: data.code.trim().toUpperCase() } });
   if (exists) throw new Error('Course code already exists');
 
   const dept = await prisma.department.findUnique({ where: { id: data.departmentId } });

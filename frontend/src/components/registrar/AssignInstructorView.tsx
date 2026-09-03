@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   UserCheck, Building2, BookOpen, Users, Plus, Eye, EyeOff,
   CheckCircle2, AlertCircle, RefreshCw, ChevronRight, Calendar,
-  Search, ShieldAlert, Sparkles, X, Filter
+  Search, ShieldAlert, Sparkles, X, Filter, Pencil, Trash2
 } from 'lucide-react';
 import { DHPageHeader } from '../dh/DHPageHeader';
 import { Badge } from '../ui/Badge';
@@ -19,7 +19,7 @@ import {
   type DepartmentStructureResponse,
 } from '@/src/lib/registrarApi';
 
-export const AssignInstructorView: React.FC = () => {
+export const AssignInstructorView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType = 'TVET' }) => {
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [structure, setStructure] = useState<DepartmentStructureResponse | null>(null);
@@ -53,33 +53,51 @@ export const AssignInstructorView: React.FC = () => {
   // Assigning instructor loading state per course
   const [assigningMap, setAssigningMap] = useState<Record<string, boolean>>({});
 
+  // Edit Course panel state
+  const [editCourseOpen, setEditCourseOpen] = useState(false);
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  const [editCourseCode, setEditCourseCode] = useState('');
+  const [editCourseName, setEditCourseName] = useState('');
+  const [editCourseCredits, setEditCourseCredits] = useState(3);
+  const [editCourseDesc, setEditCourseDesc] = useState('');
+  const [savingCourseEdit, setSavingCourseEdit] = useState(false);
+
+  // Delete Course modal state
+  const [deleteCourseTarget, setDeleteCourseTarget] = useState<{ id: string; code: string; name: string } | null>(null);
+  const [deletingCourse, setDeletingCourse] = useState(false);
+
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMsg({ text, type });
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  // 1. Load departments
+  // 1. Load departments filtered strictly by programType
   const loadDepartments = useCallback(async () => {
     setLoadingDepts(true);
     setError(null);
     try {
-      const list = await departmentsApi.list();
+      const list = await departmentsApi.list(programType);
       setDepartments(list);
       // Select first active department if none selected
-      if (!selectedDeptId && list.length > 0) {
+      if (list.length > 0) {
         const firstActive = list.find(d => d.isActive) ?? list[0];
         if (firstActive) setSelectedDeptId(firstActive.id);
+        else setSelectedDeptId(null);
+      } else {
+        setSelectedDeptId(null);
       }
     } catch (e: any) {
       setError(e.message ?? 'Failed to load departments');
     } finally {
       setLoadingDepts(false);
     }
-  }, [selectedDeptId]);
+  }, [programType]);
 
   useEffect(() => {
+    setSelectedDeptId(null);
+    setStructure(null);
     loadDepartments();
-  }, []);
+  }, [programType]);
 
   // 2. Load structure for selected department & semester
   const loadStructure = useCallback(async (deptId: string, semId?: string) => {
@@ -115,7 +133,7 @@ export const AssignInstructorView: React.FC = () => {
     }
   };
 
-  // 4. Create new department
+  // 4. Create new department (inherits active programType)
   const handleCreateDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addDeptName.trim() || !addDeptCode.trim()) return;
@@ -125,6 +143,7 @@ export const AssignInstructorView: React.FC = () => {
         name: addDeptName.trim(),
         code: addDeptCode.trim().toUpperCase(),
         description: addDeptDesc.trim() || undefined,
+        programType,
       });
       setDepartments(prev => [...prev, created]);
       setSelectedDeptId(created.id);
@@ -132,7 +151,7 @@ export const AssignInstructorView: React.FC = () => {
       setAddDeptName('');
       setAddDeptCode('');
       setAddDeptDesc('');
-      showToast(`Department "${created.name}" created successfully`);
+      showToast(`${programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} department "${created.name}" created successfully`);
     } catch (e: any) {
       showToast(e.message ?? 'Failed to create department', 'error');
     } finally {
@@ -167,6 +186,54 @@ export const AssignInstructorView: React.FC = () => {
       showToast(e.message ?? 'Failed to create course', 'error');
     } finally {
       setCreatingCourse(false);
+    }
+  };
+
+  // 5b. Edit course details
+  const handleOpenEditCourse = (course: any) => {
+    setEditingCourseId(course.id);
+    setEditCourseCode(course.code);
+    setEditCourseName(course.name);
+    setEditCourseCredits(course.creditHours || 3);
+    setEditCourseDesc(course.description || '');
+    setEditCourseOpen(true);
+  };
+
+  const handleSaveEditCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourseId || !editCourseCode.trim() || !editCourseName.trim()) return;
+    setSavingCourseEdit(true);
+    try {
+      await departmentsApi.updateCourse(editingCourseId, {
+        code: editCourseCode.trim().toUpperCase(),
+        name: editCourseName.trim(),
+        creditHours: Number(editCourseCredits) || 3,
+        description: editCourseDesc.trim() || undefined,
+      });
+      setEditCourseOpen(false);
+      showToast('Course updated successfully');
+      if (selectedDeptId) await loadStructure(selectedDeptId, selectedSemesterId);
+    } catch (e: any) {
+      showToast(e.message ?? 'Failed to update course', 'error');
+    } finally {
+      setSavingCourseEdit(false);
+    }
+  };
+
+  // 5c. Delete course (allows deleting test courses)
+  const handleConfirmDeleteCourse = async () => {
+    if (!deleteCourseTarget) return;
+    setDeletingCourse(true);
+    try {
+      await departmentsApi.deleteCourse(deleteCourseTarget.id);
+      showToast(`Course "${deleteCourseTarget.name}" (${deleteCourseTarget.code}) deleted successfully`);
+      setDeleteCourseTarget(null);
+      if (selectedDeptId) await loadStructure(selectedDeptId, selectedSemesterId);
+      loadDepartments(); // refresh course counts in department cards
+    } catch (e: any) {
+      showToast(e.message ?? 'Failed to delete course', 'error');
+    } finally {
+      setDeletingCourse(false);
     }
   };
 
@@ -502,6 +569,7 @@ export const AssignInstructorView: React.FC = () => {
                     <th className="px-4 py-3.5">Section</th>
                     <th className="px-4 py-3.5">Assigned Instructor</th>
                     <th className="px-4 py-3.5">Allocation Action</th>
+                    <th className="px-4 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -579,6 +647,28 @@ export const AssignInstructorView: React.FC = () => {
                             {isAssigning && (
                               <div className="w-4 h-4 border-2 border-[#E9C349] border-t-transparent rounded-full animate-spin shrink-0" />
                             )}
+                          </div>
+                        </td>
+
+                        {/* Course Actions: Edit & Delete */}
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCourse(course)}
+                              className="p-1.5 rounded-lg bg-white/5 hover:bg-[#E9C349]/20 text-zinc-300 hover:text-[#E9C349] border border-white/10 hover:border-[#E9C349]/40 transition-colors"
+                              title="Edit Course"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteCourseTarget({ id: course.id, code: course.code, name: course.name })}
+                              className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-zinc-300 hover:text-rose-400 border border-white/10 hover:border-rose-500/40 transition-colors"
+                              title="Delete Course (Test Cleanup)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -722,6 +812,119 @@ export const AssignInstructorView: React.FC = () => {
           </div>
         </form>
       </SlidePanel>
+
+      {/* SlidePanel: Edit Course */}
+      <SlidePanel
+        isOpen={editCourseOpen}
+        onClose={() => setEditCourseOpen(false)}
+        title="Edit Course Details"
+        subtitle="Update course code, title, credit hours, or syllabus overview"
+        width="max-w-lg"
+      >
+        <form onSubmit={handleSaveEditCourse} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-300">Course Code *</label>
+              <Input
+                required
+                placeholder="e.g. CUB-101"
+                value={editCourseCode}
+                onChange={e => setEditCourseCode(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-300">Credit Hours *</label>
+              <Input
+                required
+                type="number"
+                min={1}
+                max={10}
+                value={editCourseCredits}
+                onChange={e => setEditCourseCredits(Number(e.target.value))}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-zinc-300">Course Title *</label>
+            <Input
+              required
+              placeholder="e.g. Advanced Cubase Mixing & DAW Sequencing"
+              value={editCourseName}
+              onChange={e => setEditCourseName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-zinc-300">Description</label>
+            <textarea
+              rows={3}
+              placeholder="Course syllabus description..."
+              value={editCourseDesc}
+              onChange={e => setEditCourseDesc(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#E9C349]"
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-2">
+            <Button variant="secondary" size="sm" type="button" onClick={() => setEditCourseOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" type="submit" disabled={savingCourseEdit}>
+              {savingCourseEdit ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </form>
+      </SlidePanel>
+
+      {/* Delete Course Confirmation Dialog */}
+      <AnimatePresence>
+        {deleteCourseTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-[#18181B] border border-white/15 rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-serif font-bold text-white">Delete Course?</h3>
+                  <p className="text-xs text-zinc-400 font-mono">{deleteCourseTarget.code}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                Are you sure you want to delete course <strong className="text-white">{deleteCourseTarget.name}</strong> ({deleteCourseTarget.code})?
+                This will permanently remove the course and any test offerings. This cannot be undone.
+              </p>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  disabled={deletingCourse}
+                  onClick={() => setDeleteCourseTarget(null)}
+                >
+                  Cancel
+                </Button>
+                <button
+                  type="button"
+                  disabled={deletingCourse}
+                  onClick={handleConfirmDeleteCourse}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors disabled:opacity-50"
+                >
+                  {deletingCourse ? 'Deleting...' : 'Delete Course'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

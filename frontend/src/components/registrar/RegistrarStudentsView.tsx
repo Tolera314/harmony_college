@@ -29,7 +29,7 @@ const STATUS_LABEL: Record<string, string> = {
   GRADUATED: 'Graduated', WITHDRAWN: 'Withdrawn',
 };
 
-export const RegistrarStudentsView: React.FC = () => {
+export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType = 'TVET' }) => {
   const [data, setData] = useState<StudentListResponse | null>(null);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('ALL'); // 'ALL' or departmentId
@@ -48,14 +48,14 @@ export const RegistrarStudentsView: React.FC = () => {
   const [suspendTarget, setSuspendTarget] = useState<StudentListItem | null>(null);
   const [suspendLoading, setSuspendLoading] = useState(false);
 
-  // Load students & departments
+  // Load students & departments filtered strictly by programType
   const load = useCallback(async (q = search, st = statusFilter) => {
     setLoading(true);
     setError(null);
     try {
       const [studentsRes, deptsRes] = await Promise.all([
-        studentsApi.list({ page: 1, limit: 200, search: q, status: st || undefined }),
-        departmentsApi.list(),
+        studentsApi.list({ page: 1, limit: 200, search: q, status: st || undefined, programType }),
+        departmentsApi.list(programType),
       ]);
       setData(studentsRes);
       setDepartments(deptsRes);
@@ -64,12 +64,12 @@ export const RegistrarStudentsView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, programType]);
 
   useEffect(() => {
     load();
     coursesApi.getMeta().then(setMeta).catch(() => {});
-  }, []);
+  }, [programType]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -408,8 +408,15 @@ export const RegistrarStudentsView: React.FC = () => {
                                   {student.studentId}
                                 </td>
 
-                                <td className="px-4 py-3.5 text-xs text-zinc-300 truncate max-w-[160px]">
-                                  {student.program?.name || 'Academic Program'}
+                                <td className="px-4 py-3.5 text-xs text-zinc-300 truncate max-w-[180px]">
+                                  <div className="flex flex-col">
+                                    <span className="truncate">{student.program?.name || 'Academic Program'}</span>
+                                    {((student as any).shortProgramDuration || student.user.studentProfile?.shortProgramDuration) && (
+                                      <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 w-fit">
+                                        ⏱ {(student as any).shortProgramDuration || student.user.studentProfile?.shortProgramDuration}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
 
                                 <td className="px-4 py-3.5 text-xs text-zinc-400 font-mono">

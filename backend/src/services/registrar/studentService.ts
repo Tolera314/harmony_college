@@ -5,6 +5,7 @@ export interface StudentListQuery {
   page: number;
   limit: number;
   search?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   programId?: string;
   departmentId?: string;
   status?: StudentStatus;
@@ -13,11 +14,12 @@ export interface StudentListQuery {
 }
 
 export async function listStudents(q: StudentListQuery) {
-  const { page, limit, search, programId, departmentId, status, sortBy = 'createdAt', sortOrder = 'desc' } = q;
+  const { page, limit, search, programType, programId, departmentId, status, sortBy = 'createdAt', sortOrder = 'desc' } = q;
   const skip = (page - 1) * limit;
 
   const where: any = {};
   if (status) where.status = status;
+  if (programType) where.programType = programType;
   if (programId) where.programId = programId;
   if (departmentId) where.departmentId = departmentId;
   if (search) {
@@ -42,6 +44,7 @@ export async function listStudents(q: StudentListQuery) {
       where, skip, take: limit, orderBy,
       select: {
         id: true, studentId: true, status: true, yearLevel: true, gpa: true, totalCredits: true, admittedAt: true,
+        programType: true, shortProgramDuration: true,
         user: {
           select: {
             id: true, fullName: true, email: true, phone: true,
@@ -60,7 +63,7 @@ export async function listStudents(q: StudentListQuery) {
           },
         },
         program: { select: { id: true, name: true, code: true } },
-        department: { select: { id: true, name: true, code: true } },
+        department: { select: { id: true, name: true, code: true, programType: true } },
         _count: { select: { enrollments: { where: { status: { in: ['ACTIVE', 'FORCE_ADDED'] as any } } } } },
       },
     }),

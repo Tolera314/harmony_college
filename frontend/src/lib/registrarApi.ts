@@ -53,7 +53,8 @@ export interface DashboardStats {
   upcomingEvents: { id: string; title: string; eventType: string; startDate: string; endDate: string }[];
 }
 export const dashboardApi = {
-  getStats: () => apiFetch<DashboardStats>('/api/registrar/dashboard'),
+  getStats: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<DashboardStats>(`/api/registrar/dashboard${programType ? `?programType=${programType}` : ''}`),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -431,6 +432,7 @@ export interface DepartmentItem {
   id: string;
   name: string;
   code: string;
+  programType: 'TVET' | 'SHORT_PROGRAM';
   description: string | null;
   isActive: boolean;
   _count?: {
@@ -470,8 +472,9 @@ export interface DepartmentStructureResponse {
 }
 
 export const departmentsApi = {
-  list: () => apiFetch<DepartmentItem[]>('/api/registrar/departments'),
-  create: (data: { name: string; code: string; description?: string }) =>
+  list: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<DepartmentItem[]>(`/api/registrar/departments${programType ? `?programType=${programType}` : ''}`),
+  create: (data: { name: string; code: string; description?: string; programType?: 'TVET' | 'SHORT_PROGRAM' }) =>
     apiFetch<DepartmentItem>('/api/registrar/departments', { method: 'POST', body: JSON.stringify(data) }),
   toggleStatus: (id: string) =>
     apiFetch<DepartmentItem>(`/api/registrar/departments/${id}/toggle-status`, { method: 'PATCH' }),
@@ -479,6 +482,10 @@ export const departmentsApi = {
     apiFetch<DepartmentStructureResponse>(`/api/registrar/departments/${id}/structure${semesterId ? `?semesterId=${semesterId}` : ''}`),
   addCourse: (departmentId: string, data: { code: string; name: string; creditHours: number; description?: string; semesterId?: string; instructorId?: string | null }) =>
     apiFetch<any>(`/api/registrar/departments/${departmentId}/courses`, { method: 'POST', body: JSON.stringify(data) }),
+  updateCourse: (courseId: string, data: { code?: string; name?: string; creditHours?: number; description?: string }) =>
+    apiFetch<any>(`/api/registrar/courses/${courseId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourse: (courseId: string) =>
+    apiFetch<any>(`/api/registrar/courses/${courseId}`, { method: 'DELETE' }),
   assignInstructor: (data: { courseId: string; semesterId: string; instructorId: string | null }) =>
     apiFetch<any>('/api/registrar/offerings/assign-instructor', { method: 'POST', body: JSON.stringify(data) }),
 };
