@@ -245,6 +245,7 @@ export const AdminStudentsView: React.FC = () => {
         </select>
         <select
           value={deptFilter}
+          onFocus={() => { adminDepartmentsApi.list().then(setDepartments).catch(() => {}); }}
           onChange={e => { setDeptFilter(e.target.value); setProgramFilter(''); setPage(1); }}
           className="px-3 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)"
         >

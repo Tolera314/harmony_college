@@ -605,7 +605,20 @@ router.get('/audit-logs', async (req: AuthRequest, res) => {
 // ── Notifications ─────────────────────────────────────────────────────────────
 router.get('/notifications', async (req: AuthRequest, res) => {
   try {
-    ok(res, await notifications.listNotifications(req.user!.userId));
+    const rows = await notifications.listNotifications(req.user!.userId);
+    // Map unified Notification shape -> HR frontend shape (entityId->employeeId, actionTab->tab)
+    const mapped = rows.map(n => ({
+      id:         n.id,
+      employeeId: n.entityId ?? null,
+      type:       n.type,
+      title:      n.title,
+      message:    n.message,
+      tab:        n.actionTab ?? 'overview',
+      isRead:     n.isRead,
+      createdAt:  n.createdAt,
+      module:     n.module,
+    }));
+    ok(res, mapped);
   } catch (e) { fail(res, e); }
 });
 

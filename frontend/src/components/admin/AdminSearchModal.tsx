@@ -143,7 +143,7 @@ export const AdminSearchModal: React.FC<AdminSearchModalProps> = ({ isOpen, onCl
           id:    c.id,
           label: c.name,
           sub:   `${c.code} · ${c.department.name}`,
-          tab:   'registrar' as AdminNavTab,
+          tab:   'programs' as AdminNavTab,
           icon:  <BookOpen className="w-3.5 h-3.5" />,
         }));
         if (items.length > 0) newGroups.push({ heading: 'Courses', items });

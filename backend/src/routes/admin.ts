@@ -7,10 +7,17 @@ import { Router, Response, Request } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
-import { Role, AccountStatus, StudentStatus, CourseStatus, ApplicationStatus } from '@prisma/client';
+import { Role, AccountStatus, StudentStatus, CourseStatus, ApplicationStatus, AttendanceStatus, TransactionType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { PASSWORD_BCRYPT_ROUNDS } from '../types/auth';
 import * as svc from '../services/admin/userManagementService';
+import * as attSvc from '../services/admin/adminAttendanceService';
+import * as finSvc from '../services/admin/adminFinanceService';
+import * as docSvc from '../services/admin/adminDocumentService';
+import * as auditSvc from '../services/admin/adminAuditService';
+import * as secSvc from '../services/admin/adminSecurityService';
+import * as backupSvc from '../services/admin/adminBackupService';
+import * as cfgSvc from '../services/admin/adminSystemConfigService';
 
 const router = Router();
 const ADMIN_ROLES = [Role.ADMIN, Role.SUPER_ADMIN];
@@ -202,12 +209,23 @@ router.post('/notifications', async (req: AuthRequest, res) => {
       title:      z.string().min(3).max(200),
       message:    z.string().min(1).max(2000),
       type:       z.enum(['INFO', 'SUCCESS', 'WARNING', 'ERROR']).optional(),
-      entityType: z.string().optional(),
-      entityId:   z.string().optional(),
+      entityType: z.string().max(100).optional(),
+      entityId:   z.string().uuid().optional(),
+      actionTab:  z.string().max(50).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
-    ok(res, await svc.createNotification(parsed.data), 201);
+    // Verify the target user exists and is active before creating the notification
+    const targetUser = await prisma.user.findUnique({
+      where:  { id: parsed.data.userId },
+      select: { id: true, status: true },
+    });
+    if (!targetUser) { res.status(404).json({ error: 'Target user not found.' }); return; }
+    if (targetUser.status === 'DEACTIVATED') {
+      res.status(400).json({ error: 'Cannot send notification to a deactivated user.' }); return;
+    }
+    // module is always ADMIN for admin-created single notifications
+    ok(res, await svc.createNotification({ ...parsed.data, module: 'ADMIN' }), 201);
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -217,14 +235,17 @@ router.post('/notifications/broadcast', async (req: AuthRequest, res) => {
     const schema = z.object({
       title:      z.string().min(3).max(200),
       message:    z.string().min(1).max(2000),
+      // type is restricted to display variants — never trust caller for module
       type:       z.enum(['INFO', 'SUCCESS', 'WARNING', 'ERROR']).optional(),
       role:       z.nativeEnum(Role).optional(),
-      entityType: z.string().optional(),
-      entityId:   z.string().optional(),
+      entityType: z.string().max(100).optional(),
+      entityId:   z.string().uuid().optional(),
+      actionTab:  z.string().max(50).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
-    ok(res, await svc.broadcastNotification(parsed.data), 201);
+    // module is derived server-side — ADMIN broadcasts always use 'ADMIN' module
+    ok(res, await svc.broadcastNotification({ ...parsed.data, module: 'ADMIN' }), 201);
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -695,6 +716,219 @@ router.patch('/admissions/:id/onboarding', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ATTENDANCE MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/admin/attendance/stats
+router.get('/attendance/stats', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    ok(res, await attSvc.getAttendanceStats({
+      startDate: qp.startDate,
+      endDate: qp.endDate,
+      departmentId: qp.departmentId,
+      programId: qp.programId,
+      courseOfferingId: qp.courseOfferingId,
+      academicYear: qp.academicYear,
+      semester: qp.semester,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/attendance/records
+router.get('/attendance/records', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await attSvc.listAttendanceRecords({
+      page, limit,
+      search: qp.search,
+      startDate: qp.startDate,
+      endDate: qp.endDate,
+      status: qp.status as AttendanceStatus | undefined,
+      departmentId: qp.departmentId,
+      programId: qp.programId,
+      courseOfferingId: qp.courseOfferingId,
+      instructorId: qp.instructorId,
+      academicYear: qp.academicYear,
+      semester: qp.semester,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/attendance/records/:id
+router.get('/attendance/records/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await attSvc.getAttendanceRecordDetail(pid(req))); } catch (e) { fail(res, e); }
+});
+
+// PATCH /api/admin/attendance/records/:id/correct
+router.patch('/attendance/records/:id/correct', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      newStatus: z.nativeEnum(AttendanceStatus),
+      reason: z.string().min(5, 'Reason must be at least 5 characters long'),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Validation failed' }); return; }
+    ok(res, await attSvc.correctAttendanceRecord(pid(req), parsed.data.newStatus, parsed.data.reason, req.user!.userId, ip(req) ?? undefined));
+  } catch (e) { fail(res, e, 400); }
+});
+
+// GET /api/admin/attendance/trends
+router.get('/attendance/trends', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    ok(res, await attSvc.getAttendanceTrends({
+      period: qp.period as 'daily' | 'weekly' | 'monthly' | undefined,
+      departmentId: qp.departmentId,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/attendance/low-attendance
+router.get('/attendance/low-attendance', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await attSvc.getLowAttendanceStudents({
+      page, limit,
+      search: qp.search,
+      threshold: qp.threshold ? parseInt(qp.threshold, 10) : 75,
+      departmentId: qp.departmentId,
+      programId: qp.programId,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/attendance/students/:studentId
+router.get('/attendance/students/:studentId', async (req: AuthRequest, res) => {
+  try { ok(res, await attSvc.getStudentAttendanceDetail(pid(req, 'studentId'))); } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/attendance/courses/:offeringId
+router.get('/attendance/courses/:offeringId', async (req: AuthRequest, res) => {
+  try { ok(res, await attSvc.getCourseAttendanceDetail(pid(req, 'offeringId'))); } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/attendance/departments
+router.get('/attendance/departments', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    ok(res, await attSvc.getDepartmentAttendanceAnalytics(qp.departmentId));
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FINANCIAL MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/admin/finance/stats
+router.get('/finance/stats', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    ok(res, await finSvc.getFinanceStats({
+      startDate: qp.startDate,
+      endDate: qp.endDate,
+      departmentId: qp.departmentId,
+      programId: qp.programId,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/finance/transactions
+router.get('/finance/transactions', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await finSvc.listTransactions({
+      page, limit,
+      search: qp.search,
+      type: qp.type as TransactionType | undefined,
+      category: qp.category,
+      status: qp.status,
+      startDate: qp.startDate,
+      endDate: qp.endDate,
+      departmentId: qp.departmentId,
+      programId: qp.programId,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/admin/finance/transactions
+router.post('/finance/transactions', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      studentRecordId: z.string().uuid('Invalid student record ID'),
+      type: z.nativeEnum(TransactionType),
+      amount: z.number().refine(val => val !== 0, 'Amount must be non-zero'),
+      description: z.string().min(3, 'Description must be at least 3 characters'),
+      category: z.string().optional(),
+      referenceId: z.string().optional(),
+      transactionDate: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Validation failed' }); return; }
+    ok(res, await finSvc.postTransaction({ ...parsed.data, category: parsed.data.category || String(parsed.data.type) }, req.user!.userId, ip(req) ?? undefined), 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/admin/finance/transactions/:id/reverse
+router.patch('/finance/transactions/:id/reverse', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      reason: z.string().min(5, 'Reversal reason must be at least 5 characters'),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Validation failed' }); return; }
+    ok(res, await finSvc.reverseTransaction(pid(req), parsed.data.reason, req.user!.userId, ip(req) ?? undefined));
+  } catch (e) { fail(res, e, 400); }
+});
+
+// GET /api/admin/finance/accounts
+router.get('/finance/accounts', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await finSvc.listStudentAccounts({
+      page, limit,
+      search: qp.search,
+      departmentId: qp.departmentId,
+      programId: qp.programId,
+      clearanceStatus: qp.clearanceStatus as 'cleared' | 'uncleared' | undefined,
+      balanceFilter: qp.balanceFilter as 'outstanding' | 'credit' | 'zero' | undefined,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/admin/finance/accounts/student/:studentId
+router.get('/finance/accounts/student/:studentId', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await finSvc.getStudentFinancialDetail(pid(req, 'studentId')));
+  } catch (e) { fail(res, e); }
+});
+
+// PATCH /api/admin/finance/accounts/student/:studentId/clearance
+router.patch('/finance/accounts/student/:studentId/clearance', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      clearedForTerm: z.string().nullable(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Invalid clearedForTerm value' }); return; }
+    ok(res, await finSvc.updateTermClearance(pid(req, 'studentId'), parsed.data.clearedForTerm, req.user!.userId, ip(req) ?? undefined));
+  } catch (e) { fail(res, e, 400); }
+});
+
+// GET /api/admin/finance/trends
+router.get('/finance/trends', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    ok(res, await finSvc.getFinanceTrends({
+      startDate: qp.startDate,
+      endDate: qp.endDate,
+      departmentId: qp.departmentId,
+      programId: qp.programId,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // SELF SETTINGS (mirrors registrar settings exactly)
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -896,6 +1130,117 @@ router.get('/transactions', async (req: AuthRequest, res) => {
       type:   qp.type,
       status: qp.status,
     }));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/documents/stats', async (_req: AuthRequest, res) => {
+  try { ok(res, await docSvc.getDocumentStats()); } catch (e) { fail(res, e); }
+});
+
+router.get('/documents', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await docSvc.listAdminDocuments({
+      page,
+      limit,
+      search: qp.search,
+      category: qp.category,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/audit-logs/stats', async (_req: AuthRequest, res) => {
+  try { ok(res, await auditSvc.getAuditStats()); } catch (e) { fail(res, e); }
+});
+
+router.get('/audit-logs', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await auditSvc.listAdminAuditLogs({
+      page,
+      limit,
+      search: qp.search,
+      module: qp.module,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/security/stats', async (_req: AuthRequest, res) => {
+  try { ok(res, await secSvc.getSecurityStats()); } catch (e) { fail(res, e); }
+});
+
+router.get('/security/sessions', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    ok(res, await secSvc.listActiveSessions({ page, limit, search: qp.search }));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/security/sessions/:id/revoke', async (req: AuthRequest, res) => {
+  try {
+    const id = req.params.id as string;
+    ok(res, await secSvc.revokeActiveSession(id, req.user!.userId, req.ip));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/security/locked-accounts', async (_req: AuthRequest, res) => {
+  try { ok(res, await secSvc.listLockedAccounts()); } catch (e) { fail(res, e); }
+});
+
+router.post('/security/users/:id/unlock', async (req: AuthRequest, res) => {
+  try {
+    const id = req.params.id as string;
+    ok(res, await secSvc.unlockUserAccount(id, req.user!.userId, req.ip));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/backup/stats', async (_req: AuthRequest, res) => {
+  try { ok(res, await backupSvc.getBackupStats()); } catch (e) { fail(res, e); }
+});
+
+router.get('/backup/snapshots', async (_req: AuthRequest, res) => {
+  try { ok(res, await backupSvc.listBackupSnapshots()); } catch (e) { fail(res, e); }
+});
+
+router.post('/backup/trigger', async (req: AuthRequest, res) => {
+  try {
+    const { type } = req.body || {};
+    ok(res, await backupSvc.triggerBackup(type || 'FULL', req.user!.userId, req.ip));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/backup/download/:id', async (req: AuthRequest, res) => {
+  try {
+    const id = req.params.id as string;
+    const filePath = backupSvc.getBackupFilePath(id);
+    res.download(filePath);
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/backup/maintenance', async (_req: AuthRequest, res) => {
+  try { ok(res, backupSvc.getMaintenanceState()); } catch (e) { fail(res, e); }
+});
+
+router.post('/backup/maintenance', async (req: AuthRequest, res) => {
+  try {
+    const { active, reason } = req.body || {};
+    ok(res, backupSvc.setMaintenanceState(Boolean(active), reason, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/system-config', async (_req: AuthRequest, res) => {
+  try { ok(res, cfgSvc.getSystemConfig()); } catch (e) { fail(res, e); }
+});
+
+router.put('/system-config', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await cfgSvc.updateSystemConfig(req.body || {}, req.user!.userId, req.ip));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/system-config/reset', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await cfgSvc.resetSystemConfigToDefaults(req.user!.userId, req.ip));
   } catch (e) { fail(res, e); }
 });
 

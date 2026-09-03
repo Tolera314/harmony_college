@@ -4,7 +4,7 @@
  * Single source of truth for ALL in-app notifications that use the generic
  * `Notification` table (students, instructors, registrar, DH, FO, admin).
  *
- * HR uses its own `HRNotification` table (separate service) — not touched here.
+ * HR notifications now also live in the unified `Notification` table (module='HR').
  *
  * Security contract
  * ─────────────────
@@ -35,6 +35,8 @@ export interface CreateNotificationInput {
   title:       string;
   message:     string;
   type?:       string;        // default "INFO"
+  /** Module namespace. Values: ACADEMIC | HR | FINANCE | ADMIN | SYSTEM. Default: ACADEMIC */
+  module?:     string;
   entityType?: string;
   entityId?:   string;
   actionTab?:  string;        // deep-link to a dashboard tab
@@ -65,10 +67,11 @@ export async function createNotification(
       title:      input.title,
       message:    input.message,
       type:       input.type      ?? 'INFO',
+      module:     input.module    ?? 'ACADEMIC',
       entityType: input.entityType ?? null,
       entityId:   input.entityId   ?? null,
       actionTab:  input.actionTab  ?? null,
-      pushedAt:   null,              // set below after successful push attempt
+      pushedAt:   null,
     },
   });
 
@@ -103,7 +106,9 @@ export interface BroadcastInput {
   title:       string;
   message:     string;
   type?:       string;
-  role?:       Role;          // undefined = all active users
+  /** Module namespace. Default: ACADEMIC */
+  module?:     string;
+  role?:       Role;
   entityType?: string;
   entityId?:   string;
   actionTab?:  string;
@@ -121,42 +126,33 @@ export async function broadcastNotification(
   const where: Record<string, unknown> = { status: 'ACTIVE' };
   if (input.role) where.role = input.role;
 
-  const users = await prisma.user.findMany({
-    where,
-    select: { id: true },
-  });
-
+  const users = await prisma.user.findMany({ where, select: { id: true } });
   if (users.length === 0) return { sent: 0 };
 
-  // Bulk insert
-  await prisma.notification.createMany({
-    data: users.map(u => ({
-      userId:     u.id,
-      title:      input.title,
-      message:    input.message,
-      type:       input.type      ?? 'INFO',
-      entityType: input.entityType ?? null,
-      entityId:   input.entityId   ?? null,
-      actionTab:  input.actionTab  ?? null,
-    })),
-    skipDuplicates: true,
-  });
+  const now = new Date();
+  const { randomUUID } = await import('crypto');
 
-  // Fetch the freshly-created rows to push with real IDs
-  const rows = await prisma.notification.findMany({
-    where: {
-      userId:    { in: users.map(u => u.id) },
-      title:     input.title,
-      createdAt: { gte: new Date(Date.now() - 5_000) }, // within last 5 s
-    },
-    select: {
-      id: true, userId: true, title: true, message: true,
-      type: true, actionTab: true, entityType: true, entityId: true, createdAt: true,
-    },
-  });
+  // Build rows with pre-generated IDs — captured before insert so the push loop
+  // uses exact IDs with no fuzzy re-fetch. This eliminates the race condition where
+  // a concurrent broadcast with the same title could match wrong rows.
+  const rows = users.map(u => ({
+    id:         randomUUID(),
+    userId:     u.id,
+    title:      input.title,
+    message:    input.message,
+    type:       input.type      ?? 'INFO',
+    module:     input.module    ?? 'ACADEMIC',
+    entityType: input.entityType ?? null,
+    entityId:   input.entityId   ?? null,
+    actionTab:  input.actionTab  ?? null,
+    isRead:     false,
+    createdAt:  now,
+  }));
 
-  // Push each user individually (background, fire-and-forget per user)
-  const now = new Date().toISOString();
+  // Bulk insert — skipDuplicates makes retries safe
+  await prisma.notification.createMany({ data: rows, skipDuplicates: true });
+
+  // Push each user with the exact row we just inserted — no re-fetch needed
   for (const row of rows) {
     try {
       pushNotification({
@@ -170,16 +166,16 @@ export async function broadcastNotification(
         entityId:   row.entityId,
         createdAt:  row.createdAt.toISOString(),
       });
-    } catch { /* individual push failure must not abort the loop */ }
+    } catch { /* per-user push failure must not abort the loop */ }
   }
 
   // Stamp pushedAt in bulk (informational only)
   await prisma.notification.updateMany({
     where: { id: { in: rows.map(r => r.id) } },
-    data:  { pushedAt: new Date(now) },
+    data:  { pushedAt: now },
   }).catch(() => {});
 
-  return { sent: users.length };
+  return { sent: rows.length };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -203,7 +199,7 @@ export async function listNotifications(q: NotificationListQuery) {
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, userId: true, title: true, message: true,
-        type: true, isRead: true, actionTab: true,
+        type: true, isRead: true, actionTab: true, module: true,
         entityType: true, entityId: true, createdAt: true,
       },
     }),

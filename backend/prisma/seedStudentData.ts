@@ -68,6 +68,7 @@ async function main() {
             { financialAccountId: account.id, type: 'FEE',         amount:  650,    description: 'Technology & Infrastructure Fee',     category: 'Fee',         receiptId: `FEE-${sr.id.slice(0,8)}-2`, status: 'POSTED', transactionDate: new Date('2026-08-15') },
             { financialAccountId: account.id, type: 'SCHOLARSHIP', amount: -15000,  description: "Dean's Merit Scholarship",            category: 'Scholarship', receiptId: `SCH-${sr.id.slice(0,8)}`, status: 'POSTED', transactionDate: new Date('2026-08-01') },
             { financialAccountId: account.id, type: 'GRANT',       amount: -5350,   description: 'Departmental Research Grant',         category: 'Grant',       receiptId: `GRT-${sr.id.slice(0,8)}`, status: 'POSTED', transactionDate: new Date('2026-08-01') },
+            { financialAccountId: account.id, type: 'PAYMENT',     amount: -4000,   description: 'Fall 2026 Registration Payment via Telebirr', category: 'Payment', receiptId: `REC-${sr.id.slice(0,8)}`, referenceId: `TEL-PAY-${sr.id.slice(0,6)}`, status: 'POSTED', transactionDate: new Date('2026-08-20') },
           ],
           skipDuplicates: true,
         });

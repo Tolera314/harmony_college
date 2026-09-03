@@ -131,16 +131,22 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
   const { toast, show: showToast, hide: hideToast } = useToast();
 
   // ── fetch departments
-  useEffect(() => {
+  const fetchDepartments = useCallback(() => {
     adminDepartmentsApi.list()
       .then(depts => {
-        setDepartments(depts.filter(d => d.isActive));
-        if (depts.length > 0 && !invForm.departmentId) {
-          setInvForm(prev => ({ ...prev, departmentId: depts[0].id }));
-        }
+        const active = depts.filter(d => d.isActive);
+        setDepartments(active);
+        setInvForm(prev => ({
+          ...prev,
+          departmentId: prev.departmentId && active.some(a => a.id === prev.departmentId) ? prev.departmentId : (active[0]?.id ?? ''),
+        }));
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchDepartments();
+  }, [fetchDepartments]);
 
   // ── fetch users list ──────────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async (p: number, s: string, r: string, st: string) => {
@@ -384,7 +390,7 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
             variant="gold"
             size="sm"
             icon={<Send className="w-4 h-4" />}
-            onClick={() => { setInviteOpen(true); setFormError(''); }}
+            onClick={() => { fetchDepartments(); setInviteOpen(true); setFormError(''); }}
           >
             Invite Staff
           </Button>

@@ -201,7 +201,7 @@ export const AdminFacultyView: React.FC = () => {
         icon={<UserCheck className="w-5 h-5" />}
         actions={
           <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}
-            onClick={() => { setCreateOpen(true); setFormError(''); }}>
+            onClick={() => { adminDepartmentsApi.list().then(setDepartments).catch(() => {}); setCreateOpen(true); setFormError(''); }}>
             Add Instructor
           </Button>
         }

@@ -23,7 +23,8 @@ import { HRSalaryHistoryView } from '@/src/components/hr/views/HRSalaryHistoryVi
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChatView } from '@/src/components/chat/ChatView';
-import { hrNotificationsApi } from '@/src/lib/hrApi';
+import { hrNotificationsApi, type HRNotificationApi } from '@/src/lib/hrApi';
+import { useNotifications } from '@/src/hooks/useNotifications';
 
 // Static fallback profile used only while the real profile loads (or if the API is unreachable)
 const fallbackProfile = {
@@ -41,7 +42,7 @@ const fallbackProfile = {
 
 export default function HRDashboardPage() {
   const [activeTab,      setRawTab]        = useState<HRNavTab>('overview');
-  const [unreadCount,    setUnreadCount]    = useState(0);
+
   const [pendingLeave,   setPendingLeave]   = useState(0);
   const [searchOpen,     setSearchOpen]     = useState(false);
   const [logoutOpen,     setLogoutOpen]     = useState(false);
@@ -50,13 +51,25 @@ export default function HRDashboardPage() {
   const [profile,        setProfile]        = useState(fallbackProfile);
   const { toast, show: showToast, hide: hideToast } = useToast();
 
-  // Load unread notifications count and basic profile on mount
-  useEffect(() => {
-    hrNotificationsApi.list()
-      .then(list => setUnreadCount(list.filter(n => !n.isRead).length))
-      .catch(() => {});
+  // ── Real-time notification badge + inbox via unified hook ─────────────────
+  // Fetches on mount, subscribes to notification:new socket event,
+  // updates badge instantly without polling.
+  const {
+    items:       notifItems,
+    unreadCount,
+    markRead:    handleMarkRead,
+    reload:      reloadNotifs,
+  } = useNotifications({
+    fetchFn:       () => hrNotificationsApi.list(),
+    markReadFn:    (id) => hrNotificationsApi.markRead(id),
+    markAllReadFn: () => hrNotificationsApi.markAllRead(),
+  });
 
-    // Pull real profile from /api/auth/me
+  // Keep headerNotifs in sync with the hook's items (top 7 for the bell dropdown)
+  const headerNotifs = (notifItems as unknown as HRNotificationApi[]).slice(0, 7);
+
+  // Load profile on mount
+  useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
       .then(r => r.json())
       .then(d => {
@@ -72,6 +85,13 @@ export default function HRDashboardPage() {
     setTabLoading(true);
     setTimeout(() => { setRawTab(tab); setTabLoading(false); }, 120);
   }, [activeTab]);
+
+  // Mark one notification read — optimistic update + background API call
+
+
+
+
+
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -102,7 +122,7 @@ export default function HRDashboardPage() {
       case 'notifications': return (
         <HRNotificationsView
           setActiveTab={setActiveTab}
-          onUnreadCountChange={setUnreadCount}
+          onUnreadCountChange={() => reloadNotifs()}
         />
       );
       case 'audit_log':     return <HRAuditLogView />;
@@ -127,8 +147,8 @@ export default function HRDashboardPage() {
         <div className="flex-1 md:pl-20 xl:pl-64 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300">
           <HRHeader
             activeTab={activeTab} setActiveTab={setActiveTab} profile={profile as any}
-            notifications={[]} unreadCount={unreadCount}
-            onMarkRead={() => {}}
+            notifications={headerNotifs} unreadCount={unreadCount}
+            onMarkRead={handleMarkRead}
             onOpenSearch={() => setSearchOpen(true)}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />

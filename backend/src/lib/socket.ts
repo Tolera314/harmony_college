@@ -43,13 +43,32 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
         socket.handshake.auth?.token ??
         socket.handshake.headers?.cookie
           ?.split(';')
-          .find((c) => c.trim().startsWith('session='))
+          .find((c) => c.trim().startsWith('accessToken=') || c.trim().startsWith('session='))
           ?.split('=')[1];
 
       if (!token) return next(new Error('Authentication required.'));
 
       const payload = await verifyJWT(token);
-      if (!payload) return next(new Error('Invalid or expired token.'));
+      if (!payload || typeof payload.userId !== 'string') {
+        return next(new Error('Invalid or expired token.'));
+      }
+
+      // DB-level session revocation check (mirrors HTTP authenticate middleware)
+      // Only applies when the token carries a sessionId (access tokens do, legacy tokens don't)
+      const sessionId = typeof payload.sessionId === 'string' ? payload.sessionId : null;
+      if (sessionId) {
+        try {
+          const session = await prisma.session.findUnique({
+            where:  { id: sessionId },
+            select: { isRevoked: true, expiresAt: true },
+          });
+          if (!session || session.isRevoked || session.expiresAt < new Date()) {
+            return next(new Error('Session revoked or expired.'));
+          }
+        } catch {
+          // DB unreachable — degrade gracefully (JWT alone is still verified)
+        }
+      }
 
       socket.userId = payload.userId as string;
       socket.email  = payload.email  as string;

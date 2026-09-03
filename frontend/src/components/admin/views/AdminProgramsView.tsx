@@ -109,7 +109,7 @@ export const AdminProgramsView: React.FC = () => {
         title="Programs"
         subtitle={`${programs.filter(p => p.isActive).length} active · ${programs.filter(p => !p.isActive).length} inactive`}
         icon={<BookOpen className="w-5 h-5" />}
-        actions={<Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => { setCreateOpen(true); setCreateError(''); setCf({ ...cf, departmentId: depts[0]?.id ?? '' }); }}>Add Program</Button>}
+        actions={<Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => { adminDepartmentsApi.list().then(d => { setDepts(d); setCf(prev => ({ ...prev, departmentId: prev.departmentId || d[0]?.id || '' })); }).catch(() => {}); setCreateOpen(true); setCreateError(''); }}>Add Program</Button>}
       />
 
       {/* Filters */}
