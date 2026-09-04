@@ -343,6 +343,15 @@ export async function getMyClasses(userId: string, programType?: 'TVET' | 'SHORT
         },
       },
       room: { select: { name: true, building: true, capacity: true } },
+      enrollments: {
+        where: { status: { in: ACTIVE_STATUSES } },
+        select: {
+          id: true,
+          grade: {
+            select: { status: true },
+          },
+        },
+      },
       _count: {
         select: {
           enrollments: { where: { status: { in: ACTIVE_STATUSES } } },
@@ -360,43 +369,61 @@ export async function getMyClasses(userId: string, programType?: 'TVET' | 'SHORT
 
   const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  return offerings.map(o => ({
-    id: o.id,
-    section: o.section,
-    status: o.status,
-    capacity: o.capacity,
-    enrolled: o._count.enrollments,
-    programType: o.programType,
-    shortProgramDuration: o.shortProgramDuration,
-    department: o.course.department,
-    course: {
-      id: o.course.id,
-      code: o.course.code,
-      name: o.course.name,
-      description: o.course.description,
-      creditHours: o.course.creditHours,
-    },
-    semester: {
-      id: o.semester.id,
-      name: o.semester.name,
-      isCurrent: o.semester.isCurrent,
-      startDate: o.semester.startDate,
-      endDate: o.semester.endDate,
-      academicYear: o.semester.academicYear.name,
-    },
-    room: o.room
-      ? { name: o.room.name, building: o.room.building, capacity: o.room.capacity }
-      : null,
-    schedule: o.timetables.map(t => ({
-      day: DAY_NAMES[t.dayOfWeek] ?? `Day ${t.dayOfWeek}`,
-      startTime: t.startTime,
-      endTime: t.endTime,
-    })),
-    stats: {
-      assignments: o._count.assignments,
-      quizzes: o._count.quizzes,
-    },
-  }));
+  return offerings.map(o => {
+    const totalEnrolled = o.enrollments.length;
+    const submittedCount = o.enrollments.filter(e => e.grade && (e.grade.status === 'SUBMITTED' || e.grade.status === 'PUBLISHED')).length;
+    const publishedCount = o.enrollments.filter(e => e.grade && e.grade.status === 'PUBLISHED').length;
+    const draftCount = o.enrollments.filter(e => e.grade && e.grade.status === 'DRAFT').length;
+
+    let submissionStatus: 'PUBLISHED' | 'SUBMITTED' | 'IN_PROGRESS' | 'PENDING' = 'PENDING';
+    if (totalEnrolled > 0 && publishedCount === totalEnrolled) {
+      submissionStatus = 'PUBLISHED';
+    } else if (submittedCount > 0) {
+      submissionStatus = 'SUBMITTED';
+    } else if (draftCount > 0) {
+      submissionStatus = 'IN_PROGRESS';
+    }
+
+    return {
+      id: o.id,
+      section: o.section,
+      status: o.status,
+      capacity: o.capacity,
+      enrolled: o._count.enrollments,
+      submissionStatus,
+      submittedCount,
+      programType: o.programType,
+      shortProgramDuration: o.shortProgramDuration,
+      department: o.course.department,
+      course: {
+        id: o.course.id,
+        code: o.course.code,
+        name: o.course.name,
+        description: o.course.description,
+        creditHours: o.course.creditHours,
+      },
+      semester: {
+        id: o.semester.id,
+        name: o.semester.name,
+        isCurrent: o.semester.isCurrent,
+        startDate: o.semester.startDate,
+        endDate: o.semester.endDate,
+        academicYear: o.semester.academicYear.name,
+      },
+      room: o.room
+        ? { name: o.room.name, building: o.room.building, capacity: o.room.capacity }
+        : null,
+      schedule: o.timetables.map(t => ({
+        day: DAY_NAMES[t.dayOfWeek] ?? `Day ${t.dayOfWeek}`,
+        startTime: t.startTime,
+        endTime: t.endTime,
+      })),
+      stats: {
+        assignments: o._count.assignments,
+        quizzes: o._count.quizzes,
+      },
+    };
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
