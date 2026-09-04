@@ -276,6 +276,7 @@ export default function RegistrarDashboardPage() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSC(!sidebarCollapsed)}
           onLogout={() => setLogout(true)}
+          showChat={true}
           profile={{
             name:       profile?.fullName ?? 'Registrar',
             avatar:     undefined,

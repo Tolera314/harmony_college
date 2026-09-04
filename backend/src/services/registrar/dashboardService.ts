@@ -48,7 +48,7 @@ export async function getDashboardStats(programType?: 'TVET' | 'SHORT_PROGRAM') 
     prisma.enrollment.count({
       where: {
         status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] },
-        ...(programType ? { studentRecord: { programType } } : {}),
+        ...(programType ? { studentRecord: { is: { programType } } } : {}),
       },
     }),
     prisma.transcriptRequest.count({ where: { status: { in: ['PENDING', 'PROCESSING'] as any } } }),

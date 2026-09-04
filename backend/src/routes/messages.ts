@@ -17,7 +17,14 @@ import { z }                 from 'zod';
 import { prisma }            from '../lib/prisma';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { Role }              from '../types/auth';
-import { isOnline }          from '../lib/socket';
+import {
+  isOnline,
+  broadcastNewMessage,
+  broadcastMessageEdited,
+  broadcastMessageDeleted,
+  broadcastMessageRead,
+  broadcastConversationCreated,
+} from '../lib/socket';
 import { createNotification } from '../services/notificationService';
 import * as svc              from '../services/messaging/messagingService';
 
@@ -93,8 +100,9 @@ const msgUpload = multer({
 
 router.get('/employees', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const q     = (req.query.q as string | undefined) ?? '';
-    const limit = Math.min(50, parseInt((req.query.limit as string) ?? '20', 10));
+    const q           = (req.query.q as string | undefined) ?? '';
+    const parsedLimit = parseInt((req.query.limit as string) ?? '500', 10);
+    const limit       = isNaN(parsedLimit) || parsedLimit <= 0 ? 500 : Math.min(1000, parsedLimit);
     ok(res, await svc.searchEmployees(uid(req), role(req), q, limit));
   } catch (e) { fail(res, e); }
 });
@@ -146,6 +154,13 @@ router.post('/conversations', async (req: AuthRequest, res: Response): Promise<v
       ...parsed.data,
       expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : undefined,
     });
+
+    const participants = await prisma.conversationParticipant.findMany({
+      where: { conversationId: conv.id, leftAt: null },
+      select: { userId: true },
+    });
+    broadcastConversationCreated(participants.map(p => p.userId), conv as any);
+
     ok(res, conv, 201);
   } catch (e) { fail(res, e, 400); }
 });
@@ -154,6 +169,13 @@ router.post('/conversations', async (req: AuthRequest, res: Response): Promise<v
 router.get('/conversations/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     ok(res, await svc.getConversation(String(req.params['id']), uid(req)));
+  } catch (e) { fail(res, e); }
+});
+
+// DELETE /api/messages/conversations/:id
+router.delete('/conversations/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    ok(res, await svc.deleteConversation(String(req.params['id']), uid(req), role(req)));
   } catch (e) { fail(res, e); }
 });
 
@@ -194,7 +216,19 @@ router.delete('/conversations/:id/participants/:userId', async (req: AuthRequest
 // POST /api/messages/conversations/:id/read
 router.post('/conversations/:id/read', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await svc.markConversationRead(String(req.params['id']), uid(req));
+    const convId = String(req.params['id']);
+    await svc.markConversationRead(convId, uid(req));
+
+    const participants = await prisma.conversationParticipant.findMany({
+      where: { conversationId: convId, leftAt: null },
+      select: { userId: true },
+    });
+    broadcastMessageRead({
+      conversationId: convId,
+      readerUserId: uid(req),
+      participantUserIds: participants.map(p => p.userId),
+    });
+
     ok(res, { success: true });
   } catch (e) { fail(res, e); }
 });
@@ -230,12 +264,19 @@ router.post('/conversations/:id/messages', async (req: AuthRequest, res: Respons
     const convId  = String(req.params['id']);
     const message = await svc.sendMessage(convId, uid(req), role(req), parsed.data);
 
+    // Broadcast new message via Socket.IO immediately
+    const participants = await prisma.conversationParticipant.findMany({
+      where: { conversationId: convId, leftAt: null },
+      select: { userId: true },
+    });
+    const participantIds = participants.map(pp => pp.userId);
+    await broadcastNewMessage(convId, participantIds, message as any, uid(req));
+
     // ── Notify offline participants ────────────────────────────────────────
-    // Fire-and-forget: find participants who are NOT online and send a notification
     const sender = req.user!;
     setImmediate(async () => {
       try {
-        const participants = await prisma.conversationParticipant.findMany({
+        const nonOnlineParts = await prisma.conversationParticipant.findMany({
           where: {
             conversationId: convId,
             userId: { not: sender.userId },
@@ -254,9 +295,9 @@ router.post('/conversations/:id/messages', async (req: AuthRequest, res: Respons
           select: { fullName: true },
         });
 
-        for (const p of participants) {
+        for (const p of nonOnlineParts) {
           if (p.user.status !== 'ACTIVE') continue;
-          if (isOnline(p.userId)) continue; // already on socket, will get real-time message
+          if (isOnline(p.userId)) continue; // socket already notified
 
           const convName =
             conv?.type === 'DIRECT'
@@ -286,7 +327,21 @@ router.patch('/messages/:messageId', async (req: AuthRequest, res: Response): Pr
   try {
     const { content } = req.body as { content: string };
     if (!content?.trim()) { res.status(400).json({ error: 'Content required.' }); return; }
-    ok(res, await svc.editMessage(String(req.params['messageId']), uid(req), content));
+    const edited = await svc.editMessage(String(req.params['messageId']), uid(req), content);
+
+    const participants = await prisma.conversationParticipant.findMany({
+      where: { conversationId: (edited as any).conversationId, leftAt: null },
+      select: { userId: true },
+    });
+    broadcastMessageEdited({
+      conversationId: (edited as any).conversationId,
+      messageId: (edited as any).id,
+      content: (edited as any).content,
+      editedAt: ((edited as any).editedAt ?? new Date()).toISOString(),
+      participantUserIds: participants.map(p => p.userId),
+    });
+
+    ok(res, edited);
   } catch (e) { fail(res, e); }
 });
 
@@ -294,7 +349,20 @@ router.patch('/messages/:messageId', async (req: AuthRequest, res: Response): Pr
 router.delete('/messages/:messageId', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const deleteType = req.query.type === 'admin' ? 'ADMIN' : 'SELF';
-    ok(res, await svc.deleteMessage(String(req.params['messageId']), uid(req), role(req), deleteType));
+    const deleted = await svc.deleteMessage(String(req.params['messageId']), uid(req), role(req), deleteType);
+
+    const participants = await prisma.conversationParticipant.findMany({
+      where: { conversationId: (deleted as any).conversationId, leftAt: null },
+      select: { userId: true },
+    });
+    broadcastMessageDeleted({
+      conversationId: (deleted as any).conversationId,
+      messageId: (deleted as any).id,
+      deletedAt: ((deleted as any).deletedAt ?? new Date()).toISOString(),
+      participantUserIds: participants.map(p => p.userId),
+    });
+
+    ok(res, deleted);
   } catch (e) { fail(res, e); }
 });
 
@@ -324,7 +392,7 @@ router.post(
       });
 
       const msgId = (message as unknown as { id: string }).id;
-      await svc.createAttachment(msgId, uid(req), {
+      const att = await svc.createAttachment(msgId, uid(req), {
         originalFileName: req.file.originalname,
         storedFileName:   req.file.filename,
         mimeType:         req.file.mimetype,
@@ -332,7 +400,19 @@ router.post(
         storagePath:      req.file.path,
       });
 
-      ok(res, message, 201);
+      const fullMessage = {
+        ...(message as Record<string, unknown>),
+        attachments: [att],
+      };
+
+      const participants = await prisma.conversationParticipant.findMany({
+        where: { conversationId: convId, leftAt: null },
+        select: { userId: true },
+      });
+      const participantIds = participants.map(pp => pp.userId);
+      await broadcastNewMessage(convId, participantIds, fullMessage, uid(req));
+
+      ok(res, fullMessage, 201);
     } catch (e) { fail(res, e); }
   }
 );

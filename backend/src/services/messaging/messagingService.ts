@@ -35,24 +35,31 @@ export function isStaff(role: Role): boolean {
 
 // ── Employee search ───────────────────────────────────────────────────────────
 
+// ── Employee search ───────────────────────────────────────────────────────────
+
 export async function searchEmployees(
   requesterId: string,
   requesterRole: Role,
   q: string,
-  limit = 20,
+  limit = 500,
 ) {
   if (!isStaff(requesterRole)) throw new Error('Staff only.');
 
+  const trimmed = q.trim();
   const where: Record<string, unknown> = {
     id:     { not: requesterId },
     role:   { in: STAFF_ROLES },
-    status: 'ACTIVE',
+    status: { notIn: ['SUSPENDED', 'DEACTIVATED'] },
   };
 
-  if (q.trim()) {
+  if (trimmed) {
     where.OR = [
-      { fullName: { contains: q.trim(), mode: 'insensitive' } },
-      { email:    { contains: q.trim(), mode: 'insensitive' } },
+      { fullName: { contains: trimmed, mode: 'insensitive' } },
+      { email:    { contains: trimmed, mode: 'insensitive' } },
+      { instructorRecord: { department: { name: { contains: trimmed, mode: 'insensitive' } } } },
+      { departmentHeadRecord: { department: { name: { contains: trimmed, mode: 'insensitive' } } } },
+      { hrEmployee: { position: { contains: trimmed, mode: 'insensitive' } } },
+      { hrEmployee: { department: { name: { contains: trimmed, mode: 'insensitive' } } } },
     ];
   }
 
@@ -66,20 +73,47 @@ export async function searchEmployees(
       email:    true,
       instructorRecord: { select: { department: { select: { name: true } } } },
       departmentHeadRecord: { select: { department: { select: { name: true } } } },
+      hrEmployee: {
+        select: {
+          position:   true,
+          avatarUrl:  true,
+          department: { select: { name: true } },
+        },
+      },
     },
     orderBy: { fullName: 'asc' },
   });
 
-  return users.map(u => ({
-    id:         u.id,
-    fullName:   u.fullName,
-    role:       u.role,
-    email:      u.email,
-    department:
+  return users.map(u => {
+    const dept =
       u.instructorRecord?.department?.name ??
       u.departmentHeadRecord?.department?.name ??
-      null,
-  }));
+      u.hrEmployee?.department?.name ??
+      (u.role === Role.REGISTRAR ? 'Registrar Office' :
+       u.role === Role.FINANCE_OFFICER ? 'Finance Office' :
+       u.role === Role.HR_OFFICER ? 'Human Resources' :
+       u.role === Role.ADMIN || u.role === Role.SUPER_ADMIN ? 'Administration' : null);
+
+    const pos =
+      u.hrEmployee?.position ??
+      (u.role === Role.DEPARTMENT_HEAD ? 'Department Head' :
+       u.role === Role.INSTRUCTOR ? 'Instructor' :
+       u.role === Role.REGISTRAR ? 'Registrar Officer' :
+       u.role === Role.FINANCE_OFFICER ? 'Finance Officer' :
+       u.role === Role.HR_OFFICER ? 'HR Officer' :
+       u.role === Role.ADMIN ? 'Administrator' :
+       u.role === Role.SUPER_ADMIN ? 'Super Administrator' : null);
+
+    return {
+      id:         u.id,
+      fullName:   u.fullName,
+      role:       u.role,
+      email:      u.email,
+      department: dept,
+      position:   pos,
+      avatarUrl:  u.hrEmployee?.avatarUrl ?? null,
+    };
+  });
 }
 
 // ── Conversations ─────────────────────────────────────────────────────────────
@@ -102,6 +136,13 @@ export async function listConversations(userId: string, includeArchived = false)
                   id: true, fullName: true, role: true, email: true,
                   instructorRecord: { select: { department: { select: { name: true } } } },
                   departmentHeadRecord: { select: { department: { select: { name: true } } } },
+                  hrEmployee: {
+                    select: {
+                      position: true,
+                      avatarUrl: true,
+                      department: { select: { name: true } },
+                    },
+                  },
                 },
               },
             },
@@ -126,8 +167,7 @@ export async function listConversations(userId: string, includeArchived = false)
     const lastMsg  = conv.messages[0] ?? null;
     const myPart   = p;
 
-    // Count unread: messages after lastReadAt that I didn't send
-    const unreadCount = 0; // computed separately via getUnreadCount for performance
+    const unreadCount = 0; // augmented in route via getUnreadCounts
 
     return {
       id:            conv.id,
@@ -148,17 +188,38 @@ export async function listConversations(userId: string, includeArchived = false)
       isMuted:         myPart.isMuted,
       lastReadAt:      myPart.lastReadAt,
       lastReadMessageId: myPart.lastReadMessageId,
-      participants: conv.participants.map(pp => ({
-        userId:   pp.userId,
-        fullName: pp.user.fullName,
-        role:     pp.user.role,
-        email:    pp.user.email,
-        department:
+      participants: conv.participants.map(pp => {
+        const dept =
           pp.user.instructorRecord?.department?.name ??
-          pp.user.departmentHeadRecord?.department?.name ?? null,
-        participantRole: pp.participantRole,
-        lastReadAt:      pp.lastReadAt,
-      })),
+          pp.user.departmentHeadRecord?.department?.name ??
+          pp.user.hrEmployee?.department?.name ??
+          (pp.user.role === Role.REGISTRAR ? 'Registrar Office' :
+           pp.user.role === Role.FINANCE_OFFICER ? 'Finance Office' :
+           pp.user.role === Role.HR_OFFICER ? 'Human Resources' :
+           pp.user.role === Role.ADMIN || pp.user.role === Role.SUPER_ADMIN ? 'Administration' : null);
+
+        const pos =
+          pp.user.hrEmployee?.position ??
+          (pp.user.role === Role.DEPARTMENT_HEAD ? 'Department Head' :
+           pp.user.role === Role.INSTRUCTOR ? 'Instructor' :
+           pp.user.role === Role.REGISTRAR ? 'Registrar Officer' :
+           pp.user.role === Role.FINANCE_OFFICER ? 'Finance Officer' :
+           pp.user.role === Role.HR_OFFICER ? 'HR Officer' :
+           pp.user.role === Role.ADMIN ? 'Administrator' :
+           pp.user.role === Role.SUPER_ADMIN ? 'Super Administrator' : null);
+
+        return {
+          userId:   pp.userId,
+          fullName: pp.user.fullName,
+          role:     pp.user.role,
+          email:    pp.user.email,
+          department: dept,
+          position:   pos,
+          avatarUrl:  pp.user.hrEmployee?.avatarUrl ?? null,
+          participantRole: pp.participantRole,
+          lastReadAt:      pp.lastReadAt,
+        };
+      }),
       lastMessage: lastMsg ? {
         id:        lastMsg.id,
         content:   lastMsg.isDeleted ? '[Message deleted]' : lastMsg.content,
@@ -204,7 +265,7 @@ export async function getConversation(conversationId: string, userId: string) {
   });
   if (!p || p.leftAt) throw new Error('Not a participant.');
 
-  return prisma.conversation.findUniqueOrThrow({
+  const conv = await prisma.conversation.findUniqueOrThrow({
     where: { id: conversationId },
     include: {
       participants: {
@@ -215,12 +276,49 @@ export async function getConversation(conversationId: string, userId: string) {
               id: true, fullName: true, role: true, email: true,
               instructorRecord: { select: { department: { select: { name: true } } } },
               departmentHeadRecord: { select: { department: { select: { name: true } } } },
+              hrEmployee: {
+                select: {
+                  position: true,
+                  avatarUrl: true,
+                  department: { select: { name: true } },
+                },
+              },
             },
           },
         },
       },
     },
   });
+
+  return {
+    ...conv,
+    participants: conv.participants.map(pp => ({
+      userId:   pp.userId,
+      fullName: pp.user.fullName,
+      role:     pp.user.role,
+      email:    pp.user.email,
+      department:
+        pp.user.instructorRecord?.department?.name ??
+        pp.user.departmentHeadRecord?.department?.name ??
+        pp.user.hrEmployee?.department?.name ??
+        (pp.user.role === Role.REGISTRAR ? 'Registrar Office' :
+         pp.user.role === Role.FINANCE_OFFICER ? 'Finance Office' :
+         pp.user.role === Role.HR_OFFICER ? 'Human Resources' :
+         pp.user.role === Role.ADMIN || pp.user.role === Role.SUPER_ADMIN ? 'Administration' : null),
+      position:
+        pp.user.hrEmployee?.position ??
+        (pp.user.role === Role.DEPARTMENT_HEAD ? 'Department Head' :
+         pp.user.role === Role.INSTRUCTOR ? 'Instructor' :
+         pp.user.role === Role.REGISTRAR ? 'Registrar Officer' :
+         pp.user.role === Role.FINANCE_OFFICER ? 'Finance Officer' :
+         pp.user.role === Role.HR_OFFICER ? 'HR Officer' :
+         pp.user.role === Role.ADMIN ? 'Administrator' :
+         pp.user.role === Role.SUPER_ADMIN ? 'Super Administrator' : null),
+      avatarUrl:  pp.user.hrEmployee?.avatarUrl ?? null,
+      participantRole: pp.participantRole,
+      lastReadAt:      pp.lastReadAt,
+    })),
+  };
 }
 
 export async function createConversation(
@@ -261,7 +359,7 @@ export async function createConversation(
       where: {
         type: 'DIRECT',
         participants: {
-          every: { userId: { in: [creatorId, targetId] }, leftAt: null },
+          every: { userId: { in: [creatorId, targetId] } },
         },
         AND: [
           { participants: { some: { userId: creatorId } } },
@@ -275,7 +373,7 @@ export async function createConversation(
         where:  { conversationId: existing.id, userId: creatorId },
         data:   { isArchived: false, leftAt: null },
       });
-      return existing;
+      return getConversation(existing.id, creatorId);
     }
   }
 
@@ -314,12 +412,9 @@ export async function createConversation(
         })),
       },
     },
-    include: {
-      participants: { include: { user: { select: { id: true, fullName: true, role: true } } } },
-    },
   });
 
-  return conv;
+  return getConversation(conv.id, creatorId);
 }
 
 export async function addParticipants(
@@ -675,6 +770,28 @@ export async function getOrCreateDepartmentConversation(
       },
     },
   });
+}
+
+export async function deleteConversation(
+  conversationId: string,
+  userId:         string,
+  userRole:       Role,
+) {
+  const conv = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: { participants: true },
+  });
+  if (!conv) throw new Error('Conversation not found.');
+
+  const isParticipant = conv.participants.some(p => p.userId === userId && !p.leftAt);
+  const isAdmin = userRole === Role.ADMIN || userRole === Role.SUPER_ADMIN;
+  if (!isParticipant && !isAdmin) throw new Error('Not authorized to delete this conversation.');
+
+  await prisma.conversation.delete({
+    where: { id: conversationId },
+  });
+
+  return { success: true, conversationId };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -140,10 +140,15 @@ interface SocketContextValue {
   leaveTimetableRoom: (semesterId: string) => void;
 
   // ── Chat event subscriptions ───────────────────────────────────────────────
-  onNewMessage:  (cb: (msg: ChatMessage) => void) => () => void;
+  onNewMessage:  (cb: (msg: any) => void) => () => void;
   onTyping:      (cb: (e: TypingEvent) => void) => () => void;
   onStopTyping:  (cb: (e: { conversationId: string; userId: string }) => void) => () => void;
   onPresence:    (cb: (e: { userId: string; online: boolean }) => void) => () => void;
+  onMessageStatus: (cb: (e: { conversationId: string; messageId?: string; userId?: string; status: string }) => void) => () => void;
+  onMessageEdited: (cb: (e: { conversationId: string; messageId: string; content: string; editedAt: string }) => void) => () => void;
+  onMessageDeleted: (cb: (e: { conversationId: string; messageId: string; deletedAt: string }) => void) => () => void;
+  onConversationCreated: (cb: (e: any) => void) => () => void;
+  onRead: (cb: (e: { conversationId: string; userId: string }) => void) => () => void;
 
   // ── Attendance event subscriptions ────────────────────────────────────────
   onAttendanceOpened:  (cb: (e: AttendanceOpenedEvent) => void) => () => void;
@@ -185,6 +190,11 @@ const SocketContext = createContext<SocketContextValue>({
   onTyping:            () => () => {},
   onStopTyping:        () => () => {},
   onPresence:          () => () => {},
+  onMessageStatus:     () => () => {},
+  onMessageEdited:     () => () => {},
+  onMessageDeleted:    () => () => {},
+  onConversationCreated: () => () => {},
+  onRead:              () => () => {},
   onAttendanceOpened:  () => () => {},
   onAttendanceRecord:  () => () => {},
   onAttendanceClosed:  () => () => {},
@@ -267,10 +277,15 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   }
 
   // ── Chat event subscriptions ──────────────────────────────────────────────
-  const onNewMessage  = makeSub<ChatMessage>('newMessage');
+  const onNewMessage  = makeSub<any>('newMessage');
   const onTyping      = makeSub<TypingEvent>('typing');
   const onStopTyping  = makeSub<{ conversationId: string; userId: string }>('stopTyping');
   const onPresence    = makeSub<{ userId: string; online: boolean }>('presence');
+  const onMessageStatus = makeSub<{ conversationId: string; messageId?: string; userId?: string; status: string }>('messageStatus');
+  const onMessageEdited = makeSub<{ conversationId: string; messageId: string; content: string; editedAt: string }>('messageEdited');
+  const onMessageDeleted = makeSub<{ conversationId: string; messageId: string; deletedAt: string }>('messageDeleted');
+  const onConversationCreated = makeSub<any>('conversationCreated');
+  const onRead = makeSub<{ conversationId: string; userId: string }>('read');
 
   // ── Attendance event subscriptions ───────────────────────────────────────
   const onAttendanceOpened = makeSub<AttendanceOpenedEvent>('attendance:opened');
@@ -301,6 +316,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       joinTimetableRoom, leaveTimetableRoom,
       // chat subs
       onNewMessage, onTyping, onStopTyping, onPresence,
+      onMessageStatus, onMessageEdited, onMessageDeleted,
+      onConversationCreated, onRead,
       // attendance subs
       onAttendanceOpened, onAttendanceRecord, onAttendanceClosed,
       // grade subs

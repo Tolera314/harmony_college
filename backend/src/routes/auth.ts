@@ -608,7 +608,7 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    res.status(200).json({ authenticated: true, user });
+    res.status(200).json({ authenticated: true, user, userId: user.id });
   } catch (err: unknown) {
     console.error('[me]', err instanceof Error ? err.message : err);
     res.status(500).json({ error: 'Failed to verify authentication session.' });
