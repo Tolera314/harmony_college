@@ -1,13 +1,13 @@
 /**
  * Internal Messaging API client
- * Connects to /api/messages/* — staff-only endpoints.
+ * All requests go to /api/messages/* (proxied by Next.js to the backend).
+ * Cookies are sent automatically (credentials: include).
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-const MSG  = `${BASE}/api/messages`;
+const MSG = '/api/messages';
 
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { credentials: 'include', ...init });
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, { credentials: 'include', ...init });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
@@ -27,6 +27,8 @@ export interface MsgParticipant {
   role:            string;
   email:           string | null;
   department:      string | null;
+  position?:       string | null;
+  avatarUrl?:      string | null;
   participantRole: string;
   lastReadAt:      string | null;
 }
@@ -85,6 +87,8 @@ export interface MsgEmployee {
   role:       string;
   email:      string | null;
   department: string | null;
+  position?:  string | null;
+  avatarUrl?: string | null;
 }
 
 // ── API calls ─────────────────────────────────────────────────────────────────
@@ -126,6 +130,11 @@ export const messagingApi = {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(prefs),
+    }),
+
+  deleteConversation: (id: string) =>
+    apiFetch<{ success: boolean }>(`${MSG}/conversations/${id}`, {
+      method: 'DELETE',
     }),
 
   addParticipants: (id: string, userIds: string[]) =>

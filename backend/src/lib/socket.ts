@@ -131,7 +131,10 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
         // Persist
         const message = await prisma.message.create({
           data: { conversationId, senderId: userId, content: content.trim() },
-          include: { sender: { select: { id: true, email: true, role: true } } },
+          include: {
+            sender: { select: { id: true, fullName: true, email: true, role: true } },
+            attachments: true,
+          },
         });
 
         // Update lastReadAt for sender + conversation lastMessageAt
@@ -146,25 +149,14 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
           }),
         ]);
 
-        // Broadcast to everyone in the room (including sender)
-        io.to(conversationId).emit('newMessage', message);
-
-        // Mark as DELIVERED for participants currently online
+        // Get all participants
         const participants = await prisma.conversationParticipant.findMany({
-          where: { conversationId, userId: { not: userId }, leftAt: null },
+          where: { conversationId, leftAt: null },
           select: { userId: true },
         });
-        const onlineRecipients = participants.filter(pp => isOnline(pp.userId));
-        if (onlineRecipients.length > 0) {
-          await prisma.message.update({
-            where: { id: message.id },
-            data:  { status: 'DELIVERED' },
-          });
-          io.to(conversationId).emit('messageStatus', {
-            messageId: message.id,
-            status: 'DELIVERED',
-          });
-        }
+        const participantIds = participants.map(pp => pp.userId);
+
+        await broadcastNewMessage(conversationId, participantIds, message as any, userId);
       } catch (err) {
         console.error('[socket:sendMessage]', err);
       }
@@ -192,8 +184,18 @@ export function initSocket(httpServer: HttpServer, frontendUrl: string): IOServe
           },
           data: { status: 'READ' },
         });
-        // Notify others in room so they can update unread counts
-        socket.to(conversationId).emit('read', { conversationId, userId });
+
+        const participants = await prisma.conversationParticipant.findMany({
+          where: { conversationId, leftAt: null },
+          select: { userId: true },
+        });
+        const participantIds = participants.map(pp => pp.userId);
+
+        broadcastMessageRead({
+          conversationId,
+          readerUserId: userId,
+          participantUserIds: participantIds,
+        });
       } catch (err) {
         console.error('[socket:markRead]', err);
       }
@@ -465,26 +467,115 @@ export function pushNotification(payload: NotificationPushPayload): void {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MESSAGING broadcast helpers
-// Called from REST routes when messages are edited/deleted via HTTP.
+// Called from REST routes and socket handlers to synchronize real-time state.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Broadcast message edit to a conversation room. */
+/** Broadcast new message to conversation room and each participant's personal room. */
+export async function broadcastNewMessage(
+  conversationId: string,
+  participantUserIds: string[],
+  message: Record<string, unknown>,
+  senderId?: string,
+): Promise<void> {
+  if (!_io) return;
+
+  // 1. Broadcast to the conversation room (for anyone who currently has this conversation open)
+  _io.to(conversationId).emit('newMessage', message);
+
+  // 2. Broadcast to each participant's personal room (for conversation previews, unread badges, etc.)
+  for (const uid of participantUserIds) {
+    _io.to(`user:${uid}`).emit('newMessage', message);
+  }
+
+  // 3. Check if any non-sender recipient is currently online to mark as DELIVERED
+  const otherIds = participantUserIds.filter(uid => uid !== senderId);
+  const anyOnline = otherIds.some(uid => isOnline(uid));
+  if (anyOnline && message.id && typeof message.id === 'string') {
+    try {
+      await prisma.message.updateMany({
+        where: { id: message.id, status: 'SENT' },
+        data:  { status: 'DELIVERED' },
+      });
+      _io.to(conversationId).emit('messageStatus', {
+        conversationId,
+        messageId: message.id,
+        status: 'DELIVERED',
+      });
+      if (senderId) {
+        _io.to(`user:${senderId}`).emit('messageStatus', {
+          conversationId,
+          messageId: message.id,
+          status: 'DELIVERED',
+        });
+      }
+    } catch (err) {
+      console.error('[socket:broadcastNewMessage:delivered]', err);
+    }
+  }
+}
+
+/** Broadcast message read status change to conversation room and participants. */
+export function broadcastMessageRead(payload: {
+  conversationId: string;
+  readerUserId:   string;
+  participantUserIds: string[];
+}): void {
+  if (!_io) return;
+  _io.to(payload.conversationId).emit('read', {
+    conversationId: payload.conversationId,
+    userId: payload.readerUserId,
+  });
+  _io.to(payload.conversationId).emit('messageStatus', {
+    conversationId: payload.conversationId,
+    userId: payload.readerUserId,
+    status: 'READ',
+  });
+  for (const uid of payload.participantUserIds) {
+    if (uid !== payload.readerUserId) {
+      _io.to(`user:${uid}`).emit('messageStatus', {
+        conversationId: payload.conversationId,
+        userId: payload.readerUserId,
+        status: 'READ',
+      });
+      _io.to(`user:${uid}`).emit('read', {
+        conversationId: payload.conversationId,
+        userId: payload.readerUserId,
+      });
+    }
+  }
+}
+
+/** Broadcast message edit to a conversation room and participant rooms. */
 export function broadcastMessageEdited(payload: {
   conversationId: string;
   messageId:      string;
   content:        string;
   editedAt:       string;
+  participantUserIds?: string[];
 }): void {
-  _io?.to(payload.conversationId).emit('messageEdited', payload);
+  if (!_io) return;
+  _io.to(payload.conversationId).emit('messageEdited', payload);
+  if (payload.participantUserIds) {
+    for (const uid of payload.participantUserIds) {
+      _io.to(`user:${uid}`).emit('messageEdited', payload);
+    }
+  }
 }
 
-/** Broadcast message deletion to a conversation room. */
+/** Broadcast message deletion to a conversation room and participant rooms. */
 export function broadcastMessageDeleted(payload: {
   conversationId: string;
   messageId:      string;
   deletedAt:      string;
+  participantUserIds?: string[];
 }): void {
-  _io?.to(payload.conversationId).emit('messageDeleted', payload);
+  if (!_io) return;
+  _io.to(payload.conversationId).emit('messageDeleted', payload);
+  if (payload.participantUserIds) {
+    for (const uid of payload.participantUserIds) {
+      _io.to(`user:${uid}`).emit('messageDeleted', payload);
+    }
+  }
 }
 
 /** Broadcast message status change to a conversation room. */

@@ -92,10 +92,20 @@ export function AIAssistant() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [unread, setUnread]     = useState(0);
+  const [hidden, setHidden]     = useState(false); // hidden when messages tab is active
 
   const bottomRef   = useRef<HTMLDivElement>(null);
   const inputRef    = useRef<HTMLTextAreaElement>(null);
   const abortRef    = useRef<AbortController | null>(null);
+
+  // Hide when internal messaging is open (avoids overlap with chat input)
+  useEffect(() => {
+    const check = () => setHidden(document.body.hasAttribute('data-messaging-active'));
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-messaging-active'] });
+    check();
+    return () => observer.disconnect();
+  }, []);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -233,7 +243,7 @@ export function AIAssistant() {
     <>
       {/* ── Chat Panel ──────────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {open && (
+        {open && !hidden && (
           <motion.div
             key="chat-panel"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -363,7 +373,7 @@ export function AIAssistant() {
         onClick={() => setOpen((p) => !p)}
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.94 }}
-        className="fixed bottom-5 right-4 sm:right-6 z-[9999] w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] focus-visible:ring-offset-2"
+        className={`fixed bottom-5 right-4 sm:right-6 z-[9999] w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E9C349] focus-visible:ring-offset-2 transition-all duration-200${hidden ? ' pointer-events-none opacity-0 scale-75' : ''}`}
         style={{ background: 'linear-gradient(135deg, #E9C349 0%, #b8951d 100%)' }}
         aria-label={open ? 'Close AI Assistant' : 'Open AI Assistant'}
         aria-expanded={open}

@@ -63,7 +63,7 @@ export async function listStudents(q: StudentListQuery) {
           },
         },
         program: { select: { id: true, name: true, code: true } },
-        department: { select: { id: true, name: true, code: true, programType: true } },
+        department: { select: { id: true, name: true, code: true } },
         _count: { select: { enrollments: { where: { status: { in: ['ACTIVE', 'FORCE_ADDED'] as any } } } } },
       },
     }),

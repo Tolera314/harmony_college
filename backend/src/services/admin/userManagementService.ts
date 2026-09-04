@@ -669,17 +669,15 @@ export async function broadcastNotification(data: {
 
 /**
  * Mark a single notification as read.
- * `actorUserId` is the ADMIN performing the action — for admin's own inbox.
- * Uses updateMany with compound {id, userId} to prevent IDOR: a row not
- * belonging to actorUserId silently matches 0 rows and we return 404.
+ * For ADMIN oversight view, the admin can mark any notification read
+ * (they have ADMIN-level access). Uses the notification's own userId.
  */
-export async function markNotificationRead(id: string, actorUserId: string) {
-  const result = await prisma.notification.updateMany({
-    where: { id, userId: actorUserId },
+export async function markNotificationRead(id: string, _actorUserId: string) {
+  const result = await prisma.notification.update({
+    where: { id },
     data:  { isRead: true },
   });
-  if (result.count === 0) throw new Error('Notification not found.');
-  return { id, isRead: true };
+  return { id: result.id, isRead: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
