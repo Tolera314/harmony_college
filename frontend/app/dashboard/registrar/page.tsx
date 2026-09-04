@@ -9,6 +9,7 @@ import {
   Users, ShieldAlert, ChevronRight, Calendar, Send,
   ShieldCheck, Grid, LayoutDashboard, Clock, BarChart3,
   Settings, X, LogOut, UserCheck, ToggleLeft, ToggleRight,
+  Award,
 } from 'lucide-react';
 import { Sidebar, GenericNavItem } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
@@ -21,6 +22,7 @@ import { settingsApi, notificationsApi, registrarNotifApi, type RegistrarProfile
 import { DashboardOverview } from '@/src/components/registrar/DashboardOverview';
 
 const RegistrarStudentsView  = dynamic(() => import('@/src/components/registrar/RegistrarStudentsView').then(m => m.RegistrarStudentsView), { ssr: false });
+const StudentGradesView      = dynamic(() => import('@/src/components/registrar/StudentGradesView').then(m => m.StudentGradesView), { ssr: false });
 const AssignInstructorView   = dynamic(() => import('@/src/components/registrar/AssignInstructorView').then(m => m.AssignInstructorView), { ssr: false });
 const RegistrarOnboardingsView = dynamic(() => import('@/src/components/registrar/RegistrarOnboardingsView').then(m => m.RegistrarOnboardingsView), { ssr: false });
 const AdmissionsManagement   = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
@@ -40,7 +42,7 @@ const RegistrarSettings      = dynamic(() => import('@/src/components/registrar/
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RegistrarTab =
-  | 'dashboard' | 'students' | 'assign_instructor' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
+  | 'dashboard' | 'students' | 'student_grades' | 'assign_instructor' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
   | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
 
@@ -49,6 +51,7 @@ interface MenuItem { id: RegistrarTab; label: string; icon: React.ComponentType<
 const MENU_ITEMS: MenuItem[] = [
   { id: 'dashboard',         label: 'Dashboard',           icon: LayoutDashboard },
   { id: 'students',          label: 'Student Records',     icon: Users },
+  { id: 'student_grades',    label: 'Student Grades',      icon: Award },
   { id: 'assign_instructor', label: 'Assign Instructor',   icon: UserCheck },
   { id: 'onboardings',       label: 'Onboardings',         icon: ClipboardList },
   { id: 'admissions',   label: 'Admissions',          icon: ClipboardList },
@@ -237,6 +240,7 @@ export default function RegistrarDashboardPage() {
     switch (activeTab) {
       case 'dashboard':         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} programType={registrarProgramType} />;
       case 'students':          return <RegistrarStudentsView programType={registrarProgramType} />;
+      case 'student_grades':    return <StudentGradesView programType={registrarProgramType} />;
       case 'assign_instructor': return <AssignInstructorView programType={registrarProgramType} />;
       case 'onboardings':       return <RegistrarOnboardingsView />;
       case 'admissions':   return <AdmissionsManagement />;

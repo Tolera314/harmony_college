@@ -142,8 +142,12 @@ export const InSidebar: React.FC<InSidebarProps> = ({
         </motion.button>
 
         <div className="flex items-center gap-3 px-2 pt-3 ds-sidebar-divider border-t mt-2">
-          <div className="w-9 h-9 rounded-full overflow-hidden border-2 shrink-0" style={{ borderColor: 'var(--accent-gold-border)' }}>
-            <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+          <div className="w-9 h-9 rounded-full overflow-hidden border-2 shrink-0 flex items-center justify-center bg-[#E9C349]/15 text-[#E9C349] font-bold text-xs" style={{ borderColor: 'var(--accent-gold-border)' }}>
+            {profile.avatar && !profile.avatar.includes('/logo2.jpg') && !profile.avatar.includes('unsplash') ? (
+              <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+            ) : (
+              <span>{profile.name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'HC'}</span>
+            )}
           </div>
           <div className="overflow-hidden hidden xl:block">
             <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{profile.name}</p>

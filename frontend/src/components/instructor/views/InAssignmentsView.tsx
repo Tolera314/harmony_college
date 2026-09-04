@@ -80,8 +80,12 @@ const EMPTY_FORM: CreateForm = {
 
 const FILE_ACCEPT = '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.txt,.mp4,.jpg,.jpeg,.png';
 
+export interface InAssignmentsViewProps {
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-export const InAssignmentsView: React.FC = () => {
+export const InAssignmentsView: React.FC<InAssignmentsViewProps> = ({ programType }) => {
   const [classes,          setClasses]         = useState<ClassOffering[]>([]);
   const [selectedOffering, setSelectedOffering] = useState('');
   const [assignments,      setAssignments]     = useState<AssignmentSummary[]>([]);
@@ -114,16 +118,19 @@ export const InAssignmentsView: React.FC = () => {
   // ── Load classes ─────────────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
-    instructorClassesApi.list()
+    instructorClassesApi.list(programType)
       .then(data => {
-        const curr = data.filter(o => o.semester.isCurrent);
-        const list = curr.length ? curr : data;
-        setClasses(list);
-        if (list.length > 0) setSelectedOffering(list[0].id);
+        setClasses(data);
+        if (data.length > 0) {
+          const curr = data.find(o => o.semester.isCurrent);
+          setSelectedOffering(prev => (prev && data.some(d => d.id === prev)) ? prev : (curr ? curr.id : data[0].id));
+        } else {
+          setSelectedOffering('');
+        }
       })
       .catch(e => setListError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [programType]);
 
   // ── Load assignments ──────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -138,13 +145,18 @@ export const InAssignmentsView: React.FC = () => {
   useEffect(() => { if (selectedOffering) load(); }, [selectedOffering, load]);
 
   // ── Load detail ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!detailId) { setDetail(null); return; }
+  const openDetail = async (id: string) => {
+    setDetailId(id);
     setDetailLoading(true);
-    instructorAssignmentsApi.get(detailId)
-      .then(setDetail).catch(() => setDetail(null))
-      .finally(() => setDetailLoading(false));
-  }, [detailId]);
+    try {
+      const d = await instructorAssignmentsApi.get(id);
+      setDetail(d);
+    } catch {
+      setDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   // ── File upload ───────────────────────────────────────────────────────────
   const uploadFiles = async (files: FileList | null) => {
@@ -166,9 +178,7 @@ export const InAssignmentsView: React.FC = () => {
         const { fileUrl } = await res.json();
         added.push({ name: file.name, size: file.size, url: fileUrl, type: file.name.split('.').pop()?.toUpperCase() ?? 'FILE' });
       } catch (e) {
-        // Fallback for direct offline / dev mock file reference
-        const mockUrl = URL.createObjectURL(file);
-        added.push({ name: file.name, size: file.size, url: mockUrl, type: file.name.split('.').pop()?.toUpperCase() ?? 'FILE' });
+        setUploadErr(e instanceof Error ? e.message : 'File upload failed');
       }
     }
 

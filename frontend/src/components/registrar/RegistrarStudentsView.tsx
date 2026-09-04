@@ -18,7 +18,7 @@ import { SkeletonTable, EmptyState, ErrorState } from '../ui/States';
 import {
   studentsApi, coursesApi, departmentsApi,
   type StudentListItem, type StudentListResponse, type CourseMeta,
-  type DepartmentItem,
+  type DepartmentItem, type StudentAcademicRecord,
 } from '@/src/lib/registrarApi';
 
 const STATUS_BADGE: Record<string, any> = {
@@ -36,6 +36,7 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
   const [collapsedDepts, setCollapsedDepts] = useState<Record<string, boolean>>({});
 
   const [selected, setSelected] = useState<StudentListItem & Record<string, any> | null>(null);
+  const [academicRecord, setAcademicRecord] = useState<StudentAcademicRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,9 +80,14 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
 
   const openDetail = async (student: StudentListItem) => {
     setDetailLoading(true);
+    setAcademicRecord(null);
     try {
-      const full = await studentsApi.getById(student.id);
+      const [full, record] = await Promise.all([
+        studentsApi.getById(student.id),
+        studentsApi.getAcademicRecord(student.id).catch(() => null),
+      ]);
       setSelected(full);
+      setAcademicRecord(record);
     } catch {
       setSelected(student as any);
     } finally {
@@ -485,66 +491,234 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
         isOpen={!!selected}
         onClose={() => setSelected(null)}
         title={selected?.user?.fullName ?? 'Student Profile'}
-        subtitle="Institutional Student Record"
-        width="max-w-2xl"
+        subtitle="Institutional Academic & Demographic Record"
+        width="max-w-4xl"
       >
         {selected && (
-          <div className="space-y-5 text-sm font-sans">
+          <div className="space-y-6 text-sm font-sans">
             {/* Student Header */}
             <div className="flex items-center gap-4 border-b border-white/10 pb-4">
               <div className="w-16 h-16 rounded-2xl bg-[#E9C349]/20 border-2 border-[#E9C349]/40 flex items-center justify-center font-serif font-bold text-2xl text-[#E9C349]">
                 {selected.user.fullName[0]}
               </div>
-              <div>
-                <p className="font-sans text-base font-bold text-white">{selected.user.fullName}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-sans text-lg font-bold text-white truncate">{selected.user.fullName}</p>
                 <p className="font-mono text-xs text-zinc-400">{selected.studentId}</p>
-                <div className="mt-1.5 flex gap-2">
+                <div className="mt-1.5 flex flex-wrap gap-2">
                   <Badge variant={STATUS_BADGE[selected.status] ?? 'glass'}>
                     {STATUS_LABEL[selected.status] ?? selected.status}
                   </Badge>
                   <span className="px-2 py-0.5 rounded-md bg-white/10 text-xs font-mono text-zinc-300">
                     {selected.department?.name}
                   </span>
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-mono">
+                    {selected.program?.name}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Academic Information */}
-            <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
-              <h4 className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-bold">Academic Alignment</h4>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-zinc-500 block">Department</span>
-                  <span className="font-semibold text-white">{selected.department?.name ?? '—'}</span>
+            {/* Academic Information & Contact grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2.5">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-bold">Academic Alignment</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-zinc-500 block">Department</span>
+                    <span className="font-semibold text-white">{selected.department?.name ?? '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Current Year</span>
+                    <span className="font-semibold text-white">Year {selected.yearLevel}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Program Type</span>
+                    <span className="font-semibold text-white">{programType}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Official CGPA</span>
+                    <span className="font-mono font-bold text-[#E9C349] text-sm">
+                      {academicRecord?.cumulative?.cgpa != null
+                        ? academicRecord.cumulative.cgpa.toFixed(2)
+                        : selected.gpa?.toFixed(2) ?? '0.00'}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-zinc-500 block">Program</span>
-                  <span className="font-semibold text-white">{selected.program?.name ?? '—'}</span>
-                </div>
-                <div>
-                  <span className="text-zinc-500 block">Current Year</span>
-                  <span className="font-semibold text-white">Year {selected.yearLevel}</span>
-                </div>
-                <div>
-                  <span className="text-zinc-500 block">Cumulative GPA</span>
-                  <span className="font-mono font-bold text-[#E9C349]">{selected.gpa?.toFixed(2) ?? '0.00'}</span>
+              </div>
+
+              <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2.5">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-bold">Contact Details</h4>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <span className="font-mono text-white truncate">{selected.user.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <span className="font-mono text-white">{selected.user.phone || '—'}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Contact Details */}
-            <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
-              <h4 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-bold">Contact Information</h4>
-              <div className="grid grid-cols-2 gap-3 text-xs">
+            {/* Official Academic Breakdown by Year & Semester */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <div>
-                  <span className="text-zinc-500 block">Official Email</span>
-                  <span className="font-mono text-white">{selected.user.email}</span>
-                </div>
-                <div>
-                  <span className="text-zinc-500 block">Phone</span>
-                  <span className="font-mono text-white">{selected.user.phone || 'N/A'}</span>
+                  <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-[#E9C349]" /> Official Academic Record
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 font-sans mt-0.5">
+                    Grading, ECTS weighting (Quality Point = Grade Point × ECTS), Semester GPAs, and Cumulative CGPA
+                  </p>
                 </div>
               </div>
+
+              {detailLoading ? (
+                <div className="p-8 text-center text-xs font-mono text-zinc-400">Loading academic record...</div>
+              ) : !academicRecord || academicRecord.semesters.length === 0 ? (
+                <div className="p-6 rounded-xl bg-black/30 border border-white/10 text-center text-xs text-zinc-400 font-sans">
+                  No graded course enrollments recorded yet for this student.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {academicRecord.semesters.map((sem, sIdx) => (
+                    <div
+                      key={sem.semesterId || sIdx}
+                      className="rounded-xl border border-white/10 bg-black/40 overflow-hidden"
+                    >
+                      {/* Semester Header */}
+                      <div className="px-4 py-3 bg-white/5 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-[#E9C349]" />
+                          <span className="font-semibold text-white text-xs">
+                            {sem.academicYear} · {sem.semesterName}
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-zinc-300">
+                            Year {sem.yearLevel}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs font-mono">
+                          <span className="text-zinc-400">
+                            ECTS: <strong className="text-white">{sem.totalEcts}</strong>
+                          </span>
+                          <span className="text-zinc-400">
+                            QP: <strong className="text-white">{sem.totalQualityPoints.toFixed(2)}</strong>
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-lg bg-[#E9C349]/15 border border-[#E9C349]/30 text-[#E9C349] font-bold">
+                            GPA: {sem.semesterGpa.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Semester Courses Table */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs font-sans">
+                          <thead className="bg-black/20 border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                            <tr>
+                              <th className="px-3.5 py-2.5 text-left">Course</th>
+                              <th className="px-2 py-2.5 text-center">Cr.Hr</th>
+                              <th className="px-2 py-2.5 text-center">ECTS</th>
+                              <th className="px-2 py-2.5 text-center">Final Mark</th>
+                              <th className="px-2 py-2.5 text-center">Grade</th>
+                              <th className="px-2 py-2.5 text-center">Grade Pt</th>
+                              <th className="px-2 py-2.5 text-center">Quality Pt</th>
+                              <th className="px-2 py-2.5 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {sem.courses.map((c) => (
+                              <tr key={c.courseId} className="hover:bg-white/5 transition-colors">
+                                <td className="px-3.5 py-2.5">
+                                  <div className="font-semibold text-white">{c.courseCode}</div>
+                                  <div className="text-[11px] text-zinc-400 truncate max-w-xs">{c.courseName}</div>
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-mono text-zinc-400">{c.creditHours}</td>
+                                <td className="px-2 py-2.5 text-center font-mono text-zinc-300 font-semibold">{c.ects}</td>
+                                <td className="px-2 py-2.5 text-center font-mono text-zinc-300 font-bold">
+                                  {c.finalMark != null ? c.finalMark : '—'}
+                                </td>
+                                <td className="px-2 py-2.5 text-center">
+                                  <span className="font-mono font-bold text-xs text-[#E9C349]">{c.letterGrade}</span>
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-mono text-zinc-300">{c.gradePoints.toFixed(2)}</td>
+                                <td className="px-2 py-2.5 text-center font-mono text-purple-300 font-semibold">
+                                  {c.qualityPoints.toFixed(2)}
+                                </td>
+                                <td className="px-2 py-2.5 text-center">
+                                  <span
+                                    className={`px-1.5 py-0.5 text-[10px] font-mono rounded ${
+                                      c.status === 'PUBLISHED'
+                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                        : c.status === 'SUBMITTED'
+                                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                        : 'bg-zinc-500/20 text-zinc-300 border border-zinc-500/30'
+                                    }`}
+                                  >
+                                    {c.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Semester Summary Footer */}
+                      <div className="px-4 py-2.5 bg-black/30 border-t border-white/5 flex flex-wrap items-center justify-between text-xs font-mono text-zinc-400">
+                        <span>Total Courses: <strong className="text-white">{sem.courses.length}</strong></span>
+                        <div className="flex items-center gap-4">
+                          <span>Total Cr.Hr: <strong className="text-white">{sem.totalCreditHours}</strong></span>
+                          <span>Total ECTS: <strong className="text-white">{sem.totalEcts}</strong></span>
+                          <span>Total QP: <strong className="text-white">{sem.totalQualityPoints.toFixed(2)}</strong></span>
+                          <span className="text-white font-bold">
+                            Semester GPA: <span className="text-[#E9C349]">{sem.semesterGpa.toFixed(2)}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Cumulative Summary Card */}
+                  <div className="p-5 rounded-2xl bg-gradient-to-r from-[#E9C349]/15 via-[#E9C349]/5 to-transparent border border-[#E9C349]/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-mono uppercase tracking-wider text-[#E9C349] font-bold">
+                          Academic Summary (Cumulative)
+                        </p>
+                        <p className="text-xs text-zinc-300 mt-0.5">
+                          Calculated across all completed courses (Cumulative QP ÷ Cumulative ECTS)
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-mono text-zinc-400 block uppercase">Official CGPA</span>
+                        <span className="font-serif text-3xl font-extrabold text-[#E9C349]">
+                          {academicRecord.cumulative.cgpa.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-white/10 text-xs font-mono">
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">Total Courses</span>
+                        <span className="font-bold text-white text-sm">{academicRecord.cumulative.totalCourses}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">Total Credit Hours</span>
+                        <span className="font-bold text-white text-sm">{academicRecord.cumulative.totalCreditHours}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">Total ECTS</span>
+                        <span className="font-bold text-white text-sm">{academicRecord.cumulative.totalEcts}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">Total Quality Points</span>
+                        <span className="font-bold text-purple-300 text-sm">{academicRecord.cumulative.totalQualityPoints.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -122,17 +122,47 @@ export interface QuizItem {
 }
 
 export interface GradeRecord {
-  id: string; courseCode: string; courseTitle: string;
-  term: string; semester: string; academicYear: string;
-  credits: number; grade: string; gradePoints: number; instructor: string;
+  id: string;
+  courseCode: string;
+  courseTitle: string;
+  term: string;
+  semester: string;
+  academicYear: string;
+  credits: number;
+  creditHours?: number;
+  ects?: number;
+  finalMark?: number | null;
+  grade: string;
+  gradePoints: number;
+  numericGpa?: number;
+  qualityPoints?: number;
+  instructor: string;
+  status?: string;
   gradedAt: string | null;
+}
+
+export interface TermSummary {
+  term: string;
+  academicYear: string;
+  semester: string;
+  yearLevelLabel: string;
+  courses: GradeRecord[];
+  totalEcts: number;
+  totalQualityPoints: number;
+  semesterGpa: number;
 }
 
 export interface GradeHistory {
   records: GradeRecord[];
+  termSummaries: TermSummary[];
+  academicSummary?: {
+    totalEcts: number;
+    totalQualityPoints: number;
+    cgpa: number;
+  };
   cumulativeGPA: number;
   totalCredits: number;
-  termSummaries: { term: string; gpa: number; credits: number; courses: number }[];
+  isGradePortalOpen?: boolean;
 }
 
 export interface FinancialSummary {

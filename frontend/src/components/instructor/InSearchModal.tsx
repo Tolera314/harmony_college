@@ -96,10 +96,12 @@ export const InSearchModal: React.FC<InSearchModalProps> = ({ isOpen, onClose, o
       setAssignments(asgn);
       setQuizzes(qz);
 
-      // Load students from all current offerings
-      const currentOfferings = cls.filter(c => c.semester.isCurrent);
+      // Load students from assigned offerings
+      const targetOfferings = cls.filter(c => c.semester.isCurrent).length > 0
+        ? cls.filter(c => c.semester.isCurrent)
+        : cls;
       const stuMap = new Map<string, RosterStudent>();
-      for (const off of currentOfferings.slice(0, 3)) {
+      for (const off of targetOfferings.slice(0, 5)) {
         try {
           const roster = await instructorClassesApi.getRoster(off.id, { limit: 50 });
           roster.students.forEach(s => stuMap.set(s.studentRecordId, s));

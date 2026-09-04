@@ -22,6 +22,7 @@ import {
   EnrollmentStatus,
   QuestionType,
 } from '@prisma/client';
+import { calculateCourseResult, AssessmentBreakdown } from '../../lib/grading';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -160,10 +161,11 @@ export async function getDashboardStats(userId: string, requestedProgramType?: '
   });
 
   const currentOfferings = offerings.filter(o => o.semester.isCurrent);
+  const targetOfferings = currentOfferings.length > 0 ? currentOfferings : offerings;
 
-  // Total students across current offerings (deduplicated)
+  // Total students across active offerings (deduplicated)
   const allStudentIds = new Set<string>();
-  for (const off of currentOfferings) {
+  for (const off of targetOfferings) {
     const enrs = await prisma.enrollment.findMany({
       where: { courseOfferingId: off.id, status: { in: ACTIVE_STATUSES } },
       select: { studentRecordId: true },
@@ -237,7 +239,7 @@ export async function getDashboardStats(userId: string, requestedProgramType?: '
 
   // Attendance trend (last 8 sessions per offering)
   const attendanceTrend: number[] = [];
-  for (const off of currentOfferings) {
+  for (const off of targetOfferings) {
     const sessions = await prisma.attendanceSession.findMany({
       where: {
         lifecycle: { in: ['CLOSED', 'FINALIZED'] },
@@ -1068,10 +1070,19 @@ export async function updateQuiz(
 // GRADES / COURSE GRADES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Get all enrollments with course grade for a course offering. */
+/** Get all enrollments with detailed assessment breakdown and course grade for a course offering. */
 export async function getCourseGrades(userId: string, courseOfferingId: string) {
   const instructor = await resolveInstructor(userId);
   await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  const offering = await prisma.courseOffering.findUnique({
+    where: { id: courseOfferingId },
+    include: {
+      course: { select: { id: true, code: true, name: true, creditHours: true, ects: true } },
+      semester: { select: { id: true, name: true, isCurrent: true, academicYear: { select: { name: true } } } },
+    },
+  });
+  if (!offering) throw new Error('Course offering not found.');
 
   const enrollments = await prisma.enrollment.findMany({
     where: { courseOfferingId, status: { in: ACTIVE_STATUSES } },
@@ -1084,7 +1095,7 @@ export async function getCourseGrades(userId: string, courseOfferingId: string) 
     orderBy: { studentRecord: { user: { fullName: 'asc' } } },
   });
 
-  return enrollments.map(e => ({
+  const students = enrollments.map(e => ({
     enrollmentId: e.id,
     studentRecordId: e.studentRecordId,
     studentId: e.studentRecord.studentId,
@@ -1092,76 +1103,222 @@ export async function getCourseGrades(userId: string, courseOfferingId: string) 
     gpa: e.studentRecord.gpa,
     currentGrade: e.grade
       ? {
+        id: e.grade.id,
+        assignmentMarks: e.grade.assignmentMarks,
+        quizMarks: e.grade.quizMarks,
+        midExamMarks: e.grade.midExamMarks,
+        finalExamMarks: e.grade.finalExamMarks,
+        attendanceMarks: e.grade.attendanceMarks,
+        otherMarks: e.grade.otherMarks,
+        finalMark: e.grade.finalMark,
         letterGrade: e.grade.letterGrade,
         gradePoints: e.grade.gradePoints,
+        qualityPoints: e.grade.qualityPoints,
         creditHours: e.grade.creditHours,
+        ects: e.grade.ects ?? offering.course.ects,
+        status: e.grade.status, // DRAFT | SUBMITTED | PUBLISHED
+        submittedAt: e.grade.submittedAt,
         gradedAt: e.grade.gradedAt,
       }
       : null,
   }));
+
+  // Check global GradeEditingSetting
+  const editingSetting = await prisma.gradeEditingSetting.upsert({
+    where: { id: 'default' },
+    create: { id: 'default', isOpen: true },
+    update: {},
+  });
+
+  // Offering submission status: if any student is SUBMITTED or PUBLISHED
+  const hasSubmitted = students.some(s => s.currentGrade?.status === 'SUBMITTED' || s.currentGrade?.status === 'PUBLISHED');
+  const isAllPublished = students.length > 0 && students.every(s => s.currentGrade?.status === 'PUBLISHED');
+
+  return {
+    course: {
+      id: offering.course.id,
+      code: offering.course.code,
+      name: offering.course.name,
+      creditHours: offering.course.creditHours,
+      ects: offering.course.ects,
+      semester: offering.semester.name,
+      academicYear: offering.semester.academicYear.name,
+    },
+    isLocked: !editingSetting.isOpen,
+    submissionStatus: isAllPublished ? 'PUBLISHED' : (hasSubmitted ? 'SUBMITTED' : 'DRAFT'),
+    students,
+  };
 }
 
-/** Submit / update a final course grade for a student. Transactional. */
-export async function submitCourseGrade(
+/** Save or update draft assessment marks for an individual student. */
+export async function saveAssessmentGrade(
   userId: string,
+  courseOfferingId: string,
   enrollmentId: string,
-  data: { letterGrade: string; gradePoints: number },
+  breakdown: AssessmentBreakdown,
 ) {
   const instructor = await resolveInstructor(userId);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id);
 
   const enrollment = await prisma.enrollment.findUnique({
     where: { id: enrollmentId },
     include: {
-      courseOffering: { include: { instructor: { select: { id: true } }, course: { select: { creditHours: true } } } },
+      courseOffering: {
+        include: {
+          course: { select: { creditHours: true, ects: true } },
+        },
+      },
+      grade: true,
     },
   });
-  if (!enrollment) throw new Error('Enrollment not found.');
-  if (enrollment.courseOffering.instructor?.id !== instructor.id) {
-    throw new Error('Not authorized to grade this enrollment.');
+
+  if (!enrollment || enrollment.courseOfferingId !== courseOfferingId) {
+    throw new Error('Enrollment not found for this course offering.');
   }
 
-  // Validate via GradeScale
-  const scale = await prisma.gradeScale.findUnique({ where: { letterGrade: data.letterGrade } });
-  if (!scale) throw new Error(`Invalid letter grade: ${data.letterGrade}.`);
-
-  return prisma.$transaction(async tx => {
-    const grade = await tx.courseGrade.upsert({
-      where: { enrollmentId },
-      create: {
-        enrollmentId,
-        studentRecordId: enrollment.studentRecordId,
-        letterGrade: data.letterGrade,
-        gradePoints: scale.gradePoints,
-        creditHours: enrollment.courseOffering.course.creditHours,
-        gradedAt: new Date(),
-      },
-      update: {
-        letterGrade: data.letterGrade,
-        gradePoints: scale.gradePoints,
-        gradedAt: new Date(),
-      },
-    });
-
-    // Notify student
-    const studentUser = await tx.studentRecord.findUnique({
-      where: { id: enrollment.studentRecordId },
-      select: { userId: true },
-    });
-    if (studentUser) {
-      // Fire-and-forget: createNotification handles push + DB write
-      createNotification({
-        userId:     studentUser.userId,
-        title:      'Course Grade Updated',
-        message:    'Your grade has been recorded.',
-        type:       'INFO',
-        entityType: 'CourseGrade',
-        entityId:   grade.id,
-        actionTab:  'grades',
-      }).catch(() => { /* non-blocking */ });
-    }
-
-    return grade;
+  // Check if Registrar has grade editing OPEN or CLOSED
+  const editingSetting = await prisma.gradeEditingSetting.upsert({
+    where: { id: 'default' },
+    create: { id: 'default', isOpen: true },
+    update: {},
   });
+  if (!editingSetting.isOpen) {
+    throw new Error('Grade editing is currently closed by the Registrar.');
+  }
+
+  const ects = enrollment.courseOffering.course.ects;
+  const creditHours = enrollment.courseOffering.course.creditHours;
+  const computed = calculateCourseResult(breakdown, ects);
+
+  return prisma.courseGrade.upsert({
+    where: { enrollmentId },
+    create: {
+      enrollmentId,
+      studentRecordId: enrollment.studentRecordId,
+      assignmentMarks: breakdown.assignment !== undefined && breakdown.assignment !== null ? Number(breakdown.assignment) : null,
+      quizMarks: breakdown.quiz !== undefined && breakdown.quiz !== null ? Number(breakdown.quiz) : null,
+      midExamMarks: breakdown.midExam !== undefined && breakdown.midExam !== null ? Number(breakdown.midExam) : null,
+      finalExamMarks: breakdown.finalExam !== undefined && breakdown.finalExam !== null ? Number(breakdown.finalExam) : null,
+      attendanceMarks: breakdown.attendance !== undefined && breakdown.attendance !== null ? Number(breakdown.attendance) : null,
+      otherMarks: breakdown.other !== undefined && breakdown.other !== null ? Number(breakdown.other) : null,
+      finalMark: computed.finalMark,
+      letterGrade: computed.letterGrade,
+      gradePoints: computed.gradePoints,
+      qualityPoints: computed.qualityPoints,
+      creditHours,
+      ects,
+      status: 'DRAFT',
+      gradedAt: new Date(),
+    },
+    update: {
+      assignmentMarks: breakdown.assignment !== undefined && breakdown.assignment !== null ? Number(breakdown.assignment) : null,
+      quizMarks: breakdown.quiz !== undefined && breakdown.quiz !== null ? Number(breakdown.quiz) : null,
+      midExamMarks: breakdown.midExam !== undefined && breakdown.midExam !== null ? Number(breakdown.midExam) : null,
+      finalExamMarks: breakdown.finalExam !== undefined && breakdown.finalExam !== null ? Number(breakdown.finalExam) : null,
+      attendanceMarks: breakdown.attendance !== undefined && breakdown.attendance !== null ? Number(breakdown.attendance) : null,
+      otherMarks: breakdown.other !== undefined && breakdown.other !== null ? Number(breakdown.other) : null,
+      finalMark: computed.finalMark,
+      letterGrade: computed.letterGrade,
+      gradePoints: computed.gradePoints,
+      qualityPoints: computed.qualityPoints,
+      creditHours,
+      ects,
+      status: enrollment.grade?.status === 'PUBLISHED'
+        ? 'PUBLISHED'
+        : (enrollment.grade?.status === 'SUBMITTED' ? 'SUBMITTED' : 'DRAFT'),
+      gradedAt: new Date(),
+    },
+  });
+}
+
+/** Batch save draft assessment marks for students. */
+export async function saveBatchAssessmentGrades(
+  userId: string,
+  courseOfferingId: string,
+  entries: { enrollmentId: string; breakdown: AssessmentBreakdown }[],
+) {
+  const instructor = await resolveInstructor(userId);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  const results = [];
+  for (const entry of entries) {
+    const updated = await saveAssessmentGrade(userId, courseOfferingId, entry.enrollmentId, entry.breakdown);
+    results.push(updated);
+  }
+  return results;
+}
+
+/**
+ * Submit all grades for a course offering to the Registrar.
+ * Transitions status from DRAFT -> SUBMITTED.
+ * Teacher can still edit if Registrar's Grade Editing setting is OPEN.
+ */
+export async function submitCourseGradesToRegistrar(
+  userId: string,
+  courseOfferingId: string,
+) {
+  const instructor = await resolveInstructor(userId);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  const offering = await prisma.courseOffering.findUnique({
+    where: { id: courseOfferingId },
+    include: {
+      course: { select: { code: true, name: true } },
+    },
+  });
+  if (!offering) throw new Error('Course offering not found.');
+
+  // Find all grades for this offering
+  const grades = await prisma.courseGrade.findMany({
+    where: {
+      enrollment: { courseOfferingId },
+    },
+  });
+
+  if (grades.length === 0) {
+    throw new Error('No grades found to submit. Please enter assessment marks first.');
+  }
+
+  const now = new Date();
+
+  // Transactionally set status to SUBMITTED for non-published grades
+  await prisma.$transaction(async tx => {
+    await tx.courseGrade.updateMany({
+      where: {
+        enrollment: { courseOfferingId },
+        status: { not: 'PUBLISHED' },
+      },
+      data: {
+        status: 'SUBMITTED',
+        submittedAt: now,
+        submittedBy: userId,
+      },
+    });
+
+    // Notify all Registrars
+    const registrars = await tx.user.findMany({
+      where: { role: 'REGISTRAR', status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    for (const r of registrars) {
+      await createNotification({
+        userId: r.id,
+        title: 'Grades Submitted to Registrar',
+        message: `${instructor.user.fullName} has submitted final grades for ${offering.course.code} — ${offering.course.name}.`,
+        type: 'INFO',
+        entityType: 'CourseOffering',
+        entityId: courseOfferingId,
+        actionTab: 'students',
+      }).catch(() => {});
+    }
+  });
+
+  return {
+    success: true,
+    submittedCount: grades.length,
+    submittedAt: now,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

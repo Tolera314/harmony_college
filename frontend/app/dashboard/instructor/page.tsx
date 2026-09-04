@@ -191,13 +191,13 @@ export default function InstructorDashboardPage() {
       case 'my_classes':     return <InMyClassesView setActiveTab={setActiveTab} programType={academicProgramType} />;
       case 'schedule':       return <InScheduleView setActiveTab={setActiveTab} />;
       case 'attendance':     return <InAttendanceView />;
-      case 'students':       return <InStudentsView />;
-      case 'grades':         return <InGradesView />;
-      case 'assignments':    return <InAssignmentsView />;
-      case 'quizzes':        return <InQuizzesView />;
-      case 'materials':      return <InMaterialsView />;
+      case 'students':       return <InStudentsView programType={academicProgramType} />;
+      case 'grades':         return <InGradesView programType={academicProgramType} />;
+      case 'assignments':    return <InAssignmentsView programType={academicProgramType} />;
+      case 'quizzes':        return <InQuizzesView programType={academicProgramType} />;
+      case 'materials':      return <InMaterialsView programType={academicProgramType} />;
       case 'announcements':  return <InAnnouncementsView />;
-      case 'reports':        return <InReportsView />;
+      case 'reports':        return <InReportsView programType={academicProgramType} />;
       case 'notifications':  return (
           <InNotificationsView
             notifications={headerNotifications}
