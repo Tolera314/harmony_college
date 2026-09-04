@@ -143,6 +143,8 @@ export interface ClassOffering {
   status:   string;
   capacity: number;
   enrolled: number;
+  submissionStatus?: 'PUBLISHED' | 'SUBMITTED' | 'IN_PROGRESS' | 'PENDING';
+  submittedCount?: number;
   programType?: 'TVET' | 'SHORT_PROGRAM';
   shortProgramDuration?: string | null;
   department?: { id: string; name: string };
