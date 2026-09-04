@@ -696,21 +696,20 @@ async function main(): Promise<void> {
   // ── 20. Grade Scale ─────────────────────────────────────────────────────
   console.log('📊  Seeding grade scale...');
   const GRADE_SCALE_DATA = [
-    { letterGrade: 'A+', gradePoints: 4.0, description: 'Outstanding',       isPassing: true,  displayOrder: 1  },
-    { letterGrade: 'A',  gradePoints: 4.0, description: 'Excellent',          isPassing: true,  displayOrder: 2  },
-    { letterGrade: 'A-', gradePoints: 3.7, description: 'Very Good',          isPassing: true,  displayOrder: 3  },
-    { letterGrade: 'B+', gradePoints: 3.5, description: 'Good Plus',          isPassing: true,  displayOrder: 4  },
-    { letterGrade: 'B',  gradePoints: 3.0, description: 'Good',               isPassing: true,  displayOrder: 5  },
-    { letterGrade: 'B-', gradePoints: 2.7, description: 'Good Minus',         isPassing: true,  displayOrder: 6  },
-    { letterGrade: 'C+', gradePoints: 2.5, description: 'Satisfactory Plus',  isPassing: true,  displayOrder: 7  },
-    { letterGrade: 'C',  gradePoints: 2.0, description: 'Satisfactory',       isPassing: true,  displayOrder: 8  },
-    { letterGrade: 'C-', gradePoints: 1.7, description: 'Satisfactory Minus', isPassing: true,  displayOrder: 9  },
-    { letterGrade: 'D+', gradePoints: 1.5, description: 'Passing Plus',       isPassing: true,  displayOrder: 10 },
-    { letterGrade: 'D',  gradePoints: 1.0, description: 'Passing',            isPassing: true,  displayOrder: 11 },
-    { letterGrade: 'F',  gradePoints: 0.0, description: 'Failing',            isPassing: false, displayOrder: 12 },
-    { letterGrade: 'I',  gradePoints: 0.0, description: 'Incomplete',         isPassing: false, displayOrder: 13 },
-    { letterGrade: 'W',  gradePoints: 0.0, description: 'Withdrawn',          isPassing: false, displayOrder: 14 },
-    { letterGrade: 'NG', gradePoints: 0.0, description: 'No Grade',           isPassing: false, displayOrder: 15 },
+    { letterGrade: 'A+', gradePoints: 4.00, description: 'Outstanding',       isPassing: true,  displayOrder: 1  },
+    { letterGrade: 'A',  gradePoints: 4.00, description: 'Excellent',         isPassing: true,  displayOrder: 2  },
+    { letterGrade: 'A-', gradePoints: 3.75, description: 'Very Good',         isPassing: true,  displayOrder: 3  },
+    { letterGrade: 'B+', gradePoints: 3.50, description: 'Good Plus',         isPassing: true,  displayOrder: 4  },
+    { letterGrade: 'B',  gradePoints: 3.00, description: 'Good',              isPassing: true,  displayOrder: 5  },
+    { letterGrade: 'B-', gradePoints: 2.75, description: 'Good Minus',        isPassing: true,  displayOrder: 6  },
+    { letterGrade: 'C+', gradePoints: 2.50, description: 'Satisfactory Plus', isPassing: true,  displayOrder: 7  },
+    { letterGrade: 'C',  gradePoints: 2.00, description: 'Satisfactory',      isPassing: true,  displayOrder: 8  },
+    { letterGrade: 'C-', gradePoints: 1.75, description: 'Satisfactory Minus',isPassing: true,  displayOrder: 9  },
+    { letterGrade: 'D',  gradePoints: 1.00, description: 'Passing',           isPassing: true,  displayOrder: 10 },
+    { letterGrade: 'F',  gradePoints: 0.00, description: 'Failing',           isPassing: false, displayOrder: 11 },
+    { letterGrade: 'I',  gradePoints: 0.00, description: 'Incomplete',        isPassing: false, displayOrder: 12 },
+    { letterGrade: 'W',  gradePoints: 0.00, description: 'Withdrawn',         isPassing: false, displayOrder: 13 },
+    { letterGrade: 'NG', gradePoints: 0.00, description: 'No Grade',          isPassing: false, displayOrder: 14 },
   ];
   for (const row of GRADE_SCALE_DATA) {
     await prisma.gradeScale.upsert({

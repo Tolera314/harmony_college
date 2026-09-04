@@ -18,6 +18,7 @@ import {
 } from '../../types/auth';
 import { StudentStatus, CourseStatus, ApplicationStatus, OfferingStatus } from '@prisma/client';
 import { approveApplication, rejectApplication } from '../registrar/admissionService';
+import { syncStudentEnrollments } from '../registrar/enrollmentSyncService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SAFE SELECT — never return passwordHash or refreshTokenHash
@@ -998,6 +999,8 @@ export async function createStudent(
     studentId: student.studentId,
   });
 
+  await syncStudentEnrollments(student.id).catch(() => {});
+
   return student;
 }
 
@@ -1040,25 +1043,29 @@ export async function updateStudent(
       });
     }
 
-    return tx.studentRecord.update({
-      where: { id },
-      data: {
-        ...(data.programId    && { programId:    data.programId }),
-        ...(data.departmentId && { departmentId: data.departmentId }),
-        ...(data.status       && { status:       data.status }),
-        ...(data.yearLevel    !== undefined && { yearLevel: data.yearLevel }),
-        ...(data.gpa          !== undefined && { gpa:       data.gpa }),
-      },
-      include: {
-        user: { select: SAFE_USER_SELECT },
-        program: { select: { id: true, name: true, code: true } },
-        department: { select: { id: true, name: true, code: true } },
-      },
+      return tx.studentRecord.update({
+        where: { id },
+        data: {
+          ...(data.programId    && { programId:    data.programId }),
+          ...(data.departmentId && { departmentId: data.departmentId }),
+          ...(data.status       && { status:       data.status }),
+          ...(data.yearLevel    !== undefined && { yearLevel: data.yearLevel }),
+          ...(data.gpa          !== undefined && { gpa:       data.gpa }),
+        },
+        include: {
+          user: { select: SAFE_USER_SELECT },
+          program: { select: { id: true, name: true, code: true } },
+          department: { select: { id: true, name: true, code: true } },
+        },
+      });
     });
-  });
 
-  return updated;
-}
+    if (data.departmentId || data.programId) {
+      await syncStudentEnrollments(id).catch(() => {});
+    }
+
+    return updated;
+  }
 
 export async function deleteStudent(id: string, callerId: string, ipAddress: string | null = null) {
   const record = await prisma.studentRecord.findUnique({ where: { id }, select: { userId: true } });

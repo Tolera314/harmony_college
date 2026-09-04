@@ -686,6 +686,7 @@ model Course {
   name        String
   description String?
   creditHours Int          @default(3)
+  ects        Int          @default(4)
   status      CourseStatus @default(ACTIVE)
   programType ProgramType  @default(TVET)
 
@@ -948,9 +949,26 @@ model CourseGrade {
   studentRecordId String
   studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id])
 
-  letterGrade String? // A, B+, B, C+, C, D, F
-  gradePoints Float? // 4.0, 3.5, 3.0, ...
-  creditHours Int
+  letterGrade String? // A+, A, A-, B+, B, B-, C+, C, C-, D, F
+  gradePoints Float? // 4.0, 3.75, 3.5, 3.0, ...
+  creditHours Int          @default(3)
+  ects        Int          @default(4)
+  qualityPoints Float?
+
+  // Assessment breakdown entered by instructor
+  assignmentMarks Float?
+  quizMarks       Float?
+  midExamMarks    Float?
+  finalExamMarks  Float?
+  attendanceMarks Float?
+  otherMarks      Float?
+  finalMark       Float?
+
+  // Lifecycle: DRAFT (editable by instructor) -> SUBMITTED (to registrar) -> PUBLISHED (visible to students)
+  status      String    @default("DRAFT")
+  submittedAt DateTime?
+  submittedBy String?
+  publishedAt DateTime?
 
   gradedAt  DateTime?
   createdAt DateTime  @default(now())
@@ -958,6 +976,7 @@ model CourseGrade {
 
   @@index([studentRecordId])
   @@index([enrollmentId])
+  @@index([status])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1158,6 +1177,36 @@ model GradeScale {
 
   @@index([isActive])
   @@index([letterGrade])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRADE PORTAL SETTINGS (Registrar master switch for grade publication)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GradePortalSetting {
+  id        String    @id @default("default")
+  isOpen    Boolean   @default(false)
+  openedAt  DateTime?
+  openedBy  String?
+  closedAt  DateTime?
+  closedBy  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// GRADE EDITING SETTING (Registrar controls whether teachers can edit/save grades)
+// Completely independent from GradePortalSetting (student visibility).
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GradeEditingSetting {
+  id        String    @id @default("default")
+  isOpen    Boolean   @default(true)  // Teachers can edit by default
+  openedAt  DateTime?
+  openedBy  String?
+  closedAt  DateTime?
+  closedBy  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

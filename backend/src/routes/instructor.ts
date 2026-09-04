@@ -23,7 +23,9 @@ import {
   getRoster,
   getStudentAcademicView,
   getCourseGrades,
-  submitCourseGrade,
+  saveAssessmentGrade,
+  saveBatchAssessmentGrades,
+  submitCourseGradesToRegistrar,
   getAttendanceReport,
   getLowAttendanceStudents,
   getAssignments,
@@ -45,9 +47,9 @@ const router = Router();
 router.use(authenticate, requireRole([Role.INSTRUCTOR, Role.REGISTRAR, Role.ADMIN, Role.SUPER_ADMIN, Role.DEPARTMENT_HEAD]));
 
 function ok(res: Response, data: unknown, status = 200) { res.status(status).json(data); }
-function fail(res: Response, err: unknown) {
+function fail(res: Response, err: unknown, status?: number) {
   const msg = err instanceof Error ? err.message : 'Unexpected error';
-  res.status(msg.includes('not found') ? 404 : 500).json({ error: msg });
+  res.status(status ?? (msg.includes('not found') ? 404 : 500)).json({ error: msg });
 }
 
 // ── Resolve instructor record from userId ─────────────────────────────────
@@ -185,16 +187,53 @@ router.get('/classes/:offeringId/student/:studentRecordId', async (req: AuthRequ
 // GRADES & RESULTS
 // ═══════════════════════════════════════════════════════════════════════════
 
+router.get('/grade-editing-status', async (req: AuthRequest, res) => {
+  try {
+    const setting = await prisma.gradeEditingSetting.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', isOpen: true },
+      update: {},
+    });
+    ok(res, { isOpen: setting.isOpen });
+  } catch (e) { fail(res, e); }
+});
+
 router.get('/classes/:offeringId/grades', async (req: AuthRequest, res) => {
   try {
-    ok(res, await getCourseGrades(req.user!.userId, String(req.params.offeringId)));
+    const result = await getCourseGrades(req.user!.userId, String(req.params.offeringId));
+    ok(res, Array.isArray(result) ? result : result.students);
   } catch (e) { fail(res, e); }
+});
+
+router.post('/classes/:offeringId/grades/:enrollmentId/assessments', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await saveAssessmentGrade(req.user!.userId, String(req.params.offeringId), String(req.params.enrollmentId), req.body));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.post('/classes/:offeringId/grades/batch-assessments', async (req: AuthRequest, res) => {
+  try {
+    const entries = Array.isArray(req.body.entries) ? req.body.entries : [];
+    ok(res, await saveBatchAssessmentGrades(req.user!.userId, String(req.params.offeringId), entries));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.post('/classes/:offeringId/grades/submit-to-registrar', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await submitCourseGradesToRegistrar(req.user!.userId, String(req.params.offeringId)));
+  } catch (e) { fail(res, e, 400); }
 });
 
 router.post('/classes/:offeringId/grades/:enrollmentId', async (req: AuthRequest, res) => {
   try {
-    ok(res, await submitCourseGrade(req.user!.userId, String(req.params.enrollmentId), req.body));
-  } catch (e) { fail(res, e); }
+    // If body contains assessment breakdown, save via saveAssessmentGrade
+    if (req.body && (req.body.assignment !== undefined || req.body.quiz !== undefined || req.body.midExam !== undefined || req.body.finalExam !== undefined)) {
+      ok(res, await saveAssessmentGrade(req.user!.userId, String(req.params.offeringId), String(req.params.enrollmentId), req.body));
+    } else {
+      // Fallback for legacy calls
+      ok(res, await saveAssessmentGrade(req.user!.userId, String(req.params.offeringId), String(req.params.enrollmentId), {}));
+    }
+  } catch (e) { fail(res, e, 400); }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

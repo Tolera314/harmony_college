@@ -88,6 +88,8 @@ export const studentsApi = {
   list: (params: Record<string, unknown> = {}) =>
     apiFetch<StudentListResponse>(`/api/registrar/students${qs(params)}`),
   getById: (id: string) => apiFetch<StudentListItem & Record<string, any>>(`/api/registrar/students/${id}`),
+  getAcademicRecord: (id: string) =>
+    apiFetch<StudentAcademicRecord>(`/api/registrar/students/${id}/academic-record`),
   updateStatus: (id: string, status: string) =>
     apiFetch(`/api/registrar/students/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 };
@@ -490,4 +492,238 @@ export const departmentsApi = {
   assignInstructor: (data: { courseId: string; semesterId: string; instructorId: string | null; shortProgramDuration?: string | null }) =>
     apiFetch<any>('/api/registrar/offerings/assign-instructor', { method: 'POST', body: JSON.stringify(data) }),
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRADE PORTAL & SUBMITTED GRADES
+// ═══════════════════════════════════════════════════════════════════════════
+export interface GradePortalStatus {
+  isOpen: boolean;
+  openedAt: string | null;
+  closedAt: string | null;
+  openedBy?: { fullName: string; email: string } | null;
+  closedBy?: { fullName: string; email: string } | null;
+}
+
+export interface StudentAcademicRecordCourse {
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  creditHours: number;
+  ects: number;
+  finalMark: number | null;
+  letterGrade: string;
+  gradePoints: number;
+  qualityPoints: number;
+  status: 'DRAFT' | 'SUBMITTED' | 'PUBLISHED';
+}
+
+export interface StudentAcademicRecordSemester {
+  semesterId: string;
+  semesterName: string;
+  academicYear: string;
+  yearLevel: number;
+  totalCreditHours: number;
+  totalEcts: number;
+  totalQualityPoints: number;
+  semesterGpa: number;
+  courses: StudentAcademicRecordCourse[];
+}
+
+export interface StudentAcademicRecord {
+  student: {
+    id: string;
+    studentId: string;
+    fullName: string;
+    email: string;
+    programName: string;
+    programType: 'TVET' | 'SHORT_PROGRAM';
+    departmentName: string;
+    currentGpa: number;
+    yearLevel: number;
+  };
+  semesters: StudentAcademicRecordSemester[];
+  cumulative: {
+    totalCourses: number;
+    totalCreditHours: number;
+    totalEcts: number;
+    totalQualityPoints: number;
+    cgpa: number;
+  };
+}
+
+export interface SubmittedGradeItem {
+  id: string;
+  section: string;
+  course: { id: string; code: string; name: string; creditHours: number; ects: number };
+  semester: { id: string; name: string; academicYear: string };
+  instructor: { id: string; title: string; user: { fullName: string; email: string } } | null;
+  submittedCount: number;
+  totalGrades: number;
+}
+
+
+export interface GradeEditingStatus {
+  isOpen: boolean;
+  openedAt?: string | null;
+  openedBy?: string | null;
+  closedAt?: string | null;
+  closedBy?: string | null;
+}
+
+export interface DepartmentGradeCard {
+  id: string;
+  name: string;
+  code: string;
+  programType: 'TVET' | 'SHORT_PROGRAM';
+  description: string | null;
+  totalStudents: number;
+  totalCourses: number;
+  totalInstructors: number;
+  submittedOfferings: number;
+  pendingOfferings: number;
+  totalOfferings: number;
+}
+
+export interface SimplifiedStudentCourseGrade {
+  enrollmentId: string;
+  courseOfferingId: string;
+  courseId: string;
+  courseName: string;
+  courseCode: string;
+  instructorName: string;
+  finalMark: number | null;
+  letterGrade: string | null;
+  gradePoints: number | null;
+  qualityPoints: number | null;
+  ects: number;
+  status: string;
+  submittedAt: string | null;
+  publishedAt: string | null;
+}
+
+export interface DepartmentStudentGradeItem {
+  id: string;
+  studentId: string;
+  fullName: string;
+  email: string | null;
+  programName: string;
+  yearLevel: number;
+  programType: 'TVET' | 'SHORT_PROGRAM';
+  cgpa: number;
+  totalCredits: number;
+  courses: SimplifiedStudentCourseGrade[];
+}
+
+export interface CourseSubmissionStatusItem {
+  offeringId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  instructorId: string | null;
+  instructorName: string;
+  instructorEmail: string | null;
+  semesterName: string;
+  academicYear: string;
+  totalStudents: number;
+  submittedCount: number;
+  draftCount: number;
+  publishedCount: number;
+  submissionStatus: 'PUBLISHED' | 'SUBMITTED' | 'IN_PROGRESS' | 'PENDING' | 'EMPTY';
+}
+
+export interface StudentGradeDetailResponse {
+  student: {
+    id: string;
+    studentId: string;
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+    department: { id: string; name: string; code: string; programType: string };
+    program: { id: string; name: string; code: string };
+    programType: 'TVET' | 'SHORT_PROGRAM';
+    yearLevel: number;
+    gpa: number;
+    totalCredits: number;
+  };
+  history: {
+    records: Array<{
+      id: string;
+      courseCode: string;
+      courseTitle: string;
+      creditHours: number;
+      ects: number;
+      finalMark: number | null;
+      grade: string;
+      gradePoints: number;
+      qualityPoints: number;
+      term: string;
+      semester: string;
+      academicYear: string;
+      instructor: string;
+      status: string;
+      gradedAt: string | null;
+    }>;
+    termSummaries: Array<{
+      term: string;
+      academicYear: string;
+      semester: string;
+      yearLevelLabel: string;
+      totalEcts: number;
+      totalQualityPoints: number;
+      semesterGpa: number;
+      courses: Array<any>;
+    }>;
+    academicSummary: {
+      totalEcts: number;
+      totalQualityPoints: number;
+      cgpa: number;
+    };
+    cumulativeGPA: number;
+  };
+}
+
+export const gradePortalApi = {
+  getStatus: () => apiFetch<GradePortalStatus>('/api/registrar/grade-portal'),
+  toggle: () => apiFetch<GradePortalStatus>('/api/registrar/grade-portal/toggle', { method: 'POST' }),
+  open: () => apiFetch<GradePortalStatus>('/api/registrar/grade-portal/open', { method: 'POST' }),
+  close: () => apiFetch<GradePortalStatus>('/api/registrar/grade-portal/close', { method: 'POST' }),
+};
+
+export const gradeEditingApi = {
+  getStatus: () => apiFetch<GradeEditingStatus>('/api/registrar/grade-editing'),
+  open: () => apiFetch<GradeEditingStatus>('/api/registrar/grade-editing/open', { method: 'POST' }),
+  close: () => apiFetch<GradeEditingStatus>('/api/registrar/grade-editing/close', { method: 'POST' }),
+};
+
+export const gradeManagementApi = {
+  getDepartments: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<DepartmentGradeCard[]>(
+      `/api/registrar/grade-management/departments${programType ? `?programType=${programType}` : ''}`,
+    ),
+  getDepartmentGrades: (deptId: string, programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<{
+      department: { id: string; name: string; code: string; programType: 'TVET' | 'SHORT_PROGRAM' };
+      students: DepartmentStudentGradeItem[];
+    }>(
+      `/api/registrar/grade-management/departments/${deptId}/grades${programType ? `?programType=${programType}` : ''}`,
+    ),
+  getStudentGradeDetail: (studentRecordId: string) =>
+    apiFetch<StudentGradeDetailResponse>(`/api/registrar/grade-management/students/${studentRecordId}`),
+  getCourseSubmissionStatus: (deptId: string, programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<CourseSubmissionStatusItem[]>(
+      `/api/registrar/grade-management/departments/${deptId}/submission-status${programType ? `?programType=${programType}` : ''}`,
+    ),
+  publishOfferingGrades: (offeringId: string) =>
+    apiFetch<{ success: boolean; publishedCount: number; message: string }>(
+      `/api/registrar/grade-management/offerings/${offeringId}/publish`,
+      { method: 'POST' },
+    ),
+};
+
+export const registrarGradesApi = {
+  getSubmitted: () => apiFetch<SubmittedGradeItem[]>('/api/registrar/submitted-grades'),
+  publishOfferingGrades: (offeringId: string) =>
+    apiFetch<{ count: number; message: string }>(`/api/registrar/offerings/${offeringId}/publish-grades`, { method: 'POST' }),
+};
+
 

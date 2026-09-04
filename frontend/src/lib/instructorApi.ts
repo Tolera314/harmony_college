@@ -286,11 +286,26 @@ export interface CourseGradeEntry {
   studentId:       string;
   fullName:        string;
   gpa:             number;
+  creditHours?:    number;
+  ects?:           number;
+  gradeStatus?:    'DRAFT' | 'SUBMITTED' | 'PUBLISHED';
   currentGrade: {
-    letterGrade: string;
-    gradePoints: number;
-    creditHours: number;
-    gradedAt:    string;
+    assignmentMarks?: number | null;
+    quizMarks?:       number | null;
+    midExamMarks?:    number | null;
+    finalExamMarks?:  number | null;
+    attendanceMarks?: number | null;
+    otherMarks?:      number | null;
+    finalMark?:       number | null;
+    letterGrade:      string;
+    gradePoints:      number;
+    creditHours:      number;
+    ects?:            number;
+    qualityPoints?:   number;
+    status?:          'DRAFT' | 'SUBMITTED' | 'PUBLISHED';
+    submittedAt?:     string | null;
+    publishedAt?:     string | null;
+    gradedAt:         string;
   } | null;
 }
 
@@ -408,6 +423,48 @@ export const instructorClassesApi = {
     apiFetch<CourseGradeEntry>(`${BASE}/classes/${offeringId}/grades/${enrollmentId}`, {
       method: 'POST', body: JSON.stringify(data),
     }),
+
+  saveAssessmentGrade: (
+    offeringId: string,
+    enrollmentId: string,
+    marks: {
+      assignment?: number | null;
+      quiz?: number | null;
+      midExam?: number | null;
+      finalExam?: number | null;
+      attendance?: number | null;
+    }
+  ) =>
+    apiFetch<CourseGradeEntry>(`${BASE}/classes/${offeringId}/grades/${enrollmentId}/assessments`, {
+      method: 'POST',
+      body: JSON.stringify(marks),
+    }),
+
+  saveBatchAssessments: (
+    offeringId: string,
+    entries: Array<{
+      enrollmentId: string;
+      breakdown: {
+        assignment?: number | null;
+        quiz?: number | null;
+        midExam?: number | null;
+        finalExam?: number | null;
+        attendance?: number | null;
+      };
+    }>
+  ) =>
+    apiFetch<{ count: number }>(`${BASE}/classes/${offeringId}/grades/batch-assessments`, {
+      method: 'POST',
+      body: JSON.stringify({ entries }),
+    }),
+
+  submitGradesToRegistrar: (offeringId: string) =>
+    apiFetch<{ count: number; message: string }>(`${BASE}/classes/${offeringId}/grades/submit-to-registrar`, {
+      method: 'POST',
+    }),
+
+  getGradeEditingStatus: () =>
+    apiFetch<{ isOpen: boolean }>(`${BASE}/grade-editing-status`),
 
   getAttendanceReport: (offeringId: string, params: Record<string, unknown> = {}) =>
     apiFetch<AttendanceReportResponse>(`${BASE}/classes/${offeringId}/attendance/report${qs(params)}`),

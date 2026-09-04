@@ -22,6 +22,7 @@ import {
   Role,
   AuditAction,
 } from '../types/auth';
+import { syncStudentEnrollments } from '../services/registrar/enrollmentSyncService';
 
 const router = Router();
 
@@ -318,6 +319,9 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
               },
             },
           });
+
+          // Sync active enrollments for the student under this department/program
+          await syncStudentEnrollments(existingRecord.id).catch(() => {});
         }
       }
     }

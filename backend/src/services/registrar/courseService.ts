@@ -60,7 +60,7 @@ export async function getCourseById(id: string) {
 
 export async function createCourse(data: {
   code: string; name: string; description?: string;
-  creditHours: number; departmentId: string; prerequisiteIds?: string[];
+  creditHours: number; ects?: number; departmentId: string; prerequisiteIds?: string[];
 }, registrarUserId: string) {
   const code = data.code.trim().toUpperCase();
   const existing = await prisma.course.findFirst({ where: { code, programType: 'TVET' } });
@@ -73,7 +73,9 @@ export async function createCourse(data: {
     const c = await tx.course.create({
       data: {
         code, name: data.name.trim(), description: data.description?.trim(),
-        creditHours: data.creditHours, departmentId: data.departmentId,
+        creditHours: data.creditHours,
+        ects: data.ects ?? (data.creditHours ? Math.round(data.creditHours * 1.33) : 4),
+        departmentId: data.departmentId,
         status: CourseStatus.ACTIVE,
       },
     });
@@ -100,7 +102,7 @@ export async function createCourse(data: {
 }
 
 export async function updateCourse(id: string, data: {
-  name?: string; description?: string; creditHours?: number;
+  name?: string; description?: string; creditHours?: number; ects?: number;
   departmentId?: string; prerequisiteIds?: string[];
 }, registrarUserId: string) {
   const course = await prisma.course.findUnique({ where: { id } });
@@ -113,6 +115,7 @@ export async function updateCourse(id: string, data: {
         ...(data.name && { name: data.name.trim() }),
         ...(data.description !== undefined && { description: data.description?.trim() }),
         ...(data.creditHours && { creditHours: data.creditHours }),
+        ...(data.ects !== undefined && { ects: data.ects }),
         ...(data.departmentId && { departmentId: data.departmentId }),
       },
     });

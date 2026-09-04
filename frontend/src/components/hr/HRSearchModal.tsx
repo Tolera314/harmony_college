@@ -4,8 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, X, Users, CalendarCheck, Banknote, TrendingUp, FolderOpen } from 'lucide-react';
 import { HRNavTab } from '../../types/hr';
-import { employees, departments } from '../../data/hrData';
-
 interface HRSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,11 +14,24 @@ interface Result { id: string; label: string; sub: string; tab: HRNavTab; icon: 
 
 export const HRSearchModal: React.FC<HRSearchModalProps> = ({ isOpen, onClose, onNavigate }) => {
   const [query, setQuery] = useState('');
+  const [employeesList, setEmployeesList] = useState<any[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<any[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) setTimeout(() => inputRef.current?.focus(), 80);
-    else setQuery('');
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 80);
+      fetch('/api/hr/employees?limit=50', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setEmployeesList(Array.isArray(data) ? data : data.employees || []))
+        .catch(() => {});
+      fetch('/api/departments', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setDepartmentsList(Array.isArray(data) ? data : data.departments || []))
+        .catch(() => {});
+    } else {
+      setQuery('');
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -33,8 +44,8 @@ export const HRSearchModal: React.FC<HRSearchModalProps> = ({ isOpen, onClose, o
   }, [isOpen, onClose]);
 
   const allResults: Result[] = [
-    ...employees.map(e => ({ id: e.id, label: e.name, sub: `${e.employeeId} · ${e.position}`, tab: 'employees' as HRNavTab, icon: <Users className="w-4 h-4" /> })),
-    ...departments.map(d => ({ id: d.id, label: d.name, sub: `Head: ${d.head} · ${d.employeeCount} staff`, tab: 'employees' as HRNavTab, icon: <Users className="w-4 h-4" /> })),
+    ...employeesList.map(e => ({ id: e.id, label: e.fullName || e.name, sub: `${e.employeeId || ''} · ${e.jobTitle || e.position || 'Staff'}`, tab: 'employees' as HRNavTab, icon: <Users className="w-4 h-4" /> })),
+    ...departmentsList.map(d => ({ id: d.id, label: d.name, sub: `Department (${d.code || ''})`, tab: 'employees' as HRNavTab, icon: <Users className="w-4 h-4" /> })),
   ];
 
   const q = query.toLowerCase().trim();

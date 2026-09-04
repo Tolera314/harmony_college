@@ -88,38 +88,6 @@ interface CreateForm {
   questions:              FormQuestion[];
 }
 
-const SAMPLE_QUESTIONS: FormQuestion[] = [
-  {
-    id: 'sample-1',
-    questionText: 'Which data structure operates on a First-In, First-Out (FIFO) basis?',
-    type: 'MCQ',
-    points: 10,
-    options: [
-      { text: 'Queue', isCorrect: true },
-      { text: 'Stack', isCorrect: false },
-      { text: 'Binary Tree', isCorrect: false },
-      { text: 'Hash Table', isCorrect: false },
-    ],
-  },
-  {
-    id: 'sample-2',
-    questionText: 'The time complexity of binary search on a sorted array is O(log n).',
-    type: 'TRUE_FALSE',
-    points: 10,
-    options: [
-      { text: 'True', isCorrect: true },
-      { text: 'False', isCorrect: false },
-    ],
-  },
-  {
-    id: 'sample-3',
-    questionText: 'Explain the difference between process and thread execution.',
-    type: 'ESSAY',
-    points: 20,
-    options: [],
-  },
-];
-
 const EMPTY_FORM: CreateForm = {
   title:                  '',
   description:            '',
@@ -129,10 +97,10 @@ const EMPTY_FORM: CreateForm = {
   durationMinutes:        '30',
   passingScore:           '60',
   maxAttempts:            '1',
-  totalPoints:            '40',
+  totalPoints:            '0',
   shuffleQuestions:       false,
   showResultsImmediately: true,
-  questions:              SAMPLE_QUESTIONS,
+  questions:              [],
 };
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
@@ -164,7 +132,11 @@ function Toggle({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export const InQuizzesView: React.FC = () => {
+export interface InQuizzesViewProps {
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}
+
+export const InQuizzesView: React.FC<InQuizzesViewProps> = ({ programType }) => {
   const [classes,          setClasses]          = useState<ClassOffering[]>([]);
   const [selectedOffering, setSelectedOffering] = useState('');
   const [quizzes,          setQuizzes]          = useState<QuizSummary[]>([]);
@@ -186,16 +158,19 @@ export const InQuizzesView: React.FC = () => {
   // ── Load classes ──────────────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
-    instructorClassesApi.list()
+    instructorClassesApi.list(programType)
       .then(data => {
-        const curr = data.filter(o => o.semester.isCurrent);
-        const list = curr.length ? curr : data;
-        setClasses(list);
-        if (list.length > 0) setSelectedOffering(list[0].id);
+        setClasses(data);
+        if (data.length > 0) {
+          const curr = data.find(o => o.semester.isCurrent);
+          setSelectedOffering(prev => (prev && data.some(d => d.id === prev)) ? prev : (curr ? curr.id : data[0].id));
+        } else {
+          setSelectedOffering('');
+        }
       })
       .catch(e => setListError(e instanceof Error ? e.message : 'Failed to load classes'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [programType]);
 
   // ── Load quizzes ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -882,9 +857,6 @@ export const InQuizzesView: React.FC = () => {
                 <HelpCircle className="w-8 h-8 mx-auto text-(--text-faint)" />
                 <p className="text-xs text-(--text-muted)">No questions added yet.</p>
                 <div className="flex justify-center gap-2">
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setForm(f => ({ ...f, questions: SAMPLE_QUESTIONS, totalPoints: '40' }))}>
-                    Load Sample Questions
-                  </Button>
                   <Button type="button" variant="primary" size="sm" onClick={addQuestion}>
                     + Create First Question
                   </Button>

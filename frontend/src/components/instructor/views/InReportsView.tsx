@@ -17,7 +17,11 @@ import {
   type AttendanceReportResponse,
 } from '../../../lib/instructorApi';
 
-export const InReportsView: React.FC = () => {
+export interface InReportsViewProps {
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}
+
+export const InReportsView: React.FC<InReportsViewProps> = ({ programType }) => {
   const [classes,          setClasses]         = useState<ClassOffering[]>([]);
   const [selectedOffering, setSelectedOffering] = useState('');
   const [attReport,        setAttReport]       = useState<AttendanceReportResponse | null>(null);
@@ -28,16 +32,19 @@ export const InReportsView: React.FC = () => {
 
   // ── Load classes ──────────────────────────────────────────────────────────
   useEffect(() => {
-    instructorClassesApi.list()
+    instructorClassesApi.list(programType)
       .then(data => {
-        const current = data.filter(o => o.semester.isCurrent);
-        const list = current.length ? current : data;
-        setClasses(list);
-        if (list.length > 0) setSelectedOffering(list[0].id);
+        setClasses(data);
+        if (data.length > 0) {
+          const current = data.find(o => o.semester.isCurrent);
+          setSelectedOffering(prev => (prev && data.some(d => d.id === prev)) ? prev : (current ? current.id : data[0].id));
+        } else {
+          setSelectedOffering('');
+        }
       })
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load classes'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [programType]);
 
   // ── Load reports ──────────────────────────────────────────────────────────
   const loadReports = useCallback(async () => {

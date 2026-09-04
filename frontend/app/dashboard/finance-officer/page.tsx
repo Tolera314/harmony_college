@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { FONavTab, FONotification } from '@/src/types/finance';
-import { foProfile } from '@/src/data/financeData';
+import { FONavTab, FONotification, FOProfile } from '@/src/types/finance';
 import { FOSidebar }           from '@/src/components/fo/FOSidebar';
 import { FOHeader }            from '@/src/components/fo/FOHeader';
 import { FOMobileNav }         from '@/src/components/fo/FOMobileNav';
@@ -25,8 +24,22 @@ import { AnimatePresence, motion } from 'motion/react';
 import { getReconciliationEntries, getOutstandingAccounts, getNotifications as foGetNotifications, markNotificationRead as foMarkNotifRead, markAllNotificationsRead as foMarkAllNotifRead } from '@/src/lib/foApi';
 import { useNotifications } from '@/src/hooks/useNotifications';
 
+const DEFAULT_FO_PROFILE: FOProfile = {
+  name: 'Finance Officer',
+  title: 'Finance & Accounts',
+  department: 'Finance Office',
+  email: 'finance@harmony.edu',
+  phone: '',
+  officeRoom: 'Finance Hall',
+  avatar: '/logo2.jpg',
+  employeeId: 'HC-FIN-001',
+  academicYear: '2026-2027',
+  currentSemester: 'Semester I',
+};
+
 export default function FinanceOfficerPage() {
   const [activeTab,          setRawTab]       = useState<FONavTab>('overview');
+  const [profile,            setProfile]      = useState<FOProfile>(DEFAULT_FO_PROFILE);
   const [notifications,      setNotifications] = useState<FONotification[]>([]);
   const [searchOpen,         setSearchOpen]    = useState(false);
   const [logoutOpen,         setLogoutOpen]    = useState(false);
@@ -35,6 +48,22 @@ export default function FinanceOfficerPage() {
   const [pendingReconciliation, setPendingRecon] = useState(0);
   const [overdueCount,       setOverdueCount]  = useState(0);
   const { toast, show: showToast, hide: hideToast } = useToast();
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.user) {
+          setProfile(p => ({
+            ...p,
+            name: data.user.fullName || p.name,
+            email: data.user.email || p.email,
+            phone: data.user.phone || p.phone,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const { unreadCount } = useNotifications({
     fetchFn:       () => foGetNotifications(),
@@ -110,7 +139,7 @@ export default function FinanceOfficerPage() {
         <FOSidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          profile={foProfile}
+          profile={profile}
           unreadCount={unreadCount}
           pendingReconciliation={pendingReconciliation}
           overdueCount={overdueCount}
@@ -122,13 +151,13 @@ export default function FinanceOfficerPage() {
           <FOHeader
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            profile={foProfile}
+            profile={profile}
             notifications={notifications}
             unreadCount={unreadCount}
             onMarkRead={() => {}}
             onOpenSearch={() => setSearchOpen(true)}
-            semesterLabel={foProfile.currentSemester}
-            academicYear={foProfile.academicYear}
+            semesterLabel={profile.currentSemester}
+            academicYear={profile.academicYear}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
 

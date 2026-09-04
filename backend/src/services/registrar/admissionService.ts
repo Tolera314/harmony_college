@@ -1,6 +1,7 @@
-﻿import { prisma }              from '../../lib/prisma';
+import { prisma }              from '../../lib/prisma';
 import { createNotification } from '../notificationService';
 import { ApplicationStatus, StudentStatus } from '@prisma/client';
+import { syncStudentEnrollments } from './enrollmentSyncService';
 
 export interface AdmissionListQuery {
   page: number; limit: number;
@@ -77,7 +78,7 @@ export async function approveApplication(id: string, registrarUserId: string, co
     );
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Update application status
     const updatedApp = await tx.application.update({
       where: { id },
@@ -95,14 +96,14 @@ export async function approveApplication(id: string, registrarUserId: string, co
       data: { status: 'ACTIVE', emailVerified: true, phoneVerified: true },
     });
 
-    // 3. Create or update student record if program found
+    let studentRecordId: string | null = null;
     if (program) {
       const existingSR = await tx.studentRecord.findUnique({ where: { userId: app.userId } });
       if (!existingSR) {
         const year = new Date().getFullYear();
         const count = await tx.studentRecord.count();
         const studentId = `HC-${year}-${String(count + 1).padStart(4, '0')}`;
-        await tx.studentRecord.create({
+        const createdSR = await tx.studentRecord.create({
           data: {
             userId: app.userId,
             studentId,
@@ -112,8 +113,10 @@ export async function approveApplication(id: string, registrarUserId: string, co
             yearLevel: 1,
           },
         });
+        studentRecordId = createdSR.id;
       } else {
         await tx.studentRecord.update({ where: { id: existingSR.id }, data: { status: StudentStatus.ACTIVE } });
+        studentRecordId = existingSR.id;
       }
     }
 
@@ -151,8 +154,14 @@ export async function approveApplication(id: string, registrarUserId: string, co
       actionTab:  'dashboard',
     }).catch(() => {});
 
-    return updatedApp;
+    return { updatedApp, studentRecordId };
   });
+
+  if (result.studentRecordId) {
+    await syncStudentEnrollments(result.studentRecordId).catch(() => {});
+  }
+
+  return result.updatedApp;
 }
 
 export async function rejectApplication(id: string, registrarUserId: string, reason: string) {

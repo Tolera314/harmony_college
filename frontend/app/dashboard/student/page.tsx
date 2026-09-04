@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -28,14 +28,6 @@ import {
   CreditCard, BarChart3, HelpCircle, X, ChevronRight,
   Settings, LogOut, CalendarCheck, CalendarDays, UserCircle,
 } from 'lucide-react';
-import {
-  initialStudentProfile,
-  todayTimetable as staticTimetable,
-  recentAlerts as staticAlerts,
-  gradeHistory as staticGrades,
-  financialTransactions as staticTransactions,
-  degreeRequirements as staticDegreeReqs,
-} from '@/src/data/studentData';
 import {
   studentDashApi,
   type DashboardData,
@@ -70,7 +62,7 @@ function mapApiCourse(c: CourseDetail, assignments: any[]): Course {
     credits: c.course?.creditHours ?? c.creditHours,
     instructor: c.instructor?.name ?? 'TBA',
     instructorTitle: c.instructor?.title ?? '',
-    instructorPhoto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+    instructorPhoto: '',
     progress: c.progress,
     assignmentsDueText: pendingCount > 0 ? `${pendingCount} Assignment${pendingCount > 1 ? 's' : ''} Due` : undefined,
     schedule: c.timetables?.length
@@ -146,9 +138,13 @@ function mapApiGrade(r: any): GradeRecord {
     courseCode: r.courseCode,
     courseTitle: r.courseTitle,
     term: r.term,
-    credits: r.credits,
+    credits: r.ects ?? r.credits,
+    creditHours: r.creditHours ?? 3,
+    ects: r.ects ?? r.credits,
+    finalMark: r.finalMark,
     grade: r.grade,
     numericGpa: r.gradePoints,
+    qualityPoints: r.qualityPoints,
     instructor: r.instructor,
   };
 }
@@ -168,9 +164,30 @@ function mapApiTransaction(tx: any): FinancialTransaction {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const EMPTY_STUDENT_PROFILE: StudentProfile = {
+  name: '',
+  id: '',
+  avatar: '/logo2.jpg',
+  major: '',
+  degree: '',
+  email: '',
+  phone: '',
+  cumulativeGpa: 0,
+  gpaChange: 0,
+  completedCredits: 0,
+  totalRequiredCredits: 0,
+  attendanceRate: 0,
+  cohortPercentile: '',
+  accountBalance: 0,
+  clearedTerm: '',
+  expectedGraduation: '',
+  advisorName: '',
+  advisorEmail: '',
+};
+
 export default function StudentDashboardPage() {
   const [activeTab, setActiveTab]             = useState<NavTab>('dashboard');
-  const [profile, setProfile]                 = useState<StudentProfile>(initialStudentProfile);
+  const [profile, setProfile]                 = useState<StudentProfile>(EMPTY_STUDENT_PROFILE);
   const [searchQuery, setSearchQuery]         = useState('');
   const [tabLoading, setTabLoading]           = useState(false);
   const [sessionExpired]                      = useState(false);
@@ -198,8 +215,8 @@ export default function StudentDashboardPage() {
   const [gradeData, setGradeData]             = useState<GradeHistory | null>(null);
   const [financialData, setFinancialData]     = useState<FinancialSummary | null>(null);
   const [degreeData, setDegreeData]           = useState<DegreeAudit | null>(null);
-  const [timetable, setTimetable]             = useState<TimetableEvent[]>(staticTimetable);
-  const [alerts, setAlerts]                   = useState<AlertItem[]>(staticAlerts);
+  const [timetable, setTimetable]             = useState<TimetableEvent[]>([]);
+  const [alerts, setAlerts]                   = useState<AlertItem[]>([]);
   const [dataLoaded, setDataLoaded]           = useState<Record<string, boolean>>({});
 
   const markLoaded = (key: string) => setDataLoaded(prev => ({ ...prev, [key]: true }));
@@ -270,27 +287,23 @@ export default function StudentDashboardPage() {
         clearedTerm:          d.kpis.clearedForTerm ?? p.clearedTerm,
       }));
 
-      if (d.todayTimetable.length > 0) {
-        setTimetable(d.todayTimetable.map((slot, i) => ({
-          id: slot.id,
-          time: slot.time,
-          title: slot.title,
-          location: slot.location,
-          courseCode: slot.courseCode,
-          isCurrent: i === 0,
-        })));
-      }
+      setTimetable(d.todayTimetable.map((slot, i) => ({
+        id: slot.id,
+        time: slot.time,
+        title: slot.title,
+        location: slot.location,
+        courseCode: slot.courseCode,
+        isCurrent: i === 0,
+      })));
 
-      if (d.announcements.length > 0) {
-        setAlerts(d.announcements.map(a => ({
-          id: a.id,
-          source: 'Registrar Office',
-          message: a.title,
-          date: a.publishedAt ? new Date(a.publishedAt).toLocaleDateString() : 'Recent',
-          type: a.priority === 'HIGH' ? 'error' : 'info',
-          urgent: a.priority === 'HIGH',
-        })));
-      }
+      setAlerts(d.announcements.map(a => ({
+        id: a.id,
+        source: 'Registrar Office',
+        message: a.title,
+        date: a.publishedAt ? new Date(a.publishedAt).toLocaleDateString() : 'Recent',
+        type: a.priority === 'HIGH' ? 'error' : 'info',
+        urgent: a.priority === 'HIGH',
+      })));
 
       try {
         const assignments = await studentDashApi.getAssignments();
@@ -300,7 +313,7 @@ export default function StudentDashboardPage() {
       }
 
       markLoaded('dashboard');
-    } catch { /* keep static data */ }
+    } catch { /* network failure */ }
   }, []);
 
   // ── Lazy-load per-tab data ────────────────────────────────────────────────
@@ -320,11 +333,11 @@ export default function StudentDashboardPage() {
   }, [dataLoaded]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
-  const grades: GradeRecord[] = gradeData ? gradeData.records.map(mapApiGrade) : staticGrades;
+  const grades: GradeRecord[] = gradeData ? gradeData.records.map(mapApiGrade) : [];
 
   const transactions: FinancialTransaction[] = financialData
     ? financialData.transactions.map(mapApiTransaction)
-    : staticTransactions;
+    : [];
 
   const financialProfile: StudentProfile = financialData
     ? { ...profile, accountBalance: financialData.balance, clearedTerm: financialData.clearedForTerm ?? profile.clearedTerm }
@@ -343,7 +356,7 @@ export default function StudentDashboardPage() {
           grade: c.grade,
         })),
       }))
-    : staticDegreeReqs;
+    : [];
 
   const degreeProfile: StudentProfile = degreeData
     ? { ...profile, cumulativeGpa: degreeData.progress.cumulativeGPA, completedCredits: degreeData.progress.completedCredits, totalRequiredCredits: degreeData.progress.totalRequired }
@@ -450,6 +463,7 @@ export default function StudentDashboardPage() {
         return (
           <GradesView
             profile={profile}
+            gradeData={gradeData}
             grades={grades}
             enrolledCourses={enrolledCourses.map(c => ({ id: c.id, code: c.code, name: c.title, credits: c.credits }))}
           />

@@ -186,8 +186,13 @@ export interface GradeRecord {
   courseTitle: string;
   term: string;
   credits: number;
+  creditHours?: number;
+  ects?: number;
+  finalMark?: number | null;
   grade: string;
   numericGpa: number;
+  gradePoints?: number;
+  qualityPoints?: number;
   instructor: string;
 }
 

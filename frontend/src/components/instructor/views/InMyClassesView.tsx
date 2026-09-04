@@ -56,11 +56,11 @@ export const InMyClassesView: React.FC<InMyClassesViewProps> = ({ setActiveTab, 
 
   useEffect(() => { load(); }, [load]);
 
-  const displayed = filter === 'current'
-    ? offerings.filter(o => o.semester.isCurrent)
-    : offerings;
-
   const currentCount = offerings.filter(o => o.semester.isCurrent).length;
+
+  const displayed = filter === 'current'
+    ? (currentCount > 0 ? offerings.filter(o => o.semester.isCurrent) : offerings)
+    : offerings;
 
   if (loading) return <SkeletonPage />;
   if (error)   return <ErrorState variant="network" onRetry={load} description={error} />;

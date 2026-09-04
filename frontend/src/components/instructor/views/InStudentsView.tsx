@@ -36,7 +36,11 @@ const standing = (s: RosterStudent) => {
   return { label: 'Average', variant: 'glass' as const };
 };
 
-export const InStudentsView: React.FC = () => {
+export interface InStudentsViewProps {
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}
+
+export const InStudentsView: React.FC<InStudentsViewProps> = ({ programType }) => {
   const [classes,           setClasses]           = useState<ClassOffering[]>([]);
   const [selectedOffering,  setSelectedOffering]  = useState<string>('');
   const [students,          setStudents]          = useState<RosterStudent[]>([]);
@@ -58,16 +62,19 @@ export const InStudentsView: React.FC = () => {
   // ── Load classes list ─────────────────────────────────────────────────────
   useEffect(() => {
     setClassesLoading(true);
-    instructorClassesApi.list()
+    instructorClassesApi.list(programType)
       .then(data => {
-        const current = data.filter(o => o.semester.isCurrent);
-        setClasses(current.length ? current : data);
-        if (current.length > 0) setSelectedOffering(current[0].id);
-        else if (data.length > 0) setSelectedOffering(data[0].id);
+        setClasses(data);
+        if (data.length > 0) {
+          const current = data.find(o => o.semester.isCurrent);
+          setSelectedOffering(prev => (prev && data.some(d => d.id === prev)) ? prev : (current ? current.id : data[0].id));
+        } else {
+          setSelectedOffering('');
+        }
       })
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load classes'))
       .finally(() => setClassesLoading(false));
-  }, []);
+  }, [programType]);
 
   // ── Load roster when selection/filter/page changes ────────────────────────
   const loadRoster = useCallback(async () => {
@@ -123,7 +130,9 @@ export const InStudentsView: React.FC = () => {
       <DHPageHeader
         title="Students"
         subtitle={selectedClass
-          ? `${selectedClass.course.code} · ${total} enrolled`
+          ? `${selectedClass.course.code} — ${selectedClass.course.name} · ${total} enrolled`
+          : classes.length === 0
+          ? 'No assigned courses'
           : `${total} students`}
         icon={<GraduationCap className="w-5 h-5" />}
       />
@@ -131,7 +140,7 @@ export const InStudentsView: React.FC = () => {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         {/* Class picker */}
-        {classes.length > 1 && (
+        {classes.length > 0 && (
           <div className="relative">
             <select
               value={selectedOffering}
@@ -145,7 +154,7 @@ export const InStudentsView: React.FC = () => {
             >
               {classes.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.course.code} — Section {c.section}
+                  {c.course.code} — {c.course.name} ({c.programType === 'SHORT_PROGRAM' ? `Short Program · ${c.shortProgramDuration || '2/4 Months'}` : 'TVET'}) · Sec {c.section} ({c.enrolled} enrolled)
                 </option>
               ))}
             </select>
@@ -195,14 +204,20 @@ export const InStudentsView: React.FC = () => {
         <ErrorState variant="network" onRetry={loadRoster} description={error} />
       )}
 
-      {!error && students.length === 0 && !rosterLoading ? (
+      {!error && classes.length === 0 && !classesLoading ? (
+        <EmptyState
+          variant="courses"
+          title="No classes assigned"
+          description="You have no course offerings assigned for this program type."
+        />
+      ) : !error && students.length === 0 && !rosterLoading ? (
         <EmptyState
           variant="students"
-          title="No students found"
+          title="No students assigned yet"
           description={
             search
               ? `No students match "${search}".`
-              : 'No enrolled students for the selected class.'
+              : 'No students assigned yet for the selected course.'
           }
         />
       ) : (

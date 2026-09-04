@@ -22,6 +22,7 @@ import { prisma } from '../lib/prisma';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { Role } from '../types/auth';
 import { createNotification } from '../services/notificationService';
+import { syncStudentEnrollments } from '../services/registrar/enrollmentSyncService';
 
 const router = Router();
 router.use(authenticate, requireRole([Role.STUDENT]));
@@ -387,6 +388,9 @@ router.patch('/department', async (req: AuthRequest, res: Response): Promise<voi
           },
         },
       });
+
+      // Automatically enroll in active offerings of the selected department
+      await syncStudentEnrollments(studentRecord.id).catch(() => {});
     }
 
     res.status(200).json({ success: true, department: dept });

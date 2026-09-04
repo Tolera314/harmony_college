@@ -18,6 +18,8 @@ import * as graduation from '../services/registrar/graduationService';
 import * as certificates from '../services/registrar/certificateService';
 import * as reports from '../services/registrar/reportsService';
 import { prisma } from '../lib/prisma';
+import { syncCourseOfferingEnrollments } from '../services/registrar/enrollmentSyncService';
+import { getGradeHistory } from '../services/student/gradesService';
 import {
   broadcastTimetableCreated,
   broadcastTimetableUpdated,
@@ -180,6 +182,7 @@ router.post('/courses', async (req: AuthRequest, res) => {
     const schema = z.object({
       code: z.string().min(2).max(20), name: z.string().min(3).max(200),
       description: z.string().optional(), creditHours: z.number().int().min(1).max(10),
+      ects: z.number().int().min(1).max(20).optional(),
       departmentId: z.string().uuid(), prerequisiteIds: z.array(z.string().uuid()).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -193,6 +196,7 @@ router.patch('/courses/:id', async (req: AuthRequest, res) => {
     const schema = z.object({
       name: z.string().min(3).optional(), description: z.string().optional(),
       creditHours: z.number().int().min(1).max(10).optional(),
+      ects: z.number().int().min(1).max(20).optional(),
       departmentId: z.string().uuid().optional(),
       prerequisiteIds: z.array(z.string().uuid()).optional(),
     });
@@ -436,7 +440,7 @@ router.post('/departments/:id/courses', async (req: AuthRequest, res) => {
 
     // If semesterId provided, create initial offering with same programType as department
     if (parsed.data.semesterId) {
-      await prisma.courseOffering.create({
+      const initialOffering = await prisma.courseOffering.create({
         data: {
           courseId: course.id,
           semesterId: parsed.data.semesterId,
@@ -447,6 +451,7 @@ router.post('/departments/:id/courses', async (req: AuthRequest, res) => {
           status: parsed.data.instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
         },
       });
+      await syncCourseOfferingEnrollments(initialOffering.id).catch(() => {});
     }
 
     ok(res, course, 201);
@@ -611,6 +616,9 @@ router.post('/offerings/assign-instructor', async (req: AuthRequest, res) => {
         },
       });
     }
+
+    // Automatically sync active enrolled students to this assigned offering
+    await syncCourseOfferingEnrollments(offering.id);
 
     const result = await prisma.courseOffering.findUnique({
       where: { id: offering.id },
@@ -1847,13 +1855,360 @@ router.get('/admissions-ready', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PUBLIC: Certificate verification (no auth required)
+// GRADE PORTAL & GRADE PUBLICATION AUTHORITY
 // ══════════════════════════════════════════════════════════════════════════════
-export { router as registrarRouter };
 
-export default router;
+// GET /api/registrar/grade-portal
+router.get('/grade-portal', async (_req, res) => {
+  try {
+    const portal = await prisma.gradePortalSetting.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', isOpen: false },
+      update: {},
+    });
+    ok(res, portal);
+  } catch (e) { fail(res, e); }
+});
 
+// POST /api/registrar/grade-portal/toggle
+router.post('/grade-portal/toggle', async (req: AuthRequest, res) => {
+  try {
+    const current = await prisma.gradePortalSetting.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', isOpen: false },
+      update: {},
+    });
 
+    const targetOpen = req.body?.isOpen !== undefined ? Boolean(req.body.isOpen) : !current.isOpen;
+    const now = new Date();
+    const userId = req.user!.userId;
+
+    const updated = await prisma.$transaction(async tx => {
+      const setting = await tx.gradePortalSetting.update({
+        where: { id: 'default' },
+        data: targetOpen
+          ? { isOpen: true, openedAt: now, openedBy: userId }
+          : { isOpen: false, closedAt: now, closedBy: userId },
+      });
+
+      // When opening Grade Portal, officially publish all SUBMITTED grades
+      if (targetOpen) {
+        await tx.courseGrade.updateMany({
+          where: { status: 'SUBMITTED' },
+          data: { status: 'PUBLISHED', publishedAt: now },
+        });
+      }
+
+      await tx.registrarAuditLog.create({
+        data: {
+          userId,
+          action: targetOpen ? 'ANNOUNCEMENT_PUBLISHED' : 'ANNOUNCEMENT_ARCHIVED',
+          entityType: 'GradePortal',
+          entityId: 'default',
+          description: targetOpen
+            ? 'Grade Portal opened. All submitted course grades are officially published to students.'
+            : 'Grade Portal closed.',
+        },
+      });
+
+      return setting;
+    });
+
+    ok(res, {
+      success: true,
+      isOpen: updated.isOpen,
+      message: updated.isOpen
+        ? 'Grade Portal is now OPEN. Submitted grades are published to students.'
+        : 'Grade Portal is now CLOSED.',
+      setting: updated,
+    });
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-portal/open
+router.post('/grade-portal/open', async (req: AuthRequest, res) => {
+  req.body = { isOpen: true };
+  try {
+    const current = await prisma.gradePortalSetting.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', isOpen: false },
+      update: {},
+    });
+    const now = new Date();
+    const userId = req.user!.userId;
+
+    const updated = await prisma.$transaction(async tx => {
+      const setting = await tx.gradePortalSetting.update({
+        where: { id: 'default' },
+        data: { isOpen: true, openedAt: now, openedBy: userId },
+      });
+
+      await tx.courseGrade.updateMany({
+        where: { status: 'SUBMITTED' },
+        data: { status: 'PUBLISHED', publishedAt: now },
+      });
+
+      await tx.registrarAuditLog.create({
+        data: {
+          userId,
+          action: 'ANNOUNCEMENT_PUBLISHED',
+          entityType: 'GradePortal',
+          entityId: 'default',
+          description: 'Grade Portal opened. All submitted course grades are officially published to students.',
+        },
+      });
+
+      return setting;
+    });
+
+    ok(res, { success: true, isOpen: true, setting: updated });
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-portal/close
+router.post('/grade-portal/close', async (req: AuthRequest, res) => {
+  try {
+    const now = new Date();
+    const userId = req.user!.userId;
+
+    const updated = await prisma.$transaction(async tx => {
+      const setting = await tx.gradePortalSetting.update({
+        where: { id: 'default' },
+        data: { isOpen: false, closedAt: now, closedBy: userId },
+      });
+
+      await tx.registrarAuditLog.create({
+        data: {
+          userId,
+          action: 'ANNOUNCEMENT_ARCHIVED',
+          entityType: 'GradePortal',
+          entityId: 'default',
+          description: 'Grade Portal closed.',
+        },
+      });
+
+      return setting;
+    });
+
+    ok(res, { success: true, isOpen: false, setting: updated });
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/students/:id/academic-record
+router.get('/students/:id/academic-record', async (req: AuthRequest, res) => {
+  try {
+    const studentId = pid(req);
+    const data = await getGradeHistory(studentId, true);
+    ok(res, data);
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/submitted-grades
+router.get('/submitted-grades', async (_req: AuthRequest, res) => {
+  try {
+    const offeringsWithGrades = await prisma.courseOffering.findMany({
+      where: {
+        enrollments: {
+          some: {
+            grade: { isNot: null },
+          },
+        },
+      },
+      include: {
+        course: { select: { id: true, code: true, name: true, creditHours: true, ects: true } },
+        semester: { include: { academicYear: true } },
+        instructor: { include: { user: { select: { fullName: true } } } },
+        enrollments: {
+          where: { status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] } },
+          include: {
+            grade: true,
+            studentRecord: { include: { user: { select: { fullName: true } } } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const result = offeringsWithGrades.map(o => {
+      const grades = o.enrollments.map(e => e.grade).filter(Boolean);
+      const totalStudents = o.enrollments.length;
+      const gradedCount = grades.length;
+      const submittedCount = grades.filter(g => g?.status === 'SUBMITTED' || g?.status === 'PUBLISHED').length;
+      const publishedCount = grades.filter(g => g?.status === 'PUBLISHED').length;
+
+      let status = 'DRAFT';
+      if (publishedCount > 0 && publishedCount === gradedCount) status = 'PUBLISHED';
+      else if (submittedCount > 0) status = 'SUBMITTED';
+
+      return {
+        offeringId: o.id,
+        courseCode: o.course.code,
+        courseName: o.course.name,
+        creditHours: o.course.creditHours,
+        ects: o.course.ects,
+        section: o.section,
+        semester: `${o.semester.name} (${o.semester.academicYear.name})`,
+        instructorName: o.instructor?.user.fullName ?? 'TBA',
+        totalStudents,
+        gradedCount,
+        submittedCount,
+        publishedCount,
+        status,
+        students: o.enrollments.map(e => ({
+          enrollmentId: e.id,
+          studentRecordId: e.studentRecordId,
+          studentName: e.studentRecord.user.fullName,
+          studentId: e.studentRecord.studentId,
+          grade: e.grade ? {
+            id: e.grade.id,
+            creditHours: e.grade.creditHours,
+            ects: e.grade.ects,
+            finalMark: e.grade.finalMark,
+            letterGrade: e.grade.letterGrade,
+            gradePoints: e.grade.gradePoints,
+            qualityPoints: e.grade.qualityPoints,
+            status: e.grade.status,
+            submittedAt: e.grade.submittedAt,
+          } : null,
+        })),
+      };
+    });
+
+    ok(res, result);
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/offerings/:offeringId/publish-grades
+router.post('/offerings/:offeringId/publish-grades', async (req: AuthRequest, res) => {
+  try {
+    const offeringId = pid(req, 'offeringId');
+    const now = new Date();
+
+    const updated = await prisma.courseGrade.updateMany({
+      where: {
+        enrollment: { courseOfferingId: offeringId },
+        status: { in: ['SUBMITTED', 'DRAFT'] },
+      },
+      data: {
+        status: 'PUBLISHED',
+        publishedAt: now,
+      },
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'TRANSCRIPT_GENERATED',
+        entityType: 'CourseOffering',
+        entityId: offeringId,
+        description: `Officially published ${updated.count} grades for offering ${offeringId}`,
+      },
+    });
+
+    ok(res, { success: true, publishedCount: updated.count, publishedAt: now });
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GRADE MANAGEMENT (Registrar Department-based Student Grades & Independent Toggles)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/registrar/grade-management/departments?programType=
+router.get('/grade-management/departments', async (req: AuthRequest, res) => {
+  try {
+    const { getDepartmentGradeCards } = await import('../services/registrar/gradeManagementService');
+    const programType = req.query.programType as ('TVET' | 'SHORT_PROGRAM') | undefined;
+    ok(res, await getDepartmentGradeCards(programType));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/grade-management/departments/:deptId/grades?programType=
+router.get('/grade-management/departments/:deptId/grades', async (req: AuthRequest, res) => {
+  try {
+    const { getDepartmentGrades } = await import('../services/registrar/gradeManagementService');
+    const deptId = pid(req, 'deptId');
+    const programType = req.query.programType as ('TVET' | 'SHORT_PROGRAM') | undefined;
+    ok(res, await getDepartmentGrades(deptId, programType));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/grade-management/students/:studentRecordId
+router.get('/grade-management/students/:studentRecordId', async (req: AuthRequest, res) => {
+  try {
+    const { getStudentGradeDetail } = await import('../services/registrar/gradeManagementService');
+    const studentRecordId = pid(req, 'studentRecordId');
+    ok(res, await getStudentGradeDetail(studentRecordId));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/grade-management/departments/:deptId/submission-status?programType=
+router.get('/grade-management/departments/:deptId/submission-status', async (req: AuthRequest, res) => {
+  try {
+    const { getCourseSubmissionStatus } = await import('../services/registrar/gradeManagementService');
+    const deptId = pid(req, 'deptId');
+    const programType = req.query.programType as ('TVET' | 'SHORT_PROGRAM') | undefined;
+    ok(res, await getCourseSubmissionStatus(deptId, programType));
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-management/offerings/:offeringId/publish
+router.post('/grade-management/offerings/:offeringId/publish', async (req: AuthRequest, res) => {
+  try {
+    const { publishOfferingGrades } = await import('../services/registrar/gradeManagementService');
+    const offeringId = pid(req, 'offeringId');
+    ok(res, await publishOfferingGrades(offeringId, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// ── Grade Editing Setting (Controls teacher editing) ──────────────────────────
+// GET /api/registrar/grade-editing
+router.get('/grade-editing', async (req: AuthRequest, res) => {
+  try {
+    const { getGradeEditingStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await getGradeEditingStatus());
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-editing/open
+router.post('/grade-editing/open', async (req: AuthRequest, res) => {
+  try {
+    const { setGradeEditingStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await setGradeEditingStatus(true, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-editing/close
+router.post('/grade-editing/close', async (req: AuthRequest, res) => {
+  try {
+    const { setGradeEditingStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await setGradeEditingStatus(false, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// ── Grade Portal Setting (Controls student grade visibility) ─────────────────
+// GET /api/registrar/grade-portal
+router.get('/grade-portal', async (req: AuthRequest, res) => {
+  try {
+    const { getGradePortalStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await getGradePortalStatus());
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-portal/open
+router.post('/grade-portal/open', async (req: AuthRequest, res) => {
+  try {
+    const { setGradePortalStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await setGradePortalStatus(true, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-portal/close
+router.post('/grade-portal/close', async (req: AuthRequest, res) => {
+  try {
+    const { setGradePortalStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await setGradePortalStatus(false, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
 
 // ══════════════════════════════════════════════════════════════════════════════
 // NOTIFICATIONS  (Registrar inbox — generic Notification table, userId-scoped)
@@ -1888,3 +2243,7 @@ router.post('/notifications/read-all', async (req: AuthRequest, res) => {
     ok(res, await markAllRead(req.user!.userId));
   } catch (e) { fail(res, e); }
 });
+
+export { router as registrarRouter };
+export default router;
+
