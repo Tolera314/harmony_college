@@ -41,15 +41,18 @@ async function resolveInstructor(userId: string) {
   return record;
 }
 
-/** Verify the instructor owns the course offering. Throws 403 if not. */
-async function verifyOfferingOwnership(courseOfferingId: string, instructorRecordId: string) {
+/** Verify the instructor owns the course offering and optionally matches expected courseId. Throws 403 if not. */
+async function verifyOfferingOwnership(courseOfferingId: string, instructorRecordId: string, expectedCourseId?: string) {
   const offering = await prisma.courseOffering.findUnique({
     where: { id: courseOfferingId },
-    select: { instructorId: true },
+    select: { id: true, instructorId: true, courseId: true },
   });
   if (!offering) throw new Error('Course offering not found.');
   if (offering.instructorId !== instructorRecordId) {
     throw new Error('You are not authorized to access this course offering.');
+  }
+  if (expectedCourseId && offering.courseId !== expectedCourseId) {
+    throw new Error('Selected class does not belong to the selected course.');
   }
   return offering;
 }
@@ -683,16 +686,19 @@ export async function getStudentAcademicView(
 // ASSIGNMENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getAssignments(userId: string, courseOfferingId?: string) {
+export async function getAssignments(userId: string, courseOfferingId?: string, courseId?: string) {
   const instructor = await resolveInstructor(userId);
 
   // When courseOfferingId is provided, verify ownership first
   if (courseOfferingId) {
-    await verifyOfferingOwnership(courseOfferingId, instructor.id);
+    await verifyOfferingOwnership(courseOfferingId, instructor.id, courseId);
   }
 
   const where: any = {
-    courseOffering: { instructorId: instructor.id },
+    courseOffering: {
+      instructorId: instructor.id,
+      ...(courseId && { courseId }),
+    },
     ...(courseOfferingId && { courseOfferingId }),
   };
 
@@ -700,7 +706,7 @@ export async function getAssignments(userId: string, courseOfferingId?: string) 
     where,
     include: {
       courseOffering: {
-        include: { course: { select: { code: true, name: true } } },
+        include: { course: { select: { id: true, code: true, name: true } } },
       },
       _count: { select: { submissions: true, attachments: true } },
     },
@@ -716,9 +722,11 @@ export async function getAssignments(userId: string, courseOfferingId?: string) 
     totalPoints: a.totalPoints,
     status: a.status,
     allowLateSubmit: a.allowLateSubmit,
+    courseId: a.courseOffering.course.id,
     courseCode: a.courseOffering.course.code,
     courseName: a.courseOffering.course.name,
     courseOfferingId: a.courseOfferingId,
+    section: a.courseOffering.section,
     createdAt: a.createdAt,
     submissionCount: a._count.submissions,
     attachmentCount: a._count.attachments,
@@ -745,6 +753,8 @@ export async function getAssignmentDetail(userId: string, assignmentId: string) 
 
   return {
     ...assignment,
+    courseId: assignment.courseOffering.courseId,
+    classId: assignment.courseOfferingId,
     attachments,
     submissions: submissions.map(s => ({
       id: s.id,
@@ -770,10 +780,81 @@ export async function getAssignmentDetail(userId: string, assignmentId: string) 
   };
 }
 
+export async function getOfferingSubmissions(
+  userId: string,
+  courseOfferingId: string,
+  assignmentId?: string,
+) {
+  const instructor = await resolveInstructor(userId);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  const where: any = {
+    assignment: {
+      courseOfferingId,
+      ...(assignmentId && { id: assignmentId }),
+    },
+  };
+
+  const submissions = await prisma.assignmentSubmission.findMany({
+    where,
+    include: {
+      assignment: {
+        select: {
+          id: true,
+          title: true,
+          totalPoints: true,
+          dueDate: true,
+          courseOffering: {
+            select: {
+              id: true,
+              section: true,
+              course: { select: { id: true, code: true, name: true } },
+            },
+          },
+        },
+      },
+      studentRecord: {
+        include: {
+          user: { select: { fullName: true, email: true } },
+        },
+      },
+    },
+    orderBy: { submittedAt: 'desc' },
+  });
+
+  return submissions.map(s => ({
+    id: s.id,
+    assignmentId: s.assignmentId,
+    assignmentTitle: s.assignment.title,
+    totalPoints: s.assignment.totalPoints,
+    dueDate: s.assignment.dueDate,
+    studentName: s.studentRecord.user.fullName,
+    studentId: s.studentRecord.studentId,
+    studentEmail: s.studentRecord.user.email,
+    courseId: s.assignment.courseOffering.course.id,
+    courseCode: s.assignment.courseOffering.course.code,
+    courseName: s.assignment.courseOffering.course.name,
+    classId: s.assignment.courseOffering.id,
+    section: s.assignment.courseOffering.section,
+    status: s.status,
+    submittedAt: s.submittedAt,
+    score: s.score,
+    letterGrade: s.letterGrade,
+    feedback: s.feedback,
+    gradedAt: s.gradedAt,
+    isLate: s.status === SubmissionStatus.LATE,
+    fileUrl: s.fileUrl,
+    fileName: s.fileName,
+    fileSize: s.fileSize,
+    textContent: s.textContent,
+  }));
+}
+
 export async function createAssignment(
   userId: string,
   courseOfferingId: string,
   data: {
+    courseId?: string;
     title: string;
     description: string;
     instructions: string;
@@ -781,11 +862,12 @@ export async function createAssignment(
     totalPoints?: number;
     allowLateSubmit?: boolean;
     maxFileSize?: number;
+    status?: AssignmentStatus;
     attachments?: Array<{ name: string; size: number | string; url: string; type?: string }>;
   },
 ) {
   const instructor = await resolveInstructor(userId);
-  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id, data?.courseId);
 
   return prisma.assignment.create({
     data: {
@@ -798,7 +880,7 @@ export async function createAssignment(
       totalPoints: data.totalPoints ?? 100,
       allowLateSubmit: data.allowLateSubmit ?? false,
       maxFileSize: data.maxFileSize ?? 250,
-      status: AssignmentStatus.DRAFT,
+      status: data.status ?? AssignmentStatus.DRAFT,
       ...(data.attachments && data.attachments.length > 0 && {
         attachments: {
           create: data.attachments.map(att => ({
@@ -918,31 +1000,50 @@ export async function gradeSubmission(
 // QUIZZES
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getQuizzes(userId: string, courseOfferingId?: string) {
+export async function getQuizzes(userId: string, courseOfferingId?: string, courseId?: string) {
   const instructor = await resolveInstructor(userId);
 
   // When courseOfferingId is provided, verify ownership
   if (courseOfferingId) {
-    await verifyOfferingOwnership(courseOfferingId, instructor.id);
+    await verifyOfferingOwnership(courseOfferingId, instructor.id, courseId);
   }
 
   const where: any = {
-    courseOffering: { instructorId: instructor.id },
+    courseOffering: {
+      instructorId: instructor.id,
+      ...(courseId && { courseId }),
+    },
     ...(courseOfferingId && { courseOfferingId }),
   };
 
-  return prisma.quiz.findMany({
+  const quizzes = await prisma.quiz.findMany({
     where,
     include: {
-      courseOffering: { include: { course: { select: { code: true, name: true } } } },
+      courseOffering: {
+        include: { course: { select: { id: true, code: true, name: true } } },
+      },
       _count: { select: { questions: true, attempts: true } },
     },
     orderBy: [{ status: 'asc' }, { availableFrom: 'asc' }],
+  });
+
+  return quizzes.map(qz => {
+    const isExam = qz.description?.startsWith('[EXAM]') ?? false;
+    return {
+      ...qz,
+      assessmentType: isExam ? ('EXAM' as const) : ('QUIZ' as const),
+      cleanDescription: qz.description ? qz.description.replace(/^\[EXAM\]\s*/, '') : '',
+      courseId: qz.courseOffering.course.id,
+      courseCode: qz.courseOffering.course.code,
+      courseName: qz.courseOffering.course.name,
+      section: qz.courseOffering.section,
+    };
   });
 }
 
 export async function getQuizDetail(userId: string, quizId: string) {
   const quiz = await verifyQuizOwnership(quizId, userId);
+  const isExam = quiz.description?.startsWith('[EXAM]') ?? false;
 
   const [questions, attempts] = await Promise.all([
     prisma.quizQuestion.findMany({
@@ -964,6 +1065,11 @@ export async function getQuizDetail(userId: string, quizId: string) {
 
   return {
     ...quiz,
+    assessmentType: isExam ? ('EXAM' as const) : ('QUIZ' as const),
+    cleanDescription: quiz.description ? quiz.description.replace(/^\[EXAM\]\s*/, '') : '',
+    courseId: quiz.courseOffering.courseId,
+    classId: quiz.courseOfferingId,
+    section: quiz.courseOffering.section,
     questions,
     attempts: attempts.map(a => ({
       id: a.id,
@@ -987,6 +1093,8 @@ export async function createQuiz(
   userId: string,
   courseOfferingId: string,
   data: {
+    courseId?: string;
+    assessmentType?: 'QUIZ' | 'EXAM';
     title: string;
     description?: string;
     instructions?: string;
@@ -998,6 +1106,7 @@ export async function createQuiz(
     totalPoints?: number;
     showResultsImmediately?: boolean;
     shuffleQuestions?: boolean;
+    status?: QuizStatus;
     questions?: Array<{
       questionText: string;
       type: string;
@@ -1007,27 +1116,24 @@ export async function createQuiz(
   },
 ) {
   const instructor = await resolveInstructor(userId);
-  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id, data?.courseId);
 
   const from = new Date(data.availableFrom);
   const until = new Date(data.availableUntil);
   if (until <= from) throw new Error('availableUntil must be after availableFrom.');
 
-  const qTypeMap = (t: string): QuestionType => {
-    const u = t.toUpperCase().replace('-', '_');
-    if (u === 'TRUEFALSE' || u === 'TRUE_FALSE') return QuestionType.TRUE_FALSE;
-    if (u === 'FILLBLANK' || u === 'FILL_BLANK') return QuestionType.FILL_BLANK;
-    if (u === 'SHORTANSWER' || u === 'SHORT_ANSWER') return QuestionType.SHORT_ANSWER;
-    if (u === 'ESSAY') return QuestionType.ESSAY;
-    return QuestionType.MCQ;
-  };
+  const isExam = data.assessmentType === 'EXAM';
+  let formattedDescription = data.description?.trim() || null;
+  if (isExam) {
+    formattedDescription = formattedDescription ? (formattedDescription.startsWith('[EXAM]') ? formattedDescription : `[EXAM] ${formattedDescription}`) : '[EXAM]';
+  }
 
   return prisma.quiz.create({
     data: {
       courseOfferingId,
       createdBy: userId,
       title: data.title,
-      description: data.description,
+      description: formattedDescription,
       instructions: data.instructions,
       durationMinutes: data.durationMinutes ?? 30,
       availableFrom: from,
@@ -1037,24 +1143,27 @@ export async function createQuiz(
       totalPoints: data.totalPoints ?? 100,
       showResultsImmediately: data.showResultsImmediately ?? true,
       shuffleQuestions: data.shuffleQuestions ?? false,
-      status: QuizStatus.DRAFT,
+      status: data.status ?? QuizStatus.DRAFT,
       ...(data.questions && data.questions.length > 0 && {
         questions: {
-          create: data.questions.map((q, idx) => ({
-            questionText: q.questionText,
-            type: qTypeMap(q.type),
-            points: q.points ?? 1,
-            orderIndex: idx,
-            ...(q.options && q.options.length > 0 && {
-              options: {
-                create: q.options.map((opt, oIdx) => ({
-                  text: opt.text,
-                  isCorrect: opt.isCorrect ?? false,
-                  orderIndex: oIdx,
-                })),
-              },
-            }),
-          })),
+          create: data.questions.map((q, idx) => {
+            const type = mapQuestionType(q.type);
+            return {
+              questionText: q.questionText,
+              type,
+              points: q.points ?? 1,
+              orderIndex: idx,
+              ...((type === QuestionType.MCQ || type === QuestionType.TRUE_FALSE) && q.options && q.options.length > 0 && {
+                options: {
+                  create: q.options.map((opt, oIdx) => ({
+                    text: opt.text,
+                    isCorrect: opt.isCorrect ?? false,
+                    orderIndex: oIdx,
+                  })),
+                },
+              }),
+            };
+          }),
         },
       }),
     },
@@ -1064,33 +1173,248 @@ export async function createQuiz(
   });
 }
 
+function mapQuestionType(t: string): QuestionType {
+  const u = (t || '').toUpperCase().replace('-', '_');
+  if (u === 'TRUEFALSE' || u === 'TRUE_FALSE') return QuestionType.TRUE_FALSE;
+  if (u === 'FILLBLANK' || u === 'FILL_BLANK') return QuestionType.FILL_BLANK;
+  if (u === 'SHORTANSWER' || u === 'SHORT_ANSWER') return QuestionType.SHORT_ANSWER;
+  if (u === 'ESSAY') return QuestionType.ESSAY;
+  return QuestionType.MCQ;
+}
+
 export async function updateQuiz(
   userId: string,
   quizId: string,
-  data: Record<string, unknown>,
+  data: {
+    courseId?: string;
+    assessmentType?: 'QUIZ' | 'EXAM';
+    title?: string;
+    description?: string;
+    instructions?: string;
+    durationMinutes?: number;
+    availableFrom?: string;
+    availableUntil?: string;
+    passingScore?: number;
+    maxAttempts?: number;
+    totalPoints?: number;
+    showResultsImmediately?: boolean;
+    shuffleQuestions?: boolean;
+    status?: QuizStatus;
+    questions?: Array<{
+      id?: string;
+      questionText: string;
+      type: string;
+      points?: number;
+      options?: Array<{ id?: string; text: string; isCorrect?: boolean }>;
+    }>;
+  },
 ) {
   const quiz = await verifyQuizOwnership(quizId, userId);
   if (quiz.status === QuizStatus.CLOSED) {
     throw new Error('Cannot modify a closed quiz.');
   }
 
-  const allowed: (keyof typeof data)[] = [
-    'title', 'description', 'instructions', 'durationMinutes',
-    'availableFrom', 'availableUntil', 'passingScore', 'maxAttempts',
-    'totalPoints', 'showResultsImmediately', 'shuffleQuestions', 'status',
-  ];
-  const update: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (data[key] !== undefined) {
-      if ((key === 'availableFrom' || key === 'availableUntil') && typeof data[key] === 'string') {
-        update[key] = new Date(data[key] as string);
-      } else {
-        update[key] = data[key];
-      }
+  const isExam = data.assessmentType !== undefined
+    ? data.assessmentType === 'EXAM'
+    : (quiz.description?.startsWith('[EXAM]') ?? false);
+
+  let formattedDescription: string | null | undefined = undefined;
+  if (data.description !== undefined) {
+    const raw = data.description ? data.description.trim() : '';
+    if (isExam) {
+      formattedDescription = raw ? (raw.startsWith('[EXAM]') ? raw : `[EXAM] ${raw}`) : '[EXAM]';
+    } else {
+      formattedDescription = raw ? raw.replace(/^\[EXAM\]\s*/, '') : null;
+    }
+  } else if (data.assessmentType !== undefined) {
+    const clean = quiz.description ? quiz.description.replace(/^\[EXAM\]\s*/, '') : '';
+    if (isExam) {
+      formattedDescription = clean ? `[EXAM] ${clean}` : '[EXAM]';
+    } else {
+      formattedDescription = clean || null;
     }
   }
 
-  return prisma.quiz.update({ where: { id: quizId }, data: update });
+  const updateData: any = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (formattedDescription !== undefined) updateData.description = formattedDescription;
+  if (data.instructions !== undefined) updateData.instructions = data.instructions;
+  if (data.durationMinutes !== undefined) updateData.durationMinutes = Number(data.durationMinutes);
+  if (data.availableFrom !== undefined) updateData.availableFrom = new Date(data.availableFrom);
+  if (data.availableUntil !== undefined) updateData.availableUntil = new Date(data.availableUntil);
+  if (data.passingScore !== undefined) updateData.passingScore = Number(data.passingScore);
+  if (data.maxAttempts !== undefined) updateData.maxAttempts = Number(data.maxAttempts);
+  if (data.totalPoints !== undefined) updateData.totalPoints = Number(data.totalPoints);
+  if (data.showResultsImmediately !== undefined) updateData.showResultsImmediately = Boolean(data.showResultsImmediately);
+  if (data.shuffleQuestions !== undefined) updateData.shuffleQuestions = Boolean(data.shuffleQuestions);
+  if (data.status !== undefined) updateData.status = data.status;
+
+  if (!data.questions) {
+    return prisma.quiz.update({
+      where: { id: quizId },
+      data: updateData,
+      include: {
+        questions: {
+          include: { options: { orderBy: { orderIndex: 'asc' } } },
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Fetch existing questions
+    const existingQuestions = await tx.quizQuestion.findMany({
+      where: { quizId },
+      select: { id: true },
+    });
+    const existingIdSet = new Set(existingQuestions.map(q => q.id));
+
+    // 2. Identify incoming IDs that exist in DB
+    const incomingExistingIds = new Set(
+      data.questions!.map(q => q.id).filter((id): id is string => !!id && existingIdSet.has(id))
+    );
+
+    // 3. Delete questions that were removed
+    const toDelete = existingQuestions.filter(q => !incomingExistingIds.has(q.id)).map(q => q.id);
+    if (toDelete.length > 0) {
+      await tx.quizQuestion.deleteMany({
+        where: { id: { in: toDelete } },
+      });
+    }
+
+    // 4. Upsert/Update questions
+    let calculatedTotalPoints = 0;
+    for (let idx = 0; idx < data.questions!.length; idx++) {
+      const q = data.questions![idx];
+      const points = q.points ?? 1;
+      calculatedTotalPoints += points;
+      const type = mapQuestionType(q.type);
+
+      if (q.id && existingIdSet.has(q.id)) {
+        await tx.quizQuestion.update({
+          where: { id: q.id },
+          data: {
+            questionText: q.questionText,
+            type,
+            points,
+            orderIndex: idx,
+          },
+        });
+
+        // Replace options for MCQ or TRUE_FALSE
+        await tx.quizQuestionOption.deleteMany({ where: { questionId: q.id } });
+        if ((type === QuestionType.MCQ || type === QuestionType.TRUE_FALSE) && q.options && q.options.length > 0) {
+          await tx.quizQuestionOption.createMany({
+            data: q.options.map((opt, oIdx) => ({
+              questionId: q.id!,
+              text: opt.text,
+              isCorrect: Boolean(opt.isCorrect),
+              orderIndex: oIdx,
+            })),
+          });
+        }
+      } else {
+        // Create new question added to quiz
+        await tx.quizQuestion.create({
+          data: {
+            quizId,
+            questionText: q.questionText,
+            type,
+            points,
+            orderIndex: idx,
+            ...((type === QuestionType.MCQ || type === QuestionType.TRUE_FALSE) && q.options && q.options.length > 0 && {
+              options: {
+                create: q.options.map((opt, oIdx) => ({
+                  text: opt.text,
+                  isCorrect: Boolean(opt.isCorrect),
+                  orderIndex: oIdx,
+                })),
+              },
+            }),
+          },
+        });
+      }
+    }
+
+    if (data.totalPoints === undefined && calculatedTotalPoints > 0) {
+      updateData.totalPoints = calculatedTotalPoints;
+    }
+
+    return tx.quiz.update({
+      where: { id: quizId },
+      data: updateData,
+      include: {
+        questions: {
+          include: { options: { orderBy: { orderIndex: 'asc' } } },
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
+    });
+  });
+}
+
+export async function deleteQuiz(userId: string, quizId: string) {
+  await verifyQuizOwnership(quizId, userId);
+  return prisma.quiz.delete({ where: { id: quizId } });
+}
+
+export async function addQuizQuestion(
+  userId: string,
+  quizId: string,
+  data: {
+    questionText: string;
+    type: string;
+    points?: number;
+    options?: Array<{ text: string; isCorrect?: boolean }>;
+  },
+) {
+  const quiz = await verifyQuizOwnership(quizId, userId);
+  if (quiz.status === QuizStatus.CLOSED) throw new Error('Cannot modify a closed quiz.');
+
+  const count = await prisma.quizQuestion.count({ where: { quizId } });
+  const points = data.points ?? 1;
+  const type = mapQuestionType(data.type);
+
+  const question = await prisma.quizQuestion.create({
+    data: {
+      quizId,
+      questionText: data.questionText,
+      type,
+      points,
+      orderIndex: count,
+      ...((type === QuestionType.MCQ || type === QuestionType.TRUE_FALSE) && data.options && data.options.length > 0 && {
+        options: {
+          create: data.options.map((opt, oIdx) => ({
+            text: opt.text,
+            isCorrect: Boolean(opt.isCorrect),
+            orderIndex: oIdx,
+          })),
+        },
+      }),
+    },
+    include: { options: { orderBy: { orderIndex: 'asc' } } },
+  });
+
+  await prisma.quiz.update({
+    where: { id: quizId },
+    data: { totalPoints: { increment: points } },
+  });
+
+  return question;
+}
+
+export async function deleteQuizQuestion(userId: string, quizId: string, questionId: string) {
+  await verifyQuizOwnership(quizId, userId);
+  const q = await prisma.quizQuestion.findFirst({ where: { id: questionId, quizId } });
+  if (!q) throw new Error('Question not found in this quiz.');
+
+  await prisma.quizQuestion.delete({ where: { id: questionId } });
+  await prisma.quiz.update({
+    where: { id: quizId },
+    data: { totalPoints: { decrement: q.points } },
+  });
+  return { id: questionId };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -18,13 +18,54 @@ function detectPaymentMethod(
   return 'Cash';
 }
 
+// ── Dynamic Cashier Resolution ───────────────────────────────────────────────
+async function resolveCashier(actorUserId?: string): Promise<{ cashierId: string; cashierName: string }> {
+  if (actorUserId) {
+    const user = await prisma.user.findUnique({
+      where: { id: actorUserId },
+      select: {
+        id: true,
+        fullName: true,
+        hrEmployee: { select: { employeeCode: true, fullName: true } },
+      },
+    });
+    if (user) {
+      return {
+        cashierId: user.hrEmployee?.employeeCode ?? `FO-${user.id.slice(0, 6).toUpperCase()}`,
+        cashierName: user.hrEmployee?.fullName ?? user.fullName,
+      };
+    }
+  }
+
+  const foUser = await prisma.user.findFirst({
+    where: { role: 'FINANCE_OFFICER', status: 'ACTIVE' },
+    select: {
+      id: true,
+      fullName: true,
+      hrEmployee: { select: { employeeCode: true, fullName: true } },
+    },
+  });
+
+  if (foUser) {
+    return {
+      cashierId: foUser.hrEmployee?.employeeCode ?? `FO-${foUser.id.slice(0, 6).toUpperCase()}`,
+      cashierName: foUser.hrEmployee?.fullName ?? foUser.fullName,
+    };
+  }
+
+  return {
+    cashierId: 'FO-OFFICE',
+    cashierName: 'Finance Office',
+  };
+}
+
 // ── List receipts ─────────────────────────────────────────────────────────────
 
 export async function listReceipts(params: {
   search?: string;
   page?:   number;
   limit?:  number;
-}) {
+}, actorUserId?: string) {
   const page  = Math.max(1, params.page  || 1);
   const limit = Math.min(100, Math.max(1, params.limit || 20));
   const skip  = (page - 1) * limit;
@@ -99,6 +140,8 @@ export async function listReceipts(params: {
   const digital = Math.min(total, digitalCount);
   const printed = Math.max(0, total - digital);
 
+  const cashier = await resolveCashier(actorUserId);
+
   const receipts = transactions.map((tx) => {
     const student = tx.financialAccount.studentRecord;
     const amount  = Math.abs(tx.amount);
@@ -115,8 +158,8 @@ export async function listReceipts(params: {
       amount,
       paymentMethod:       method,
       referenceNumber:     tx.referenceId ?? 'N/A',
-      cashierId:           'FO-001',
-      cashierName:         'Finance Officer',
+      cashierId:           cashier.cashierId,
+      cashierName:         cashier.cashierName,
       date:                dateObj.toISOString().split('T')[0],
       time:                dateObj.toTimeString().slice(0, 5),
       description:         tx.description,
@@ -147,26 +190,29 @@ export async function listReceipts(params: {
 
 // ── Get receipt detail ────────────────────────────────────────────────────────
 
-export async function getReceiptDetail(idOrReceiptNumber: string) {
-  const tx = await prisma.financialTransaction.findFirst({
-    where: {
-      OR:     [{ id: idOrReceiptNumber }, { receiptId: idOrReceiptNumber }],
-      status: 'POSTED',
-    },
-    include: {
-      financialAccount: {
-        include: {
-          studentRecord: {
-            include: {
-              user:       { select: { fullName: true, email: true, phone: true } },
-              program:    { select: { name: true } },
-              department: { select: { name: true } },
+export async function getReceiptDetail(idOrReceiptNumber: string, actorUserId?: string) {
+  const [tx, cashier] = await Promise.all([
+    prisma.financialTransaction.findFirst({
+      where: {
+        OR:     [{ id: idOrReceiptNumber }, { receiptId: idOrReceiptNumber }],
+        status: 'POSTED',
+      },
+      include: {
+        financialAccount: {
+          include: {
+            studentRecord: {
+              include: {
+                user:       { select: { fullName: true, email: true, phone: true } },
+                program:    { select: { name: true } },
+                department: { select: { name: true } },
+              },
             },
           },
         },
       },
-    },
-  });
+    }),
+    resolveCashier(actorUserId),
+  ]);
 
   if (!tx) throw new Error('Receipt not found');
 
@@ -185,8 +231,8 @@ export async function getReceiptDetail(idOrReceiptNumber: string) {
     amount,
     paymentMethod:       method,
     referenceNumber:     tx.referenceId ?? 'N/A',
-    cashierId:           'FO-001',
-    cashierName:         'Finance Officer',
+    cashierId:           cashier.cashierId,
+    cashierName:         cashier.cashierName,
     date:                dateObj.toISOString().split('T')[0],
     time:                dateObj.toTimeString().slice(0, 5),
     description:         tx.description,

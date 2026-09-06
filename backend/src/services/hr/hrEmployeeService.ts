@@ -513,7 +513,8 @@ export async function inviteEmployee(
 
   await writeHRAudit({
     actorUserId,
-    actorName: 'HR Officer',
+    actorName: await prisma.user.findUnique({ where: { id: actorUserId }, select: { fullName: true } })
+      .then(u => u?.fullName ?? 'HR Officer').catch(() => 'HR Officer'),
     action:    'Invitation Sent',
     employeeName: employee.fullName,
     module:    'Employees',

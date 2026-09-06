@@ -222,7 +222,7 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
     setSubmitting(true);
     try {
       await recordStudentPayment({
-        studentRecordId: selectedStudent?.studentRecordId || form.studentId,
+        studentRecordId: selectedAccount?.studentRecordId || form.studentId,
         amount: Number(form.amount),
         paymentMethod: form.method as any,
         referenceNumber: form.reference.trim() || undefined,

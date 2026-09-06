@@ -197,7 +197,7 @@ router.post('/assignments/:id/submit', async (req: AuthRequest, res) => {
   try {
     const srId = await resolveStudentRecord(req.user!.userId);
     const schema = z.object({
-      fileUrl:     z.string().url().optional(),
+      fileUrl:     z.string().min(1).max(1000).optional(),
       fileName:    z.string().max(255).optional(),
       fileSize:    z.string().max(20).optional(),
       textContent: z.string().max(50000).optional(),

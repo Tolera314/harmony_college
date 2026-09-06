@@ -7,7 +7,7 @@
  *       Confirmation → Track Status → Receive Grade & Feedback
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Assignment, Course, NavTab } from '../types';
 import {
   ClipboardList, ChevronLeft, Download, Upload, FileText,
@@ -165,7 +165,9 @@ const AssignmentPanel: React.FC<{
   assignment: Assignment | null;
   course: Course | null;
   onSubmit: (file: File | null, text: string) => void;
-}> = ({ isOpen, onClose, assignment, course, onSubmit }) => {
+  submitError?: string | null;
+  submitting?: boolean;
+}> = ({ isOpen, onClose, assignment, course, onSubmit, submitError, submitting }) => {
   const [tab, setTab] = useState<'details' | 'submit'>('details');
   const [text, setText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -520,16 +522,27 @@ const AssignmentPanel: React.FC<{
                   <p className="font-mono text-[10px] text-right" style={{ color: 'var(--text-faint)' }}>{text.length} chars</p>
                 </div>
 
+                {/* Submit error display */}
+                {submitError && (
+                  <div
+                    className="p-3 rounded-xl border text-xs font-sans flex items-start gap-2"
+                    style={{ backgroundColor: 'var(--status-danger-bg, rgba(239,68,68,0.08))', borderColor: 'var(--status-danger-border, rgba(239,68,68,0.3))', color: 'var(--status-danger)' }}
+                  >
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{submitError}</span>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3 pt-1">
                   <Button variant="ghost" size="sm" onClick={() => setTab('details')}>← Back</Button>
                   <div className="flex-1" />
                   <Button
                     variant="primary"
                     icon={<Send className="w-4 h-4" />}
-                    disabled={!canSubmit}
+                    disabled={!canSubmit || submitting}
                     onClick={() => setConfirmOpen(true)}
                   >
-                    Submit Assignment
+                    {submitting ? 'Submitting…' : 'Submit Assignment'}
                   </Button>
                 </div>
               </motion.div>
@@ -571,13 +584,13 @@ const AssignmentPanel: React.FC<{
               variant="primary"
               className="flex-1"
               icon={<Send className="w-4 h-4" />}
+              disabled={submitting}
               onClick={() => {
                 setConfirmOpen(false);
                 onSubmit(selectedFile, text);
-                handleClose();
               }}
             >
-              Submit Now
+              {submitting ? 'Submitting…' : 'Submit Now'}
             </Button>
           </div>
         </div>
@@ -665,6 +678,13 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
   const [panelTarget, setPanelTarget] = useState<{ assignment: Assignment; course: Course } | null>(null);
   const [confirmed, setConfirmed] = useState<{ assignment: Assignment; course: Course } | null>(null);
   const [view, setView] = useState<SubView>('hub');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Keep localCourses in sync when parent refreshes enrolledCourses
+  useEffect(() => {
+    setLocalCourses(enrolledCourses);
+  }, [enrolledCourses]);
 
   const localAssignments = localCourses.flatMap(c => c.assignments.map(a => ({ assignment: a, course: c })));
 
@@ -684,22 +704,30 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
     const course = localCourses.find(c => c.id === courseId)!;
     const orig   = course.assignments.find(a => a.id === assignmentId)!;
 
-    let fileUrl = file ? `/uploads/${file.name}` : undefined;
+    setSubmitting(true);
+    setSubmitError(null);
+
+    // ── Step 1: Upload file (if provided) ────────────────────────────────
+    let fileUrl: string | undefined;
     if (file) {
       const fd = new FormData();
       fd.append('file', file);
       try {
         const res = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.fileUrl) fileUrl = json.fileUrl;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as any).error ?? `File upload failed (${res.status})`);
         }
-      } catch {
-        // Fallback to placeholder if upload endpoint unready
+        const json = await res.json();
+        fileUrl = json.fileUrl;
+      } catch (uploadErr) {
+        setSubmitting(false);
+        setSubmitError(uploadErr instanceof Error ? uploadErr.message : 'File upload failed. Please try again.');
+        return; // Do NOT proceed — don't mark as submitted if upload failed
       }
     }
 
-    // Call real API — the assignment ID maps to the DB assignment ID
+    // ── Step 2: Submit assignment via real API ────────────────────────────
     try {
       await studentDashApi.submitAssignment(assignmentId, {
         textContent: text.trim() || undefined,
@@ -707,11 +735,15 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
         fileName: file ? file.name : undefined,
         fileSize: file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : undefined,
       });
-    } catch {
-      // If the API call fails (e.g. mock mode), still show success UI
+    } catch (apiErr) {
+      setSubmitting(false);
+      setSubmitError(apiErr instanceof Error ? apiErr.message : 'Submission failed. Please check your connection and try again.');
+      return; // Do NOT proceed — don't show success if API rejected
     }
 
-    // Optimistic local state update
+    setSubmitting(false);
+
+    // ── Step 3: Optimistic local state update ─────────────────────────────
     setLocalCourses(prev => prev.map(c => {
       if (c.id !== courseId) return c;
       return {
@@ -722,7 +754,7 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
             ...a,
             status: 'submitted' as const,
             submittedAt: 'Just now',
-            submittedFile: file ? { name: file.name, size: `${(file.size / 1024 / 1024).toFixed(2)} MB` } : a.submittedFile,
+            submittedFile: file ? { name: file.name, size: `${(file.size / 1024 / 1024).toFixed(2)} MB`, url: fileUrl ?? '#' } : a.submittedFile,
             submittedText: text.trim() || a.submittedText,
           };
         }),
@@ -874,9 +906,11 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
       {/* Slide panel */}
       <AssignmentPanel
         isOpen={!!panelTarget}
-        onClose={() => setPanelTarget(null)}
+        onClose={() => { setPanelTarget(null); setSubmitError(null); }}
         assignment={panelTarget?.assignment ?? null}
         course={panelTarget?.course ?? null}
+        submitError={submitError}
+        submitting={submitting}
         onSubmit={(file, text) => {
           if (!panelTarget) return;
           handleSubmit(panelTarget.assignment.id, panelTarget.course.id, file, text);
@@ -885,3 +919,4 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
     </>
   );
 };
+

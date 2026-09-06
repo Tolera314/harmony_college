@@ -777,10 +777,10 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 space-y-1">
                 <div className="flex items-center gap-2 font-semibold text-amber-400">
                   <ShieldAlert className="w-4 h-4 shrink-0" />
-                  <span>Resend Email Restriction Notice</span>
+                  <span>Email Delivery Notice</span>
                 </div>
                 <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                  Your Resend free account restricts email delivery to your registered address (<span className="underline font-mono">banadawithunde@gmail.com</span>). To deliver emails to other recipients (<span className="font-mono">{linkModal.email}</span>), verify a custom domain at <span className="font-mono">resend.com/domains</span> or copy the invitation link below to test manually:
+                  {linkModal.warning} — The invitation could not be delivered to <span className="font-mono">{linkModal.email}</span>. To verify a custom sender domain, visit <span className="font-mono">resend.com/domains</span>. Use the invitation link below to onboard the staff member manually:
                 </p>
               </div>
             ) : (

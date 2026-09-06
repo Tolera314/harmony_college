@@ -120,6 +120,7 @@ export interface StudentQuizAttempt {
 export interface StudentQuiz {
   id: string;
   title: string;
+  assessmentType?: 'QUIZ' | 'EXAM';
   description?: string;
   instructions?: string;
   durationMinutes: number;
@@ -130,7 +131,7 @@ export interface StudentQuiz {
   totalPoints: number;
   showResultsImmediately: boolean;
   questions: QuizQuestion[];
-  attempt?: StudentQuizAttempt;
+  attempt?: StudentQuizAttempt | null;
 }
 
 export interface Course {

@@ -50,13 +50,18 @@ export async function listQuizzesForCourse(
     orderBy: { availableFrom: 'asc' },
   });
 
-  return quizzes.map(qz => ({
-    id: qz.id,
-    title: qz.title,
-    description: qz.description,
-    instructions: qz.instructions,
-    durationMinutes: qz.durationMinutes,
-    availableFrom: qz.availableFrom,
+  return quizzes.map(qz => {
+    const isExam = Boolean(qz.description?.startsWith('[EXAM]') || qz.description?.startsWith('EXAM:'));
+    const cleanDesc = isExam ? qz.description?.replace(/^(\[EXAM\]\s*|EXAM:\s*)/, '') : qz.description;
+    return {
+      id: qz.id,
+      title: qz.title,
+      assessmentType: (isExam ? 'EXAM' : 'QUIZ') as 'QUIZ' | 'EXAM',
+      cleanDescription: cleanDesc,
+      description: cleanDesc,
+      instructions: qz.instructions,
+      durationMinutes: qz.durationMinutes,
+      availableFrom: qz.availableFrom,
     availableUntil: qz.availableUntil,
     passingScore: qz.passingScore,
     maxAttempts: qz.maxAttempts,
@@ -80,7 +85,8 @@ export async function listQuizzesForCourse(
         }, {}),
       }
       : null,
-  }));
+    };
+  });
 }
 
 export async function startQuizAttempt(
