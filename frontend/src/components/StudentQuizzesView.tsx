@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
   HelpCircle, ChevronLeft, ChevronRight, CheckCircle2, Clock,
-  AlertTriangle, BookOpen, Send, X, Star
+  AlertTriangle, BookOpen, Send, X, Star, RefreshCw, Award,
 } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { SlidePanel } from './ui/SlidePanel';
 import { Card } from './ui/Card';
-import { EmptyState } from './ui/States';
+import { EmptyState, SkeletonPage, InlineError } from './ui/States';
 import type { StudentQuiz, Course, QuizQuestion } from '../types';
 import { studentDashApi } from '@/src/lib/studentApi';
 
@@ -22,17 +22,14 @@ interface StudentQuizzesViewProps {
 export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolledCourses = [] }) => {
   const [courses, setCourses] = useState<Course[]>(enrolledCourses);
   const [selectedCourseId, setSelectedCourseId] = useState<string>(enrolledCourses[0]?.id || '');
+  const [apiQuizzes, setApiQuizzes] = useState<StudentQuiz[]>([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [quizzesError, setQuizzesError] = useState<string | null>(null);
+  const [assessmentFilter, setAssessmentFilter] = useState<'ALL' | 'QUIZ' | 'EXAM'>('ALL');
 
-  useEffect(() => {
-    setCourses(enrolledCourses);
-    if (!enrolledCourses.find(c => c.id === selectedCourseId)) {
-      setSelectedCourseId(enrolledCourses[0]?.id || '');
-    }
-  }, [enrolledCourses, selectedCourseId]);
-  
   // Slide panel state (for instructions / details before taking quiz, or viewing results)
   const [selectedQuiz, setSelectedQuiz] = useState<StudentQuiz | null>(null);
-  
+
   // Taking Quiz state
   const [isTakingQuiz, setIsTakingQuiz] = useState(false);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
@@ -40,11 +37,91 @@ export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolled
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isReviewing, setIsReviewing] = useState(false);
 
-  const activeCourse = courses.find(c => c.id === selectedCourseId) || courses[0];
-  const quizzes = activeCourse?.quizzes || [];
+  // Sync with parent when enrolledCourses refreshes
+  useEffect(() => {
+    setCourses(enrolledCourses);
+    if (!enrolledCourses.find(c => c.id === selectedCourseId)) {
+      setSelectedCourseId(enrolledCourses[0]?.id || '');
+    }
+  }, [enrolledCourses, selectedCourseId]);
 
-  const pendingQuizzes = quizzes.filter(q => !q.attempt || q.attempt.status === 'in_progress');
-  const completedQuizzes = quizzes.filter(q => q.attempt && (q.attempt.status === 'submitted' || q.attempt.status === 'graded'));
+  // Fetch quizzes from real API when selectedCourseId changes
+  const fetchQuizzes = useCallback(async (courseOfferingId: string) => {
+    if (!courseOfferingId) {
+      setApiQuizzes([]);
+      return;
+    }
+    setQuizzesLoading(true);
+    setQuizzesError(null);
+    try {
+      const raw = await studentDashApi.getQuizzes(courseOfferingId);
+      // Map API response to StudentQuiz type for the quiz-taking UI
+      const mapped: StudentQuiz[] = (raw as any[]).map(q => ({
+        id: q.id,
+        title: q.title,
+        assessmentType: (q.assessmentType ?? 'QUIZ') as 'QUIZ' | 'EXAM',
+        description: q.cleanDescription ?? q.description ?? undefined,
+        instructions: q.instructions ?? undefined,
+        durationMinutes: q.durationMinutes ?? 30,
+        availableDate: q.availableFrom ? new Date(q.availableFrom).toLocaleDateString() : '',
+        closingDate: q.availableUntil ? new Date(q.availableUntil).toLocaleDateString() : '',
+        passingScore: q.passingScore,
+        maxAttempts: q.maxAttempts,
+        totalPoints: q.totalPoints,
+        showResultsImmediately: q.showResultsImmediately,
+        questions: (q.questions ?? []).map((qn: any) => ({
+          id: qn.id,
+          type: qn.type === 'TRUE_FALSE' ? 'TrueFalse'
+            : qn.type === 'FILL_BLANK' ? 'FillBlank'
+            : qn.type === 'SHORT_ANSWER' ? 'ShortAnswer'
+            : qn.type,
+          questionText: qn.questionText,
+          points: qn.points,
+          options: qn.options?.map((o: any) => o.text) ?? undefined,
+        })),
+        attempt: q.attempt ? {
+          id: q.attempt.id,
+          status: q.attempt.status === 'SUBMITTED' ? 'submitted'
+            : q.attempt.status === 'GRADED' ? 'graded'
+            : q.attempt.status === 'IN_PROGRESS' ? 'in_progress'
+            : 'submitted',
+          answers: q.attempt.answers ?? {},
+          startedAt: q.attempt.startedAt,
+          submittedAt: q.attempt.submittedAt,
+          score: q.attempt.score,
+          percentageScore: q.attempt.percentageScore,
+          isPassing: q.attempt.isPassing,
+        } : null,
+      }));
+      setApiQuizzes(mapped);
+    } catch (e) {
+      setQuizzesError(e instanceof Error ? e.message : 'Failed to load quizzes');
+      // Fall back to data embedded in enrolledCourses
+      const activeCourse = enrolledCourses.find(c => c.id === courseOfferingId);
+      setApiQuizzes(activeCourse?.quizzes ?? []);
+    } finally {
+      setQuizzesLoading(false);
+    }
+  }, [enrolledCourses]);
+
+  useEffect(() => {
+    if (selectedCourseId) fetchQuizzes(selectedCourseId);
+  }, [selectedCourseId, fetchQuizzes]);
+
+  // Derived: the quizzes to display (from API, filtered by assessmentType)
+  const allQuizzes = apiQuizzes;
+  const filteredQuizzes = allQuizzes.filter(q => {
+    if (assessmentFilter === 'ALL') return true;
+    if (assessmentFilter === 'EXAM') return q.assessmentType === 'EXAM';
+    return q.assessmentType !== 'EXAM';
+  });
+
+  const quizCount = allQuizzes.filter(q => q.assessmentType !== 'EXAM').length;
+  const examCount = allQuizzes.filter(q => q.assessmentType === 'EXAM').length;
+
+  const pendingQuizzes = filteredQuizzes.filter(q => !q.attempt || q.attempt.status === 'in_progress');
+  const completedQuizzes = filteredQuizzes.filter(q => q.attempt && (q.attempt.status === 'submitted' || q.attempt.status === 'graded'));
+  const quizzes = filteredQuizzes; // alias for rest of component
 
   // Timer effect
   useEffect(() => {
@@ -302,20 +379,61 @@ export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolled
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold text-(--text-primary)">Quizzes & Exams</h1>
-          <p className="font-sans text-sm text-(--text-secondary) mt-1">Manage and take your online assessments.</p>
+          <p className="font-sans text-sm text-(--text-secondary) mt-1">Manage and take your online assessments for your enrolled courses.</p>
         </div>
-        <div className="flex gap-2">
-          {courses.map(c => (
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5 flex-wrap">
+            {courses.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedCourseId(c.id)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border ${selectedCourseId === c.id ? 'bg-(--brand-gold) text-(--text-inverse) border-transparent shadow' : 'bg-(--hover-overlay) text-(--text-primary) border-(--border-subtle) hover:border-(--border-default)'}`}
+              >
+                {c.code}
+              </button>
+            ))}
+          </div>
+          {selectedCourseId && (
             <button
-              key={c.id}
-              onClick={() => setSelectedCourseId(c.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all border ${selectedCourseId === c.id ? 'bg-(--brand-gold) text-(--text-inverse) border-transparent shadow' : 'bg-(--hover-overlay) text-(--text-primary) border-(--border-subtle) hover:border-(--border-default)'}`}
+              onClick={() => fetchQuizzes(selectedCourseId)}
+              disabled={quizzesLoading}
+              title="Refresh assessments"
+              className="p-2 rounded-xl border border-(--border-subtle) bg-(--hover-overlay) hover:border-(--border-default) text-(--text-muted) hover:text-(--text-primary) transition-all"
             >
-              {c.code}
+              <RefreshCw className={`w-3.5 h-3.5 ${quizzesLoading ? 'animate-spin' : ''}`} />
             </button>
-          ))}
+          )}
         </div>
       </div>
+
+      {/* Assessment Type Filter Pills (All / Quizzes / Exams) */}
+      <div className="flex items-center gap-2 border-b border-(--border-subtle) pb-3">
+        <button
+          onClick={() => setAssessmentFilter('ALL')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${assessmentFilter === 'ALL' ? 'bg-(--brand-navy) text-white shadow-sm font-semibold' : 'text-(--text-secondary) hover:text-(--text-primary)'}`}
+        >
+          All Assessments ({allQuizzes.length})
+        </button>
+        <button
+          onClick={() => setAssessmentFilter('QUIZ')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${assessmentFilter === 'QUIZ' ? 'bg-(--brand-navy) text-white shadow-sm font-semibold' : 'text-(--text-secondary) hover:text-(--text-primary)'}`}
+        >
+          Quizzes ({quizCount})
+        </button>
+        <button
+          onClick={() => setAssessmentFilter('EXAM')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${assessmentFilter === 'EXAM' ? 'bg-(--brand-navy) text-white shadow-sm font-semibold' : 'text-(--text-secondary) hover:text-(--text-primary)'}`}
+        >
+          Exams ({examCount})
+        </button>
+      </div>
+
+      {quizzesError && (
+        <div className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-sans flex items-center justify-between">
+          <span>{quizzesError}</span>
+          <button onClick={() => selectedCourseId && fetchQuizzes(selectedCourseId)} className="underline hover:no-underline font-semibold ml-2">Retry</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Pending Quizzes */}
@@ -323,12 +441,21 @@ export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolled
           <h2 className="font-sans text-lg font-bold text-(--text-primary) flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-(--brand-gold)" /> Action Required
           </h2>
-          {pendingQuizzes.length > 0 ? (
+          {quizzesLoading ? (
+            <div className="p-8 text-center text-xs font-mono text-(--text-muted) flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-(--brand-gold)" /> Loading assessments...
+            </div>
+          ) : pendingQuizzes.length > 0 ? (
             pendingQuizzes.map(quiz => (
-              <Card key={quiz.id} hoverable className="group border-l-4 border-l-(--brand-gold)">
+              <Card key={quiz.id} hoverable className={`group border-l-4 ${quiz.assessmentType === 'EXAM' ? 'border-l-rose-500' : 'border-l-(--brand-gold)'}`}>
                 <div className="p-1">
                   <div className="flex justify-between items-start gap-4 mb-3">
-                    <h3 className="font-semibold text-(--text-primary)">{quiz.title}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-(--text-primary)">{quiz.title}</h3>
+                      {quiz.assessmentType === 'EXAM' && (
+                        <Badge variant="rose">EXAM</Badge>
+                      )}
+                    </div>
                     <Badge variant="amber">Due soon</Badge>
                   </div>
                   <p className="text-xs text-(--text-secondary) mb-4 line-clamp-2">{quiz.description}</p>
@@ -344,7 +471,7 @@ export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolled
               </Card>
             ))
           ) : (
-             <EmptyState icon={CheckCircle2} title="All Caught Up" description="You have no pending quizzes for this course." />
+             <EmptyState icon={CheckCircle2} title="All Caught Up" description="You have no pending assessments for this course." />
           )}
         </section>
 
@@ -353,12 +480,21 @@ export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolled
           <h2 className="font-sans text-lg font-bold text-(--text-primary) flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-(--status-success)" /> Completed
           </h2>
-          {completedQuizzes.length > 0 ? (
+          {quizzesLoading ? (
+            <div className="p-8 text-center text-xs font-mono text-(--text-muted) flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-(--brand-gold)" /> Loading...
+            </div>
+          ) : completedQuizzes.length > 0 ? (
             completedQuizzes.map(quiz => (
               <Card key={quiz.id} hoverable className="group">
                 <div className="p-1">
                   <div className="flex justify-between items-start gap-4 mb-3">
-                    <h3 className="font-semibold text-(--text-primary)">{quiz.title}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-(--text-primary)">{quiz.title}</h3>
+                      {quiz.assessmentType === 'EXAM' && (
+                        <Badge variant="rose">EXAM</Badge>
+                      )}
+                    </div>
                     {quiz.attempt?.status === 'graded' ? (
                       <Badge variant="emerald">{quiz.attempt.score} / {quiz.totalPoints} pts</Badge>
                     ) : (

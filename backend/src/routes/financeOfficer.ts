@@ -31,6 +31,17 @@ function fail(res: Response, err: unknown, status = 500) {
   res.status(status).json({ error: msg });
 }
 
+/** Resolve the full name of the authenticated user from the DB for audit logs */
+async function resolveActorName(req: AuthRequest): Promise<string> {
+  try {
+    const { prisma } = await import('../lib/prisma');
+    const u = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { fullName: true } });
+    return u?.fullName ?? req.user?.email ?? 'Finance Officer';
+  } catch {
+    return req.user?.email ?? 'Finance Officer';
+  }
+}
+
 // ── OVERVIEW / DASHBOARD ANITICS ──────────────────────────────────────────────
 router.get('/overview', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -87,7 +98,7 @@ router.post('/student-accounts/:studentRecordId/charge', async (req: AuthRequest
     );
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: `Posted Charge: ${description || category} (ETB ${amount})`,
       module: 'Student Accounts',
       amount: Number(amount),
@@ -114,7 +125,7 @@ router.post('/student-accounts/:studentRecordId/credit', async (req: AuthRequest
     );
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: `Posted Credit/Discount: ${description || category} (ETB ${amount})`,
       module: 'Student Accounts',
       amount: Number(amount),
@@ -171,7 +182,7 @@ router.post('/payments/:userId/verify', async (req: AuthRequest, res: Response):
     const result = await foPaymentService.verifyRegistrationPayment(userId, req.user!.userId);
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: 'Verified Registration Fee Payment',
       module: 'Admissions & Verifications',
       previousValue: 'Unverified',
@@ -190,7 +201,7 @@ router.post('/payments/:userId/unverify', async (req: AuthRequest, res: Response
     const result = await foPaymentService.unverifyRegistrationPayment(userId);
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: 'Unverified Registration Fee Payment',
       module: 'Admissions & Verifications',
       previousValue: 'Verified',
@@ -224,7 +235,7 @@ router.post('/payments/record', async (req: AuthRequest, res: Response): Promise
     );
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: `Recorded Payment via ${paymentMethod} (ETB ${amount})`,
       module: 'Payments & Collections',
       amount: Number(amount),
@@ -260,7 +271,7 @@ router.post('/transactions/:id/reverse', async (req: AuthRequest, res: Response)
     const result = await foPaymentService.reverseTransaction(id, reason || 'Transaction reversed by FO', req.user!.userId);
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: `Reversed Transaction ${id}: ${reason || 'N/A'}`,
       module: 'Transactions',
       status: 'Warning',
@@ -280,7 +291,7 @@ router.get('/receipts', async (req: AuthRequest, res: Response): Promise<void> =
       search: query.search,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 20,
-    });
+    }, req.user?.userId);
     ok(res, data);
   } catch (err) {
     console.error('[FO/receipts]', err);
@@ -291,7 +302,7 @@ router.get('/receipts', async (req: AuthRequest, res: Response): Promise<void> =
 router.get('/receipts/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);
-    const data = await foReceiptService.getReceiptDetail(id);
+    const data = await foReceiptService.getReceiptDetail(id, req.user?.userId);
     ok(res, data);
   } catch (err) {
     console.error('[FO/receipts/:id]', err);

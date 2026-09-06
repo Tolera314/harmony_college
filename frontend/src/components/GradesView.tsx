@@ -107,7 +107,7 @@ export const GradesView: React.FC<GradesViewProps> = ({
 
       return {
         term: termName,
-        academicYear: '2024/2025',
+        academicYear: `${new Date().getFullYear() - 1}/${new Date().getFullYear()}`,
         semester: termName,
         yearLevelLabel: `Year ${idx + 1}`,
         courses: termCourses,

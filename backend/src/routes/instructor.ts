@@ -34,10 +34,14 @@ import {
   updateAssignment,
   deleteAssignment,
   gradeSubmission,
+  getOfferingSubmissions,
   getQuizzes,
   getQuizDetail,
   createQuiz,
   updateQuiz,
+  deleteQuiz,
+  addQuizQuestion,
+  deleteQuizQuestion,
   getInstructorProfile,
   updateInstructorProfile,
   getAuditLog,
@@ -265,7 +269,21 @@ router.get('/classes/:offeringId/attendance/low', async (req: AuthRequest, res) 
 
 router.get('/assignments', async (req: AuthRequest, res) => {
   try {
-    ok(res, await getAssignments(req.user!.userId, req.query.courseOfferingId as string | undefined));
+    ok(res, await getAssignments(
+      req.user!.userId,
+      req.query.courseOfferingId as string | undefined,
+      req.query.courseId as string | undefined,
+    ));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/classes/:offeringId/submissions', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await getOfferingSubmissions(
+      req.user!.userId,
+      String(req.params.offeringId),
+      req.query.assignmentId as string | undefined,
+    ));
   } catch (e) { fail(res, e); }
 });
 
@@ -300,13 +318,23 @@ router.post('/assignments/:id/submissions/:submissionId/grade', async (req: Auth
   } catch (e) { fail(res, e); }
 });
 
+router.all('/submissions/:submissionId/grade', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await gradeSubmission(req.user!.userId, String(req.params.submissionId), req.body));
+  } catch (e) { fail(res, e); }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // QUIZZES
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/quizzes', async (req: AuthRequest, res) => {
   try {
-    ok(res, await getQuizzes(req.user!.userId, req.query.courseOfferingId as string | undefined));
+    ok(res, await getQuizzes(
+      req.user!.userId,
+      req.query.courseOfferingId as string | undefined,
+      req.query.courseId as string | undefined,
+    ));
   } catch (e) { fail(res, e); }
 });
 
@@ -326,6 +354,24 @@ router.post('/quizzes', async (req: AuthRequest, res) => {
 router.patch('/quizzes/:id', async (req: AuthRequest, res) => {
   try {
     ok(res, await updateQuiz(req.user!.userId, String(req.params.id), req.body));
+  } catch (e) { fail(res, e); }
+});
+
+router.delete('/quizzes/:id', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await deleteQuiz(req.user!.userId, String(req.params.id)));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/quizzes/:id/questions', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await addQuizQuestion(req.user!.userId, String(req.params.id), req.body), 201);
+  } catch (e) { fail(res, e); }
+});
+
+router.delete('/quizzes/:id/questions/:questionId', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await deleteQuizQuestion(req.user!.userId, String(req.params.id), String(req.params.questionId)));
   } catch (e) { fail(res, e); }
 });
 
