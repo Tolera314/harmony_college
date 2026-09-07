@@ -346,6 +346,16 @@ router.get('/reconciliation', async (req: AuthRequest, res: Response): Promise<v
   }
 });
 
+router.post('/reconciliation/auto-match', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await foReconciliationService.runAutoMatchReconciliation(req.user!.userId);
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/reconciliation/auto-match]', err);
+    fail(res, err, 400);
+  }
+});
+
 router.post('/reconciliation/:id/match', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);

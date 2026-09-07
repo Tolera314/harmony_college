@@ -28,7 +28,7 @@ export async function getOverviewData() {
     }),
     prisma.financialTransaction.findMany({
       orderBy: { transactionDate: 'desc' },
-      take: 200,
+      take: 500,
     }),
     prisma.studentProfile.count({
       where: { registrationFeePaid: true, paymentVerifiedByFinance: false },
@@ -44,7 +44,7 @@ export async function getOverviewData() {
   let totalCollections = 0;
   let transactionCount = transactions.length;
 
-  const monthMap: Record<string, number> = {};
+  const monthMap: Record<string, { revenue: number; collections: number }> = {};
   const deptMap: Record<string, { revenue: number; outstanding: number }> = {};
   const methodMap: Record<string, { amount: number; count: number }> = {
     Cash: { amount: 0, count: 0 },
@@ -65,51 +65,52 @@ export async function getOverviewData() {
 
   transactions.forEach((tx) => {
     if (tx.status === 'POSTED' || tx.status === 'Completed') {
-      if (tx.type === 'PAYMENT' || tx.amount > 0) {
-        totalCollections += Math.abs(tx.amount);
-      }
-      if (tx.type === 'TUITION' || tx.type === 'FEE') {
-        totalRevenue += tx.amount;
-      }
-
-      // Monthly breakdown
       const dateObj = new Date(tx.transactionDate);
       const monthKey = dateObj.toLocaleString('en-US', { month: 'short' });
-      monthMap[monthKey] = (monthMap[monthKey] || 0) + Math.abs(tx.amount);
+      if (!monthMap[monthKey]) monthMap[monthKey] = { revenue: 0, collections: 0 };
 
-      // Method breakdown (if description/category mentions gateway or default to Telebirr/Cash/Bank Transfer)
-      let method = 'Bank Transfer';
-      const descLower = (tx.description || '').toLowerCase();
-      const catLower = (tx.category || '').toLowerCase();
-      if (descLower.includes('cash') || catLower.includes('cash')) method = 'Cash';
-      else if (descLower.includes('telebirr') || catLower.includes('telebirr')) method = 'Telebirr';
-      else if (descLower.includes('chapa') || catLower.includes('chapa')) method = 'Chapa';
+      if (tx.amount > 0) {
+        totalRevenue += tx.amount;
+        monthMap[monthKey].revenue += tx.amount;
+      } else if (tx.type === 'PAYMENT' || tx.amount < 0) {
+        const paidAmount = Math.abs(tx.amount);
+        totalCollections += paidAmount;
+        monthMap[monthKey].collections += paidAmount;
 
-      if (!methodMap[method]) {
-        methodMap[method] = { amount: 0, count: 0 };
+        // Payment method breakdown
+        let method = 'Bank Transfer';
+        const descLower = (tx.description || '').toLowerCase();
+        const catLower = (tx.category || '').toLowerCase();
+        if (descLower.includes('cash') || catLower.includes('cash')) method = 'Cash';
+        else if (descLower.includes('telebirr') || catLower.includes('telebirr')) method = 'Telebirr';
+        else if (descLower.includes('chapa') || catLower.includes('chapa')) method = 'Chapa';
+
+        if (!methodMap[method]) {
+          methodMap[method] = { amount: 0, count: 0 };
+        }
+        methodMap[method].amount += paidAmount;
+        methodMap[method].count += 1;
       }
-      methodMap[method].amount += Math.abs(tx.amount);
-      methodMap[method].count += 1;
     }
   });
 
   const totalBilled = totalRevenue + totalOutstanding;
-  const collectionRate = totalBilled > 0 ? Math.min(100, Math.round((totalCollections / totalBilled) * 100)) : 85;
+  const collectionRate = totalBilled > 0 ? Math.min(100, Math.round((totalCollections / totalBilled) * 100)) : 0;
 
-  // Monthly revenue chart formatted
+  // Formatted monthly revenue trend
   const monthsOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthlyRevenue = monthsOrder
-    .filter((m) => monthMap[m] !== undefined || m === 'Aug' || m === 'Jul')
+    .filter((m) => monthMap[m] !== undefined)
     .map((m) => ({
       month: m,
-      revenue: monthMap[m] || Math.floor(Math.random() * 50000) + 120000,
-      target: 180000,
-      collections: Math.round((monthMap[m] || 120000) * 0.88),
+      revenue: monthMap[m]?.revenue || 0,
+      target: Math.round((monthMap[m]?.revenue || 0) * 1.15),
+      collections: monthMap[m]?.collections || 0,
     }));
 
   const departmentRevenue = Object.entries(deptMap).map(([dept, data]) => ({
     department: dept,
-    revenue: data.revenue || 450000,
+    revenue: data.revenue,
     outstanding: data.outstanding,
   }));
 
@@ -120,12 +121,14 @@ export async function getOverviewData() {
     Chapa: '#8B5CF6',
   };
 
-  const paymentMethodBreakdown = Object.entries(methodMap).map(([method, val]) => ({
-    method,
-    amount: val.amount || 25000,
-    count: val.count || 12,
-    color: methodColors[method] || '#6B7280',
-  }));
+  const paymentMethodBreakdown = Object.entries(methodMap)
+    .filter(([_, val]) => val.count > 0 || val.amount > 0)
+    .map(([method, val]) => ({
+      method,
+      amount: val.amount,
+      count: val.count,
+      color: methodColors[method] || '#6B7280',
+    }));
 
   const recentTransactions = transactions.slice(0, 10).map((tx) => ({
     id: tx.id,
@@ -140,21 +143,18 @@ export async function getOverviewData() {
 
   return {
     kpis: {
-      totalRevenue: totalRevenue || 1250000,
-      totalCollections: totalCollections || 980000,
+      totalRevenue,
+      totalCollections,
       totalOutstanding,
       collectionRate,
       transactionCount,
-      pendingReconciliationCount: 4,
+      pendingReconciliationCount: 0,
       pendingRegistrationCount,
     },
     monthlyRevenue,
-    departmentRevenue: departmentRevenue.length ? departmentRevenue : [
-      { department: 'Computer Science', revenue: 420000, outstanding: 35000 },
-      { department: 'Business Administration', revenue: 380000, outstanding: 28000 },
-      { department: 'Medicine', revenue: 560000, outstanding: 420000 },
-    ],
+    departmentRevenue,
     paymentMethodBreakdown,
     recentTransactions,
   };
 }
+

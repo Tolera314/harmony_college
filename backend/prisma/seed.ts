@@ -10,6 +10,7 @@
  * Run: npm run db:seed
  */
 
+import process from 'process';
 import {
   PrismaClient,
   Role,
@@ -168,7 +169,7 @@ async function main(): Promise<void> {
       endDate: new Date('2025-06-30'),
       isCurrent: false, isActive: true,
     },
-  });j
+  });
   const ay2025 = await prisma.academicYear.upsert({
     where: { name: '2025-2026' },
     update: {},

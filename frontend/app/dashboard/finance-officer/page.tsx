@@ -23,24 +23,56 @@ import { ChatView }               from '@/src/components/chat/ChatView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
 
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/src/lib/foApi';
+
 export default function FinanceOfficerPage() {
-  const [activeTab,     setRawTab]       = useState<FONavTab>('overview');
+  const [activeTab,     setRawTab]        = useState<FONavTab>('overview');
   const [notifications, setNotifications] = useState<FONotification[]>(initialNotifs);
-  const [searchOpen,    setSearchOpen]    = useState(false);
-  const [logoutOpen,    setLogoutOpen]    = useState(false);
-  const [tabLoading,    setTabLoading]    = useState(false);
+  const [searchOpen,    setSearchOpen]     = useState(false);
+  const [logoutOpen,    setLogoutOpen]     = useState(false);
+  const [tabLoading,    setTabLoading]     = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [overdueCount,   setOverdueCount]  = useState(0);
+  const [pendingReconciliation, setPendingReconciliation] = useState(0);
   const { toast, show: showToast, hide: hideToast } = useToast();
 
-  const unreadCount           = notifications.filter((n) => !n.read).length;
-  const pendingReconciliation = reconciliationEntries.filter((e) => e.status === 'Unmatched' || e.status === 'Pending Review').length;
-  const overdueCount          = financeStudents.filter((s) => s.riskLevel === 'Critical' || s.paymentStatus === 'Overdue').length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Fetch real notifications from database API
+  const fetchNotifs = useCallback(async () => {
+    try {
+      const data = await getNotifications();
+      if (data && Array.isArray(data.notifications)) {
+        setNotifications(data.notifications);
+      }
+    } catch {
+      // Keep current state fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifs();
+  }, [fetchNotifs, activeTab]);
+
+  // Fetch real overdue accounts count from database API
+  useEffect(() => {
+    fetch('/api/finance-officer/outstanding?limit=100', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && Array.isArray(data.accounts)) {
+          const realOverdue = data.accounts.filter((a: any) => a.outstanding > 0).length;
+          setOverdueCount(realOverdue);
+        }
+      })
+      .catch(() => {});
+  }, [activeTab]);
 
   const setActiveTab = (tab: FONavTab) => {
     if (tab === (activeTab as string)) return;
     setTabLoading(true);
     setTimeout(() => { setRawTab(tab as FONavTab); setTabLoading(false); }, 120);
   };
+
 
   // Ctrl+K global search shortcut
   useEffect(() => {
@@ -56,10 +88,12 @@ export default function FinanceOfficerPage() {
 
   const handleMarkRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    markNotificationRead(id).catch(() => {});
   }, []);
 
   const handleMarkAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    markAllNotificationsRead().catch(() => {});
   }, []);
 
   const handleLogout = async () => {

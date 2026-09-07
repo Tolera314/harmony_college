@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma';
+import { AuditAction } from '../../types/auth';
 
 export interface ListAccountsQueryParams {
   search?: string;
@@ -16,11 +17,12 @@ export async function listStudentAccounts(params: ListAccountsQueryParams) {
 
   const where: any = {};
 
-  if (params.search) {
+  if (params.search && params.search.trim()) {
+    const s = params.search.trim();
     where.OR = [
-      { studentId: { contains: params.search, mode: 'insensitive' } },
-      { user: { fullName: { contains: params.search, mode: 'insensitive' } } },
-      { user: { email: { contains: params.search, mode: 'insensitive' } } },
+      { studentId: { contains: s, mode: 'insensitive' } },
+      { user: { fullName: { contains: s, mode: 'insensitive' } } },
+      { user: { email: { contains: s, mode: 'insensitive' } } },
     ];
   }
 
@@ -28,36 +30,35 @@ export async function listStudentAccounts(params: ListAccountsQueryParams) {
     where.departmentId = params.departmentId;
   }
 
-  const [total, students] = await Promise.all([
-    prisma.studentRecord.count({ where }),
-    prisma.studentRecord.findMany({
-      where,
-      skip,
-      take: limit,
-      include: {
-        user: { select: { id: true, fullName: true, email: true, phone: true } },
-        department: { select: { id: true, name: true, code: true } },
-        program: { select: { id: true, name: true, code: true } },
-        financialAccount: {
-          include: {
-            transactions: {
-              orderBy: { transactionDate: 'desc' },
-              take: 5,
-            },
+  const students = await prisma.studentRecord.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      user: { select: { id: true, fullName: true, email: true, phone: true } },
+      department: { select: { id: true, name: true, code: true } },
+      program: { select: { id: true, name: true, code: true } },
+      financialAccount: {
+        include: {
+          transactions: {
+            where: { status: 'POSTED' },
+            orderBy: { transactionDate: 'desc' },
           },
         },
       },
-    }),
-  ]);
+    },
+  });
 
   const mapped = students.map((s) => {
     const acc = s.financialAccount;
     const balance = acc ? acc.balance : 0;
-    const tuition = 18500;
-    const adminFees = 1850;
-    const labFees = 0;
-    const libraryFines = 0;
-    const scholarshipDiscount = balance < 0 ? Math.abs(balance) : 0;
+    const activeTxs = acc?.transactions || [];
+
+    const totalCharged = activeTxs.filter((t) => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+    const totalPaid = activeTxs.filter((t) => t.type === 'PAYMENT').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const scholarshipDiscount = activeTxs
+      .filter((t) => t.type === 'SCHOLARSHIP' || t.type === 'GRANT')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
     const outstanding = Math.max(0, balance);
 
     let paymentStatus: 'Paid' | 'Partial' | 'Unpaid' | 'Overdue' | 'Deferred' = 'Paid';
@@ -69,6 +70,18 @@ export async function listStudentAccounts(params: ListAccountsQueryParams) {
     if (outstanding > 20000) riskLevel = 'Critical';
     else if (outstanding > 10000) riskLevel = 'High';
     else if (outstanding > 3000) riskLevel = 'Medium';
+
+    const oldestChargeTx = activeTxs
+      .filter((t) => t.amount > 0)
+      .sort((a, b) => a.transactionDate.getTime() - b.transactionDate.getTime())[0];
+    const daysOverdue =
+      outstanding > 0 && oldestChargeTx
+        ? Math.max(0, Math.floor((Date.now() - oldestChargeTx.transactionDate.getTime()) / (1000 * 60 * 60 * 24)))
+        : outstanding > 0
+        ? 14
+        : 0;
+
+    const lastPaymentTx = activeTxs.find((t) => t.type === 'PAYMENT');
 
     return {
       id: s.id,
@@ -83,29 +96,47 @@ export async function listStudentAccounts(params: ListAccountsQueryParams) {
       programId: s.programId,
       programName: s.program?.name || 'General Degree',
       year: s.yearLevel,
-      tuition,
-      adminFees,
-      labFees,
-      libraryFines,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(s.user.fullName)}`,
+      tuition: totalCharged > 0 ? totalCharged : 18500,
+      adminFees: 0,
+      labFees: 0,
+      libraryFines: 0,
       scholarshipDiscount,
-      totalCharged: tuition + adminFees,
-      totalPaid: Math.max(0, tuition + adminFees - outstanding),
+      totalCharged: totalCharged > 0 ? totalCharged : 18500,
+      totalPaid,
       outstanding,
       balance,
       clearedForTerm: acc?.clearedForTerm || null,
       paymentStatus,
       riskLevel,
-      lastPaymentDate: acc?.transactions.find((t) => t.type === 'PAYMENT')?.transactionDate || null,
-      transactions: acc?.transactions || [],
+      daysOverdue,
+      lastPaymentDate: lastPaymentTx ? lastPaymentTx.transactionDate.toISOString() : null,
+      transactions: activeTxs.map((t) => ({
+        ...t,
+        transactionDate: t.transactionDate.toISOString(),
+      })),
     };
   });
+
+
+
+  let filtered = mapped;
+  if (params.paymentStatus && params.paymentStatus !== 'All') {
+    filtered = filtered.filter((a) => a.paymentStatus === params.paymentStatus);
+  }
+  if (params.riskLevel && params.riskLevel !== 'All') {
+    filtered = filtered.filter((a) => a.riskLevel === params.riskLevel);
+  }
+
+  const total = filtered.length;
+  const paginated = filtered.slice(skip, skip + limit);
 
   return {
     total,
     page,
     limit,
     totalPages: Math.ceil(total / limit),
-    accounts: mapped,
+    accounts: paginated,
   };
 }
 
@@ -152,6 +183,13 @@ export async function getStudentAccountDetail(studentRecordId: string) {
   else if (outstanding > 10000) riskLevel = 'High';
   else if (outstanding > 3000) riskLevel = 'Medium';
 
+  const activeTxs = account.transactions.filter((t) => t.status === 'POSTED');
+  const totalCharged = activeTxs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const totalPaid = activeTxs.filter((t) => t.type === 'PAYMENT').reduce((s, t) => s + Math.abs(t.amount), 0);
+  const totalAid = activeTxs
+    .filter((t) => t.type === 'SCHOLARSHIP' || t.type === 'GRANT')
+    .reduce((s, t) => s + Math.abs(t.amount), 0);
+
   return {
     id: student.id,
     studentRecordId: student.id,
@@ -166,117 +204,197 @@ export async function getStudentAccountDetail(studentRecordId: string) {
     financialAccountId: account.id,
     balance,
     outstanding,
+    totalCharged,
+    totalPaid,
+    totalAid,
     clearedForTerm: account.clearedForTerm,
     paymentStatus,
     riskLevel,
-    transactions: account.transactions,
+    transactions: account.transactions.map((t) => ({
+      ...t,
+      transactionDate: t.transactionDate.toISOString(),
+    })),
   };
 }
 
 export async function postCharge(
   studentRecordId: string,
   chargeData: { amount: number; description: string; category: string },
-  actorUserId: string
+  actorUserId: string,
+  ipAddress?: string
 ) {
-  let account = await prisma.financialAccount.findUnique({
-    where: { studentRecordId },
-  });
-
-  if (!account) {
-    account = await prisma.financialAccount.create({
-      data: { studentRecordId, balance: 0 },
-    });
+  if (!chargeData.amount || chargeData.amount <= 0) {
+    throw new Error('Valid positive charge amount is required.');
   }
 
-  const receiptId = `CHG-${Date.now().toString(36).toUpperCase()}`;
+  return prisma.$transaction(async (tx) => {
+    let account = await tx.financialAccount.findUnique({
+      where: { studentRecordId },
+    });
 
-  const [transaction, updatedAccount] = await prisma.$transaction([
-    prisma.financialTransaction.create({
+    if (!account) {
+      account = await tx.financialAccount.create({
+        data: { studentRecordId, balance: 0 },
+      });
+    }
+
+    const receiptId = `CHG-${Date.now().toString(36).toUpperCase()}`;
+
+    const createdTx = await tx.financialTransaction.create({
       data: {
         financialAccountId: account.id,
         type: chargeData.category === 'Tuition' ? 'TUITION' : 'FEE',
         amount: Math.abs(chargeData.amount),
-        description: chargeData.description,
+        description: chargeData.description.trim(),
         category: chargeData.category || 'Fee',
         receiptId,
         status: 'POSTED',
       },
-    }),
-    prisma.financialAccount.update({
+    });
+
+    const activeTxs = await tx.financialTransaction.findMany({
+      where: { financialAccountId: account.id, status: 'POSTED' },
+      select: { amount: true },
+    });
+
+    const newBalance = activeTxs.reduce((sum, item) => sum + item.amount, 0);
+
+    const updatedAccount = await tx.financialAccount.update({
       where: { id: account.id },
       data: {
-        balance: account.balance + Math.abs(chargeData.amount),
+        balance: Math.round(newBalance * 100) / 100,
         lastUpdatedAt: new Date(),
       },
-    }),
-  ]);
+    });
 
-  return { transaction, account: updatedAccount };
+    await tx.auditLog.create({
+      data: {
+        userId: actorUserId,
+        action: AuditAction.PROFILE_COMPLETED,
+        ipAddress: ipAddress ?? null,
+        metadata: {
+          event: 'FO_CHARGE_POSTED',
+          transactionId: createdTx.id,
+          studentRecordId,
+          amount: Math.abs(chargeData.amount),
+          newBalance: updatedAccount.balance,
+          receiptId,
+        },
+      },
+    });
+
+    return { transaction: createdTx, account: updatedAccount };
+  });
 }
 
 export async function postCredit(
   studentRecordId: string,
   creditData: { amount: number; description: string; category: string },
-  actorUserId: string
+  actorUserId: string,
+  ipAddress?: string
 ) {
-  let account = await prisma.financialAccount.findUnique({
-    where: { studentRecordId },
-  });
-
-  if (!account) {
-    account = await prisma.financialAccount.create({
-      data: { studentRecordId, balance: 0 },
-    });
+  if (!creditData.amount || creditData.amount <= 0) {
+    throw new Error('Valid positive credit/discount amount is required.');
   }
 
-  const receiptId = `CRD-${Date.now().toString(36).toUpperCase()}`;
+  return prisma.$transaction(async (tx) => {
+    let account = await tx.financialAccount.findUnique({
+      where: { studentRecordId },
+    });
 
-  const [transaction, updatedAccount] = await prisma.$transaction([
-    prisma.financialTransaction.create({
+    if (!account) {
+      account = await tx.financialAccount.create({
+        data: { studentRecordId, balance: 0 },
+      });
+    }
+
+    const receiptId = `CRD-${Date.now().toString(36).toUpperCase()}`;
+
+    const createdTx = await tx.financialTransaction.create({
       data: {
         financialAccountId: account.id,
         type: creditData.category === 'Scholarship' ? 'SCHOLARSHIP' : 'GRANT',
         amount: -Math.abs(creditData.amount),
-        description: creditData.description,
+        description: creditData.description.trim(),
         category: creditData.category || 'Scholarship',
         receiptId,
         status: 'POSTED',
       },
-    }),
-    prisma.financialAccount.update({
+    });
+
+    const activeTxs = await tx.financialTransaction.findMany({
+      where: { financialAccountId: account.id, status: 'POSTED' },
+      select: { amount: true },
+    });
+
+    const newBalance = activeTxs.reduce((sum, item) => sum + item.amount, 0);
+
+    const updatedAccount = await tx.financialAccount.update({
       where: { id: account.id },
       data: {
-        balance: account.balance - Math.abs(creditData.amount),
+        balance: Math.round(newBalance * 100) / 100,
         lastUpdatedAt: new Date(),
       },
-    }),
-  ]);
+    });
 
-  return { transaction, account: updatedAccount };
+    await tx.auditLog.create({
+      data: {
+        userId: actorUserId,
+        action: AuditAction.PROFILE_COMPLETED,
+        ipAddress: ipAddress ?? null,
+        metadata: {
+          event: 'FO_CREDIT_POSTED',
+          transactionId: createdTx.id,
+          studentRecordId,
+          amount: -Math.abs(creditData.amount),
+          newBalance: updatedAccount.balance,
+          receiptId,
+        },
+      },
+    });
+
+    return { transaction: createdTx, account: updatedAccount };
+  });
 }
 
 export async function updateAccountClearance(
   studentRecordId: string,
   clearanceData: { clearedForTerm: string | null },
-  actorUserId: string
+  actorUserId: string,
+  ipAddress?: string
 ) {
-  let account = await prisma.financialAccount.findUnique({
-    where: { studentRecordId },
-  });
-
-  if (!account) {
-    account = await prisma.financialAccount.create({
-      data: { studentRecordId, balance: 0 },
+  return prisma.$transaction(async (tx) => {
+    let account = await tx.financialAccount.findUnique({
+      where: { studentRecordId },
     });
-  }
 
-  const updated = await prisma.financialAccount.update({
-    where: { id: account.id },
-    data: {
-      clearedForTerm: clearanceData.clearedForTerm,
-      lastUpdatedAt: new Date(),
-    },
+    if (!account) {
+      account = await tx.financialAccount.create({
+        data: { studentRecordId, balance: 0 },
+      });
+    }
+
+    const updated = await tx.financialAccount.update({
+      where: { id: account.id },
+      data: {
+        clearedForTerm: clearanceData.clearedForTerm ? clearanceData.clearedForTerm.trim() : null,
+        lastUpdatedAt: new Date(),
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId: actorUserId,
+        action: AuditAction.PROFILE_COMPLETED,
+        ipAddress: ipAddress ?? null,
+        metadata: {
+          event: 'FO_TERM_CLEARANCE_UPDATED',
+          studentRecordId,
+          clearedForTerm: updated.clearedForTerm,
+        },
+      },
+    });
+
+    return updated;
   });
-
-  return updated;
 }

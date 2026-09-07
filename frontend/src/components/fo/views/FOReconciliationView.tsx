@@ -12,7 +12,12 @@ import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { reconciliationEntries as defaultEntries } from '../../../data/financeData';
 import { ReconciliationEntry, ReconciliationStatus, GatewaySource } from '../../../types/finance';
-import { getReconciliationEntries, matchReconciliation, flagReconciliation } from '../../../lib/foApi';
+import {
+  getReconciliationEntries,
+  matchReconciliation as apiMatchReconciliation,
+  flagReconciliation as apiFlagReconciliation,
+  runAutoMatchReconciliation,
+} from '../../../lib/foApi';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const statusConfig: Record<ReconciliationStatus, { icon: React.ReactNode; badge: 'emerald'|'rose'|'amber'|'glass'; label: string }> = {
@@ -30,7 +35,17 @@ const gatewayColor: Record<GatewaySource, string> = {
 };
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
-function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onClose: () => void }) {
+function EntryDetailModal({
+  entry,
+  onClose,
+  onMatch,
+  onResolve,
+}: {
+  entry: ReconciliationEntry;
+  onClose: () => void;
+  onMatch: (id: string) => void;
+  onResolve: (id: string) => void;
+}) {
   return (
     <SlidePanel isOpen onClose={onClose} title="Reconciliation Details" subtitle="Finance — Reconciliation" width="max-w-md">
       <div className="space-y-4">
@@ -68,13 +83,13 @@ function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onCl
 
         <div className="flex gap-3 pt-2">
           {entry.status === 'Unmatched' && (
-            <Button variant="primary" className="flex-1" onClick={() => { onClose(); }}>
+            <Button variant="primary" className="flex-1" onClick={() => { onMatch(entry.id); onClose(); }}>
               Match Transaction
             </Button>
           )}
           {entry.status === 'Pending Review' && (
-            <Button variant="outline" className="flex-1" onClick={() => { onClose(); }}>
-              Resolve
+            <Button variant="outline" className="flex-1" onClick={() => { onResolve(entry.id); onClose(); }}>
+              Resolve Review
             </Button>
           )}
         </div>
@@ -85,23 +100,73 @@ function EntryDetailModal({ entry, onClose }: { entry: ReconciliationEntry; onCl
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOReconciliationView: React.FC = () => {
-  const [entriesList, setEntriesList] = useState<ReconciliationEntry[]>(defaultEntries);
-  const [search, setSearch]         = useState('');
+  const [entriesList, setEntriesList]   = useState<ReconciliationEntry[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [autoMatching, setAutoMatching] = useState(false);
+  const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState<ReconciliationStatus | 'All'>('All');
   const [sourceFilter, setSourceFilter] = useState<GatewaySource | 'All'>('All');
-  const [detail, setDetail]         = useState<ReconciliationEntry | null>(null);
-  const [page, setPage]             = useState(1);
+  const [detail, setDetail]             = useState<ReconciliationEntry | null>(null);
+  const [actionMsg, setActionMsg]       = useState('');
+  const [page, setPage]                 = useState(1);
   const PAGE_SIZE = 10;
 
-  useEffect(() => {
-    getReconciliationEntries({ status: statusFilter !== 'All' ? statusFilter : undefined, search })
-      .then((data) => {
-        if (data && Array.isArray(data.entries)) {
-          setEntriesList(data.entries);
-        }
-      })
-      .catch(() => {});
+  const fetchEntries = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getReconciliationEntries({
+        status: statusFilter !== 'All' ? statusFilter : undefined,
+        search,
+      });
+      if (data && Array.isArray(data.entries)) {
+        setEntriesList(data.entries);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   }, [search, statusFilter]);
+
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
+
+  const handleMatch = async (id: string) => {
+    try {
+      await apiMatchReconciliation(id);
+      setActionMsg('Transaction successfully matched to receipt!');
+      setTimeout(() => setActionMsg(''), 4000);
+      fetchEntries();
+    } catch (e: any) {
+      alert(e.message || 'Failed to match reconciliation transaction');
+    }
+  };
+
+  const handleResolve = async (id: string) => {
+    try {
+      await apiFlagReconciliation(id, 'Resolved by Finance Officer');
+      setActionMsg('Review note resolved and updated.');
+      setTimeout(() => setActionMsg(''), 4000);
+      fetchEntries();
+    } catch (e: any) {
+      alert(e.message || 'Failed to resolve transaction');
+    }
+  };
+
+  const handleRunAutoMatch = async () => {
+    setAutoMatching(true);
+    try {
+      const res = await runAutoMatchReconciliation();
+      setActionMsg(res.message || 'Auto-match completed successfully.');
+      setTimeout(() => setActionMsg(''), 5000);
+      fetchEntries();
+    } catch (e: any) {
+      alert(e.message || 'Failed to run auto-match');
+    } finally {
+      setAutoMatching(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     let list = [...entriesList];
@@ -131,15 +196,32 @@ export const FOReconciliationView: React.FC = () => {
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
       <FOPageHeader
         title="Payment Reconciliation"
-        subtitle="Match gateway transactions to student receipts"
+        subtitle="Match gateway payment transactions to official receipts and student accounts"
         icon={<RefreshCw className="w-5 h-5" />}
         actions={
-          <Button variant="primary" size="sm" icon={<RefreshCw className="w-4 h-4" />}
-            onClick={() => {}}>
-            Run Auto-Match
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<RefreshCw className={`w-4 h-4 ${autoMatching ? 'animate-spin' : ''}`} />}
+            disabled={autoMatching}
+            onClick={handleRunAutoMatch}
+          >
+            {autoMatching ? 'Matching...' : 'Run Auto-Match'}
           </Button>
         }
       />
+
+      {actionMsg && (
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-sans flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{actionMsg}</span>
+          </div>
+          <button onClick={() => setActionMsg('')} className="text-emerald-400/60 hover:text-emerald-400">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Status summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -198,48 +280,59 @@ export const FOReconciliationView: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-(--border-subtle)">
-            {paginated.map((e) => (
-              <tr key={e.id} className={`transition-colors hover:bg-white/[0.04] ${
-                e.status === 'Failed' ? 'bg-(--status-danger-bg)' :
-                e.status === 'Unmatched' ? 'bg-(--status-warning-bg)' : ''
-              }`}>
-                <td className="p-4 font-mono text-xs text-(--text-secondary)">{e.gatewayTxnId}</td>
-                <td className="p-4">
-                  <p className="font-sans text-sm text-(--text-primary) font-medium">{e.studentName ?? <span className="text-(--text-faint) italic">Unknown</span>}</p>
-                  {e.studentId && <p className="font-mono text-[10px] text-(--text-faint)">{e.studentId}</p>}
-                </td>
-                <td className="p-4">
-                  <span className={`font-sans text-xs font-semibold ${gatewayColor[e.source]}`}>{e.source}</span>
-                </td>
-                <td className="p-4 font-mono text-sm font-bold text-(--brand-gold)">ETB {e.amount.toLocaleString()}</td>
-                <td className="p-4 font-mono text-xs text-(--text-muted)">{e.date}<br /><span className="text-(--text-faint)">{e.time}</span></td>
-                <td className="p-4">
-                  <div className="flex items-center gap-1.5">
-                    {statusConfig[e.status].icon}
-                    <Badge variant={statusConfig[e.status].badge}>{statusConfig[e.status].label}</Badge>
-                  </div>
-                  {e.failureReason && <p className="font-sans text-[10px] text-(--status-danger) mt-1 max-w-[180px] truncate">{e.failureReason}</p>}
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => setDetail(e)} title="View Details"
-                      className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-(--accent-gold-subtle) text-(--text-faint) hover:text-(--brand-gold) transition-colors touch-target">
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    {(e.status === 'Unmatched' || e.status === 'Pending Review') && (
-                      <button title="Match / Resolve"
-                        className="px-2 py-1 rounded-lg bg-(--accent-gold-subtle) hover:bg-(--accent-gold-subtle) text-(--brand-gold) font-mono text-[10px] transition-colors">
-                        {e.status === 'Unmatched' ? 'Match' : 'Resolve'}
+            {loading ? (
+              [...Array(4)].map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  <td colSpan={7} className="p-4 h-12 bg-white/[0.02]" />
+                </tr>
+              ))
+            ) : (
+              paginated.map((e) => (
+                <tr key={e.id} className={`transition-colors hover:bg-white/[0.04] ${
+                  e.status === 'Failed' ? 'bg-(--status-danger-bg)' :
+                  e.status === 'Unmatched' ? 'bg-(--status-warning-bg)' : ''
+                }`}>
+                  <td className="p-4 font-mono text-xs text-(--text-secondary)">{e.gatewayTxnId}</td>
+                  <td className="p-4">
+                    <p className="font-sans text-sm text-(--text-primary) font-medium">{e.studentName ?? <span className="text-(--text-faint) italic">Unknown</span>}</p>
+                    {e.studentId && <p className="font-mono text-[10px] text-(--text-faint)">{e.studentId}</p>}
+                  </td>
+                  <td className="p-4">
+                    <span className={`font-sans text-xs font-semibold ${gatewayColor[e.source]}`}>{e.source}</span>
+                  </td>
+                  <td className="p-4 font-mono text-sm font-bold text-(--brand-gold)">ETB {e.amount.toLocaleString()}</td>
+                  <td className="p-4 font-mono text-xs text-(--text-muted)">{e.date}<br /><span className="text-(--text-faint)">{e.time}</span></td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-1.5">
+                      {statusConfig[e.status].icon}
+                      <Badge variant={statusConfig[e.status].badge}>{statusConfig[e.status].label}</Badge>
+                    </div>
+                    {e.failureReason && <p className="font-sans text-[10px] text-(--status-danger) mt-1 max-w-[180px] truncate">{e.failureReason}</p>}
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => setDetail(e)} title="View Details"
+                        className="p-1.5 rounded-lg bg-(--hover-overlay) hover:bg-(--accent-gold-subtle) text-(--text-faint) hover:text-(--brand-gold) transition-colors touch-target">
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {paginated.length === 0 && (
+                      {(e.status === 'Unmatched' || e.status === 'Pending Review') && (
+                        <button
+                          onClick={() => e.status === 'Unmatched' ? handleMatch(e.id) : handleResolve(e.id)}
+                          title="Match / Resolve"
+                          className="px-2 py-1 rounded-lg bg-(--accent-gold-subtle) hover:bg-(--accent-gold-subtle) text-(--brand-gold) font-mono text-[10px] transition-colors"
+                        >
+                          {e.status === 'Unmatched' ? 'Match' : 'Resolve'}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+            {!loading && paginated.length === 0 && (
               <tr><td colSpan={7} className="p-12 text-center">
                 <RefreshCw className="w-10 h-10 text-white/10 mx-auto mb-3" />
-                <p className="font-sans text-sm text-(--text-faint)">No entries match your filter.</p>
+                <p className="font-sans text-sm text-(--text-faint)">No reconciliation entries match your search/filter in PostgreSQL.</p>
               </td></tr>
             )}
           </tbody>
@@ -261,7 +354,7 @@ export const FOReconciliationView: React.FC = () => {
       )}
 
       <AnimatePresence>
-        {detail && <EntryDetailModal entry={detail} onClose={() => setDetail(null)} />}
+        {detail && <EntryDetailModal entry={detail} onClose={() => setDetail(null)} onMatch={handleMatch} onResolve={handleResolve} />}
       </AnimatePresence>
     </motion.div>
   );

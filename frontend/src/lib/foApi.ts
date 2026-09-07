@@ -159,6 +159,12 @@ export async function flagReconciliation(id: string, notes?: string) {
   });
 }
 
+export async function runAutoMatchReconciliation() {
+  return apiFetch<any>('/reconciliation/auto-match', {
+    method: 'POST',
+  });
+}
+
 // ── Financial Reports ─────────────────────────────────────────────────────────
 export async function getFinancialSummaryReport(period?: string) {
   return apiFetch<any>(`/reports/summary${qs({ period })}`);
