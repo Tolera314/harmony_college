@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Harmony College — Department Head Service
  * ──────────────────────────────────────────
  * ALL department-scoped authorization is derived from the authenticated
@@ -121,8 +121,11 @@ export async function getDashboard(userId: string) {
     pendingOfferings,
     pendingLeaves,
     totalCourses,
+    totalPrograms,
+    totalClasses,
     recentNotifications,
     unreadCount,
+    deptRecord,
   ] = await Promise.all([
     // Active faculty in department
     prisma.instructorRecord.count({
@@ -159,6 +162,14 @@ export async function getDashboard(userId: string) {
     prisma.course.count({
       where: { departmentId: deptId },
     }),
+    // Active programs in department
+    prisma.program.count({
+      where: { departmentId: deptId, isActive: true },
+    }),
+    // Total classes / sections in department
+    prisma.courseOffering.count({
+      where: { course: { departmentId: deptId } },
+    }),
     // Recent notifications for this user (last 10)
     prisma.notification.findMany({
       where:   { userId },
@@ -168,6 +179,11 @@ export async function getDashboard(userId: string) {
     }),
     // Unread notification count
     prisma.notification.count({ where: { userId, isRead: false } }),
+    // Department details
+    prisma.department.findUnique({
+      where:  { id: deptId },
+      select: { id: true, name: true, code: true, programType: true },
+    }),
   ]);
 
   // Department avg GPA
@@ -237,7 +253,7 @@ export async function getDashboard(userId: string) {
   `;
 
   return {
-    department: { id: deptId },
+    department: deptRecord || { id: deptId, name: 'Department', code: 'DEP' },
     kpis: {
       activeFaculty,
       activeStudents,
@@ -245,6 +261,8 @@ export async function getDashboard(userId: string) {
       pendingOfferings,
       pendingLeaves,
       totalCourses,
+      totalPrograms,
+      totalClasses,
       avgGpa:            +(gpaAgg._avg.gpa ?? 0).toFixed(2),
       attendanceRate:    +Number(attendanceRate).toFixed(1),
       capacityUtilization,
@@ -1160,4 +1178,1047 @@ export async function getAuditLog(
   ]);
 
   return { total, page, limit, totalPages: Math.ceil(total / limit), logs };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROGRAMS MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getPrograms(userId: string) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const programs = await prisma.program.findMany({
+    where:   { departmentId: deptId },
+    orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+    include: {
+      _count: {
+        select: {
+          studentRecords: true,
+          courses:        true,
+        },
+      },
+    },
+  });
+
+  return programs.map((p) => ({
+    id:            p.id,
+    name:          p.name,
+    code:          p.code,
+    description:   p.description,
+    durationYears: p.durationYears,
+    totalCredits:  p.totalCredits,
+    isActive:      p.isActive,
+    studentCount:  p._count.studentRecords,
+    courseCount:   p._count.courses,
+    createdAt:     p.createdAt,
+  }));
+}
+
+export async function createProgram(
+  userId: string,
+  data: { name: string; code: string; description?: string; durationYears?: number; totalCredits?: number },
+) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const codeUpper = data.code.trim().toUpperCase();
+  const nameTrim  = data.name.trim();
+
+  const existing = await prisma.program.findFirst({
+    where: { OR: [{ code: codeUpper }, { name: nameTrim, departmentId: deptId }] },
+  });
+  if (existing) {
+    throw new Error('A program with this name or code already exists.');
+  }
+
+  const program = await prisma.program.create({
+    data: {
+      name:          nameTrim,
+      code:          codeUpper,
+      description:   data.description?.trim() || null,
+      durationYears: data.durationYears ?? 4,
+      totalCredits:  data.totalCredits ?? 120,
+      departmentId:  deptId,
+      isActive:      true,
+    },
+  });
+
+  return program;
+}
+
+export async function updateProgram(
+  userId: string,
+  programId: string,
+  data: { name?: string; code?: string; description?: string; durationYears?: number; totalCredits?: number; isActive?: boolean },
+) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const program = await prisma.program.findUnique({ where: { id: programId } });
+  if (!program) throw new Error('Program not found.');
+  if (program.departmentId !== deptId) {
+    throw new Error('Not authorized: program does not belong to your department.');
+  }
+
+  if (data.code && data.code.trim().toUpperCase() !== program.code) {
+    const conflict = await prisma.program.findUnique({ where: { code: data.code.trim().toUpperCase() } });
+    if (conflict) throw new Error('A program with this code already exists.');
+  }
+
+  const updated = await prisma.program.update({
+    where: { id: programId },
+    data: {
+      ...(data.name ? { name: data.name.trim() } : {}),
+      ...(data.code ? { code: data.code.trim().toUpperCase() } : {}),
+      ...(data.description !== undefined ? { description: data.description?.trim() || null } : {}),
+      ...(data.durationYears ? { durationYears: data.durationYears } : {}),
+      ...(data.totalCredits ? { totalCredits: data.totalCredits } : {}),
+      ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+    },
+  });
+
+  return updated;
+}
+
+export async function toggleProgramStatus(userId: string, programId: string) {
+  const hod = await resolveHoD(userId);
+  const program = await prisma.program.findUnique({ where: { id: programId } });
+  if (!program) throw new Error('Program not found.');
+  if (program.departmentId !== hod.departmentId) {
+    throw new Error('Not authorized: program does not belong to your department.');
+  }
+
+  return prisma.program.update({
+    where: { id: programId },
+    data:  { isActive: !program.isActive },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COURSE MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────
+
+export async function getCourses(
+  userId: string,
+  params: { search?: string; status?: string; programType?: string },
+) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const where: any = { departmentId: deptId };
+  if (params.status && params.status !== 'ALL') {
+    where.status = params.status;
+  }
+  if (params.programType && params.programType !== 'ALL') {
+    where.programType = params.programType;
+  }
+  if (params.search) {
+    where.OR = [
+      { name: { contains: params.search, mode: 'insensitive' } },
+      { code: { contains: params.search, mode: 'insensitive' } },
+    ];
+  }
+
+  const courses = await prisma.course.findMany({
+    where,
+    orderBy: [{ code: 'asc' }],
+    include: {
+      _count: {
+        select: {
+          offerings: true,
+        },
+      },
+    },
+  });
+
+  return courses.map((c) => ({
+    id:          c.id,
+    code:        c.code,
+    name:        c.name,
+    description: c.description,
+    creditHours: c.creditHours,
+    ects:        c.ects,
+    status:      c.status,
+    programType: c.programType,
+    sectionsCount: c._count.offerings,
+    createdAt:   c.createdAt,
+  }));
+}
+
+export async function createCourse(
+  userId: string,
+  data: { code: string; name: string; description?: string; creditHours?: number; ects?: number; programType?: string },
+) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const codeUpper = data.code.trim().toUpperCase();
+  const nameTrim  = data.name.trim();
+
+  const existing = await prisma.course.findFirst({
+    where: { code: codeUpper, departmentId: deptId },
+  });
+  if (existing) {
+    throw new Error('A course with this code already exists in your department.');
+  }
+
+  const course = await prisma.course.create({
+    data: {
+      code:         codeUpper,
+      name:         nameTrim,
+      description:  data.description?.trim() || null,
+      creditHours:  data.creditHours ?? 3,
+      ects:         data.ects ?? 4,
+      programType:  (data.programType as any) || 'TVET',
+      departmentId: deptId,
+      status:       'ACTIVE',
+    },
+  });
+
+  return course;
+}
+
+export async function updateCourse(
+  userId: string,
+  courseId: string,
+  data: { code?: string; name?: string; description?: string; creditHours?: number; ects?: number; status?: string },
+) {
+  const hod = await resolveHoD(userId);
+  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  if (!course) throw new Error('Course not found.');
+  if (course.departmentId !== hod.departmentId) {
+    throw new Error('Not authorized: course does not belong to your department.');
+  }
+
+  if (data.code && data.code.trim().toUpperCase() !== course.code) {
+    const conflict = await prisma.course.findFirst({
+      where: { code: data.code.trim().toUpperCase(), departmentId: hod.departmentId, id: { not: courseId } },
+    });
+    if (conflict) throw new Error('A course with this code already exists in your department.');
+  }
+
+  return prisma.course.update({
+    where: { id: courseId },
+    data: {
+      ...(data.code ? { code: data.code.trim().toUpperCase() } : {}),
+      ...(data.name ? { name: data.name.trim() } : {}),
+      ...(data.description !== undefined ? { description: data.description?.trim() || null } : {}),
+      ...(data.creditHours ? { creditHours: data.creditHours } : {}),
+      ...(data.ects ? { ects: data.ects } : {}),
+      ...(data.status ? { status: data.status as any } : {}),
+    },
+  });
+}
+
+export async function toggleCourseStatus(userId: string, courseId: string) {
+  const hod = await resolveHoD(userId);
+  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  if (!course) throw new Error('Course not found.');
+  if (course.departmentId !== hod.departmentId) {
+    throw new Error('Not authorized: course does not belong to your department.');
+  }
+
+  const nextStatus = course.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  return prisma.course.update({
+    where: { id: courseId },
+    data:  { status: nextStatus as any },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INSTRUCTORS & WORKLOAD MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getInstructors(
+  userId: string,
+  params: { search?: string; isActive?: boolean },
+) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const where: any = { departmentId: deptId };
+  if (params.isActive !== undefined) where.isActive = params.isActive;
+  if (params.search) {
+    where.user = {
+      OR: [
+        { fullName: { contains: params.search, mode: 'insensitive' } },
+        { email:    { contains: params.search, mode: 'insensitive' } },
+      ],
+    };
+  }
+
+  const instructors = await prisma.instructorRecord.findMany({
+    where,
+    orderBy: { user: { fullName: 'asc' } },
+    include: {
+      user: {
+        select: {
+          id: true, fullName: true, email: true, phone: true,
+        },
+      },
+      offerings: {
+        where: {
+          semester: { isCurrent: true },
+        },
+        include: {
+          course: {
+            select: { id: true, name: true, code: true, ects: true, creditHours: true },
+          },
+          _count: {
+            select: { enrollments: true },
+          },
+        },
+      },
+    },
+  });
+
+  return instructors.map((inst) => {
+    const totalEcts = inst.offerings.reduce((sum, o) => sum + (o.course.ects || 0), 0);
+    const totalCredits = inst.offerings.reduce((sum, o) => sum + (o.course.creditHours || 0), 0);
+    const totalStudents = inst.offerings.reduce((sum, o) => sum + (o._count?.enrollments || 0), 0);
+
+    return {
+      id:             inst.id,
+      userId:         inst.user.id,
+      name:           inst.user.fullName,
+      email:          inst.user.email,
+      phone:          inst.user.phone,
+      employeeId:     inst.employeeId,
+      title:          inst.title,
+      specialization: inst.specialization,
+      isActive:       inst.isActive,
+      workload: {
+        activeSectionsCount: inst.offerings.length,
+        totalEcts,
+        totalCredits,
+        totalStudents,
+      },
+      currentOfferings: inst.offerings.map((o) => ({
+        offeringId:  o.id,
+        courseCode:  o.course.code,
+        courseName:  o.course.name,
+        section:     o.section,
+        enrollments: o._count.enrollments,
+      })),
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLASSES & SECTIONS (CourseOfferings)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getClasses(
+  userId: string,
+  params: { semesterId?: string; courseId?: string; search?: string },
+) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const where: any = {
+    course: { departmentId: deptId },
+  };
+  if (params.semesterId && params.semesterId !== 'ALL') {
+    where.semesterId = params.semesterId;
+  } else if (!params.semesterId) {
+    // default to current semester if available
+    where.semester = { isCurrent: true };
+  }
+  if (params.courseId) where.courseId = params.courseId;
+  if (params.search) {
+    where.course = {
+      ...where.course,
+      OR: [
+        { name: { contains: params.search, mode: 'insensitive' } },
+        { code: { contains: params.search, mode: 'insensitive' } },
+      ],
+    };
+  }
+
+  const offerings = await prisma.courseOffering.findMany({
+    where,
+    orderBy: [{ course: { code: 'asc' } }, { section: 'asc' }],
+    include: {
+      course:     { select: { id: true, code: true, name: true, ects: true, creditHours: true, programType: true } },
+      semester:   { select: { id: true, name: true, isCurrent: true, academicYear: { select: { name: true } } } },
+      room:       { select: { id: true, name: true, building: true, capacity: true } },
+      instructor: {
+        select: {
+          id: true, employeeId: true, title: true,
+          user: { select: { id: true, fullName: true, email: true } },
+        },
+      },
+      timetables: {
+        select: { id: true, dayOfWeek: true, startTime: true, endTime: true },
+      },
+      _count: {
+        select: {
+          enrollments: true,
+          classSessions: true,
+        },
+      },
+    },
+  });
+
+  return offerings.map((o) => ({
+    id:                   o.id,
+    courseId:             o.course.id,
+    courseCode:           o.course.code,
+    courseName:           o.course.name,
+    ects:                 o.course.ects,
+    creditHours:          o.course.creditHours,
+    programType:          o.programType,
+    shortProgramDuration: o.shortProgramDuration,
+    section:              o.section,
+    capacity:             o.capacity,
+    enrolledCount:        o._count.enrollments,
+    status:               o.status,
+    semester: {
+      id:           o.semester.id,
+      name:         o.semester.name,
+      academicYear: o.semester.academicYear.name,
+      isCurrent:    o.semester.isCurrent,
+    },
+    room: o.room ? {
+      id:       o.room.id,
+      name:     o.room.name,
+      building: o.room.building,
+      capacity: o.room.capacity,
+    } : null,
+    instructor: o.instructor ? {
+      id:         o.instructor.id,
+      name:       o.instructor.user.fullName,
+      email:      o.instructor.user.email,
+      employeeId: o.instructor.employeeId,
+      title:      o.instructor.title,
+    } : null,
+    timetables: o.timetables,
+    sessionsCount: o._count.classSessions,
+  }));
+}
+
+export async function createClassSection(
+  userId: string,
+  data: {
+    courseId: string;
+    semesterId: string;
+    section: string;
+    capacity?: number;
+    roomId?: string;
+    instructorId?: string;
+  },
+) {
+  const hod = await resolveHoD(userId);
+  const course = await prisma.course.findUnique({ where: { id: data.courseId } });
+  if (!course) throw new Error('Course not found.');
+  if (course.departmentId !== hod.departmentId) {
+    throw new Error('Not authorized: course does not belong to your department.');
+  }
+
+  const sectionUpper = data.section.trim().toUpperCase() || 'A';
+
+  // Check section uniqueness
+  const existing = await prisma.courseOffering.findUnique({
+    where: {
+      courseId_semesterId_section: {
+        courseId:   data.courseId,
+        semesterId: data.semesterId,
+        section:    sectionUpper,
+      },
+    },
+  });
+  if (existing) {
+    throw new Error(`Section "${sectionUpper}" already exists for this course and semester.`);
+  }
+
+  // Validate instructor if provided
+  if (data.instructorId) {
+    const inst = await prisma.instructorRecord.findUnique({ where: { id: data.instructorId } });
+    if (!inst || !inst.isActive) throw new Error('Instructor not found or inactive.');
+  }
+
+  const offering = await prisma.courseOffering.create({
+    data: {
+      courseId:     data.courseId,
+      semesterId:   data.semesterId,
+      section:      sectionUpper,
+      capacity:     data.capacity ?? 40,
+      roomId:       data.roomId || null,
+      instructorId: data.instructorId || null,
+      status:       data.instructorId ? 'INSTRUCTOR_ASSIGNED' : 'SCHEDULED',
+      programType:  course.programType,
+    },
+  });
+
+  return offering;
+}
+
+export async function updateClassSection(
+  userId: string,
+  offeringId: string,
+  data: { section?: string; capacity?: number; roomId?: string | null; status?: string },
+) {
+  const hod = await resolveHoD(userId);
+  const offering = await verifyOfferingDept(offeringId, hod.departmentId);
+
+  return prisma.courseOffering.update({
+    where: { id: offeringId },
+    data: {
+      ...(data.section ? { section: data.section.trim().toUpperCase() } : {}),
+      ...(data.capacity ? { capacity: data.capacity } : {}),
+      ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
+      ...(data.status ? { status: data.status as any } : {}),
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COURSE ASSIGNMENT (HOD Instructor -> Course/Class Assignment)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getCourseAssignments(userId: string, semesterId?: string) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const where: any = {
+    course: { departmentId: deptId },
+  };
+  if (semesterId && semesterId !== 'ALL') {
+    where.semesterId = semesterId;
+  } else {
+    where.semester = { isCurrent: true };
+  }
+
+  const [offerings, instructors] = await Promise.all([
+    prisma.courseOffering.findMany({
+      where,
+      orderBy: [{ course: { code: 'asc' } }, { section: 'asc' }],
+      include: {
+        course:     { select: { id: true, code: true, name: true, ects: true, creditHours: true } },
+        semester:   { select: { id: true, name: true, isCurrent: true } },
+        instructor: {
+          select: {
+            id: true, employeeId: true, title: true,
+            user: { select: { id: true, fullName: true, email: true } },
+          },
+        },
+        _count: { select: { enrollments: true } },
+      },
+    }),
+    // All active instructors college-wide — HOD can assign any instructor to their dept's courses,
+    // matching the prior Registrar behaviour. Dept-scope is enforced on the course/offering side.
+    prisma.instructorRecord.findMany({
+      where: { isActive: true },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        department: { select: { name: true } },
+        _count: { select: { offerings: { where: { semester: { isCurrent: true } } } } },
+      },
+      orderBy: { user: { fullName: 'asc' } },
+    }),
+  ]);
+
+  return {
+    assignments: offerings.map((o) => ({
+      offeringId:   o.id,
+      section:      o.section,
+      capacity:     o.capacity,
+      enrolledCount: o._count.enrollments,
+      status:       o.status,
+      course: {
+        id:          o.course.id,
+        code:        o.course.code,
+        name:        o.course.name,
+        creditHours: o.course.creditHours,
+      },
+      semester: {
+        id:   o.semester.id,
+        name: o.semester.name,
+      },
+      instructor: o.instructor ? {
+        id:         o.instructor.id,
+        employeeId: o.instructor.employeeId,
+        user: {
+          fullName: o.instructor.user.fullName,
+        },
+      } : null,
+    })),
+    instructors: instructors.map((i) => ({
+      id:               i.id,
+      employeeId:       i.employeeId,
+      user: {
+        fullName: `${i.user.fullName} (${i.department?.name ?? 'No Dept'})`,
+      },
+      assignedOfferings: i._count.offerings,
+    })),
+    semesters: [],
+  };
+}
+
+export async function assignInstructorToOffering(
+  userId: string,
+  data: { offeringId: string; instructorId: string },
+) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  // 1. Verify offering belongs to HOD's department
+  const offering = await prisma.courseOffering.findUnique({
+    where:   { id: data.offeringId },
+    include: {
+      course:   { select: { departmentId: true, name: true, code: true } },
+      semester: { select: { id: true, name: true } },
+    },
+  });
+  if (!offering) throw new Error('Course offering not found.');
+  if (offering.course.departmentId !== deptId) {
+    throw new Error('Not authorized: this course offering does not belong to your department.');
+  }
+
+  // 2. Verify instructor is active and belongs to department (or is eligible)
+  const instructor = await prisma.instructorRecord.findUnique({
+    where:   { id: data.instructorId },
+    include: { user: { select: { id: true, fullName: true } } },
+  });
+  if (!instructor || !instructor.isActive) {
+    throw new Error('Selected instructor is not active or not found.');
+  }
+
+  // 3. Conflict Prevention: check if instructor is already teaching the exact same course section
+  if (offering.instructorId === data.instructorId) {
+    throw new Error(`${instructor.user.fullName} is already assigned to this class section.`);
+  }
+
+  // 4. Update offering
+  const updated = await prisma.courseOffering.update({
+    where: { id: data.offeringId },
+    data: {
+      instructorId: data.instructorId,
+      status:       offering.status === 'DRAFT' ? 'INSTRUCTOR_ASSIGNED' : offering.status,
+    },
+    include: {
+      instructor: {
+        include: { user: { select: { fullName: true } } },
+      },
+    },
+  });
+
+  // 5. Send notification to the assigned instructor
+  await createNotification({
+    userId:  instructor.userId,
+    title:   'Teaching Assignment',
+    message: `You have been assigned to teach ${offering.course.code} (${offering.course.name}) Section ${offering.section} for ${offering.semester.name}.`,
+    type:    'INFO',
+  }).catch(() => {});
+
+  return {
+    success: true,
+    message: `Assigned ${instructor.user.fullName} to ${offering.course.code} Section ${offering.section}.`,
+    offering: updated,
+  };
+}
+
+export async function unassignInstructorFromOffering(userId: string, offeringId: string) {
+  const hod = await resolveHoD(userId);
+  const offering = await verifyOfferingDept(offeringId, hod.departmentId);
+
+  await prisma.courseOffering.update({
+    where: { id: offeringId },
+    data: {
+      instructorId: null,
+      status:       'SCHEDULED',
+    },
+  });
+
+  return { success: true, message: 'Instructor unassigned successfully.' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACADEMIC MONITORING
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getAcademicMonitoring(userId: string) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  // 1. Department offerings in current semester
+  const offerings = await prisma.courseOffering.findMany({
+    where: {
+      course:   { departmentId: deptId },
+      semester: { isCurrent: true },
+    },
+    include: {
+      course:     { select: { code: true, name: true } },
+      instructor: { select: { user: { select: { fullName: true } } } },
+      _count:     { select: { enrollments: true, classSessions: true } },
+    },
+  });
+
+  // 2. Attendance Summary
+  const attendanceAgg = await prisma.$queryRaw<{ total: bigint; present: bigint; absent: bigint; late: bigint }[]>`
+    SELECT
+      COUNT(ar.id) AS total,
+      SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) AS present,
+      SUM(CASE WHEN ar.status = 'ABSENT' THEN 1 ELSE 0 END)  AS absent,
+      SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END)    AS late
+    FROM "AttendanceRecord" ar
+    INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+    INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+    INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+    INNER JOIN "Course" c ON c.id = co."courseId"
+    WHERE c."departmentId" = ${deptId}
+  `;
+  const attTotal   = Number(attendanceAgg[0]?.total ?? 0);
+  const attPresent = Number(attendanceAgg[0]?.present ?? 0);
+  const attLate    = Number(attendanceAgg[0]?.late ?? 0);
+  const attAbsent  = Number(attendanceAgg[0]?.absent ?? 0);
+  const attendanceRate = attTotal > 0 ? Math.round(((attPresent + attLate) / attTotal) * 1000) / 10 : 0;
+
+  // 3. Exam & Grade Submission Progress (midExamMarks / finalExamMarks recorded in CourseGrade)
+  const grades = await prisma.courseGrade.findMany({
+    where: {
+      enrollment: {
+        courseOffering: {
+          course: { departmentId: deptId },
+          semester: { isCurrent: true },
+        },
+      },
+    },
+    select: {
+      midExamMarks:   true,
+      finalExamMarks: true,
+      finalMark:      true,
+      status:         true,
+    },
+  });
+
+  const totalEnrollmentsExam = grades.length;
+  const midRecorded   = grades.filter((g) => g.midExamMarks !== null).length;
+  const finalRecorded = grades.filter((g) => g.finalExamMarks !== null).length;
+  const finalized     = grades.filter((g) => g.status === 'PUBLISHED' || g.status === 'SUBMITTED').length;
+
+  // 4. Upcoming Academic / Exam Calendar Events
+  const upcomingEvents = await prisma.academicCalendarEvent.findMany({
+    where: {
+      startDate: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+    },
+    orderBy: { startDate: 'asc' },
+    take:    5,
+    select:  { id: true, title: true, eventType: true, startDate: true, endDate: true },
+  });
+
+  const byCourseAttendance = offerings.map((o) => ({
+    courseCode:   o.course.code,
+    courseName:   o.course.name,
+    sessionsHeld: o._count.classSessions,
+    attendanceRate,
+  }));
+
+  const examByCourse = offerings.map((o) => ({
+    courseCode:     o.course.code,
+    courseName:     o.course.name,
+    midSubmitted:   midRecorded,
+    finalSubmitted: finalRecorded,
+    total:          o._count.enrollments,
+  }));
+
+  const courseProgress = offerings.map((o) => ({
+    courseCode:       o.course.code,
+    courseName:       o.course.name,
+    sessionsHeld:     o._count.classSessions,
+    expectedSessions: 32,
+    progressPct:      Math.min(100, Math.round((o._count.classSessions / 32) * 100)),
+  }));
+
+  return {
+    activeClassesCount: offerings.length,
+    classes: offerings.map((o) => ({
+      id:             o.id,
+      courseCode:     o.course.code,
+      courseName:     o.course.name,
+      section:        o.section,
+      instructorName: o.instructor?.user.fullName || 'Unassigned',
+      enrolled:       o._count.enrollments,
+      sessionsHeld:   o._count.classSessions,
+    })),
+    attendance: {
+      totalSessions:    attTotal,
+      attendedSessions: attPresent + attLate,
+      attendanceRate,
+      atRiskStudents:   attAbsent,
+      byCourse:         byCourseAttendance,
+      totalRecords:     attTotal,
+      presentRecords:   attPresent,
+      lateRecords:      attLate,
+      absentRecords:    attAbsent,
+    },
+    examProgress: {
+      totalGradeRecords:   totalEnrollmentsExam,
+      midExamSubmitted:    midRecorded,
+      finalExamSubmitted:  finalRecorded,
+      midSubmissionRate:   totalEnrollmentsExam > 0 ? Math.round((midRecorded / totalEnrollmentsExam) * 100) : 0,
+      finalSubmissionRate: totalEnrollmentsExam > 0 ? Math.round((finalRecorded / totalEnrollmentsExam) * 100) : 0,
+      byCourse:            examByCourse,
+    },
+    examinations: {
+      totalStudentsEnrolled: totalEnrollmentsExam,
+      midtermRecorded:       midRecorded,
+      midtermCompletionRate: totalEnrollmentsExam > 0 ? Math.round((midRecorded / totalEnrollmentsExam) * 100) : 0,
+      finalRecorded:         finalRecorded,
+      finalCompletionRate:   totalEnrollmentsExam > 0 ? Math.round((finalRecorded / totalEnrollmentsExam) * 100) : 0,
+      gradesFinalized:       finalized,
+    },
+    courseProgress: {
+      byCourse: courseProgress,
+    },
+    upcomingEvents,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACADEMIC PERFORMANCE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getAcademicPerformance(userId: string) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  // 1. Department students GPA stats
+  const students = await prisma.studentRecord.findMany({
+    where: { departmentId: deptId, status: StudentStatus.ACTIVE },
+    select: {
+      id:        true,
+      studentId: true,
+      gpa:       true,
+      yearLevel: true,
+      user:      { select: { fullName: true, email: true } },
+      program:   { select: { id: true, name: true, code: true } },
+    },
+  });
+
+  const totalStudents = students.length;
+  const avgGpa = totalStudents > 0
+    ? Math.round((students.reduce((acc, s) => acc + (s.gpa || 0), 0) / totalStudents) * 100) / 100
+    : 0;
+
+  // Students requiring academic attention (GPA < 2.0 or failing)
+  const atRiskStudents = students
+    .filter((s) => s.gpa > 0 && s.gpa < 2.0)
+    .map((s) => ({
+      studentRecordId: s.id,
+      studentId:       s.id,
+      studentCode:     s.studentId,
+      fullName:        s.user.fullName,
+      name:            s.user.fullName,
+      email:           s.user.email,
+      gpa:             s.gpa,
+      yearLevel:       s.yearLevel,
+      programName:     s.program.name,
+      failingCourses:  0,
+      issue:           s.gpa < 1.75 ? 'Academic Warning (Critical)' : 'Academic Warning',
+    }));
+
+  const topStudents = students
+    .filter((s) => s.gpa >= 3.0)
+    .sort((a, b) => (b.gpa || 0) - (a.gpa || 0))
+    .slice(0, 10)
+    .map((s) => ({
+      studentId:    s.id,
+      studentCode:  s.studentId,
+      fullName:     s.user.fullName,
+      gpa:          s.gpa,
+      totalCredits: 0,
+    }));
+
+  // 2. Grade Distribution across department course grades
+  const grades = await prisma.courseGrade.findMany({
+    where: {
+      enrollment: {
+        courseOffering: {
+          course: { departmentId: deptId },
+        },
+      },
+      letterGrade: { not: null },
+    },
+    select: {
+      letterGrade:  true,
+      finalMark:    true,
+      gradePoints:  true,
+      qualityPoints: true,
+      enrollment: {
+        select: {
+          courseOffering: {
+            select: {
+              course: { select: { id: true, code: true, name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const distribution: Record<string, number> = {
+    'A+': 0, 'A': 0, 'A-': 0,
+    'B+': 0, 'B': 0, 'B-': 0,
+    'C+': 0, 'C': 0, 'C-': 0,
+    'D':  0, 'F': 0,
+  };
+
+  grades.forEach((g) => {
+    if (g.letterGrade && distribution[g.letterGrade] !== undefined) {
+      distribution[g.letterGrade] += 1;
+    }
+  });
+
+  const gradeDistributionArray = Object.entries(distribution).map(([grade, count]) => ({
+    grade,
+    count,
+    percentage: grades.length > 0 ? Math.round((count / grades.length) * 1000) / 10 : 0,
+  }));
+
+  // 3. Course pass rates
+  const courseMap = new Map<string, { code: string; name: string; totalMarks: number; count: number; passCount: number }>();
+  grades.forEach((g) => {
+    const c = g.enrollment?.courseOffering?.course;
+    if (!c) return;
+    const existing = courseMap.get(c.id) || { code: c.code, name: c.name, totalMarks: 0, count: 0, passCount: 0 };
+    existing.totalMarks += g.finalMark || 0;
+    existing.count += 1;
+    if (g.letterGrade !== 'F' && (g.finalMark ?? 0) >= 50) {
+      existing.passCount += 1;
+    }
+    courseMap.set(c.id, existing);
+  });
+
+  const coursePerformance = Array.from(courseMap.values()).map((c) => ({
+    courseCode:    c.code,
+    code:          c.code,
+    courseName:    c.name,
+    name:          c.name,
+    totalStudents: c.count,
+    totalGrades:   c.count,
+    avgScore:      c.count > 0 ? Math.round((c.totalMarks / c.count) * 10) / 10 : 0,
+    passRate:      c.count > 0 ? Math.round((c.passCount / c.count) * 100) : 0,
+  }));
+
+  // 4. Program GPA breakdown
+  const programMap = new Map<string, { name: string; totalGpa: number; count: number }>();
+  students.forEach((s) => {
+    const pName = s.program?.name || 'General';
+    const existing = programMap.get(pName) || { name: pName, totalGpa: 0, count: 0 };
+    existing.totalGpa += s.gpa || 0;
+    existing.count += 1;
+    programMap.set(pName, existing);
+  });
+
+  const programPerformance = Array.from(programMap.values()).map((p) => ({
+    name:         p.name,
+    studentCount: p.count,
+    avgGpa:       p.count > 0 ? Math.round((p.totalGpa / p.count) * 100) / 100 : 0,
+  }));
+
+  return {
+    totalStudents,
+    avgGpa,
+    gradeDistribution: gradeDistributionArray,
+    totalGradesRecorded: grades.length,
+    coursePerformance,
+    programPerformance,
+    atRiskStudents,
+    topStudents,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEPARTMENT REPORTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getDepartmentReports(userId: string) {
+  const hod = await resolveHoD(userId);
+  const deptId = hod.departmentId;
+
+  const [
+    dept,
+    studentsByYear,
+    studentsByProgram,
+    offerings,
+    instructors,
+  ] = await Promise.all([
+    prisma.department.findUnique({
+      where:  { id: deptId },
+      select: { id: true, name: true, code: true, programType: true },
+    }),
+    prisma.studentRecord.groupBy({
+      by:      ['yearLevel'],
+      where:   { departmentId: deptId, status: StudentStatus.ACTIVE },
+      _count:  { id: true },
+      orderBy: { yearLevel: 'asc' },
+    }),
+    prisma.studentRecord.groupBy({
+      by:     ['programId'],
+      where:  { departmentId: deptId, status: StudentStatus.ACTIVE },
+      _count: { id: true },
+    }),
+    prisma.courseOffering.findMany({
+      where: {
+        course:   { departmentId: deptId },
+        semester: { isCurrent: true },
+      },
+      include: {
+        course:     { select: { code: true, name: true, creditHours: true, ects: true } },
+        instructor: { select: { user: { select: { fullName: true } } } },
+        _count:     { select: { enrollments: true } },
+      },
+    }),
+    prisma.instructorRecord.findMany({
+      where: { departmentId: deptId, isActive: true },
+      include: {
+        user: { select: { fullName: true, email: true } },
+        _count: { select: { offerings: { where: { semester: { isCurrent: true } } } } },
+      },
+    }),
+  ]);
+
+  // Map program names
+  const programs = await prisma.program.findMany({
+    where:  { departmentId: deptId },
+    select: { id: true, name: true, code: true },
+  });
+  const pMap = new Map(programs.map((p) => [p.id, p.name]));
+
+  const programEnrollmentReport = studentsByProgram.map((sbp) => ({
+    programName: pMap.get(sbp.programId) || 'Unknown Program',
+    count:       sbp._count.id,
+  }));
+
+  const yearEnrollmentReport = studentsByYear.map((sby) => ({
+    yearLevel: `Year ${sby.yearLevel}`,
+    count:     sby._count.id,
+  }));
+
+  const workloadReport = instructors.map((inst) => ({
+    instructorName: inst.user.fullName,
+    email:          inst.user.email,
+    title:          inst.title,
+    sectionsTaught: inst._count.offerings,
+  }));
+
+  const classesReport = offerings.map((o) => ({
+    courseCode:     o.course.code,
+    courseName:     o.course.name,
+    section:        o.section,
+    capacity:       o.capacity,
+    enrolled:       o._count.enrollments,
+    utilizationPct: o.capacity > 0 ? Math.round((o._count.enrollments / o.capacity) * 100) : 0,
+    instructorName: o.instructor?.user.fullName || 'Unassigned',
+  }));
+
+  return {
+    department:              dept,
+    yearEnrollmentReport,
+    programEnrollmentReport,
+    workloadReport,
+    classesReport,
+  };
 }

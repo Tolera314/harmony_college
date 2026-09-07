@@ -36,6 +36,49 @@ export function qs(params: Record<string, unknown>): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DEPARTMENT MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface DepartmentProgram {
+  id: string; name: string; code: string; isActive: boolean;
+}
+
+export interface DepartmentHod {
+  id: string; employeeId: string; title: string; isActive: boolean;
+  user: { id: string; fullName: string; email: string | null; phone: string | null };
+}
+
+export interface DepartmentCard {
+  id: string; name: string; code: string; description: string | null; isActive: boolean;
+  programs: DepartmentProgram[];
+  departmentHeads: DepartmentHod[];
+  _count: { studentRecords: number; courses: number; instructors: number; programs: number };
+}
+
+export interface EligibleHod {
+  id: string; employeeId: string; title: string; specialization: string | null;
+  departmentId: string | null;
+  user: { id: string; fullName: string; email: string | null; role: string };
+  department: { id: string; name: string; code: string } | null;
+  _count: { departmentHeadRecords: number };
+}
+
+export const departmentMgmtApi = {
+  list: () =>
+    apiFetch<DepartmentCard[]>('/api/registrar/departments'),
+  create: (data: { name: string; code: string; description?: string }) =>
+    apiFetch<DepartmentCard>('/api/registrar/departments', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<{ name: string; code: string; description: string; isActive: boolean }>) =>
+    apiFetch<DepartmentCard>(`/api/registrar/departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getEligibleHods: () =>
+    apiFetch<EligibleHod[]>('/api/registrar/departments/eligible-hods'),
+  assignHod: (deptId: string, instructorId: string) =>
+    apiFetch<DepartmentHod>(`/api/registrar/departments/${deptId}/assign-hod`, { method: 'POST', body: JSON.stringify({ instructorId }) }),
+  removeHod: (deptId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/registrar/departments/${deptId}/remove-hod`, { method: 'DELETE' }),
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 export interface DashboardStats {
@@ -489,8 +532,6 @@ export const departmentsApi = {
     apiFetch<any>(`/api/registrar/courses/${courseId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteCourse: (courseId: string) =>
     apiFetch<any>(`/api/registrar/courses/${courseId}`, { method: 'DELETE' }),
-  assignInstructor: (data: { courseId: string; semesterId: string; instructorId: string | null; shortProgramDuration?: string | null }) =>
-    apiFetch<any>('/api/registrar/offerings/assign-instructor', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

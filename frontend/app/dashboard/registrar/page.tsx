@@ -8,8 +8,8 @@ import {
   ClipboardList, BookOpen, GraduationCap, FileText,
   Users, ShieldAlert, ChevronRight, Calendar, Send,
   ShieldCheck, Grid, LayoutDashboard, Clock, BarChart3,
-  Settings, X, LogOut, UserCheck, ToggleLeft, ToggleRight,
-  Award,
+  Settings, X, LogOut, ToggleLeft, ToggleRight,
+  Award, Building2,
 } from 'lucide-react';
 import { Sidebar, GenericNavItem } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
@@ -23,7 +23,7 @@ import { DashboardOverview } from '@/src/components/registrar/DashboardOverview'
 
 const RegistrarStudentsView  = dynamic(() => import('@/src/components/registrar/RegistrarStudentsView').then(m => m.RegistrarStudentsView), { ssr: false });
 const StudentGradesView      = dynamic(() => import('@/src/components/registrar/StudentGradesView').then(m => m.StudentGradesView), { ssr: false });
-const AssignInstructorView   = dynamic(() => import('@/src/components/registrar/AssignInstructorView').then(m => m.AssignInstructorView), { ssr: false });
+
 const RegistrarOnboardingsView = dynamic(() => import('@/src/components/registrar/RegistrarOnboardingsView').then(m => m.RegistrarOnboardingsView), { ssr: false });
 const AdmissionsManagement   = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
 const CourseCatalog          = dynamic(() => import('@/src/components/registrar/CourseCatalog').then(m => m.CourseCatalog), { ssr: false });
@@ -37,23 +37,25 @@ const InteractiveReports     = dynamic(() => import('@/src/components/registrar/
 const AcademicCalendarView   = dynamic(() => import('@/src/components/registrar/AcademicCalendarView').then(m => m.AcademicCalendarView), { ssr: false });
 const AnnouncementsManager   = dynamic(() => import('@/src/components/registrar/AnnouncementsManager').then(m => m.AnnouncementsManager), { ssr: false });
 const AuditLogsTimeline      = dynamic(() => import('@/src/components/registrar/AuditLogsTimeline').then(m => m.AuditLogsTimeline), { ssr: false });
-const RegistrarSettings      = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
+const RegistrarSettings          = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
+const RegistrarDepartmentsView   = dynamic(() => import('@/src/components/registrar/RegistrarDepartmentsView').then(m => m.RegistrarDepartmentsView), { ssr: false });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RegistrarTab =
-  | 'dashboard' | 'students' | 'student_grades' | 'assign_instructor' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
+  | 'dashboard' | 'students' | 'student_grades' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
-  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
+  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages'
+  | 'departments';
 
 interface MenuItem { id: RegistrarTab; label: string; icon: React.ComponentType<any> }
 
 const MENU_ITEMS: MenuItem[] = [
-  { id: 'dashboard',         label: 'Dashboard',           icon: LayoutDashboard },
-  { id: 'students',          label: 'Student Records',     icon: Users },
-  { id: 'student_grades',    label: 'Student Grades',      icon: Award },
-  { id: 'assign_instructor', label: 'Assign Instructor',   icon: UserCheck },
-  { id: 'onboardings',       label: 'Onboardings',         icon: ClipboardList },
+  { id: 'dashboard',         label: 'Dashboard',            icon: LayoutDashboard },
+  { id: 'departments',       label: 'Department Management',icon: Building2 },
+  { id: 'students',          label: 'Student Records',      icon: Users },
+  { id: 'student_grades',    label: 'Student Grades',       icon: Award },
+  { id: 'onboardings',       label: 'Onboardings',          icon: ClipboardList },
   { id: 'admissions',   label: 'Admissions',          icon: ClipboardList },
   { id: 'enrollments',  label: 'Course Enrollments',  icon: BookOpen },
   { id: 'catalog',      label: 'Course Catalog',      icon: BookOpen },
@@ -239,9 +241,9 @@ export default function RegistrarDashboardPage() {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'dashboard':         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} programType={registrarProgramType} />;
+      case 'departments':       return <RegistrarDepartmentsView />;
       case 'students':          return <RegistrarStudentsView programType={registrarProgramType} />;
       case 'student_grades':    return <StudentGradesView programType={registrarProgramType} />;
-      case 'assign_instructor': return <AssignInstructorView programType={registrarProgramType} />;
       case 'onboardings':       return <RegistrarOnboardingsView />;
       case 'admissions':   return <AdmissionsManagement />;
       case 'catalog':      return <CourseCatalog />;

@@ -1,25 +1,27 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { DHNavTab } from '@/src/types/department';
-import { DHSidebar }           from '@/src/components/dh/DHSidebar';
-import { DHHeader }            from '@/src/components/dh/DHHeader';
-import { DHMobileNav }         from '@/src/components/dh/DHMobileNav';
-import { DHSearchModal }       from '@/src/components/dh/DHSearchModal';
-import { DHLogoutModal }       from '@/src/components/dh/DHLogoutModal';
-import { DHOverviewView }      from '@/src/components/dh/views/DHOverviewView';
-import { DHCoursesView }       from '@/src/components/dh/views/DHCoursesView';
-import { DHFacultyView }       from '@/src/components/dh/views/DHFacultyView';
-import { DHStudentsView }      from '@/src/components/dh/views/DHStudentsView';
-import { DHApprovalsView }     from '@/src/components/dh/views/DHApprovalsView';
-import { DHLeaveRequestsView } from '@/src/components/dh/views/DHLeaveRequestsView';
-import { DHReportsView }       from '@/src/components/dh/views/DHReportsView';
-import { DHAttendanceView }    from '@/src/components/dh/views/DHAttendanceView';
-import { DHNotificationsView } from '@/src/components/dh/views/DHNotificationsView';
-import { DHAuditLogView }      from '@/src/components/dh/views/DHAuditLogView';
-import { DHSettingsView }      from '@/src/components/dh/views/DHSettingsView';
+import { DHSidebar }               from '@/src/components/dh/DHSidebar';
+import { DHHeader }                from '@/src/components/dh/DHHeader';
+import { DHMobileNav }             from '@/src/components/dh/DHMobileNav';
+import { DHSearchModal }           from '@/src/components/dh/DHSearchModal';
+import { DHLogoutModal }           from '@/src/components/dh/DHLogoutModal';
+import { DHOverviewView }          from '@/src/components/dh/views/DHOverviewView';
+import { DHProgramsView }          from '@/src/components/dh/views/DHProgramsView';
+import { DHCoursesView }           from '@/src/components/dh/views/DHCoursesView';
+import { DHInstructorsView }       from '@/src/components/dh/views/DHInstructorsView';
+import { DHStudentsView }          from '@/src/components/dh/views/DHStudentsView';
+import { DHClassesView }           from '@/src/components/dh/views/DHClassesView';
+import { DHCourseAssignmentsView } from '@/src/components/dh/views/DHCourseAssignmentsView';
+import { DHAcademicMonitoringView }  from '@/src/components/dh/views/DHAcademicMonitoringView';
+import { DHAcademicPerformanceView } from '@/src/components/dh/views/DHAcademicPerformanceView';
+import { DHReportsView }           from '@/src/components/dh/views/DHReportsView';
+import { DHNotificationsView }     from '@/src/components/dh/views/DHNotificationsView';
+import { DHAuditLogView }          from '@/src/components/dh/views/DHAuditLogView';
+import { DHSettingsView }          from '@/src/components/dh/views/DHSettingsView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
-import { MessagingView }       from '@/src/components/messaging/MessagingView';
+import { MessagingView }           from '@/src/components/messaging/MessagingView';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   hodProfileApi, hodDashboardApi, hodNotificationsApi,
@@ -40,6 +42,27 @@ function toHeaderNotif(n: ApiNotification) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Mobile nav items
+// ─────────────────────────────────────────────────────────────────────────────
+const MOBILE_NAV_ITEMS: { id: DHNavTab; label: string }[] = [
+  { id: 'overview',             label: 'Dashboard' },
+  { id: 'programs',             label: 'Programs' },
+  { id: 'courses',              label: 'Courses' },
+  { id: 'instructors',          label: 'Instructors' },
+  { id: 'students',             label: 'Students' },
+  { id: 'classes',              label: 'Classes & Sections' },
+  { id: 'course_assignments',   label: 'Course Assignments' },
+  { id: 'academic_monitoring',  label: 'Academic Monitoring' },
+  { id: 'academic_performance', label: 'Academic Performance' },
+  { id: 'reports',              label: 'Department Reports' },
+  { id: 'notifications',        label: 'Notifications' },
+  { id: 'audit_log',            label: 'Audit Log' },
+  { id: 'settings',             label: 'Settings' },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function DepartmentHeadPage() {
   const [activeTab,      setRawTab]         = useState<DHNavTab>('overview');
   const [tabLoading,     setTabLoading]     = useState(false);
@@ -52,8 +75,6 @@ export default function DepartmentHeadPage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [notifications,  setNotifications]  = useState<ApiNotification[]>([]);
   const [pendingCount,   setPendingCount]   = useState(0);
-
-
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -74,7 +95,6 @@ export default function DepartmentHeadPage() {
       ]);
       setProfile(prof);
       setNotifications(dash.notifications.map(n => ({ ...n, userId: '' })));
-
       setPendingCount(dash.kpis.pendingOfferings + dash.kpis.pendingLeaves);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Failed to load profile', 'error');
@@ -90,7 +110,6 @@ export default function DepartmentHeadPage() {
     try {
       const res = await hodNotificationsApi.list({ limit: 50 });
       setNotifications(res.notifications);
-
     } catch { /* keep existing */ }
   }, []);
 
@@ -116,13 +135,11 @@ export default function DepartmentHeadPage() {
   // ── Notification helpers ─────────────────────────────────────────────────
   const handleMarkRead = useCallback(async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-
     try { await hodNotificationsApi.markRead(id); } catch { /* optimistic */ }
   }, []);
 
   const handleMarkAllRead = useCallback(async () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-
     try { await hodNotificationsApi.markAllRead(); } catch { /* optimistic */ }
   }, []);
 
@@ -152,22 +169,16 @@ export default function DepartmentHeadPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':
-        return <DHOverviewView profile={profile} setActiveTab={setActiveTab} />;
-      case 'courses':
-        return <DHCoursesView />;
-      case 'faculty':
-        return <DHFacultyView />;
-      case 'students':
-        return <DHStudentsView />;
-      case 'approvals':
-        return <DHApprovalsView />;
-      case 'leave_requests':
-        return <DHLeaveRequestsView />;
-      case 'reports':
-        return <DHReportsView />;
-      case 'attendance':
-        return <DHAttendanceView />;
+      case 'overview':             return <DHOverviewView profile={profile} setActiveTab={setActiveTab} />;
+      case 'programs':             return <DHProgramsView />;
+      case 'courses':              return <DHCoursesView />;
+      case 'instructors':          return <DHInstructorsView />;
+      case 'students':             return <DHStudentsView />;
+      case 'classes':              return <DHClassesView />;
+      case 'course_assignments':   return <DHCourseAssignmentsView />;
+      case 'academic_monitoring':  return <DHAcademicMonitoringView />;
+      case 'academic_performance': return <DHAcademicPerformanceView />;
+      case 'reports':              return <DHReportsView />;
       case 'notifications':
         return (
           <DHNotificationsView
@@ -177,14 +188,10 @@ export default function DepartmentHeadPage() {
             setActiveTab={setActiveTab}
           />
         );
-      case 'audit_log':
-        return <DHAuditLogView />;
-      case 'settings':
-        return <DHSettingsView profile={profile} />;
-      case 'messages':
-        return <MessagingView />;
-      default:
-        return null;
+      case 'audit_log':  return <DHAuditLogView />;
+      case 'settings':   return <DHSettingsView profile={profile} />;
+      case 'messages':   return <MessagingView />;
+      default:           return null;
     }
   };
 
@@ -250,19 +257,7 @@ export default function DepartmentHeadPage() {
                 <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-xl bg-(--hover-overlay) text-(--text-muted) hover:text-(--text-primary)">✕</button>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                {([
-                  { id: 'overview',       label: 'Dashboard' },
-                  { id: 'courses',        label: 'Course Offerings' },
-                  { id: 'faculty',        label: 'Faculty Management' },
-                  { id: 'students',       label: 'Student Directory' },
-                  { id: 'reports',        label: 'Department Reports' },
-                  { id: 'attendance',     label: 'Attendance Tracking' },
-                  { id: 'approvals',      label: 'Approval Center' },
-                  { id: 'leave_requests', label: 'Faculty Leave Requests' },
-                  { id: 'notifications',  label: 'Notifications' },
-                  { id: 'audit_log',      label: 'Audit Log' },
-                  { id: 'settings',       label: 'Settings' },
-                ] as { id: DHNavTab; label: string }[]).map(item => {
+                {MOBILE_NAV_ITEMS.map(item => {
                   const isActive = activeTab === item.id;
                   return (
                     <button key={item.id} onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}

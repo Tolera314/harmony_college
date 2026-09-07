@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { DHNavTab } from '../../types/department';
-import { LayoutDashboard, BookOpen, Users, CheckSquare, BarChart3, Bell } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Layers, GitBranch, BarChart3, Bell, UserCog } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
 
@@ -15,12 +15,12 @@ interface DHMobileNavProps {
 
 export const DHMobileNav: React.FC<DHMobileNavProps> = ({ activeTab, setActiveTab, pendingCount, unreadCount }) => {
   const items: { id: DHNavTab; label: string; icon: React.ReactNode; dot?: boolean }[] = [
-    { id: 'overview',  label: 'Dash',      icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'courses',   label: 'Courses',   icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'faculty',   label: 'Faculty',   icon: <Users className="w-5 h-5" /> },
-    { id: 'approvals', label: 'Approvals', icon: <CheckSquare className="w-5 h-5" />, dot: pendingCount > 0 },
-    { id: 'reports',   label: 'Reports',   icon: <BarChart3 className="w-5 h-5" /> },
-    { id: 'notifications', label: 'Alerts', icon: <Bell className="w-5 h-5" />, dot: unreadCount > 0 },
+    { id: 'overview',           label: 'Dash',      icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'programs',           label: 'Programs',  icon: <Layers className="w-5 h-5" /> },
+    { id: 'courses',            label: 'Courses',   icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'instructors',        label: 'Staff',     icon: <UserCog className="w-5 h-5" /> },
+    { id: 'course_assignments', label: 'Assign',    icon: <GitBranch className="w-5 h-5" />, dot: pendingCount > 0 },
+    { id: 'notifications',      label: 'Alerts',    icon: <Bell className="w-5 h-5" />, dot: unreadCount > 0 },
   ];
 
   return (
