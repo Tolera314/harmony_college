@@ -19,6 +19,7 @@ import {
 import { StudentStatus, CourseStatus, ApplicationStatus, OfferingStatus } from '@prisma/client';
 import { approveApplication, rejectApplication } from '../registrar/admissionService';
 import { syncStudentEnrollments } from '../registrar/enrollmentSyncService';
+import { generateInstallmentsForStudent } from '../finance/installmentService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SAFE SELECT — never return passwordHash or refreshTokenHash
@@ -998,6 +999,9 @@ export async function createStudent(
   });
 
   await syncStudentEnrollments(student.id).catch(() => {});
+
+  // Auto-generate monthly installment schedule (fire-and-forget)
+  generateInstallmentsForStudent(student.id).catch(() => {});
 
   return student;
 }

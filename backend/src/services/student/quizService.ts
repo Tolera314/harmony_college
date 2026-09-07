@@ -11,6 +11,7 @@
  *   - Timer enforcement: if timeLeft expires, server accepts late submission but flags it
  */
 import { prisma } from '../../lib/prisma';
+import { syncStudentAssessmentGrades } from './gradeSyncService';
 
 async function verifyEnrollment(courseOfferingId: string, studentRecordId: string) {
   const enrollment = await prisma.enrollment.findFirst({
@@ -253,10 +254,10 @@ async function autoSubmitAttempt(
 ) {
   const attempt = await prisma.quizAttempt.findUnique({
     where: { id: attemptId },
-    include: { answers: true },
+    include: { answers: true, quiz: true },
   });
   if (!attempt) return;
-  return finalizeAttempt({ ...attempt, quiz } as any);
+  return finalizeAttempt({ ...attempt, quiz: { ...quiz, ...(attempt.quiz || {}) } } as any);
 }
 
 async function finalizeAttempt(attempt: any) {
@@ -306,7 +307,7 @@ async function finalizeAttempt(attempt: any) {
   const isPassing = percentageScore >= quiz.passingScore;
   const timeSpent = Math.floor((now.getTime() - attempt.startedAt.getTime()) / 1000);
 
-  return prisma.quizAttempt.update({
+  const updatedAttempt = await prisma.quizAttempt.update({
     where: { id: attempt.id },
     data: {
       status: 'SUBMITTED',
@@ -317,6 +318,17 @@ async function finalizeAttempt(attempt: any) {
       isPassing,
     },
   });
+
+  // Automatically sync quiz grade into CourseGrade
+  if (quiz?.courseOfferingId && attempt.studentRecordId) {
+    try {
+      await syncStudentAssessmentGrades(attempt.studentRecordId, quiz.courseOfferingId);
+    } catch (syncErr) {
+      console.error('Failed to auto-sync quiz grade to CourseGrade:', syncErr);
+    }
+  }
+
+  return updatedAttempt;
 }
 
 export async function getAttemptResult(attemptId: string, studentRecordId: string) {

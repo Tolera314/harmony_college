@@ -45,6 +45,8 @@ import * as financialSvc from '../services/student/financialsService';
 import * as degreeSvc    from '../services/student/degreeAuditService';
 import * as supportSvc   from '../services/student/supportService';
 import * as settingsSvc  from '../services/student/settingsService';
+import * as installmentSvc    from '../services/finance/installmentService';
+import * as submissionSvc     from '../services/finance/paymentSubmissionService';
 
 const router = Router();
 router.use(authenticate, requireRole([Role.STUDENT]));
@@ -344,6 +346,62 @@ router.post('/financials/pay', async (req: AuthRequest, res) => {
     ok(res, result, 201);
   } catch (e) { fail(res, e, 400); }
 });
+
+// ── Monthly installment schedule & payment evidence submission ──────────────────
+
+// GET /api/student/dashboard/financials/installments
+router.get('/financials/installments', async (req: AuthRequest, res) => {
+  try {
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) {
+      ok(res, { installments: [], nextDue: null, countdown: null, totalExpected: 0, totalPaid: 0, totalOutstanding: 0 });
+      return;
+    }
+    ok(res, await installmentSvc.getStudentInstallments(srId));
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/student/dashboard/financials/installments/:installmentId/submit
+router.post('/financials/installments/:installmentId/submit', async (req: AuthRequest, res) => {
+  try {
+    const srId = await resolveStudentRecord(req.user!.userId);
+    const schema = z.object({
+      amount:          z.number().positive(),
+      paymentDate:     z.string().min(1),
+      paymentMethod:   z.string().min(1),
+      referenceNumber: z.string().optional(),
+      evidenceUrl:     z.string().url(),
+      evidenceFileName: z.string().optional(),
+      note:            z.string().max(500).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid submission data' });
+      return;
+    }
+    const result = await submissionSvc.submitPaymentEvidence({
+      studentRecordId: srId,
+      installmentId:   req.params.installmentId as string,
+      ...parsed.data,
+      paymentDate: new Date(parsed.data.paymentDate),
+      evidenceUrl: parsed.data.evidenceUrl!,
+    });
+    ok(res, result, 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// GET /api/student/dashboard/financials/installments/:installmentId/submissions
+router.get('/financials/installments/:installmentId/submissions', async (req: AuthRequest, res) => {
+  try {
+    const srId = await resolveStudentRecord(req.user!.userId);
+    const data = await submissionSvc.getInstallmentSubmissions(
+      req.params.installmentId as string,
+      srId
+    );
+    ok(res, data);
+  } catch (e) { fail(res, e); }
+});
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DEGREE AUDIT

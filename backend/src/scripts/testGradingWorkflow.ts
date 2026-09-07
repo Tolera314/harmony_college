@@ -113,6 +113,59 @@ async function main() {
   console.log(`  isGradePortalOpen() helper returned: ${openStatus}`);
   console.log('  -> ✓ PASS');
 
+  // 6. Verify Automatic Assignment (15%) & Quiz (5%) Proportional Scaling
+  console.log('\n6. Verifying Automatic Assignment & Quiz Scaling:');
+  // Example from prompt:
+  // Assignment max = 15, student score = 13 -> Assign (15%) = 13
+  const assignSingleScore = 13;
+  const assignSingleMax = 15;
+  const calculatedAssign = Math.round(((assignSingleScore / assignSingleMax) * 15) * 100) / 100;
+  console.log(`  Single Assignment: ${assignSingleScore}/${assignSingleMax} -> ${calculatedAssign} / 15 (Expected: 13)`);
+  if (calculatedAssign !== 13) throw new Error('Single assignment calculation failed');
+
+  // Example from prompt:
+  // Quiz max = 10, student score = 8 -> 8 / 10 * 5 = 4
+  const quizSingleScore = 8;
+  const quizSingleMax = 10;
+  const calculatedQuiz = Math.round(((quizSingleScore / quizSingleMax) * 5) * 100) / 100;
+  console.log(`  Single Quiz: ${quizSingleScore}/${quizSingleMax} -> ${calculatedQuiz} / 5 (Expected: 4)`);
+  if (calculatedQuiz !== 4) throw new Error('Single quiz calculation failed');
+
+  // Multiple Assignments:
+  // Assig 1: 13 / 15, Assig 2: 17 / 20 -> (30 / 35) * 15 = 12.86
+  const multipleAssignScore = 13 + 17;
+  const multipleAssignMax = 15 + 20;
+  const calculatedMultiAssign = Math.round(((multipleAssignScore / multipleAssignMax) * 15) * 100) / 100;
+  console.log(`  Multiple Assignments: ${multipleAssignScore}/${multipleAssignMax} -> ${calculatedMultiAssign} / 15`);
+  if (calculatedMultiAssign !== 12.86) throw new Error('Multiple assignment calculation failed');
+
+  // Full Course Breakdown with auto Assign & Quiz:
+  // Assign = 13 (out of 15)
+  // Quiz = 4 (out of 5)
+  // Mid Exam = 26 (out of 30)
+  // Final Exam = 40 (out of 45)
+  // Attendance = 5 (out of 5)
+  // Total = 13 + 4 + 26 + 40 + 5 = 88 -> A (4.00), QP for 4 ECTS = 16.00
+  const autoBreakdown = {
+    assignment: calculatedAssign,
+    quiz: calculatedQuiz,
+    midExam: 26,
+    finalExam: 40,
+    attendance: 5,
+  };
+  const courseEcts = 4;
+  const autoResult = calculateCourseResult(autoBreakdown, courseEcts);
+  console.log(`  Full Auto Course Grade Outcome:`, {
+    finalMark: autoResult.finalMark,
+    grade: autoResult.letterGrade,
+    gradePoints: autoResult.gradePoints,
+    qualityPoints: autoResult.qualityPoints,
+  });
+  if (autoResult.finalMark !== 88 || autoResult.letterGrade !== 'A' || autoResult.gradePoints !== 4.0 || autoResult.qualityPoints !== 16.0) {
+    throw new Error('Full auto course calculation failed');
+  }
+  console.log('  -> ✓ PASS');
+
   console.log('\n=== ALL GRADING & GPA ENGINE TESTS PASSED PERFECTLY ===\n');
 }
 

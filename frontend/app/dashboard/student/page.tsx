@@ -12,6 +12,7 @@ import { DashboardView } from '@/src/components/DashboardView';
 import { MyCoursesView } from '@/src/components/MyCoursesView';
 import { MyTimetableView } from '@/src/components/MyTimetableView';
 import { GradesView } from '@/src/components/GradesView';
+import { GpaSimulatorView } from '@/src/components/GpaSimulatorView';
 import { FinancialsView } from '@/src/components/FinancialsView';
 import { DegreeAuditView } from '@/src/components/DegreeAuditView';
 import { SettingsView } from '@/src/components/SettingsView';
@@ -27,6 +28,7 @@ import {
   LayoutDashboard, BookOpen, ClipboardList, GraduationCap,
   CreditCard, BarChart3, HelpCircle, X, ChevronRight,
   Settings, LogOut, CalendarCheck, CalendarDays, UserCircle,
+  Calculator,
 } from 'lucide-react';
 import {
   studentDashApi,
@@ -371,7 +373,7 @@ export default function StudentDashboardPage() {
       return;
     }
     setTabLoading(true);
-    if (tab === 'grades') loadGrades();
+    if (tab === 'grades' || tab === 'gpa_simulator') loadGrades();
     if (tab === 'financials') loadFinancials();
     if (tab === 'degree_audit') loadDegreeAudit();
     setTimeout(() => { setActiveTab(tab); setTabLoading(false); }, 120);
@@ -399,6 +401,7 @@ export default function StudentDashboardPage() {
     { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-4 h-4" /> },
     { id: 'attendance',   label: 'My Attendance',        icon: <CalendarCheck className="w-4 h-4" /> },
     { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-4 h-4" /> },
+    { id: 'gpa_simulator', label: 'GPA Simulator',       icon: <Calculator className="w-4 h-4" /> },
     { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'degree_audit', label: 'Degree Audit',         icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'profile',      label: 'My Profile',           icon: <UserCircle className="w-4 h-4" /> },
@@ -466,6 +469,15 @@ export default function StudentDashboardPage() {
             gradeData={gradeData}
             grades={grades}
             enrolledCourses={enrolledCourses.map(c => ({ id: c.id, code: c.code, name: c.title, credits: c.credits }))}
+          />
+        );
+      case 'gpa_simulator':
+        return (
+          <GpaSimulatorView
+            profile={profile}
+            enrolledCourses={enrolledCourses}
+            gradeData={gradeData}
+            grades={grades}
           />
         );
       case 'financials':

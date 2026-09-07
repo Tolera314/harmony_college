@@ -53,6 +53,7 @@ export type NavTab =
   | 'quizzes'
   | 'attendance'
   | 'grades'
+  | 'gpa_simulator'
   | 'financials'
   | 'degree_audit'
   | 'settings'

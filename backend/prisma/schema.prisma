@@ -607,6 +607,7 @@ model Department {
   departmentHeads DepartmentHeadRecord[]
   onboardingStudents StudentProfile[]
   staffInvitations StaffInvitation[]
+  tuitionConfigs  TuitionConfiguration[]
 
   @@unique([name, programType])
   @@unique([code, programType])
@@ -633,6 +634,7 @@ model Program {
   courses        ProgramCourse[]
   studentRecords StudentRecord[]
   requirements   ProgramRequirement[]
+  tuitionConfigs TuitionConfiguration[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -827,6 +829,9 @@ model StudentRecord {
   quizAttempts           QuizAttempt[]
   attendanceRecords      AttendanceRecord[]
   financialAccount       FinancialAccount?
+  monthlyInstallments    MonthlyInstallment[]
+  paymentSubmissions     PaymentSubmission[]
+  paymentReceipts        PaymentReceipt[]
   advisorAppointments    AdvisorAppointment[]
   notificationPreference StudentNotificationPreference?
 
@@ -1289,6 +1294,21 @@ enum TransactionType {
   PENALTY
 }
 
+enum PaymentInstallmentStatus {
+  UPCOMING   // Not yet due
+  DUE        // Due date has passed, no submission
+  OVERDUE    // Significantly past due
+  PENDING_REVIEW // Student submitted evidence, awaiting FO approval
+  PAID       // FO approved, receipt generated
+  REJECTED   // FO rejected submission, student must resubmit
+}
+
+enum PaymentSubmissionStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
 enum AppointmentStatus {
   PENDING
   CONFIRMED
@@ -1597,7 +1617,8 @@ model FinancialAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  transactions FinancialTransaction[]
+  transactions        FinancialTransaction[]
+  monthlyInstallments MonthlyInstallment[]
 
   @@index([studentRecordId])
 }
@@ -1621,6 +1642,125 @@ model FinancialTransaction {
   @@index([financialAccountId])
   @@index([transactionDate])
   @@index([type])
+}
+
+/// Tuition fee configuration per academic context, department/program, and duration.
+/// Finance Officers create and manage these to set the monthly amount per student group.
+model TuitionConfiguration {
+  id               String      @id @default(uuid())
+  academicContext  ProgramType // TVET or SHORT_PROGRAM
+  departmentId     String
+  department       Department  @relation(fields: [departmentId], references: [id])
+  programId        String?
+  program          Program?    @relation(fields: [programId], references: [id])
+  durationMonths   Int?        // For SHORT_PROGRAM: 2, 4, 8. null = not applicable for TVET
+  academicYearLabel String?    // e.g. "2026-2027"
+  monthlyAmount    Float       // ETB amount per month
+  effectiveDate    DateTime    @default(now())
+  isActive         Boolean     @default(true)
+  description      String?
+
+  createdByUserId  String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  installments     MonthlyInstallment[]
+
+  @@index([academicContext])
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+/// One row per billing month per student. Status drives the payment countdown UI.
+model MonthlyInstallment {
+  id                   String                    @id @default(uuid())
+  financialAccountId   String
+  financialAccount     FinancialAccount          @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+  studentRecordId      String
+  studentRecord        StudentRecord             @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+  tuitionConfigId      String?
+  tuitionConfig        TuitionConfiguration?     @relation(fields: [tuitionConfigId], references: [id])
+
+  academicContext      ProgramType
+  billingMonth         String                    // e.g. "2026-09" (YYYY-MM)
+  billingLabel         String                    // e.g. "September 2026"
+  dueDate              DateTime
+  expectedAmount       Float                     // ETB
+  status               PaymentInstallmentStatus  @default(UPCOMING)
+
+  activeSubmissionId   String?                   @unique // points to latest non-rejected submission
+  receiptId            String?                   @unique // set once PAID
+
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  submissions          PaymentSubmission[]
+  receipt              PaymentReceipt?           @relation(fields: [receiptId], references: [id])
+
+  @@unique([studentRecordId, billingMonth])
+  @@index([financialAccountId])
+  @@index([studentRecordId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+/// Student uploads payment evidence; FO reviews and approves/rejects.
+model PaymentSubmission {
+  id               String                  @id @default(uuid())
+  installmentId    String
+  installment      MonthlyInstallment      @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  studentRecordId  String
+  studentRecord    StudentRecord           @relation(fields: [studentRecordId], references: [id])
+
+  amount           Float
+  paymentDate      DateTime                // date on the bank receipt
+  paymentMethod    String                  // Cash, Bank Transfer, Telebirr, Chapa
+  referenceNumber  String?
+  evidenceUrl      String                  // uploaded file URL
+  evidenceFileName String?
+  note             String?
+
+  status           PaymentSubmissionStatus @default(PENDING_REVIEW)
+  rejectionReason  String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  receipt          PaymentReceipt?
+
+  @@index([installmentId])
+  @@index([studentRecordId])
+  @@index([status])
+}
+
+/// Official payment receipt generated by Finance Officer upon approval.
+model PaymentReceipt {
+  id               String            @id @default(uuid())
+  receiptNumber    String            @unique // e.g. HC-REC-2026-00042
+  installmentId    String            @unique // one receipt per installment
+  submissionId     String            @unique // one receipt per approved submission
+  submission       PaymentSubmission @relation(fields: [submissionId], references: [id])
+  studentRecordId  String
+  studentRecord    StudentRecord     @relation(fields: [studentRecordId], references: [id])
+
+  amountPaid       Float
+  paymentDate      DateTime
+  paymentMethod    String?
+  referenceNumber  String?
+  billingMonth     String
+  billingLabel     String
+
+  approvedByUserId String
+  approvedAt       DateTime          @default(now())
+
+  createdAt        DateTime          @default(now())
+
+  installment      MonthlyInstallment? @relation
+
+  @@index([studentRecordId])
+  @@index([approvedAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

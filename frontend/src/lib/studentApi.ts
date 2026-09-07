@@ -165,6 +165,89 @@ export interface GradeHistory {
   isGradePortalOpen?: boolean;
 }
 
+export interface PaymentSubmissionItem {
+  id: string;
+  installmentId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  referenceNumber: string | null;
+  evidenceUrl: string;
+  evidenceFileName: string | null;
+  note: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface PaymentReceiptItem {
+  id: string;
+  receiptNumber: string;
+  amountPaid: number;
+  paymentDate: string;
+  paymentMethod: string;
+  referenceNumber: string | null;
+  monthLabel: string;
+  academicContext: string;
+  approvedAt: string;
+  approvedBy?: { fullName: string } | null;
+}
+
+export interface MonthlyInstallmentItem {
+  id: string;
+  monthLabel: string;
+  monthIndex: number;
+  billingMonth: string;
+  dueDate: string;
+  expectedAmount: number;
+  paidAmount: number;
+  status: 'UPCOMING' | 'DUE' | 'PENDING_REVIEW' | 'PAID' | 'REJECTED' | 'OVERDUE';
+  academicContext: 'TVET' | 'SHORT_PROGRAM';
+  academicYearLabel: string | null;
+  paymentDate: string | null;
+  paymentSubmissions: PaymentSubmissionItem[];
+  receipts: PaymentReceiptItem[];
+  tuitionConfig?: {
+    monthlyAmount: number;
+    description: string | null;
+    durationMonths: number | null;
+  } | null;
+}
+
+export interface InstallmentCountdown {
+  daysLeft: number;
+  isOverdue: boolean;
+  isDueToday: boolean;
+  label: string;
+  statusBadge: string;
+  dueDate: string;
+  amount: number;
+}
+
+export interface InstallmentScheduleResponse {
+  installments: MonthlyInstallmentItem[];
+  nextDue: MonthlyInstallmentItem | null;
+  countdown: InstallmentCountdown | null;
+  totalExpected: number;
+  totalPaid: number;
+  totalOutstanding: number;
+  hasConfig: boolean;
+  departmentName?: string;
+  programType?: string;
+  shortProgramDuration?: string;
+}
+
+export interface PaymentEvidenceSubmission {
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  referenceNumber?: string;
+  evidenceUrl: string;
+  evidenceFileName?: string;
+  note?: string;
+}
+
 export interface FinancialSummary {
   balance: number; clearedForTerm: string | null;
   totalFinancialAid: number; lastUpdatedAt: string;
@@ -227,6 +310,14 @@ export const studentDashApi = {
   getFinancials: () => apiFetch<FinancialSummary>('/financials'),
   processPayment: (data: { amount: number; cardLastFour?: string; cardHolder?: string }) =>
     apiFetch<{ receiptId: string; amount: number; newBalance: number; isCleared: boolean }>('/financials/pay', { method: 'POST', body: JSON.stringify(data) }),
+  getInstallments: () => apiFetch<InstallmentScheduleResponse>('/financials/installments'),
+  submitInstallmentPayment: (installmentId: string, data: PaymentEvidenceSubmission) =>
+    apiFetch<{ submission: PaymentSubmissionItem; message: string }>(`/financials/installments/${installmentId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getInstallmentSubmissions: (installmentId: string) =>
+    apiFetch<PaymentSubmissionItem[]>(`/financials/installments/${installmentId}/submissions`),
 
   // Degree audit
   getDegreeAudit: () => apiFetch<DegreeAudit>('/degree-audit'),

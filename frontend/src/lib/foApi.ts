@@ -199,3 +199,102 @@ export async function updateSettings(data: Record<string, unknown>) {
     body: JSON.stringify(data),
   });
 }
+
+// ── Tuition Configurations ───────────────────────────────────────────────────
+export async function getTuitionConfigs(params?: {
+  academicContext?: string;
+  departmentId?: string;
+  programId?: string;
+  isActive?: boolean;
+}) {
+  return apiFetch<any>(`/tuition-configs${qs(params || {})}`);
+}
+
+export async function getTuitionConfig(id: string) {
+  return apiFetch<any>(`/tuition-configs/${id}`);
+}
+
+export async function createTuitionConfig(data: {
+  academicContext: 'TVET' | 'SHORT_PROGRAM';
+  departmentId: string;
+  programId?: string;
+  durationMonths?: number;
+  academicYearLabel?: string;
+  monthlyAmount: number;
+  effectiveDate?: string;
+  description?: string;
+}) {
+  return apiFetch<any>('/tuition-configs', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateTuitionConfig(
+  id: string,
+  data: Partial<{
+    monthlyAmount: number;
+    isActive: boolean;
+    effectiveDate: string;
+    description: string;
+    durationMonths: number;
+    academicYearLabel: string;
+  }>
+) {
+  return apiFetch<any>(`/tuition-configs/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteTuitionConfig(id: string) {
+  return apiFetch<any>(`/tuition-configs/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// ── Payment Submissions Review ────────────────────────────────────────────────
+export async function getPaymentSubmissions(params?: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  return apiFetch<any>(`/payment-submissions${qs(params || {})}`);
+}
+
+export async function approvePaymentSubmission(id: string) {
+  return apiFetch<any>(`/payment-submissions/${id}/approve`, {
+    method: 'POST',
+  });
+}
+
+export async function rejectPaymentSubmission(id: string, rejectionReason: string) {
+  return apiFetch<any>(`/payment-submissions/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ rejectionReason }),
+  });
+}
+
+export async function getPaymentSubmissionAnalytics() {
+  return apiFetch<any>('/payment-submissions/analytics');
+}
+
+// ── Installment Operations ────────────────────────────────────────────────────
+export async function generateStudentInstallments(studentRecordId: string) {
+  return apiFetch<any>(`/installments/generate/${studentRecordId}`, {
+    method: 'POST',
+  });
+}
+
+export async function syncInstallmentStatuses() {
+  return apiFetch<any>('/installments/sync-statuses', {
+    method: 'POST',
+  });
+}
+
+export async function sendPaymentReminders() {
+  return apiFetch<any>('/installments/send-reminders', {
+    method: 'POST',
+  });
+}
+
