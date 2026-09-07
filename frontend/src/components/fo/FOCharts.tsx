@@ -56,8 +56,8 @@ export const RevenueLineChart: React.FC<RevenueLineChartProps> = ({
   const maxV = Math.max(...allVals) * 1.1 || 1;
   const range = maxV - minV;
 
-  const toX = (i: number, len: number) => pad.left + (i / (len - 1)) * iW;
-  const toY = (v: number) => pad.top + iH - ((v - minV) / range) * iH;
+  const toX = (i: number, len: number) => pad.left + (len <= 1 ? iW / 2 : (i / (len - 1)) * iW);
+  const toY = (v: number) => range === 0 ? pad.top + iH / 2 : pad.top + iH - ((v - minV) / range) * iH;
 
   const pts = (d: LinePoint[]) => d.map((p, i) => `${toX(i, d.length)},${toY(p.value)}`).join(' ');
   const areaPath = (d: LinePoint[], c: string) => {

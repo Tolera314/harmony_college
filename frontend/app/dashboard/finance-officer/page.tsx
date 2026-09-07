@@ -8,6 +8,8 @@ import { FOMobileNav }         from '@/src/components/fo/FOMobileNav';
 import { FOSearchModal }       from '@/src/components/fo/FOSearchModal';
 import { FOLogoutModal }       from '@/src/components/fo/FOLogoutModal';
 import { FOOverviewView }        from '@/src/components/fo/views/FOOverviewView';
+import { FOTuitionSetupView }    from '@/src/components/fo/views/FOTuitionSetupView';
+import { FOPaymentSubmissionsView } from '@/src/components/fo/views/FOPaymentSubmissionsView';
 import { FOStudentAccountsView } from '@/src/components/fo/views/FOStudentAccountsView';
 import { FORegistrationPaymentsView } from '@/src/components/fo/views/FORegistrationPaymentsView';
 import { FOPaymentsView }        from '@/src/components/fo/views/FOPaymentsView';
@@ -107,9 +109,11 @@ export default function FinanceOfficerPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':         return <FOOverviewView setActiveTab={setActiveTab} />;
-      case 'student_accounts': return <FOStudentAccountsView />;
-      case 'payments':         return <FOPaymentsView />;
+      case 'overview':            return <FOOverviewView setActiveTab={setActiveTab} />;
+      case 'tuition_setup':       return <FOTuitionSetupView />;
+      case 'payment_submissions': return <FOPaymentSubmissionsView />;
+      case 'student_accounts':    return <FOStudentAccountsView />;
+      case 'payments':            return <FOPaymentsView />;
       case 'registration_payments': return <FORegistrationPaymentsView />;
       case 'receipts':         return <FOReceiptsView />;
       case 'outstanding':      return <FOOutstandingView />;
@@ -215,6 +219,8 @@ export default function FinanceOfficerPage() {
               <div className="flex-1 overflow-y-auto p-3 space-y-1">
                 {[
                   { id: 'overview', label: 'Dashboard Overview' },
+                  { id: 'tuition_setup', label: 'Tuition Setup' },
+                  { id: 'payment_submissions', label: 'Payment Submissions' },
                   { id: 'student_accounts', label: 'Student Accounts' },
                   { id: 'payments', label: 'Payments' },
                   { id: 'receipts', label: 'Receipts' },

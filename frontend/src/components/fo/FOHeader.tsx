@@ -22,18 +22,20 @@ interface FOHeaderProps {
 }
 
 const tabLabels: Record<FONavTab, string> = {
-  overview:         'Dashboard Overview',
-  student_accounts: 'Student Accounts',
-  payments:         'Payments',
+  overview:            'Dashboard Overview',
+  tuition_setup:       'Tuition & Fee Setup',
+  payment_submissions: 'Payment Submissions',
+  student_accounts:    'Student Accounts',
+  payments:            'Payments',
   registration_payments: 'Reg. Fee Verification',
-  receipts:         'Receipts',
-  outstanding:      'Outstanding Accounts',
-  reports:          'Financial Reports',
-  reconciliation:   'Payment Reconciliation',
-  notifications:    'Notification Center',
-  audit_log:        'Audit Log',
-  settings:         'Settings',
-  messages:         'Messages',
+  receipts:            'Receipts',
+  outstanding:         'Outstanding Accounts',
+  reports:             'Financial Reports',
+  reconciliation:      'Payment Reconciliation',
+  notifications:       'Notification Center',
+  audit_log:           'Audit Log',
+  settings:            'Settings',
+  messages:            'Messages',
 };
 
 const notifTypeIcon: Record<FONotification['type'], string> = {

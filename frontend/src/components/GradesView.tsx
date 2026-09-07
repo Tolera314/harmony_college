@@ -5,7 +5,6 @@ import { GradeRecord, StudentProfile } from '../types';
 import { type GradeHistory, type TermSummary } from '../lib/studentApi';
 import {
   GraduationCap,
-  Calculator,
   Download,
   Printer,
   FileCheck,
@@ -118,49 +117,6 @@ export const GradesView: React.FC<GradesViewProps> = ({
     });
   }, [termSummaries, grades]);
 
-  // GPA Simulator — use ONLY real enrolled courses (zero fake/mock data)
-  const simCourses = enrolledCourses;
-
-  const [simValues, setSimValues] = useState<Record<string, number>>(() =>
-    Object.fromEntries(simCourses.map((c) => [c.id, 4.0]))
-  );
-
-  const simKeys = simCourses.map((c) => c.id).join(',');
-  React.useEffect(() => {
-    setSimValues((prev) => {
-      const next: Record<string, number> = {};
-      simCourses.forEach((c) => {
-        next[c.id] = prev[c.id] ?? 4.0;
-      });
-      return next;
-    });
-  }, [simKeys]);
-
-  // Calculate simulated CGPA using ECTS weighting
-  const calculateSimulatedGpa = () => {
-    const newEcts = simCourses.reduce((s, c) => s + (c.ects ?? c.credits ?? 4), 0);
-    const newPoints = simCourses.reduce(
-      (s, c) => s + (simValues[c.id] ?? 4.0) * (c.ects ?? c.credits ?? 4),
-      0
-    );
-    const totalEcts = cumulativeEcts + newEcts;
-    const totalPoints = cumulativeQp + newPoints;
-    return totalEcts > 0 ? formatGPA(totalPoints / totalEcts) : formatGPA(officialCgpa);
-  };
-
-  const gpaLabels: Record<number, string> = {
-    4.0: 'A (4.00)',
-    3.75: 'A- (3.75)',
-    3.5: 'B+ (3.50)',
-    3.0: 'B (3.00)',
-    2.75: 'B- (2.75)',
-    2.5: 'C+ (2.50)',
-    2.0: 'C (2.00)',
-    1.75: 'C- (1.75)',
-    1.0: 'D (1.00)',
-    0.0: 'F (0.00)',
-  };
-  const gpaSteps = [4.0, 3.75, 3.5, 3.0, 2.75, 2.5, 2.0, 1.75, 1.0, 0.0];
 
   const transcriptData = {
     studentName: profile.name,
@@ -199,83 +155,24 @@ export const GradesView: React.FC<GradesViewProps> = ({
         </div>
       )}
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card hoverable={false} className="space-y-2">
-          <p
-            className="font-mono text-xs uppercase font-bold tracking-wider"
-            style={{ color: 'var(--text-faint)' }}
-          >
-            Cumulative GPA (CGPA)
-          </p>
-          <div className="flex items-baseline justify-between">
-            <h3
-              className="font-serif text-4xl font-bold"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              {formatGPA(officialCgpa)}
-            </h3>
-            <Badge variant="gold">{gpaLabel(officialCgpa)}</Badge>
-          </div>
-          <p className="font-sans text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Calculated across {cumulativeEcts} completed ECTS credits
-          </p>
-        </Card>
-
-        <Card hoverable={false} className="space-y-2">
-          <p
-            className="font-mono text-xs uppercase font-bold tracking-wider"
-            style={{ color: 'var(--text-faint)' }}
-          >
-            Academic Standing
-          </p>
-          <h3
-            className="font-serif text-2xl sm:text-3xl font-bold"
-            style={{ color: gpaColor(officialCgpa) }}
-          >
-            {gpaLabel(officialCgpa)}
+      {/* Official Academic Record Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            Official Academic Record
           </h3>
-          <p className="font-sans text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Quality Points: {formatQualityPoints(cumulativeQp)} · Total ECTS: {cumulativeEcts}
-          </p>
-        </Card>
-
-        <Card hoverable={false} className="flex flex-col justify-between">
-          <div>
-            <p
-              className="font-mono text-xs uppercase font-bold tracking-wider"
-              style={{ color: 'var(--text-faint)' }}
-            >
-              Official Institutional Transcript
-            </p>
-            <p className="font-sans text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-              Digitally verified watermarked academic record with ECTS weighting.
-            </p>
-          </div>
-          <Button
-            variant="primary"
-            onClick={() => setShowTranscriptModal(true)}
-            icon={<Download className="w-4 h-4" />}
-            className="mt-4"
-          >
-            Download Official Transcript
-          </Button>
-        </Card>
+        </div>
+        <Button
+          variant="primary"
+          onClick={() => setShowTranscriptModal(true)}
+          icon={<Download className="w-4 h-4" />}
+        >
+          Download Official Transcript
+        </Button>
       </div>
 
-      {/* Main Body: Official Year/Semester Breakdown + GPA Simulator */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-serif text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                Official Academic Record
-              </h3>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Structured by Year and Semester. GPA is weighted strictly by ECTS (Quality Point = Grade Point × ECTS).
-              </p>
-            </div>
-          </div>
+      {/* Main Body: Official Year/Semester Breakdown */}
+      <div className="space-y-6">
 
           {fallbackTerms.length === 0 ? (
             <Card hoverable={false} className="p-8 text-center text-xs text-zinc-400">
@@ -400,9 +297,6 @@ export const GradesView: React.FC<GradesViewProps> = ({
                   <p className="text-[11px] font-mono uppercase tracking-wider text-[#E9C349] font-bold">
                     Official Academic Summary (Cumulative)
                   </p>
-                  <p className="text-xs text-zinc-300 mt-1">
-                    Cumulative Quality Points across all completed courses ÷ Cumulative ECTS
-                  </p>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-mono text-zinc-400 block uppercase tracking-wider">
@@ -436,104 +330,6 @@ export const GradesView: React.FC<GradesViewProps> = ({
               </div>
             </div>
           )}
-        </div>
-
-        {/* GPA Simulator with Real Enrolled Courses */}
-        <Card hoverable={false} className="lg:col-span-4 space-y-6 h-fit">
-          <div
-            className="flex items-center gap-2.5 border-b pb-4"
-            style={{ borderColor: 'var(--border-default)' }}
-          >
-            <Calculator className="w-5 h-5 text-[#E9C349]" />
-            <div>
-              <h3 className="font-sans font-bold text-base" style={{ color: 'var(--text-primary)' }}>
-                GPA Simulator
-              </h3>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Weighted by ECTS: Quality Point = Grade Point × ECTS
-              </p>
-            </div>
-          </div>
-
-          {simCourses.length === 0 ? (
-            <p className="text-xs text-zinc-400">
-              No currently active enrolled courses available to simulate.
-            </p>
-          ) : (
-            <>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                Select projected grades for your currently enrolled courses to preview your resulting CGPA:
-              </p>
-
-              <div className="space-y-4">
-                {simCourses.map((course) => {
-                  const ects = course.ects ?? course.credits ?? 4;
-                  const val = simValues[course.id] ?? 4.0;
-                  return (
-                    <div key={course.id} className="space-y-1.5">
-                      <div
-                        className="flex justify-between text-xs font-semibold"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        <span className="truncate max-w-[65%]">
-                          {course.code}: {course.name} ({ects} ECTS)
-                        </span>
-                        <span
-                          className="font-mono shrink-0 ml-2 text-[#E9C349]"
-                        >
-                          {gpaLabels[val] ?? `${val.toFixed(2)}`}
-                        </span>
-                      </div>
-                      <div className="flex gap-1">
-                        {gpaSteps.slice(0, 6).map((step) => (
-                          <button
-                            key={step}
-                            type="button"
-                            onClick={() =>
-                              setSimValues((prev) => ({ ...prev, [course.id]: step }))
-                            }
-                            className={`flex-1 py-1 rounded text-[10px] font-mono transition-all ${
-                              val === step
-                                ? 'bg-[#E9C349] text-black font-bold'
-                                : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
-                            }`}
-                          >
-                            {step === 4.0
-                              ? 'A'
-                              : step === 3.75
-                              ? 'A-'
-                              : step === 3.5
-                              ? 'B+'
-                              : step === 3.0
-                              ? 'B'
-                              : step === 2.75
-                              ? 'B-'
-                              : 'C+'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Simulation Result */}
-              <div className="p-4 rounded-xl bg-black/40 border border-[#E9C349]/30 space-y-1">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                  Projected Cumulative CGPA
-                </p>
-                <div className="flex items-baseline justify-between">
-                  <span className="font-serif text-3xl font-bold text-[#E9C349]">
-                    {calculateSimulatedGpa()}
-                  </span>
-                  <span className="text-xs text-zinc-400 font-mono">
-                    Current: {formatGPA(officialCgpa)}
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-        </Card>
       </div>
 
       {/* Official Transcript SlidePanel */}

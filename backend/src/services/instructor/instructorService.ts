@@ -23,6 +23,7 @@ import {
   QuestionType,
 } from '@prisma/client';
 import { calculateCourseResult, AssessmentBreakdown } from '../../lib/grading';
+import { syncStudentAssessmentGrades, syncOfferingAssessmentGrades } from '../student/gradeSyncService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -980,6 +981,13 @@ export async function gradeSubmission(
     },
   });
 
+  // Automatically sync assignment score into CourseGrade
+  try {
+    await syncStudentAssessmentGrades(submission.studentRecordId, submission.assignment.courseOfferingId);
+  } catch (syncErr) {
+    console.error('Failed to auto-sync assignment grade to CourseGrade:', syncErr);
+  }
+
   // Notify student of posted assignment grade
   try {
     if (updated.studentRecord?.userId) {
@@ -1425,6 +1433,13 @@ export async function deleteQuizQuestion(userId: string, quizId: string, questio
 export async function getCourseGrades(userId: string, courseOfferingId: string) {
   const instructor = await resolveInstructor(userId);
   await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  // Auto-sync any completed assignment/quiz assessments for all enrolled students
+  try {
+    await syncOfferingAssessmentGrades(courseOfferingId);
+  } catch (syncErr) {
+    console.error('Failed to auto-sync offering grades:', syncErr);
+  }
 
   const offering = await prisma.courseOffering.findUnique({
     where: { id: courseOfferingId },

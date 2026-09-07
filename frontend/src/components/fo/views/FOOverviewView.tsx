@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import {
   DollarSign, AlertTriangle, Receipt, TrendingUp, TrendingDown,
-  Clock, RefreshCw, BarChart3, CreditCard, Users, Loader2,
+  Clock, RefreshCw, BarChart3, CreditCard, Users, Loader2, Landmark,
 } from 'lucide-react';
 import { KPICard } from '../KPICard';
 import {
@@ -19,6 +19,7 @@ import {
   getOverviewData,
   getNotifications,
   getSettings,
+  getPaymentSubmissionAnalytics,
 } from '../../../lib/foApi';
 
 interface FOOverviewViewProps {
@@ -77,6 +78,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
   const [notifications,   setNotifications]   = useState<any[]>([]);
   const [academicYear,    setAcademicYear]    = useState('');
   const [foName,          setFoName]          = useState('');
+  const [pendingSubCount, setPendingSubCount] = useState(0);
   const [loading,         setLoading]         = useState(true);
   const [error,           setError]           = useState<string | null>(null);
 
@@ -84,10 +86,11 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
     setLoading(true);
     setError(null);
     try {
-      const [overviewData, notifsData, settingsData] = await Promise.allSettled([
+      const [overviewData, notifsData, settingsData, submissionData] = await Promise.allSettled([
         getOverviewData(),
         getNotifications(),
         getSettings(),
+        getPaymentSubmissionAnalytics(),
       ]);
 
       if (overviewData.status === 'fulfilled' && overviewData.value) {
@@ -103,6 +106,10 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
         if (d.academicYearLabel)  setAcademicYear(d.academicYearLabel);
       } else if (overviewData.status === 'rejected') {
         setError('Could not load dashboard data. Please refresh.');
+      }
+
+      if (submissionData.status === 'fulfilled' && submissionData.value) {
+        setPendingSubCount(submissionData.value.pendingCount ?? 0);
       }
 
       if (notifsData.status === 'fulfilled' && Array.isArray(notifsData.value)) {
@@ -198,18 +205,34 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
               Finance &amp; Bursary Office · {semesterLabel}
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
+              <Button
+                variant={pendingSubCount > 0 ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('payment_submissions')}
+                icon={<CreditCard className="w-4 h-4" />}
+              >
+                {pendingSubCount > 0 ? `${pendingSubCount} Payment Submission${pendingSubCount !== 1 ? 's' : ''} to Review` : 'Payment Submissions'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('tuition_setup')}
+                icon={<Landmark className="w-4 h-4" />}
+              >
+                Tuition Setup
+              </Button>
               {highRisk.length > 0 && (
-                <Button variant="primary" size="sm" onClick={() => setActiveTab('outstanding')} icon={<AlertTriangle className="w-4 h-4" />}>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('outstanding')} icon={<AlertTriangle className="w-4 h-4 text-rose-500" />}>
                   {highRisk.length} High-Risk Account{highRisk.length !== 1 ? 's' : ''}
                 </Button>
               )}
               {kpis.pendingReconciliation > 0 && (
                 <Button variant="outline" size="sm" onClick={() => setActiveTab('reconciliation')} icon={<RefreshCw className="w-4 h-4" />}>
-                  {kpis.pendingReconciliation} Pending Reconciliation{kpis.pendingReconciliation !== 1 ? 's' : ''}
+                  {kpis.pendingReconciliation} Reconciliation
                 </Button>
               )}
               <Button variant="secondary" size="sm" onClick={() => setActiveTab('reports')} icon={<BarChart3 className="w-4 h-4" />}>
-                View Reports
+                Reports
               </Button>
             </div>
           </div>

@@ -11,7 +11,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Assignment, Course, NavTab } from '../types';
 import {
   ClipboardList, ChevronLeft, Download, Upload, FileText,
-  CheckCircle2, Clock, AlertTriangle, Star, MessageSquare,
+  CheckCircle2, Clock, AlertTriangle, MessageSquare,
   Send, Paperclip, Film, Archive, Edit3, ChevronRight, Search,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,16 +33,6 @@ function scoreColor(score: number, max: number) {
   return 'var(--status-danger)';
 }
 
-function letterGrade(p: number) {
-  if (p >= 90) return 'A';
-  if (p >= 85) return 'A−';
-  if (p >= 80) return 'B+';
-  if (p >= 75) return 'B';
-  if (p >= 70) return 'B−';
-  if (p >= 65) return 'C+';
-  if (p >= 60) return 'C';
-  return 'F';
-}
 
 function fileIcon(type: string) {
   const t = type.toUpperCase();
@@ -134,9 +124,9 @@ const AssignmentCard: React.FC<{
                 {assignment.dueDate}
               </span>
             </span>
-            {assignment.status === 'graded' && assignment.grade && (
-              <span className="flex items-center gap-1 font-sans text-xs" style={{ color: 'var(--status-success)' }}>
-                <Star className="w-3 h-3" /> {assignment.grade}
+            {assignment.status === 'graded' && assignment.score != null && (
+              <span className="flex items-center gap-1 font-mono text-xs font-semibold" style={{ color: 'var(--status-success)' }}>
+                <CheckCircle2 className="w-3 h-3" /> {assignment.score} / {assignment.points}
               </span>
             )}
             {assignment.submittedAt && (
@@ -225,7 +215,7 @@ const AssignmentPanel: React.FC<{
             <div className="flex-1">
               <p className="font-sans text-xs font-semibold"
                 style={{ color: isGraded ? 'var(--status-success)' : isSubmitted ? 'var(--brand-gold)' : 'var(--status-warning)' }}>
-                {isGraded ? `Graded — ${assignment.grade}` : isSubmitted ? 'Submitted — Awaiting Grade' : `Due: ${assignment.dueDate}`}
+                {isGraded ? 'Graded' : isSubmitted ? 'Submitted — Awaiting Grade' : `Due: ${assignment.dueDate}`}
               </p>
               {assignment.submittedAt && (
                 <p className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--text-faint)' }}>Submitted {assignment.submittedAt}</p>
@@ -347,37 +337,20 @@ const AssignmentPanel: React.FC<{
                   </div>
                 )}
 
-                {/* Grade & feedback */}
-                {isGraded && pct != null && (
+                {/* Score & feedback */}
+                {isGraded && assignment.score != null && (
                   <div
-                    className="p-5 rounded-2xl border space-y-4"
+                    className="p-5 rounded-2xl border space-y-3"
                     style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-subtle)' }}
                   >
-                    <FL>Your Grade</FL>
-                    <div className="flex items-center gap-6">
-                      <div className="flex flex-col items-center gap-1 shrink-0">
-                        <p className="font-mono text-4xl font-black" style={{ color: scoreColor(assignment.score!, assignment.points) }}>
-                          {letterGrade(pct)}
-                        </p>
-                        <p className="font-mono text-xs" style={{ color: 'var(--text-faint)' }}>{pct}%</p>
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <div className="flex justify-between font-mono text-xs">
-                          <span style={{ color: 'var(--text-muted)' }}>Score</span>
-                          <span className="font-bold" style={{ color: scoreColor(assignment.score!, assignment.points) }}>
-                            {assignment.score} / {assignment.points}
-                          </span>
-                        </div>
-                        <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-subtle)' }}>
-                          <motion.div
-                            className="h-full rounded-full"
-                            style={{ backgroundColor: scoreColor(assignment.score!, assignment.points) }}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${Math.min(pct, 100)}%` }}
-                            transition={{ ...DURATION.large, ...EASE.out }}
-                          />
-                        </div>
-                      </div>
+                    <FL>Your Score</FL>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono text-3xl sm:text-4xl font-black" style={{ color: 'var(--brand-gold)' }}>
+                        {assignment.score}
+                      </span>
+                      <span className="font-mono text-base font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        / {assignment.points}
+                      </span>
                     </div>
                   </div>
                 )}
