@@ -4,8 +4,8 @@ import React from 'react';
 import { DHNavTab, DHProfile } from '../../types/department';
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, BarChart3,
-  CalendarCheck, CheckSquare, Bell, ClipboardList, Settings,
-  LogOut, FileText,
+  Bell, ClipboardList, Settings,
+  LogOut, Layers, GitBranch, UserCog, CalendarDays, TrendingUp,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ChatSidebarButton } from '../chat/ChatSidebarButton';
@@ -27,23 +27,23 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
   activeTab, setActiveTab, profile, pendingCount, unreadCount, onLogout,
 }) => {
   const navItems: NavItem[] = [
-    { id: 'overview',       label: 'Dashboard',          icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'courses',        label: 'Course Offerings',   icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'faculty',        label: 'Faculty',            icon: <Users className="w-5 h-5" /> },
-    { id: 'students',       label: 'Students',           icon: <GraduationCap className="w-5 h-5" /> },
-    { id: 'reports',        label: 'Department Reports', icon: <BarChart3 className="w-5 h-5" /> },
-    { id: 'attendance',     label: 'Attendance',         icon: <CalendarCheck className="w-5 h-5" /> },
-    {
-      id: 'approvals', label: 'Approvals', icon: <CheckSquare className="w-5 h-5" />,
-      badge: pendingCount > 0 ? String(pendingCount) : undefined, badgeVariant: 'gold',
-    },
-    { id: 'leave_requests', label: 'Leave Requests',    icon: <FileText className="w-5 h-5" /> },
+    { id: 'overview',             label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'programs',             label: 'Programs',             icon: <Layers className="w-5 h-5" /> },
+    { id: 'courses',              label: 'Courses',              icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'instructors',          label: 'Instructors',          icon: <UserCog className="w-5 h-5" /> },
+    { id: 'students',             label: 'Students',             icon: <GraduationCap className="w-5 h-5" /> },
+    { id: 'classes',              label: 'Classes & Sections',   icon: <CalendarDays className="w-5 h-5" /> },
+    { id: 'course_assignments',   label: 'Course Assignments',   icon: <GitBranch className="w-5 h-5" /> },
+    { id: 'academic_monitoring',  label: 'Academic Monitoring',  icon: <ClipboardList className="w-5 h-5" /> },
+    { id: 'academic_performance', label: 'Academic Performance', icon: <TrendingUp className="w-5 h-5" /> },
+    { id: 'reports',              label: 'Department Reports',   icon: <BarChart3 className="w-5 h-5" /> },
     {
       id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" />,
       badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeVariant: 'rose',
     },
-    { id: 'audit_log',      label: 'Audit Log',          icon: <ClipboardList className="w-5 h-5" /> },
+    { id: 'audit_log',            label: 'Audit Log',            icon: <Users className="w-5 h-5" /> },
   ];
+
 
   return (
     <aside

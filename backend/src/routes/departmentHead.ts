@@ -324,4 +324,222 @@ router.get('/semesters', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// PROGRAMS MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/programs', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getPrograms(req.user!.userId)); }
+  catch (e) { fail(res, e); }
+});
+
+router.post('/programs', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name:          z.string().min(2).max(100),
+      code:          z.string().min(2).max(20),
+      description:   z.string().optional(),
+      durationYears: z.number().int().min(1).max(7).optional(),
+      totalCredits:  z.number().int().min(10).max(300).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.createProgram(req.user!.userId, parsed.data), 201);
+  } catch (e) { fail(res, e); }
+});
+
+router.patch('/programs/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name:          z.string().min(2).max(100).optional(),
+      code:          z.string().min(2).max(20).optional(),
+      description:   z.string().optional(),
+      durationYears: z.number().int().min(1).max(7).optional(),
+      totalCredits:  z.number().int().min(10).max(300).optional(),
+      isActive:      z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.updateProgram(req.user!.userId, pid(req), parsed.data));
+  } catch (e) { fail(res, e); }
+});
+
+router.patch('/programs/:id/toggle-status', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.toggleProgramStatus(req.user!.userId, pid(req))); }
+  catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COURSES MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/courses', async (req: AuthRequest, res) => {
+  try {
+    const q = qp(req);
+    ok(res, await svc.getCourses(req.user!.userId, {
+      search:      q.search,
+      status:      q.status,
+      programType: q.programType,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/courses', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      code:        z.string().min(2).max(20),
+      name:        z.string().min(2).max(150),
+      description: z.string().optional(),
+      creditHours: z.number().int().min(1).max(12).default(3),
+      ects:        z.number().int().min(1).max(20).default(4),
+      programType: z.enum(['TVET', 'SHORT_PROGRAM']).default('TVET'),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.createCourse(req.user!.userId, parsed.data), 201);
+  } catch (e) { fail(res, e); }
+});
+
+router.patch('/courses/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      code:        z.string().min(2).max(20).optional(),
+      name:        z.string().min(2).max(150).optional(),
+      description: z.string().optional(),
+      creditHours: z.number().int().min(1).max(12).optional(),
+      ects:        z.number().int().min(1).max(20).optional(),
+      status:      z.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.updateCourse(req.user!.userId, pid(req), parsed.data));
+  } catch (e) { fail(res, e); }
+});
+
+router.patch('/courses/:id/toggle-status', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.toggleCourseStatus(req.user!.userId, pid(req))); }
+  catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INSTRUCTORS MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/instructors', async (req: AuthRequest, res) => {
+  try {
+    const q = qp(req);
+    ok(res, await svc.getInstructors(req.user!.userId, {
+      search:   q.search,
+      isActive: q.isActive !== undefined ? q.isActive === 'true' : undefined,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CLASSES & SECTIONS (Course Offerings)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/classes', async (req: AuthRequest, res) => {
+  try {
+    const q = qp(req);
+    ok(res, await svc.getClasses(req.user!.userId, {
+      semesterId: q.semesterId,
+      courseId:   q.courseId,
+      search:     q.search,
+    }));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/classes', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      courseId:     z.string().uuid(),
+      semesterId:   z.string().uuid(),
+      section:      z.string().min(1).max(10).default('A'),
+      capacity:     z.number().int().min(1).max(300).default(40),
+      roomId:       z.string().uuid().optional(),
+      instructorId: z.string().uuid().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.createClassSection(req.user!.userId, parsed.data), 201);
+  } catch (e) { fail(res, e); }
+});
+
+router.patch('/classes/:id', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      section:  z.string().min(1).max(10).optional(),
+      capacity: z.number().int().min(1).max(300).optional(),
+      roomId:   z.string().uuid().nullable().optional(),
+      status:   z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.updateClassSection(req.user!.userId, pid(req), parsed.data));
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COURSE ASSIGNMENTS (HOD Instructor -> Course/Class Assignment)
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/course-assignments', async (req: AuthRequest, res) => {
+  try {
+    const q = qp(req);
+    ok(res, await svc.getCourseAssignments(req.user!.userId, q.semesterId));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/course-assignments/assign', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      offeringId:   z.string().uuid(),
+      instructorId: z.string().uuid(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.assignInstructorToOffering(req.user!.userId, parsed.data));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/course-assignments/unassign', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      offeringId: z.string().uuid(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    ok(res, await svc.unassignInstructorFromOffering(req.user!.userId, parsed.data.offeringId));
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ACADEMIC MONITORING
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/academic-monitoring', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getAcademicMonitoring(req.user!.userId)); }
+  catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ACADEMIC PERFORMANCE
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/academic-performance', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getAcademicPerformance(req.user!.userId)); }
+  catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DEPARTMENT REPORTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.get('/reports/department-summary', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getDepartmentReports(req.user!.userId)); }
+  catch (e) { fail(res, e); }
+});
+
 export default router;
+

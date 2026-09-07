@@ -353,3 +353,185 @@ export const hodAuditApi = {
 export const hodSemestersApi = {
   list: () => apiFetch<Semester[]>(`${BASE}/semesters`),
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROGRAMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DHProgram {
+  id: string; name: string; code: string; description: string | null;
+  durationYears: number | null; totalCredits: number | null; isActive: boolean;
+  enrolledCount: number; _count?: { studentRecords: number };
+}
+
+export const hodProgramsApi = {
+  list: () => apiFetch<DHProgram[]>(`${BASE}/programs`),
+  create: (data: { name: string; code: string; description?: string; durationYears?: number; totalCredits?: number }) =>
+    apiFetch<DHProgram>(`${BASE}/programs`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<{ name: string; code: string; description: string; durationYears: number; totalCredits: number; isActive: boolean }>) =>
+    apiFetch<DHProgram>(`${BASE}/programs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  toggleStatus: (id: string) =>
+    apiFetch<{ id: string; isActive: boolean }>(`${BASE}/programs/${id}/toggle-status`, { method: 'PATCH' }),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COURSES (HOD-scoped)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DHCourse {
+  id: string; code: string; name: string; description: string | null;
+  creditHours: number; ects: number | null; status: string;
+  programType: string | null;
+  department: { id: string; name: string } | null;
+  _count?: { courseOfferings: number };
+}
+
+export const hodCoursesApi = {
+  list: (params: Record<string, unknown> = {}) =>
+    apiFetch<DHCourse[]>(`${BASE}/courses${qs(params)}`),
+  create: (data: { code: string; name: string; description?: string; creditHours: number; ects: number; programType?: string }) =>
+    apiFetch<DHCourse>(`${BASE}/courses`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<{ code: string; name: string; description: string; creditHours: number; ects: number; status: string }>) =>
+    apiFetch<DHCourse>(`${BASE}/courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  toggleStatus: (id: string) =>
+    apiFetch<{ id: string; status: string }>(`${BASE}/courses/${id}/toggle-status`, { method: 'PATCH' }),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INSTRUCTORS (HOD-scoped)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DHInstructor {
+  id: string; employeeId: string; title: string; specialization: string | null;
+  isActive: boolean; joinedAt: string;
+  user: { fullName: string; email: string | null; phone: string | null };
+  assignedOfferings: number; totalCreditHours: number; totalEcts: number;
+}
+
+export const hodInstructorsApi = {
+  list: (params: Record<string, unknown> = {}) =>
+    apiFetch<DHInstructor[]>(`${BASE}/instructors${qs(params)}`),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLASSES & SECTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DHClass {
+  id: string; section: string; capacity: number; status: string; createdAt: string;
+  course: { id: string; code: string; name: string; creditHours: number; ects: number | null };
+  semester: { id: string; name: string; isCurrent: boolean; academicYear: { name: string } };
+  instructor: { id: string; employeeId: string; title: string; user: { fullName: string } } | null;
+  room: { id: string; name: string; building: string } | null;
+  enrolledCount: number; utilizationPct: number;
+}
+
+export interface DHClassesResponse {
+  classes: DHClass[];
+  total: number;
+}
+
+export const hodClassesApi = {
+  list: (params: Record<string, unknown> = {}) =>
+    apiFetch<DHClassesResponse>(`${BASE}/classes${qs(params)}`),
+  create: (data: { courseId: string; semesterId: string; section?: string; capacity?: number; roomId?: string; instructorId?: string }) =>
+    apiFetch<DHClass>(`${BASE}/classes`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<{ section: string; capacity: number; roomId: string | null; status: string }>) =>
+    apiFetch<DHClass>(`${BASE}/classes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COURSE ASSIGNMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DHCourseAssignment {
+  offeringId: string; section: string; capacity: number; enrolledCount: number; status: string;
+  course: { id: string; code: string; name: string; creditHours: number };
+  semester: { id: string; name: string };
+  instructor: { id: string; employeeId: string; user: { fullName: string } } | null;
+}
+
+export interface DHCourseAssignmentsResponse {
+  assignments: DHCourseAssignment[];
+  semesters: Semester[];
+  instructors: { id: string; employeeId: string; user: { fullName: string }; assignedOfferings: number }[];
+}
+
+export const hodCourseAssignmentsApi = {
+  list: (semesterId?: string) =>
+    apiFetch<DHCourseAssignmentsResponse>(`${BASE}/course-assignments${semesterId ? `?semesterId=${semesterId}` : ''}`),
+  assign: (offeringId: string, instructorId: string) =>
+    apiFetch<{ id: string; instructorId: string }>(`${BASE}/course-assignments/assign`, {
+      method: 'POST', body: JSON.stringify({ offeringId, instructorId }),
+    }),
+  unassign: (offeringId: string) =>
+    apiFetch<{ id: string; instructorId: null }>(`${BASE}/course-assignments/unassign`, {
+      method: 'POST', body: JSON.stringify({ offeringId }),
+    }),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACADEMIC MONITORING
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DHAcademicMonitoring {
+  attendance: {
+    totalSessions: number; attendedSessions: number; attendanceRate: number;
+    atRiskStudents: number; byCourse: { courseCode: string; courseName: string; sessionsHeld: number; attendanceRate: number }[];
+  };
+  examProgress: {
+    totalGradeRecords: number; midExamSubmitted: number; finalExamSubmitted: number;
+    midSubmissionRate: number; finalSubmissionRate: number;
+    byCourse: { courseCode: string; courseName: string; midSubmitted: number; finalSubmitted: number; total: number }[];
+  };
+  courseProgress: {
+    byCourse: { courseCode: string; courseName: string; sessionsHeld: number; expectedSessions: number; progressPct: number }[];
+  };
+}
+
+export const hodAcademicMonitoringApi = {
+  get: () => apiFetch<DHAcademicMonitoring>(`${BASE}/academic-monitoring`),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACADEMIC PERFORMANCE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DHAcademicPerformance {
+  avgGpa: number;
+  gradeDistribution: { grade: string; count: number; percentage: number }[];
+  coursePerformance: { courseCode: string; courseName: string; avgScore: number; passRate: number; totalStudents: number }[];
+  atRiskStudents: { studentId: string; fullName: string; studentCode: string; gpa: number; failingCourses: number }[];
+  topStudents: { studentId: string; fullName: string; studentCode: string; gpa: number; totalCredits: number }[];
+}
+
+export const hodAcademicPerformanceApi = {
+  get: () => apiFetch<DHAcademicPerformance>(`${BASE}/academic-performance`),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEPARTMENT REPORTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DHDepartmentReports {
+  enrollment: {
+    byProgram: { programId: string; programName: string; enrolled: number; active: number }[];
+    byYearLevel: { yearLevel: number; count: number }[];
+    totalStudents: number; activeStudents: number;
+  };
+  instructorWorkload: {
+    instructorId: string; fullName: string; employeeId: string;
+    assignedOfferings: number; totalStudents: number; creditHours: number;
+  }[];
+  offerings: {
+    total: number; active: number; capacityUtilization: number;
+    byCourse: { courseCode: string; courseName: string; offerings: number; enrolled: number; capacity: number }[];
+  };
+  attendance: { overallRate: number; atRiskCount: number };
+  performance: { avgGpa: number; passRate: number; atRiskCount: number };
+}
+
+export const hodDeptReportsApi = {
+  get: () => apiFetch<DHDepartmentReports>(`${BASE}/reports/department-summary`),
+};
+

@@ -20,10 +20,20 @@ interface DHHeaderProps {
 }
 
 const tabLabels: Record<DHNavTab, string> = {
-  overview: 'Dashboard Overview', courses: 'Course Offerings', faculty: 'Faculty Management',
-  students: 'Student Performance', reports: 'Department Reports', attendance: 'Attendance Tracking',
-  approvals: 'Approval Center', leave_requests: 'Faculty Leave Requests',
-  notifications: 'Notification Center', audit_log: 'Audit Log', settings: 'Settings', messages: 'Messages',
+  overview:             'Dashboard Overview',
+  programs:             'Programs',
+  courses:              'Courses',
+  instructors:          'Instructors',
+  students:             'Student Performance',
+  classes:              'Classes & Sections',
+  course_assignments:   'Course Assignments',
+  academic_monitoring:  'Academic Monitoring',
+  academic_performance: 'Academic Performance',
+  reports:              'Department Reports',
+  notifications:        'Notification Center',
+  audit_log:            'Audit Log',
+  settings:             'Settings',
+  messages:             'Messages',
 };
 
 export const DHHeader: React.FC<DHHeaderProps> = ({

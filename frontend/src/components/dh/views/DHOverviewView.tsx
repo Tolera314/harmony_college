@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { Users, BookOpen, GraduationCap, CheckSquare, TrendingUp, CalendarCheck, Loader2 } from 'lucide-react';
+import { Users, BookOpen, GraduationCap, GitBranch, TrendingUp, ClipboardList, Loader2 } from 'lucide-react';
 import { KPICard } from '../KPICard';
 import { DHPageHeader } from '../DHPageHeader';
 import { LineChart, BarChart } from '../DHCharts';
@@ -69,8 +69,8 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
               {(kpis?.pendingOfferings ?? 0) > 0 && (
-                <Button variant="primary" size="sm" onClick={() => setActiveTab('approvals')} icon={<CheckSquare className="w-4 h-4" />}>
-                  {kpis!.pendingOfferings} Pending Approval{kpis!.pendingOfferings > 1 ? 's' : ''}
+                <Button variant="primary" size="sm" onClick={() => setActiveTab('course_assignments')} icon={<GitBranch className="w-4 h-4" />}>
+                  {kpis!.pendingOfferings} Unassigned Section{kpis!.pendingOfferings > 1 ? 's' : ''}
                 </Button>
               )}
               {(data?.unreadNotifications ?? 0) > 0 && (
@@ -112,36 +112,36 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
               onClick={() => setActiveTab('students')}
             />
             <KPICard
-              label="Faculty Members"     value={kpis?.activeFaculty ?? 0}
+              label="Instructors"         value={kpis?.activeFaculty ?? 0}
               icon={<Users className="w-5 h-5" />}
-              trend="neutral" trendLabel="Active faculty"
-              onClick={() => setActiveTab('faculty')}
+              trend="neutral" trendLabel="Active instructors"
+              onClick={() => setActiveTab('instructors')}
             />
             <KPICard
               label="Active Offerings"    value={kpis?.activeOfferings ?? 0}
               icon={<BookOpen className="w-5 h-5" />}
               trend="up" trendLabel="Current semester"
-              onClick={() => setActiveTab('courses')}
+              onClick={() => setActiveTab('course_assignments')}
             />
             <KPICard
-              label="Pending Approvals"   value={kpis?.pendingOfferings ?? 0}
-              icon={<CheckSquare className="w-5 h-5" />}
+              label="Unassigned Classes"  value={kpis?.pendingOfferings ?? 0}
+              icon={<GitBranch className="w-5 h-5" />}
               trend={(kpis?.pendingOfferings ?? 0) > 0 ? 'down' : 'neutral'}
-              trendLabel="Action required"
+              trendLabel="Needs assignment"
               accent={(kpis?.pendingOfferings ?? 0) > 0}
-              onClick={() => setActiveTab('approvals')}
+              onClick={() => setActiveTab('course_assignments')}
             />
             <KPICard
               label="Average GPA"         value={kpis?.avgGpa ?? 0}
               icon={<TrendingUp className="w-5 h-5" />}
               trend="neutral" trendLabel="Department avg."
-              onClick={() => setActiveTab('reports')}
+              onClick={() => setActiveTab('academic_performance')}
             />
             <KPICard
               label="Attendance Rate"     value={kpis ? `${kpis.attendanceRate}%` : '—'}
-              icon={<CalendarCheck className="w-5 h-5" />}
+              icon={<ClipboardList className="w-5 h-5" />}
               trend="neutral" trendLabel="Dept. average"
-              onClick={() => setActiveTab('attendance')}
+              onClick={() => setActiveTab('academic_monitoring')}
             />
           </div>
         )}
