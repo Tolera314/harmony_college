@@ -448,20 +448,37 @@ export interface DHCourseAssignment {
   offeringId: string; section: string; capacity: number; enrolledCount: number; status: string;
   course: { id: string; code: string; name: string; creditHours: number };
   semester: { id: string; name: string };
-  instructor: { id: string; employeeId: string; user: { fullName: string } } | null;
+  instructor: {
+    id: string;
+    employeeId: string;
+    departmentId: string;
+    isOwnDept: boolean;
+    user: { fullName: string };
+  } | null;
+}
+
+export interface DHCourseAssignmentInstructor {
+  id:               string;
+  employeeId:       string;
+  specialization:   string | null;
+  departmentId:     string;
+  departmentName:   string;
+  isOwnDept:        boolean;
+  assignedOfferings: number;
+  user:             { fullName: string };
 }
 
 export interface DHCourseAssignmentsResponse {
-  assignments: DHCourseAssignment[];
-  semesters: Semester[];
-  instructors: { id: string; employeeId: string; user: { fullName: string }; assignedOfferings: number }[];
+  assignments:  DHCourseAssignment[];
+  semesters:    Semester[];
+  instructors:  DHCourseAssignmentInstructor[];
 }
 
 export const hodCourseAssignmentsApi = {
   list: (semesterId?: string) =>
     apiFetch<DHCourseAssignmentsResponse>(`${BASE}/course-assignments${semesterId ? `?semesterId=${semesterId}` : ''}`),
   assign: (offeringId: string, instructorId: string) =>
-    apiFetch<{ id: string; instructorId: string }>(`${BASE}/course-assignments/assign`, {
+    apiFetch<{ success: boolean; isCrossDept: boolean; message: string }>(`${BASE}/course-assignments/assign`, {
       method: 'POST', body: JSON.stringify({ offeringId, instructorId }),
     }),
   unassign: (offeringId: string) =>

@@ -1699,21 +1699,22 @@ export async function getCourseAssignments(userId: string, semesterId?: string) 
         semester:   { select: { id: true, name: true, isCurrent: true } },
         instructor: {
           select: {
-            id: true, employeeId: true, title: true,
+            id: true, employeeId: true, title: true, departmentId: true,
             user: { select: { id: true, fullName: true, email: true } },
           },
         },
         _count: { select: { enrollments: true } },
       },
     }),
-    // All active instructors college-wide — HOD can assign any instructor to their dept's courses,
-    // matching the prior Registrar behaviour. Dept-scope is enforced on the course/offering side.
+    // All active instructors college-wide.
+    // Own-dept instructors are surfaced first; cross-dept instructors are clearly labelled.
+    // The instructor's home department and employee record remain unchanged.
     prisma.instructorRecord.findMany({
       where: { isActive: true },
       include: {
-        user: { select: { id: true, fullName: true, email: true } },
-        department: { select: { name: true } },
-        _count: { select: { offerings: { where: { semester: { isCurrent: true } } } } },
+        user:       { select: { id: true, fullName: true, email: true } },
+        department: { select: { id: true, name: true } },
+        _count:     { select: { offerings: { where: { semester: { isCurrent: true } } } } },
       },
       orderBy: { user: { fullName: 'asc' } },
     }),
@@ -1721,11 +1722,11 @@ export async function getCourseAssignments(userId: string, semesterId?: string) 
 
   return {
     assignments: offerings.map((o) => ({
-      offeringId:   o.id,
-      section:      o.section,
-      capacity:     o.capacity,
+      offeringId:    o.id,
+      section:       o.section,
+      capacity:      o.capacity,
       enrolledCount: o._count.enrollments,
-      status:       o.status,
+      status:        o.status,
       course: {
         id:          o.course.id,
         code:        o.course.code,
@@ -1737,20 +1738,22 @@ export async function getCourseAssignments(userId: string, semesterId?: string) 
         name: o.semester.name,
       },
       instructor: o.instructor ? {
-        id:         o.instructor.id,
-        employeeId: o.instructor.employeeId,
-        user: {
-          fullName: o.instructor.user.fullName,
-        },
+        id:           o.instructor.id,
+        employeeId:   o.instructor.employeeId,
+        departmentId: o.instructor.departmentId,
+        isOwnDept:    o.instructor.departmentId === deptId,
+        user: { fullName: o.instructor.user.fullName },
       } : null,
     })),
     instructors: instructors.map((i) => ({
       id:               i.id,
       employeeId:       i.employeeId,
-      user: {
-        fullName: `${i.user.fullName} (${i.department?.name ?? 'No Dept'})`,
-      },
+      specialization:   i.specialization,
+      departmentId:     i.departmentId,
+      departmentName:   i.department?.name ?? '',
+      isOwnDept:        i.departmentId === deptId,
       assignedOfferings: i._count.offerings,
+      user: { fullName: i.user.fullName },
     })),
     semesters: [],
   };
@@ -1776,21 +1779,71 @@ export async function assignInstructorToOffering(
     throw new Error('Not authorized: this course offering does not belong to your department.');
   }
 
-  // 2. Verify instructor is active and belongs to department (or is eligible)
+  // 2. Verify instructor is active (cross-department assignment is allowed;
+  //    the instructor's home department and employee record remain unchanged)
   const instructor = await prisma.instructorRecord.findUnique({
     where:   { id: data.instructorId },
-    include: { user: { select: { id: true, fullName: true } } },
+    include: {
+      user:       { select: { id: true, fullName: true } },
+      department: { select: { name: true } },
+    },
   });
   if (!instructor || !instructor.isActive) {
     throw new Error('Selected instructor is not active or not found.');
   }
 
-  // 3. Conflict Prevention: check if instructor is already teaching the exact same course section
+  // 3. Duplicate-assignment guard: same instructor already on this exact offering
   if (offering.instructorId === data.instructorId) {
     throw new Error(`${instructor.user.fullName} is already assigned to this class section.`);
   }
 
-  // 4. Update offering
+  // 4. Cross-department flag (informational only — does not block assignment)
+  const isCrossDept = instructor.departmentId !== deptId;
+
+  // 5. Schedule conflict detection: check if the instructor is already committed
+  //    to another section with overlapping timetable slots in the same semester
+  if (offering.semesterId) {
+    const timetableSlots = await prisma.timetableSlot.findMany({
+      where:  { courseOfferingId: data.offeringId },
+      select: { dayOfWeek: true, startTime: true, endTime: true },
+    });
+
+    if (timetableSlots.length > 0) {
+      // Other offerings in the same semester already assigned to this instructor
+      const otherOfferings = await prisma.courseOffering.findMany({
+        where: {
+          instructorId: data.instructorId,
+          semesterId:   offering.semesterId,
+          id:           { not: data.offeringId },
+        },
+        include: {
+          course:     { select: { code: true, name: true } },
+          timetables: { select: { dayOfWeek: true, startTime: true, endTime: true } },
+        },
+      });
+
+      for (const other of otherOfferings) {
+        for (const slot of timetableSlots) {
+          for (const otherSlot of other.timetables) {
+            const sameDay = slot.dayOfWeek === otherSlot.dayOfWeek;
+            // String comparison works for "HH:MM" format
+            const overlaps = sameDay &&
+              slot.startTime < otherSlot.endTime &&
+              otherSlot.startTime < slot.endTime;
+            if (overlaps) {
+              throw new Error(
+                `Schedule conflict: ${instructor.user.fullName} is already teaching ` +
+                `${other.course.code} on day ${slot.dayOfWeek} ` +
+                `${slot.startTime}–${slot.endTime}.`
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 6. Update offering
   const updated = await prisma.courseOffering.update({
     where: { id: data.offeringId },
     data: {
@@ -1804,17 +1857,23 @@ export async function assignInstructorToOffering(
     },
   });
 
-  // 5. Send notification to the assigned instructor
+  // 7. Notify the instructor — include cross-dept context when applicable
+  const crossDeptNote = isCrossDept
+    ? ` (cross-department assignment from ${instructor.department?.name ?? 'another department'})`
+    : '';
   await createNotification({
     userId:  instructor.userId,
     title:   'Teaching Assignment',
-    message: `You have been assigned to teach ${offering.course.code} (${offering.course.name}) Section ${offering.section} for ${offering.semester.name}.`,
+    message: `You have been assigned to teach ${offering.course.code} (${offering.course.name}) ` +
+             `Section ${offering.section} for ${offering.semester.name}${crossDeptNote}.`,
     type:    'INFO',
   }).catch(() => {});
 
   return {
-    success: true,
-    message: `Assigned ${instructor.user.fullName} to ${offering.course.code} Section ${offering.section}.`,
+    success:     true,
+    isCrossDept,
+    message: `Assigned ${instructor.user.fullName} to ${offering.course.code} Section ${offering.section}.` +
+             (isCrossDept ? ` Cross-department assignment from ${instructor.department?.name ?? 'another department'}.` : ''),
     offering: updated,
   };
 }
