@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Users2, Search, RefreshCw, ChevronLeft, ChevronRight, Eye,
-  Plus, Send, CheckCircle2, XCircle, AlertTriangle, FileText,
+  Send, CheckCircle2, XCircle, AlertTriangle, FileText,
   User, Calendar, Mail, UserCheck, Check, Clock, Undo2, Lock
 } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
@@ -240,8 +240,9 @@ export const AdminHRView: React.FC = () => {
   // ── Submit New Staff Invitation
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteName || !inviteEmail || !inviteDeptId) {
-      setInviteError('Name, email, and department are required');
+    const isAcademic = inviteRole === 'INSTRUCTOR' || inviteRole === 'DEPARTMENT_HEAD';
+    if (!inviteName || !inviteEmail || (isAcademic && !inviteDeptId)) {
+      setInviteError(`Name, email, and ${isAcademic ? 'academic department ' : ''}are required`);
       return;
     }
 
@@ -251,7 +252,7 @@ export const AdminHRView: React.FC = () => {
         fullName: inviteName.trim(),
         email: inviteEmail.trim(),
         role: inviteRole,
-        departmentId: inviteDeptId,
+        departmentId: isAcademic ? (inviteDeptId || undefined) : undefined,
         positionTitle: inviteTitle.trim() || undefined,
       });
       showToast(res.message || `Invitation sent to ${inviteEmail}`, 'success');
@@ -356,10 +357,7 @@ export const AdminHRView: React.FC = () => {
         icon={<Users2 className="w-5 h-5" />}
         actions={
           <div className="flex gap-2">
-            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setCreateEmpOpen(true)}>
-              Add Employee
-            </Button>
-            <Button variant="ghost" size="sm" icon={<Send className="w-4 h-4" />} onClick={() => setInviteOpen(true)}>
+            <Button variant="primary" size="sm" icon={<Send className="w-4 h-4" />} onClick={() => setInviteOpen(true)}>
               Invite Staff
             </Button>
             <Button variant="ghost" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={() => { if (tab === 'employees') fetchEmployees(); if (tab === 'invitations') fetchInvitations(); if (tab === 'leave') fetchLeaveRequests(); if (tab === 'payroll') fetchPayroll(); }}>
@@ -721,9 +719,9 @@ export const AdminHRView: React.FC = () => {
         </div>
       )}
 
-      {/* CREATE EMPLOYEE MODAL */}
-      <Modal isOpen={createEmpOpen} onClose={() => setCreateEmpOpen(false)} title="Create Employee Profile">
-        <form onSubmit={handleCreateEmployee} className="space-y-4">
+      {/* CREATE EMPLOYEE SLIDE PANEL */}
+      <SlidePanel isOpen={createEmpOpen} onClose={() => setCreateEmpOpen(false)} title="Create Employee Profile" subtitle="Register a new HR employee record" width="max-w-2xl">
+        <form onSubmit={handleCreateEmployee} className="px-6 py-5 space-y-4">
           {createEmpError && <InlineError message={createEmpError} />}
 
           <div className="grid grid-cols-2 gap-3">
@@ -795,12 +793,17 @@ export const AdminHRView: React.FC = () => {
             <Button type="submit" variant="primary" size="sm" disabled={createSubmitting}>Create Employee</Button>
           </div>
         </form>
-      </Modal>
+      </SlidePanel>
 
-      {/* NEW STAFF INVITATION MODAL */}
-      <Modal isOpen={inviteOpen} onClose={() => setInviteOpen(false)} title="Issue Staff Invitation">
-        <form onSubmit={handleSendInvite} className="space-y-4">
+      {/* NEW STAFF INVITATION SLIDE PANEL */}
+      <SlidePanel isOpen={inviteOpen} onClose={() => setInviteOpen(false)} title="Issue Staff Invitation" subtitle="Send a secure email invitation to onboard new staff" width="max-w-xl">
+        <form onSubmit={handleSendInvite} className="px-6 py-5 space-y-4">
           {inviteError && <InlineError message={inviteError} />}
+
+          <div className="p-3 bg-(--brand-gold)/10 border border-(--brand-gold)/20 rounded-xl text-(--brand-gold) text-xs flex items-center gap-2">
+            <Send className="w-4 h-4 shrink-0" />
+            <span>The staff member will receive a secure email link to set their own password and activate their account.</span>
+          </div>
 
           <div>
             <label className="block text-xs font-sans text-(--text-muted) mb-1">Full Name</label>
@@ -812,23 +815,38 @@ export const AdminHRView: React.FC = () => {
             <Input type="email" placeholder="almaz@harmony.edu.et" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid grid-cols-1 ${inviteRole === 'INSTRUCTOR' || inviteRole === 'DEPARTMENT_HEAD' ? 'sm:grid-cols-2' : ''} gap-3`}>
             <div>
               <label className="block text-xs font-sans text-(--text-muted) mb-1">Staff Role</label>
-              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)">
+              <select
+                value={inviteRole}
+                onChange={e => {
+                  const r = e.target.value;
+                  setInviteRole(r);
+                  if (r === 'INSTRUCTOR' || r === 'DEPARTMENT_HEAD') {
+                    if (!inviteDeptId && acadDepartments.length > 0) setInviteDeptId(acadDepartments[0].id);
+                  } else {
+                    setInviteDeptId('');
+                  }
+                }}
+                className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)"
+              >
                 <option value="INSTRUCTOR">Instructor / Lecturer</option>
                 <option value="DEPARTMENT_HEAD">Department Head (HoD)</option>
                 <option value="REGISTRAR">Registrar Officer</option>
                 <option value="HR_OFFICER">HR Officer</option>
+                <option value="FINANCE_OFFICER">Finance Officer</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-sans text-(--text-muted) mb-1">Academic Department</label>
-              <select value={inviteDeptId} onChange={e => setInviteDeptId(e.target.value)} className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)" required>
-                <option value="">-- Choose Department --</option>
-                {acadDepartments.map(d => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}
-              </select>
-            </div>
+            {(inviteRole === 'INSTRUCTOR' || inviteRole === 'DEPARTMENT_HEAD') && (
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Academic Department *</label>
+                <select value={inviteDeptId} onChange={e => setInviteDeptId(e.target.value)} className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)" required>
+                  <option value="">-- Choose Department --</option>
+                  {acadDepartments.map(d => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
           <div>
@@ -836,12 +854,12 @@ export const AdminHRView: React.FC = () => {
             <Input placeholder="e.g. Associate Professor of Computer Science" value={inviteTitle} onChange={e => setInviteTitle(e.target.value)} />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-2 border-t border-(--border-subtle)">
             <Button type="button" variant="ghost" size="sm" onClick={() => setInviteOpen(false)}>Cancel</Button>
             <Button type="submit" variant="primary" size="sm" disabled={inviteSubmitting}>Send Staff Invitation</Button>
           </div>
         </form>
-      </Modal>
+      </SlidePanel>
 
       {/* LEAVE REVIEW MODAL */}
       <Modal isOpen={Boolean(reviewLeave)} onClose={() => setReviewLeave(null)} title={`Review Leave Request (${reviewAction})`}>

@@ -12,7 +12,7 @@ export interface CreateInvitationInput {
   fullName:       string;
   email:          string;
   role:           Role;
-  departmentId:   string;
+  departmentId?:  string | null;
   positionTitle?: string;
   employeeId?:    string;
   phone?:         string;
@@ -110,13 +110,33 @@ export async function createStaffInvitation(
     throw new Error('A valid official email address is required.');
   }
 
-  // 3. Verify Department exists and is active
-  const dept = await prisma.department.findUnique({
-    where: { id: input.departmentId },
-    select: { id: true, name: true, isActive: true },
-  });
-  if (!dept) throw new Error('Department not found.');
-  if (!dept.isActive) throw new Error('Cannot send invitation for an inactive department.');
+  // 3. Verify Department if role is academic (INSTRUCTOR or DEPARTMENT_HEAD) or if departmentId is provided
+  const isAcademicRole = input.role === Role.INSTRUCTOR || input.role === Role.DEPARTMENT_HEAD;
+  let resolvedDeptId: string | null = null;
+  let resolvedDeptName = 'Institutional Staff';
+
+  if (isAcademicRole) {
+    if (!input.departmentId) {
+      throw new Error(`Academic Department is required for ${input.role === Role.INSTRUCTOR ? 'Instructors' : 'Department Heads'}.`);
+    }
+    const dept = await prisma.department.findUnique({
+      where: { id: input.departmentId },
+      select: { id: true, name: true, isActive: true },
+    });
+    if (!dept) throw new Error('Department not found.');
+    if (!dept.isActive) throw new Error('Cannot send invitation for an inactive department.');
+    resolvedDeptId = dept.id;
+    resolvedDeptName = dept.name;
+  } else if (input.departmentId) {
+    const dept = await prisma.department.findUnique({
+      where: { id: input.departmentId },
+      select: { id: true, name: true, isActive: true },
+    });
+    if (dept && dept.isActive) {
+      resolvedDeptId = dept.id;
+      resolvedDeptName = dept.name;
+    }
+  }
 
   // 4. Check existing account in User table
   const existingUser = await prisma.user.findFirst({
@@ -155,7 +175,7 @@ export async function createStaffInvitation(
       email:           normalizedEmail,
       fullName:        input.fullName.trim(),
       role:            input.role,
-      departmentId:    dept.id,
+      departmentId:    resolvedDeptId,
       positionTitle:   input.positionTitle?.trim() ?? null,
       employeeId:      input.employeeId?.trim() ?? null,
       phone:           input.phone?.trim() ?? null,
@@ -175,7 +195,7 @@ export async function createStaffInvitation(
   const emailRes = await getEmailProvider().sendStaffInvitationEmail(normalizedEmail, {
     fullName:       invitation.fullName,
     role:           invitation.role,
-    departmentName: dept.name,
+    departmentName: resolvedDeptName,
     invitationLink,
     expiresInHours: INVITATION_LIFETIME_HOURS,
   });
@@ -186,7 +206,7 @@ export async function createStaffInvitation(
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Recipient: ${invitation.fullName} <${normalizedEmail}>
 │ Role:      ${invitation.role}
-│ Department:${dept.name}
+│ Department:${resolvedDeptName}
 │ Link:      ${invitationLink}
 │ Mailer:    ${emailRes.success ? 'SENT SUCCESSFUL' : 'WARNING: ' + emailRes.error}
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -201,7 +221,7 @@ export async function createStaffInvitation(
     invitationId: invitation.id,
     invitedEmail: normalizedEmail,
     assignedRole: invitation.role,
-    departmentId: dept.id,
+    departmentId: resolvedDeptId,
   });
 
   return {
@@ -254,8 +274,8 @@ export async function validateInvitationToken(rawToken: string) {
     email:          inv.email,
     role:           inv.role,
     departmentId:   inv.departmentId,
-    departmentName: inv.department.name,
-    departmentCode: inv.department.code,
+    departmentName: inv.department?.name ?? null,
+    departmentCode: inv.department?.code ?? null,
     expiresAt:      inv.expiresAt,
   };
 }
@@ -326,6 +346,9 @@ export async function acceptStaffInvitation(
     const generatedEmpId = inv.employeeId?.trim() || `EMP-${Math.floor(10000 + Math.random() * 90000)}`;
 
     if (inv.role === Role.INSTRUCTOR) {
+      if (!inv.departmentId) {
+        throw new Error('Department is required for Instructor account activation.');
+      }
       await tx.instructorRecord.create({
         data: {
           userId:         user.id,
@@ -337,6 +360,9 @@ export async function acceptStaffInvitation(
         },
       });
     } else if (inv.role === Role.DEPARTMENT_HEAD) {
+      if (!inv.departmentId) {
+        throw new Error('Department is required for Department Head account activation.');
+      }
       await tx.departmentHeadRecord.create({
         data: {
           userId:       user.id,
@@ -487,10 +513,11 @@ export async function resendStaffInvitation(
   });
 
   const invitationLink = `${getAppBaseUrl()}/accept-invitation?token=${rawToken}`;
+  const deptDisplayName = inv.department?.name ?? 'Institutional Staff';
   const emailRes = await getEmailProvider().sendStaffInvitationEmail(inv.email, {
     fullName:       inv.fullName,
     role:           inv.role,
-    departmentName: inv.department.name,
+    departmentName: deptDisplayName,
     invitationLink,
     expiresInHours: INVITATION_LIFETIME_HOURS,
   });
@@ -501,7 +528,7 @@ export async function resendStaffInvitation(
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Recipient: ${inv.fullName} <${inv.email}>
 │ Role:      ${inv.role}
-│ Department:${inv.department.name}
+│ Department:${deptDisplayName}
 │ Link:      ${invitationLink}
 │ Mailer:    ${emailRes.success ? 'SENT SUCCESSFUL' : 'WARNING: ' + emailRes.error}
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -564,7 +591,7 @@ export interface UpdateInvitationInput {
   fullName?:       string;
   email?:          string;
   role?:           Role;
-  departmentId?:   string;
+  departmentId?:   string | null;
   positionTitle?:  string;
   employeeId?:     string;
   phone?:          string;
@@ -607,17 +634,22 @@ export async function updateStaffInvitation(
     }
   }
 
-  let deptId = inv.departmentId;
-  let deptName = inv.department.name;
-  if (input.departmentId && input.departmentId !== inv.departmentId) {
-    const dept = await prisma.department.findUnique({
-      where: { id: input.departmentId },
-      select: { id: true, name: true, isActive: true },
-    });
-    if (!dept) throw new Error('Department not found.');
-    if (!dept.isActive) throw new Error('Cannot assign an inactive department.');
-    deptId = dept.id;
-    deptName = dept.name;
+  let deptId: string | null = inv.departmentId;
+  let deptName = inv.department?.name ?? 'Institutional Staff';
+  if (input.departmentId !== undefined) {
+    if (input.departmentId) {
+      const dept = await prisma.department.findUnique({
+        where: { id: input.departmentId },
+        select: { id: true, name: true, isActive: true },
+      });
+      if (!dept) throw new Error('Department not found.');
+      if (!dept.isActive) throw new Error('Cannot assign an inactive department.');
+      deptId = dept.id;
+      deptName = dept.name;
+    } else {
+      deptId = null;
+      deptName = 'Institutional Staff';
+    }
   }
 
   // Issue a fresh secure token & reset 48h timer

@@ -2420,8 +2420,8 @@ model StaffInvitation {
   email              String
   fullName           String
   role               Role
-  departmentId       String
-  department         Department @relation(fields: [departmentId], references: [id])
+  departmentId       String?
+  department         Department? @relation(fields: [departmentId], references: [id])
   positionTitle      String?
   employeeId         String?
   phone              String?

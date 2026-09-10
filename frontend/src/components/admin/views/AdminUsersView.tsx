@@ -204,8 +204,9 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
     e.preventDefault();
     setFormError(''); setActionLoading(true);
 
-    if (!invForm.departmentId) {
-      setFormError('Please select a department.');
+    const isAcademic = invForm.role === 'INSTRUCTOR' || invForm.role === 'DEPARTMENT_HEAD';
+    if (isAcademic && !invForm.departmentId) {
+      setFormError('Please select an academic department.');
       setActionLoading(false);
       return;
     }
@@ -215,7 +216,7 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
         fullName:       invForm.fullName.trim(),
         email:          invForm.email.trim(),
         role:           invForm.role,
-        departmentId:   invForm.departmentId,
+        departmentId:   isAcademic ? (invForm.departmentId || undefined) : undefined,
         positionTitle:  invForm.positionTitle.trim() || undefined,
         employeeId:     invForm.employeeId.trim() || undefined,
         phone:          invForm.phone.trim() || undefined,
@@ -259,7 +260,7 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
       fullName:       inv.fullName,
       email:          inv.email,
       role:           inv.role,
-      departmentId:   inv.departmentId,
+      departmentId:   inv.departmentId ?? '',
       positionTitle:  inv.positionTitle ?? '',
       employeeId:     inv.employeeId ?? '',
       phone:          inv.phone ?? '',
@@ -274,12 +275,19 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
     if (!editInvTarget) return;
     setFormError(''); setActionLoading(true);
 
+    const isEditAcademic = eif.role === 'INSTRUCTOR' || eif.role === 'DEPARTMENT_HEAD';
+    if (isEditAcademic && !eif.departmentId) {
+      setFormError('Please select an academic department.');
+      setActionLoading(false);
+      return;
+    }
+
     try {
       const res = await adminInvitationsApi.update(editInvTarget.id, {
         fullName:       eif.fullName.trim() || undefined,
         email:          eif.email.trim() || undefined,
         role:           eif.role || undefined,
-        departmentId:   eif.departmentId || undefined,
+        departmentId:   isEditAcademic ? (eif.departmentId || undefined) : undefined,
         positionTitle:  eif.positionTitle.trim() || undefined,
         employeeId:     eif.employeeId.trim() || undefined,
         phone:          eif.phone.trim() || undefined,
@@ -661,9 +669,15 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
         )}
       </SlidePanel>
 
-      {/* Invite Staff Modal (Zero password field) */}
-      <Modal isOpen={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite Staff Member" maxWidth="max-w-lg">
-        <form onSubmit={handleInviteStaff} className="space-y-4 font-sans text-xs">
+      {/* Invite Staff SlidePanel (Zero password field) */}
+      <SlidePanel
+        isOpen={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        title="Invite Staff Member"
+        subtitle="Send a secure invitation to onboard new staff"
+        width="max-w-xl"
+      >
+        <form onSubmit={handleInviteStaff} className="px-6 py-5 space-y-4 font-sans text-xs">
           {formError && <InlineError message={formError} />}
 
           <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-xs flex items-center gap-2">
@@ -676,26 +690,44 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
             <Input label="Official Email *" type="email" required value={invForm.email} onChange={e => setInvForm({ ...invForm, email: e.target.value })} placeholder="staff@harmony.edu.et" />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className={`grid grid-cols-1 ${invForm.role === 'INSTRUCTOR' || invForm.role === 'DEPARTMENT_HEAD' ? 'sm:grid-cols-2' : ''} gap-3`}>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-(--text-secondary)">Role *</label>
-              <select value={invForm.role} onChange={e => setInvForm({ ...invForm, role: e.target.value })}
-                className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              <select
+                value={invForm.role}
+                onChange={e => {
+                  const newRole = e.target.value;
+                  const isAcad = newRole === 'INSTRUCTOR' || newRole === 'DEPARTMENT_HEAD';
+                  setInvForm({
+                    ...invForm,
+                    role: newRole,
+                    departmentId: isAcad ? (invForm.departmentId || departments[0]?.id || '') : '',
+                  });
+                }}
+                className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+              >
                 {STAFF_ROLES_LIST.map(r => (
                   <option key={r} value={r} disabled={r === 'SUPER_ADMIN' && !isSuperAdmin}>{ROLE_DISPLAY[r]}</option>
                 ))}
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-(--text-secondary)">Department *</label>
-              <select value={invForm.departmentId} onChange={e => setInvForm({ ...invForm, departmentId: e.target.value })}
-                className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-                ))}
-              </select>
-            </div>
+            {(invForm.role === 'INSTRUCTOR' || invForm.role === 'DEPARTMENT_HEAD') && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-(--text-secondary)">Academic Department *</label>
+                <select
+                  value={invForm.departmentId}
+                  onChange={e => setInvForm({ ...invForm, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+                  required
+                >
+                  <option value="">-- Select Department --</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -713,11 +745,17 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
             <Button variant="gold" type="submit" className="flex-1" disabled={actionLoading}>{actionLoading ? 'Sending...' : 'Send Invitation'}</Button>
           </div>
         </form>
-      </Modal>
+      </SlidePanel>
 
-      {/* Edit & Re-invite Staff Invitation Modal */}
-      <Modal isOpen={!!editInvTarget} onClose={() => setEditInvTarget(null)} title={`Edit & Re-invite: ${editInvTarget?.fullName}`} maxWidth="max-w-lg">
-        <form onSubmit={handleUpdateInv} className="space-y-4 font-sans text-xs">
+      {/* Edit & Re-invite Staff Invitation SlidePanel */}
+      <SlidePanel
+        isOpen={!!editInvTarget}
+        onClose={() => setEditInvTarget(null)}
+        title={`Edit & Re-invite: ${editInvTarget?.fullName ?? ''}`}
+        subtitle="Update details and reissue a 48-hour secure invitation"
+        width="max-w-xl"
+      >
+        <form onSubmit={handleUpdateInv} className="px-6 py-5 space-y-4 font-sans text-xs">
           {formError && <InlineError message={formError} />}
 
           <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-xs flex items-center gap-2">
@@ -730,26 +768,44 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
             <Input label="Official Email *" type="email" required value={eif.email} onChange={e => setEif({ ...eif, email: e.target.value })} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className={`grid grid-cols-1 ${eif.role === 'INSTRUCTOR' || eif.role === 'DEPARTMENT_HEAD' ? 'sm:grid-cols-2' : ''} gap-3`}>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-(--text-secondary)">Role *</label>
-              <select value={eif.role} onChange={e => setEif({ ...eif, role: e.target.value })}
-                className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
+              <select
+                value={eif.role}
+                onChange={e => {
+                  const newRole = e.target.value;
+                  const isAcad = newRole === 'INSTRUCTOR' || newRole === 'DEPARTMENT_HEAD';
+                  setEif({
+                    ...eif,
+                    role: newRole,
+                    departmentId: isAcad ? (eif.departmentId || departments[0]?.id || '') : '',
+                  });
+                }}
+                className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+              >
                 {STAFF_ROLES_LIST.map(r => (
                   <option key={r} value={r} disabled={r === 'SUPER_ADMIN' && !isSuperAdmin}>{ROLE_DISPLAY[r]}</option>
                 ))}
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-(--text-secondary)">Department *</label>
-              <select value={eif.departmentId} onChange={e => setEif({ ...eif, departmentId: e.target.value })}
-                className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)">
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-                ))}
-              </select>
-            </div>
+            {(eif.role === 'INSTRUCTOR' || eif.role === 'DEPARTMENT_HEAD') && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-(--text-secondary)">Academic Department *</label>
+                <select
+                  value={eif.departmentId}
+                  onChange={e => setEif({ ...eif, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 bg-(--bg-base) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+                  required
+                >
+                  <option value="">-- Select Department --</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -767,7 +823,7 @@ export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole =
             <Button variant="gold" type="submit" className="flex-1" disabled={actionLoading}>{actionLoading ? 'Updating & Resending...' : 'Update & Re-invite'}</Button>
           </div>
         </form>
-      </Modal>
+      </SlidePanel>
 
       {/* Invitation Link & Provider Warning Modal */}
       <Modal isOpen={!!linkModal} onClose={() => setLinkModal(null)} title="Staff Invitation Details" maxWidth="max-w-lg">

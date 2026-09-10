@@ -110,6 +110,19 @@ router.get('/departments', async (_req, res) => {
   catch (e) { fail(res, e); }
 });
 
+// ── Academic Departments (for Instructor / Department Head staff invitations) ──
+router.get('/academic-departments', async (_req, res) => {
+  try {
+    const { prisma } = await import('../lib/prisma');
+    const depts = await prisma.department.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, code: true, description: true, isActive: true },
+    });
+    ok(res, depts);
+  } catch (e) { fail(res, e); }
+});
+
 // ── Courses (used in EmployeeFormPanel for INSTRUCTOR / DEPARTMENT_HEAD) ──────
 router.get('/courses/options', async (_req, res) => {
   try {
@@ -230,6 +243,86 @@ router.post('/employees/:id/resend-invite', async (req: AuthRequest, res) => {
     const result = await employees.resendEmployeeInvite(pid(req), req.user!.userId);
     ok(res, result);
   } catch (e) { fail(res, e, 400); }
+});
+
+// ── HR Direct Staff Invitation ────────────────────────────────────────────────
+// POST /api/hr/invitations — HR officers can invite staff (non-admin roles only)
+// HR is NOT allowed to invite: ADMIN, SUPER_ADMIN, STUDENT
+router.post('/invitations', async (req: AuthRequest, res) => {
+  try {
+    const { createStaffInvitation } = await import('../services/invitationService');
+    const HR_ALLOWED_ROLES: string[] = [
+      'INSTRUCTOR', 'DEPARTMENT_HEAD', 'REGISTRAR', 'FINANCE_OFFICER', 'HR_OFFICER',
+    ];
+
+    const schema = z.object({
+      fullName:       z.string().min(2).max(100),
+      email:          z.string().email(),
+      role:           z.string(),
+      departmentId:   z.string().uuid().optional().nullable(),
+      positionTitle:  z.string().max(100).optional(),
+      employeeId:     z.string().max(50).optional(),
+      phone:          z.string().max(20).optional(),
+      specialization: z.string().max(200).optional(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      const field = firstIssue?.path?.join('.');
+      const msg   = firstIssue?.message ?? 'Validation failed';
+      res.status(400).json({ error: field ? `${field}: ${msg}` : msg });
+      return;
+    }
+
+    const { role, departmentId } = parsed.data;
+    if (!HR_ALLOWED_ROLES.includes(role)) {
+      res.status(403).json({
+        error: `HR Officers cannot invite users with role "${role}". Allowed roles: ${HR_ALLOWED_ROLES.join(', ')}.`,
+      });
+      return;
+    }
+
+    const isAcademicRole = role === 'INSTRUCTOR' || role === 'DEPARTMENT_HEAD';
+    if (isAcademicRole && !departmentId) {
+      res.status(400).json({
+        error: 'Academic Department is required for Instructor and Department Head roles.',
+      });
+      return;
+    }
+
+    const ipAddr = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      ?? req.socket.remoteAddress
+      ?? null;
+
+    // HR_OFFICER creating an invitation is treated as if ADMIN for the purpose of
+    // validateRolePermission (since HR is an authorised staff manager).
+    // We override callerRole to ADMIN so the existing permission check passes.
+    const callerRole = Role.ADMIN;
+
+    const result = await createStaffInvitation(
+      parsed.data as any,
+      req.user!.userId,
+      callerRole,
+      ipAddr,
+    );
+
+    const emailWarning = result.emailResult && !result.emailResult.success
+      ? result.emailResult.error
+      : undefined;
+
+    res.status(201).json({
+      success: true,
+      message: emailWarning
+        ? `Invitation created for ${result.invitation.email}. (Email note: ${emailWarning})`
+        : `Invitation successfully sent to ${result.invitation.email}`,
+      invitation: result.invitation,
+      emailWarning,
+      invitationLink: result.invitationLink,
+    });
+  } catch (err: any) {
+    fail(res, err, 400);
+  }
 });
 
 // ── Salary History ────────────────────────────────────────────────────────────
