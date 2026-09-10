@@ -4,12 +4,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
-  Users, Search, Download, Eye, EyeOff, UserX, Edit, Plus,
+  Users, Search, Download, Eye, EyeOff, UserX, Edit,
   Phone, Mail, AlertTriangle, Send, CheckCircle2, RotateCw, Loader2, Check,
 } from 'lucide-react';
 import {
-  hrEmployeesApi, hrDepartmentsApi,
-  type HREmployeeApi, type HRDepartmentApi,
+  hrEmployeesApi, hrDepartmentsApi, hrAcademicDepartmentsApi,
+  type HREmployeeApi, type HRDepartmentApi, type HRAcademicDepartment,
   EMPLOYMENT_TYPE_LABEL, CONTRACT_STATUS_LABEL, EMPLOYEE_STATUS_LABEL,
 } from '../../../lib/hrApi';
 import { DHPageHeader }     from '../../dh/DHPageHeader';
@@ -18,8 +18,17 @@ import { Button }           from '../../ui/Button';
 import { Input }            from '../../ui/Input';
 import { SlidePanel }       from '../../ui/SlidePanel';
 import { ConfirmModal }     from '../../ui/ConfirmModal';
-import { SkeletonPage, ErrorState } from '../../ui/States';
+import { SkeletonPage, ErrorState, InlineError } from '../../ui/States';
 import { EmployeeFormPanel } from '../EmployeeFormPanel';
+
+// ── HR-allowed invite roles (NO ADMIN, SUPER_ADMIN, STUDENT) ──────────────────
+const HR_INVITE_ROLES = [
+  { value: 'INSTRUCTOR',      label: 'Instructor / Lecturer' },
+  { value: 'DEPARTMENT_HEAD', label: 'Department Head (HoD)' },
+  { value: 'REGISTRAR',       label: 'Registrar Officer' },
+  { value: 'FINANCE_OFFICER', label: 'Finance Officer' },
+  { value: 'HR_OFFICER',      label: 'HR Officer' },
+] as const;
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 function statusBadge(s: HREmployeeApi['status']) {
@@ -99,9 +108,19 @@ export const HREmployeesView: React.FC = () => {
   const [loadingFull,      setLoadingFull]      = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<HREmployeeApi | null>(null);
 
-  // invitation action state
+  // invitation action state (per-row Invite/Resend buttons)
   const [invitingId,     setInvitingId]     = useState<string | null>(null);
   const [inviteMessage,  setInviteMessage]  = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // ── Invite Staff SlidePanel state ───────────────────────────────────────────
+  const [invitePanelOpen,    setInvitePanelOpen]    = useState(false);
+  const [acadDepts,          setAcadDepts]          = useState<HRAcademicDepartment[]>([]);
+  const [invForm, setInvForm] = useState({
+    fullName: '', email: '', role: 'INSTRUCTOR', departmentId: '',
+    positionTitle: '', employeeId: '', phone: '', specialization: '',
+  });
+  const [invSubmitting, setInvSubmitting] = useState(false);
+  const [invError,      setInvError]      = useState('');
 
   // ── Shared form panel state ─────────────────────────────────────────────────
   const [formPanelOpen,    setFormPanelOpen]    = useState(false);
@@ -135,12 +154,55 @@ export const HREmployeesView: React.FC = () => {
 
   const totalPages = Math.ceil(total / PER_PAGE);
 
-  // ── Open form panel ─────────────────────────────────────────────────────────
-  const openCreate = () => {
-    setFormPanelMode('create');
-    setFormPanelEmployee(null);
-    setFormPanelOpen(true);
+  // ── Open Invite Staff panel ──────────────────────────────────────────────────
+  const openInvitePanel = async () => {
+    setInvForm({ fullName: '', email: '', role: 'INSTRUCTOR', departmentId: '', positionTitle: '', employeeId: '', phone: '', specialization: '' });
+    setInvError('');
+    try {
+      const depts = await hrAcademicDepartmentsApi.list();
+      setAcadDepts(depts);
+      if (depts.length > 0) setInvForm(f => ({ ...f, departmentId: depts[0].id }));
+    } catch { /* silently proceed */ }
+    setInvitePanelOpen(true);
   };
+
+  // ── Submit Invite Staff ──────────────────────────────────────────────────────
+  const handleInviteStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const isAcademic = invForm.role === 'INSTRUCTOR' || invForm.role === 'DEPARTMENT_HEAD';
+    if (!invForm.fullName || !invForm.email || (isAcademic && !invForm.departmentId)) {
+      setInvError(`Full name, email, and ${isAcademic ? 'academic department ' : ''}are required.`);
+      return;
+    }
+    setInvError(''); setInvSubmitting(true);
+    try {
+      const res = await fetch('/api/hr/invitations', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName:       invForm.fullName.trim(),
+          email:          invForm.email.trim(),
+          role:           invForm.role,
+          departmentId:   isAcademic ? (invForm.departmentId || undefined) : undefined,
+          positionTitle:  invForm.positionTitle.trim() || undefined,
+          employeeId:     invForm.employeeId.trim() || undefined,
+          phone:          invForm.phone.trim() || undefined,
+          specialization: invForm.specialization.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? data.message ?? 'Failed to send invitation');
+      setInvitePanelOpen(false);
+      setInviteMessage({ type: 'success', text: data.message ?? `Invitation sent to ${invForm.email}` });
+    } catch (err: any) {
+      setInvError(err.message ?? 'Failed to send invitation');
+    } finally {
+      setInvSubmitting(false);
+    }
+  };
+
+  // ── Open form panel ─────────────────────────────────────────────────────────
 
   const openEdit = async (emp: HREmployeeApi) => {
     // Fetch full record so sensitive fields / document URLs are in the form
@@ -236,9 +298,9 @@ export const HREmployeesView: React.FC = () => {
               onClick={() => exportCsv(empList)}>
               Export
             </Button>
-            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}
-              onClick={openCreate}>
-              Add Employee
+            <Button variant="primary" size="sm" icon={<Send className="w-4 h-4" />}
+              onClick={openInvitePanel}>
+              Invite Staff
             </Button>
           </div>
         }
@@ -480,6 +542,133 @@ export const HREmployeesView: React.FC = () => {
         employee={formPanelEmployee}
         onSuccess={() => { setFormPanelOpen(false); load(); }}
       />
+
+      {/* ── Invite Staff SlidePanel ──────────────────────────────────────── */}
+      <SlidePanel
+        isOpen={invitePanelOpen}
+        onClose={() => setInvitePanelOpen(false)}
+        title="Invite Staff Member"
+        subtitle="Send a secure email invitation to a new staff member"
+        width="max-w-xl"
+      >
+        <form onSubmit={handleInviteStaff} className="px-6 py-5 space-y-4 font-sans text-xs">
+          {/* Info banner */}
+          <div className="p-3 bg-(--brand-gold)/10 border border-(--brand-gold)/20 rounded-xl text-(--brand-gold) flex items-center gap-2">
+            <Send className="w-4 h-4 shrink-0" />
+            <span>The staff member will receive a secure email link to set their own password and activate their account. HR cannot invite Admins or Students.</span>
+          </div>
+
+          {invError && <InlineError message={invError} />}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Full Name *"
+              required
+              value={invForm.fullName}
+              onChange={e => setInvForm({ ...invForm, fullName: e.target.value })}
+              placeholder="e.g. Dr. Almaz Worku"
+            />
+            <Input
+              label="Official Email *"
+              type="email"
+              required
+              value={invForm.email}
+              onChange={e => setInvForm({ ...invForm, email: e.target.value })}
+              placeholder="almaz@harmony.edu.et"
+            />
+          </div>
+
+          <div className={`grid grid-cols-1 ${invForm.role === 'INSTRUCTOR' || invForm.role === 'DEPARTMENT_HEAD' ? 'sm:grid-cols-2' : ''} gap-3`}>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-(--text-secondary)">Staff Role *</label>
+              <select
+                value={invForm.role}
+                onChange={e => {
+                  const newRole = e.target.value;
+                  const isAcad = newRole === 'INSTRUCTOR' || newRole === 'DEPARTMENT_HEAD';
+                  setInvForm(f => ({
+                    ...f,
+                    role: newRole,
+                    departmentId: isAcad ? (f.departmentId || acadDepts[0]?.id || '') : '',
+                  }));
+                }}
+                className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+              >
+                {HR_INVITE_ROLES.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            {(invForm.role === 'INSTRUCTOR' || invForm.role === 'DEPARTMENT_HEAD') && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-(--text-secondary)">Academic Department *</label>
+                <select
+                  value={invForm.departmentId}
+                  onChange={e => setInvForm({ ...invForm, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+                  required
+                >
+                  <option value="">-- Select Department --</option>
+                  {acadDepts.map(d => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Position / Title (Optional)"
+              value={invForm.positionTitle}
+              onChange={e => setInvForm({ ...invForm, positionTitle: e.target.value })}
+              placeholder="e.g. Senior Lecturer"
+            />
+            <Input
+              label="Employee ID (Optional)"
+              value={invForm.employeeId}
+              onChange={e => setInvForm({ ...invForm, employeeId: e.target.value })}
+              placeholder="e.g. HC-FAC-0089"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Phone (Optional)"
+              value={invForm.phone}
+              onChange={e => setInvForm({ ...invForm, phone: e.target.value })}
+              placeholder="+251 91 123 4567"
+            />
+            <Input
+              label="Specialization (Optional)"
+              value={invForm.specialization}
+              onChange={e => setInvForm({ ...invForm, specialization: e.target.value })}
+              placeholder="e.g. Machine Learning"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2 border-t border-(--border-subtle)">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              onClick={() => setInvitePanelOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              className="flex-1"
+              disabled={invSubmitting}
+            >
+              {invSubmitting ? 'Sending…' : 'Send Invitation'}
+            </Button>
+          </div>
+        </form>
+      </SlidePanel>
 
       {/* ── Profile SlidePanel ──────────────────────────────────────────── */}
       <SlidePanel

@@ -250,6 +250,19 @@ export const hrDepartmentsApi = {
   list: () => apiFetch<HRDepartmentApi[]>('/departments'),
 };
 
+// ── Academic Departments (for Instructor & Department Head staff invitations) ─
+export interface HRAcademicDepartment {
+  id: string;
+  name: string;
+  code: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export const hrAcademicDepartmentsApi = {
+  list: () => apiFetch<HRAcademicDepartment[]>('/academic-departments'),
+};
+
 // ── Courses (for INSTRUCTOR / DEPARTMENT_HEAD role assignment) ────────────────
 export interface HRCourseOption {
   id: string; code: string; name: string; creditHours: number;
