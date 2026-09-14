@@ -234,14 +234,32 @@ router.post('/employees/:id/invite', async (req: AuthRequest, res) => {
   try {
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket.remoteAddress ?? null;
     const result = await employees.inviteEmployee(pid(req), req.user!.userId, ip);
-    ok(res, result);
+    res.status(200).json({
+      success:      true,
+      message:      result.emailWarning
+        ? `Invitation created for ${result.email}. (Email provider note: ${result.emailWarning})`
+        : `Activation invitation sent to ${result.email}`,
+      email:        result.email,
+      activationLink: result.activationLink,
+      expiresInHours: result.expiresInHours,
+      emailWarning: result.emailWarning ?? null,
+    });
   } catch (e) { fail(res, e, 400); }
 });
 
 router.post('/employees/:id/resend-invite', async (req: AuthRequest, res) => {
   try {
     const result = await employees.resendEmployeeInvite(pid(req), req.user!.userId);
-    ok(res, result);
+    res.status(200).json({
+      success:      true,
+      message:      result.emailWarning
+        ? `Invitation resent for ${result.email}. (Email provider note: ${result.emailWarning})`
+        : `Activation invitation resent to ${result.email}`,
+      email:        result.email,
+      activationLink: result.activationLink,
+      expiresInHours: result.expiresInHours,
+      emailWarning: result.emailWarning ?? null,
+    });
   } catch (e) { fail(res, e, 400); }
 });
 

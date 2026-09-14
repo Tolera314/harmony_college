@@ -500,16 +500,14 @@ export async function inviteEmployee(
     expiresInHours: INVITE_EXPIRY_HOURS,
   });
 
+  // Log result — keep invitation alive even if email fails, so HR can use resend
   if (!emailResult.success) {
-    // Revoke the invitation we just created so HR can retry cleanly
-    await prisma.staffInvitation.updateMany({
-      where: { tokenHash },
-      data: { revokedAt: new Date() },
-    });
-    throw new Error(`Failed to send invitation email: ${emailResult.error ?? 'Unknown mail provider error'}`);
+    console.warn(`[HR Invite] Email delivery warning for ${normalizedEmail}: ${emailResult.error ?? 'Unknown mail provider error'}`);
+  } else {
+    console.log(`[HR Invite] Invitation email sent to ${normalizedEmail} (${employee.employeeCode}) for role ${employee.systemRole}.`);
   }
 
-  console.log(`[HR Invite] Invitation sent to ${normalizedEmail} (${employee.employeeCode}) for role ${employee.systemRole}. Link: ${activationLink}`);
+  console.log(`[HR Invite] Activation link: ${activationLink}`);
 
   await writeHRAudit({
     actorUserId,
@@ -522,7 +520,13 @@ export async function inviteEmployee(
     status:    'SUCCESS',
   });
 
-  return { success: true, email: normalizedEmail, activationLink, expiresInHours: INVITE_EXPIRY_HOURS };
+  return {
+    success:      true,
+    email:        normalizedEmail,
+    activationLink,
+    expiresInHours: INVITE_EXPIRY_HOURS,
+    emailWarning: emailResult.success ? undefined : (emailResult.error ?? 'Email delivery failed'),
+  };
 }
 
 // ── Resend Invitation to HR Employee ──────────────────────────────────────────
