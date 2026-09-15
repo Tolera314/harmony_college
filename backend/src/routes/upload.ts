@@ -70,27 +70,37 @@ router.post('/', upload.single('file'), async (req: Request, res: Response): Pro
   }
 
   try {
-    const isImage = req.file.mimetype.startsWith('image/');
-    if (isImage && isCloudinaryConfigured()) {
+    if (isCloudinaryConfigured()) {
+      // Upload ALL file types to Cloudinary using resource_type 'auto'
       const fileBuffer = fs.readFileSync(req.file.path);
-      const folder = (req.query['folder'] as string) || process.env.CLOUDINARY_FOLDER || 'harmony_college/profiles';
-      const result = await uploadToCloudinary(fileBuffer, folder);
+      const folder = (req.query['folder'] as string) || process.env.CLOUDINARY_FOLDER || 'harmony_college/uploads';
 
-      // Clean up local temp file
+      // Images → image resource type for transformation support; everything else → raw
+      const isImage = req.file.mimetype.startsWith('image/');
+      const resourceType = isImage ? 'image' : 'raw';
+
+      const result = await uploadToCloudinary(fileBuffer, folder, resourceType);
+
+      // Clean up local temp file after successful Cloudinary upload
       fs.unlink(req.file.path, () => {});
 
       res.status(201).json({
-        success: true,
-        fileUrl: result.secureUrl,
+        success:  true,
+        fileUrl:  result.secureUrl,
         publicId: result.publicId,
       });
       return;
     }
 
+    // Cloudinary not configured — serve from local disk
     const fileUrl = `/api/upload/${req.file.filename}`;
     res.status(201).json({ success: true, fileUrl });
   } catch (err: unknown) {
-    console.error('File upload error:', err);
+    // Clean up the temp file if something went wrong
+    if (req.file?.path) fs.unlink(req.file.path, () => {});
+
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[Upload] File upload error:', msg);
     res.status(500).json({ error: 'Failed to upload file. Please try again.' });
   }
 });

@@ -500,7 +500,7 @@ function StepPersonal({ profile, errors, onChange }: {
         <WizardSelect id="nationality" label="Nationality" value={profile.nationality}
           onChange={(v) => onChange('nationality', v)} required error={errors.nationality}
           icon={Flag}
-          options={['Ethiopian', 'Kenyan', 'South Sudanese', 'Eritrean', 'Somali', 'Other']} />
+          options={['Ethiopian', 'Other']} />
         <WizardInput id="dob" label="Date of Birth" type="date" value={profile.dob}
           onChange={(v) => onChange('dob', v)} required error={errors.dob} icon={Calendar}
           children={

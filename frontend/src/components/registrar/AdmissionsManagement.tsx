@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, CheckCircle2, XCircle, AlertCircle, FileText,
   Download, ZoomIn, ZoomOut, RotateCw, Maximize2, Send,
-  Image as ImageIcon, Calendar, User, Phone, MapPin, FileCheck2, ChevronDown, ExternalLink
+  Image as ImageIcon, Calendar, User, Phone, MapPin, FileCheck2, ChevronDown, ExternalLink,
+  ShieldCheck, ShieldAlert,
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -130,6 +131,7 @@ export const AdmissionsManagement: React.FC = () => {
                 <th className="px-5 py-4">Program</th>
                 <th className="px-5 py-4">Academic Year</th>
                 <th className="px-5 py-4">Submitted</th>
+                <th className="px-5 py-4">Finance</th>
                 <th className="px-5 py-4">Status</th>
                 <th className="px-5 py-4 text-right">Actions</th>
               </tr>
@@ -152,6 +154,20 @@ export const AdmissionsManagement: React.FC = () => {
                   <td className="px-5 py-4 text-(--text-secondary) max-w-[160px] truncate">{app.program}</td>
                   <td className="px-5 py-4 font-mono text-(--text-muted)">{app.academicYear}</td>
                   <td className="px-5 py-4 font-mono text-(--text-muted)">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '—'}</td>
+                  {/* Finance column */}
+                  <td className="px-5 py-4">
+                    {app.financeVerified ? (
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-(--status-success) shrink-0" />
+                        <span className="text-[10px] font-semibold text-(--status-success)">Approved</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5 text-(--status-warning) shrink-0" />
+                        <span className="text-[10px] font-semibold text-(--status-warning)">Pending</span>
+                      </div>
+                    )}
+                  </td>
                   <td className="px-5 py-4"><Badge variant={STATUS_BADGE[app.status] ?? 'glass'}>{STATUS_LABEL[app.status] ?? app.status}</Badge></td>
                   <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setSelected(app); setActiveDoc(null); setActionError(null); setShowRejectForm(false); }}
@@ -162,7 +178,7 @@ export const AdmissionsManagement: React.FC = () => {
                 </tr>
               ))}
               {(data?.applications ?? []).length === 0 && (
-                <tr><td colSpan={6} className="p-0"><EmptyState variant="search" compact /></td></tr>
+                <tr><td colSpan={7} className="p-0"><EmptyState variant="search" compact /></td></tr>
               )}
             </tbody>
           </table>
@@ -390,6 +406,48 @@ export const AdmissionsManagement: React.FC = () => {
                     <p className="text-xs text-(--text-faint)">No documents uploaded for this application.</p>
                   </div>
                 )}
+
+                {/* Finance Officer Approval */}
+                <div className={`p-5 rounded-2xl border space-y-3 ${
+                  selected.financeVerified
+                    ? 'bg-(--status-success-bg) border-(--status-success-border)/40'
+                    : 'bg-(--status-warning-bg) border-(--status-warning-border)/40'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {selected.financeVerified
+                      ? <ShieldCheck className="w-4 h-4 text-(--status-success) shrink-0" />
+                      : <ShieldAlert  className="w-4 h-4 text-(--status-warning) shrink-0" />
+                    }
+                    <h4 className={`text-xs font-semibold font-mono uppercase tracking-wider ${
+                      selected.financeVerified ? 'text-(--status-success)' : 'text-(--status-warning)'
+                    }`}>
+                      Finance Officer {selected.financeVerified ? 'Approved' : 'Approval Pending'}
+                    </h4>
+                  </div>
+                  {selected.financeVerified ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-mono text-(--text-faint)">Verified by</p>
+                        <p className="text-xs font-semibold text-(--text-primary)">
+                          {selected.financeVerifiedByName ?? 'Finance Officer'}
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-mono text-(--text-faint)">Verified on</p>
+                        <p className="text-xs font-semibold text-(--text-primary)">
+                          {selected.financeVerifiedAt
+                            ? new Date(selected.financeVerifiedAt).toLocaleString()
+                            : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-(--status-warning) leading-relaxed">
+                      The Finance Officer has not yet verified this student's registration fee payment.
+                      Approval will be blocked until the Finance Office confirms payment.
+                    </p>
+                  )}
+                </div>
 
                 {/* Actions */}
                 <div className="space-y-3">

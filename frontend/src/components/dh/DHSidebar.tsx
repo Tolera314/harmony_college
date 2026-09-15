@@ -62,11 +62,23 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
           </div>
         </button>
 
-        {/* Department badge */}
+        {/* Department + HOD badge */}
         <div className="hidden xl:block mt-4 px-1">
-          <div className="p-3 ds-role-badge border rounded-xl">
-            <p className="font-sans text-[11px] font-semibold ds-role-badge-text leading-tight">{profile.department}</p>
-            <p className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--brand-gold)' }}>{profile.currentSemester}</p>
+          <div className="p-3 ds-role-badge border rounded-xl space-y-2">
+            {/* HOD title pill */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: 'var(--brand-gold)' }} />
+              <span className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--brand-gold)' }}>
+                Head of Department
+              </span>
+            </div>
+            <p className="font-sans text-[12px] font-semibold ds-role-badge-text leading-tight">{profile.department}</p>
+            {profile.title && profile.title !== 'Department Head' && (
+              <p className="font-sans text-[10px]" style={{ color: 'var(--text-faint)' }}>{profile.title}</p>
+            )}
+            {profile.currentSemester && (
+              <p className="font-mono text-[10px]" style={{ color: 'var(--brand-gold)' }}>{profile.currentSemester}</p>
+            )}
           </div>
         </div>
       </div>
@@ -138,7 +150,13 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
           </div>
           <div className="overflow-hidden hidden xl:block">
             <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{profile.name}</p>
-            <p className="font-mono text-[10px] ds-profile-id truncate">{profile.employeeId}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="font-mono text-[10px] ds-profile-id truncate">{profile.employeeId}</span>
+              <span className="shrink-0 px-1.5 py-0.5 rounded-md font-mono text-[9px] font-bold uppercase tracking-wide"
+                style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)' }}>
+                HOD
+              </span>
+            </div>
           </div>
         </div>
       </div>

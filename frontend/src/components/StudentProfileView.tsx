@@ -56,7 +56,7 @@ interface ProfileData {
 const DEFAULT_ACADEMIC_YEAR = '2026/2027';
 
 const EMPTY_PROFILE: ProfileData = {
-  nationality: '',
+  nationality: 'Ethiopian',
   dob: '',
   gender: '',
   region: '',
@@ -148,7 +148,7 @@ function StepPersonal({ p, errors, set }: { p: ProfileData; errors: Record<strin
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <SelectField id="nationality" label="Nationality" value={p.nationality} onChange={v => set('nationality', v)}
           required error={errors.nationality} icon={Flag}
-          options={['Ethiopian', 'Kenyan', 'South Sudanese', 'Eritrean', 'Somali', 'Other']} />
+          options={['Ethiopian', 'Other']} />
         <Field id="dob" label="Date of Birth" type="date" value={p.dob} onChange={v => set('dob', v)}
           required error={errors.dob} />
       </div>
