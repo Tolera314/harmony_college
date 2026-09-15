@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Building2, Plus, Users, BookOpen, GraduationCap, UserCog,
-  Pencil, UserCheck, UserX, Power, X, Loader2, Search, ChevronRight,
+  Pencil, UserCheck, UserX, Power, X, Loader2, Search, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -14,6 +14,7 @@ import { ErrorState } from '../ui/States';
 import {
   departmentMgmtApi,
   type DepartmentCard,
+  type DepartmentBranch,
   type EligibleHod,
 } from '../../lib/registrarApi';
 
@@ -52,11 +53,11 @@ const DeptForm: React.FC<DeptFormProps> = ({ initial, onSave, onClose, saving })
         {err && <p className="text-xs text-(--status-danger) bg-(--status-danger-bg) border border-(--status-danger)/20 rounded-xl px-3 py-2">{err}</p>}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-(--text-secondary) uppercase tracking-wide">Department Name *</label>
-          <input className={field} placeholder="e.g. Computer Science" value={name} onChange={e => setName(e.target.value)} />
+          <input className={field} placeholder="e.g. Graphic Design" value={name} onChange={e => setName(e.target.value)} />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-(--text-secondary) uppercase tracking-wide">Department Code *</label>
-          <input className={field} placeholder="e.g. CS" value={code} onChange={e => setCode(e.target.value)} maxLength={20} />
+          <input className={field} placeholder="e.g. DES" value={code} onChange={e => setCode(e.target.value)} maxLength={20} />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-(--text-secondary) uppercase tracking-wide">Description</label>
@@ -80,7 +81,7 @@ const DeptForm: React.FC<DeptFormProps> = ({ initial, onSave, onClose, saving })
 interface AssignHodPanelProps {
   dept: DepartmentCard;
   eligible: EligibleHod[];
-  onAssign: (instructorId: string) => Promise<void>;
+  onAssign: (userId: string) => Promise<void>;
   onRemove: () => Promise<void>;
   onClose: () => void;
   saving: boolean;
@@ -88,9 +89,9 @@ interface AssignHodPanelProps {
 
 const AssignHodPanel: React.FC<AssignHodPanelProps> = ({ dept, eligible, onAssign, onRemove, onClose, saving }) => {
   const [selected, setSelected] = useState('');
-  const [search, setSearch] = useState('');
+  const [search,   setSearch]   = useState('');
 
-  const currentHod = dept.departmentHeads[0];
+  const currentHod = dept.assignedHod;
   const filtered = eligible.filter(e => {
     const q = search.toLowerCase();
     return !q || e.user.fullName.toLowerCase().includes(q) || e.employeeId.toLowerCase().includes(q);
@@ -102,6 +103,9 @@ const AssignHodPanel: React.FC<AssignHodPanelProps> = ({ dept, eligible, onAssig
         <div>
           <h2 className="font-serif text-xl font-bold text-(--text-primary)">Assign HOD</h2>
           <p className="font-sans text-sm text-(--text-secondary) mt-0.5">{dept.name}</p>
+          <p className="font-sans text-[11px] text-(--text-faint) mt-0.5">
+            The HOD manages both TVET and Short Program branches of this department.
+          </p>
         </div>
         <button onClick={onClose} className="p-2 rounded-xl hover:bg-(--hover-overlay) text-(--text-muted) transition-colors"><X className="w-5 h-5" /></button>
       </div>
@@ -112,7 +116,7 @@ const AssignHodPanel: React.FC<AssignHodPanelProps> = ({ dept, eligible, onAssig
           <div className="p-4 rounded-xl border border-(--status-success)/20 bg-(--status-success-bg) flex items-center justify-between">
             <div>
               <p className="font-sans text-xs font-semibold text-(--status-success)">Current HOD</p>
-              <p className="font-sans text-sm font-bold text-(--text-primary) mt-0.5">{currentHod.user.fullName}</p>
+              <p className="font-sans text-sm font-bold text-(--text-primary) mt-0.5">{currentHod.name}</p>
               <p className="font-mono text-xs text-(--text-faint)">{currentHod.employeeId} · {currentHod.title}</p>
             </div>
             <Button variant="ghost" size="sm" icon={<UserX className="w-3.5 h-3.5" />} disabled={saving} onClick={onRemove}>Remove</Button>
@@ -139,9 +143,9 @@ const AssignHodPanel: React.FC<AssignHodPanelProps> = ({ dept, eligible, onAssig
               <p className="font-sans text-sm text-(--text-faint) text-center py-4">No eligible instructors found.</p>
             ) : filtered.map(i => (
               <button
-                key={i.id}
-                onClick={() => setSelected(i.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selected === i.id ? 'border-(--brand-gold) bg-(--accent-gold-subtle)' : 'border-(--border-subtle) hover:border-(--border-default) hover:bg-(--hover-overlay)'}`}
+                key={i.userId}
+                onClick={() => setSelected(i.userId)}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selected === i.userId ? 'border-(--brand-gold) bg-(--accent-gold-subtle)' : 'border-(--border-subtle) hover:border-(--border-default) hover:bg-(--hover-overlay)'}`}
               >
                 <div className="w-9 h-9 rounded-xl bg-(--hover-overlay) border border-(--border-default) flex items-center justify-center font-serif font-bold text-(--text-secondary) shrink-0">
                   {i.user.fullName.charAt(0)}
@@ -151,9 +155,6 @@ const AssignHodPanel: React.FC<AssignHodPanelProps> = ({ dept, eligible, onAssig
                   <p className="font-mono text-xs text-(--text-faint)">{i.employeeId} · {i.title}</p>
                   {i.department && <p className="font-sans text-[10px] text-(--text-faint)">{i.department.name}</p>}
                 </div>
-                {i._count.departmentHeadRecords > 0 && (
-                  <Badge variant="amber" className="shrink-0">HOD</Badge>
-                )}
               </button>
             ))}
           </div>
@@ -167,6 +168,200 @@ const AssignHodPanel: React.FC<AssignHodPanelProps> = ({ dept, eligible, onAssig
         </Button>
       </div>
     </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Branch Row — shows TVET or SP sub-section inside a parent card
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BranchRow: React.FC<{ branch: DepartmentBranch }> = ({ branch }) => {
+  const isTvet = branch.programType === 'TVET';
+  return (
+    <div className="flex items-start gap-3 px-3.5 py-3 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
+      <div className={`mt-0.5 px-2 py-0.5 rounded-md font-mono text-[10px] font-bold shrink-0 ${
+        isTvet
+          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+          : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+      }`}>
+        {isTvet ? 'TVET' : 'SP'}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-xs font-bold text-(--brand-gold) bg-(--accent-gold-subtle) px-1.5 py-0.5 rounded-md">{branch.code}</span>
+          {!branch.isActive && <Badge variant="glass" className="text-[10px]">Inactive</Badge>}
+        </div>
+        <div className="flex gap-3 mt-1.5 flex-wrap">
+          {[
+            { label: `${branch._count.studentRecords} students` },
+            { label: `${branch._count.courses} courses` },
+            { label: `${branch._count.programs} programs` },
+          ].map(s => (
+            <span key={s.label} className="font-sans text-[10px] text-(--text-faint)">{s.label}</span>
+          ))}
+        </div>
+        {branch.programs.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {branch.programs.slice(0, 3).map(p => (
+              <span key={p.id} className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${p.isActive ? 'bg-(--accent-gold-subtle) text-(--brand-gold)' : 'bg-(--hover-overlay) text-(--text-faint)'}`}>
+                {p.code}
+              </span>
+            ))}
+            {branch.programs.length > 3 && (
+              <span className="font-sans text-[10px] text-(--text-faint) self-center">+{branch.programs.length - 3}</span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Department Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface DeptCardProps {
+  dept: DepartmentCard;
+  onEdit: () => void;
+  onAssignHod: () => void;
+  onToggle: () => void;
+}
+
+const DeptCard: React.FC<DeptCardProps> = ({ dept, onEdit, onAssignHod, onToggle }) => {
+  const [branchesOpen, setBranchesOpen] = useState(false);
+  const hod = dept.assignedHod;
+  const hasBranches = dept.branches.length > 0;
+
+  return (
+    <Card className="p-5 flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="font-mono text-xs font-bold text-(--brand-gold) bg-(--accent-gold-subtle) px-2 py-0.5 rounded-lg">{dept.code}</span>
+            <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">TVET</span>
+            {hasBranches && (
+              <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">SP</span>
+            )}
+            <Badge variant={dept.isActive ? 'emerald' : 'glass'}>{dept.isActive ? 'Active' : 'Inactive'}</Badge>
+          </div>
+          <h3 className="font-serif text-base font-bold text-(--text-primary)">{dept.name}</h3>
+          {dept.description && <p className="font-sans text-xs text-(--text-faint) mt-1 line-clamp-2">{dept.description}</p>}
+        </div>
+        <div className="w-10 h-10 rounded-xl bg-(--accent-gold-subtle) border border-(--accent-gold-border) flex items-center justify-center text-(--brand-gold) shrink-0">
+          <Building2 className="w-5 h-5" />
+        </div>
+      </div>
+
+      {/* Aggregate stats */}
+      <div className="grid grid-cols-4 gap-2">
+        {[
+          { icon: <GraduationCap className="w-3.5 h-3.5" />, value: dept._count.studentRecords, label: 'Students' },
+          { icon: <BookOpen className="w-3.5 h-3.5" />,      value: dept._count.courses,        label: 'Courses' },
+          { icon: <UserCog className="w-3.5 h-3.5" />,       value: dept._count.instructors,    label: 'Instructors' },
+          { icon: <Users className="w-3.5 h-3.5" />,         value: dept._count.programs,       label: 'Programs' },
+        ].map(s => (
+          <div key={s.label} className="text-center bg-(--hover-overlay) rounded-xl p-2">
+            <div className="flex justify-center text-(--text-faint) mb-0.5">{s.icon}</div>
+            <p className="font-mono text-sm font-bold text-(--text-primary)">{s.value}</p>
+            <p className="font-sans text-[10px] text-(--text-faint)">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* HOD */}
+      <div className={`p-3 rounded-xl border ${hod ? 'border-(--status-success)/20 bg-(--status-success-bg)' : 'border-(--border-subtle) bg-(--hover-overlay)'}`}>
+        {hod ? (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-(--status-success-bg) border border-(--status-success)/20 flex items-center justify-center text-(--status-success) font-bold text-sm font-serif shrink-0">
+              {hod.name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-sans text-xs font-semibold text-(--status-success)">Head of Department</p>
+              <p className="font-sans text-sm font-bold text-(--text-primary) truncate">{hod.name}</p>
+              <p className="font-mono text-[10px] text-(--text-faint)">{hod.employeeId} · manages TVET & SP</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-(--hover-overlay) border border-(--border-subtle) flex items-center justify-center text-(--text-faint)">
+              <UserX className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-sans text-xs font-semibold text-(--status-danger)">No HOD Assigned</p>
+              <p className="font-sans text-xs text-(--text-faint)">Click "Assign HOD" to set one</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* TVET + SP branches toggle */}
+      {hasBranches && (
+        <div className="space-y-2">
+          <button
+            onClick={() => setBranchesOpen(v => !v)}
+            className="w-full flex items-center justify-between text-xs font-semibold text-(--text-secondary) uppercase tracking-wide hover:text-(--text-primary) transition-colors"
+          >
+            <span>Academic Branches (TVET + Short Program)</span>
+            {branchesOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          <AnimatePresence initial={false}>
+            {branchesOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="overflow-hidden space-y-2"
+              >
+                {/* TVET (parent itself) */}
+                <BranchRow branch={{
+                  id: dept.id, name: dept.name, code: dept.code,
+                  programType: 'TVET', description: dept.description, isActive: dept.isActive,
+                  programs: dept.programs,
+                  _count: {
+                    studentRecords: dept._count.studentRecords - dept.branches.reduce((s, b) => s + b._count.studentRecords, 0),
+                    courses:        dept._count.courses        - dept.branches.reduce((s, b) => s + b._count.courses, 0),
+                    instructors:    dept._count.instructors    - dept.branches.reduce((s, b) => s + b._count.instructors, 0),
+                    programs:       dept._count.programs       - dept.branches.reduce((s, b) => s + b._count.programs, 0),
+                  },
+                }} />
+                {/* SP children */}
+                {dept.branches.map(branch => (
+                  <BranchRow key={branch.id} branch={branch} />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Programs row (parent TVET programs) */}
+      {dept.programs.length > 0 && !hasBranches && (
+        <div className="flex flex-wrap gap-1.5">
+          {dept.programs.slice(0, 4).map(p => (
+            <span key={p.id} className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${p.isActive ? 'bg-(--accent-gold-subtle) text-(--brand-gold)' : 'bg-(--hover-overlay) text-(--text-faint)'}`}>
+              {p.code}
+            </span>
+          ))}
+          {dept.programs.length > 4 && (
+            <span className="font-sans text-[10px] text-(--text-faint) self-center">+{dept.programs.length - 4} more</span>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-1 border-t border-(--border-subtle)">
+        <Button variant="ghost" size="sm" className="flex-1" icon={<Pencil className="w-3.5 h-3.5" />} onClick={onEdit}>Edit</Button>
+        <Button variant="ghost" size="sm" className="flex-1" icon={<UserCheck className="w-3.5 h-3.5" />} onClick={onAssignHod}>
+          {hod ? 'Change HOD' : 'Assign HOD'}
+        </Button>
+        <Button variant="ghost" size="sm" icon={<Power className="w-3.5 h-3.5" />} onClick={onToggle}>
+          {dept.isActive ? 'Disable' : 'Enable'}
+        </Button>
+      </div>
+    </Card>
   );
 };
 
@@ -219,15 +414,14 @@ export const RegistrarDepartmentsView: React.FC = () => {
     } catch (e) { alert(e instanceof Error ? e.message : 'Toggle failed'); }
   };
 
-  const handleAssignHod = async (instructorId: string) => {
+  const handleAssignHod = async (userId: string) => {
     if (!panel || typeof panel !== 'object' || panel.kind !== 'hod') return;
     setSaving(true);
     try {
-      const newHod = await departmentMgmtApi.assignHod(panel.dept.id, instructorId);
-      const instructor = eligible.find(e => e.id === instructorId);
-      setDepartments(prev => prev.map(d => d.id === panel.dept.id
-        ? { ...d, departmentHeads: [newHod] }
-        : d));
+      await departmentMgmtApi.assignHod(panel.dept.id, userId);
+      const [depts, hods] = await Promise.all([departmentMgmtApi.list(), departmentMgmtApi.getEligibleHods()]);
+      setDepartments(depts);
+      setEligible(hods);
       setPanel(null);
     } catch (e) { alert(e instanceof Error ? e.message : 'HOD assignment failed'); }
     finally { setSaving(false); }
@@ -237,8 +431,10 @@ export const RegistrarDepartmentsView: React.FC = () => {
     if (!panel || typeof panel !== 'object' || panel.kind !== 'hod') return;
     setSaving(true);
     try {
-      await departmentMgmtApi.removeHod(panel.dept.id);
-      setDepartments(prev => prev.map(d => d.id === (panel as any).dept.id ? { ...d, departmentHeads: [] } : d));
+      await departmentMgmtApi.removeHod((panel as any).dept.id);
+      const [depts, hods] = await Promise.all([departmentMgmtApi.list(), departmentMgmtApi.getEligibleHods()]);
+      setDepartments(depts);
+      setEligible(hods);
       setPanel(null);
     } catch (e) { alert(e instanceof Error ? e.message : 'HOD removal failed'); }
     finally { setSaving(false); }
@@ -252,7 +448,7 @@ export const RegistrarDepartmentsView: React.FC = () => {
   });
 
   const activeCount = departments.filter(d => d.isActive).length;
-  const withHod = departments.filter(d => d.departmentHeads.length > 0).length;
+  const withHod     = departments.filter(d => !!d.assignedHod).length;
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
@@ -261,7 +457,9 @@ export const RegistrarDepartmentsView: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-2xl font-bold text-(--text-primary)">Department Management</h1>
-          <p className="font-sans text-sm text-(--text-secondary) mt-1">Manage academic departments and HOD assignments</p>
+          <p className="font-sans text-sm text-(--text-secondary) mt-1">
+            Each department has one HOD managing both TVET and Short Program branches.
+          </p>
         </div>
         <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setPanel('create')}>New Department</Button>
       </div>
@@ -302,117 +500,39 @@ export const RegistrarDepartmentsView: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map(dept => {
-            const hod = dept.departmentHeads[0];
-            return (
-              <Card key={dept.id} className="p-5 flex flex-col gap-4">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-(--brand-gold) bg-(--accent-gold-subtle) px-2 py-0.5 rounded-lg">{dept.code}</span>
-                      <Badge variant={dept.isActive ? 'emerald' : 'glass'}>{dept.isActive ? 'Active' : 'Inactive'}</Badge>
-                    </div>
-                    <h3 className="font-serif text-base font-bold text-(--text-primary)">{dept.name}</h3>
-                    {dept.description && <p className="font-sans text-xs text-(--text-faint) mt-1 line-clamp-2">{dept.description}</p>}
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-(--accent-gold-subtle) border border-(--accent-gold-border) flex items-center justify-center text-(--brand-gold) shrink-0">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { icon: <GraduationCap className="w-3.5 h-3.5" />, value: dept._count.studentRecords, label: 'Students' },
-                    { icon: <BookOpen className="w-3.5 h-3.5" />,      value: dept._count.courses,        label: 'Courses' },
-                    { icon: <UserCog className="w-3.5 h-3.5" />,       value: dept._count.instructors,    label: 'Instructors' },
-                    { icon: <Users className="w-3.5 h-3.5" />,         value: dept._count.programs,       label: 'Programs' },
-                  ].map(s => (
-                    <div key={s.label} className="text-center bg-(--hover-overlay) rounded-xl p-2">
-                      <div className="flex justify-center text-(--text-faint) mb-0.5">{s.icon}</div>
-                      <p className="font-mono text-sm font-bold text-(--text-primary)">{s.value}</p>
-                      <p className="font-sans text-[10px] text-(--text-faint)">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* HOD */}
-                <div className={`p-3 rounded-xl border ${hod ? 'border-(--status-success)/20 bg-(--status-success-bg)' : 'border-(--border-subtle) bg-(--hover-overlay)'}`}>
-                  {hod ? (
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-(--status-success-bg) border border-(--status-success)/20 flex items-center justify-center text-(--status-success) font-bold text-sm font-serif shrink-0">
-                        {hod.user.fullName.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-sans text-xs font-semibold text-(--status-success)">Head of Department</p>
-                        <p className="font-sans text-sm font-bold text-(--text-primary) truncate">{hod.user.fullName}</p>
-                        <p className="font-mono text-[10px] text-(--text-faint)">{hod.employeeId}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-(--hover-overlay) border border-(--border-subtle) flex items-center justify-center text-(--text-faint)">
-                        <UserX className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="font-sans text-xs font-semibold text-(--status-danger)">No HOD Assigned</p>
-                        <p className="font-sans text-xs text-(--text-faint)">Click "Assign HOD" to set one</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Programs */}
-                {dept.programs.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {dept.programs.slice(0, 4).map(p => (
-                      <span key={p.id} className={`font-mono text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${p.isActive ? 'bg-(--accent-gold-subtle) text-(--brand-gold)' : 'bg-(--hover-overlay) text-(--text-faint)'}`}>
-                        {p.code}
-                      </span>
-                    ))}
-                    {dept.programs.length > 4 && (
-                      <span className="font-sans text-[10px] text-(--text-faint) self-center">+{dept.programs.length - 4} more</span>
-                    )}
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-1 border-t border-(--border-subtle)">
-                  <Button variant="ghost" size="sm" className="flex-1" icon={<Pencil className="w-3.5 h-3.5" />} onClick={() => setPanel({ kind: 'edit', dept })}>Edit</Button>
-                  <Button variant="ghost" size="sm" className="flex-1" icon={<UserCheck className="w-3.5 h-3.5" />} onClick={() => setPanel({ kind: 'hod', dept })}>
-                    {hod ? 'Change HOD' : 'Assign HOD'}
-                  </Button>
-                  <Button variant="ghost" size="sm" icon={<Power className="w-3.5 h-3.5" />} onClick={() => handleToggleStatus(dept)}>
-                    {dept.isActive ? 'Disable' : 'Enable'}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
+          {filtered.map(dept => (
+            <DeptCard
+              key={dept.id}
+              dept={dept}
+              onEdit={() => setPanel({ kind: 'edit', dept })}
+              onAssignHod={() => setPanel({ kind: 'hod', dept })}
+              onToggle={() => handleToggleStatus(dept)}
+            />
+          ))}
         </div>
       )}
 
       {/* Slide Panels */}
       <AnimatePresence>
-        {panel !== null && (
+        {panel && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs" onClick={() => setPanel(null)} />
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs"
+              onClick={() => !saving && setPanel(null)}
+            />
             <motion.div
               initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
               className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md bg-(--bg-modal) border-l border-(--border-default) shadow-2xl flex flex-col"
             >
-              {(panel === 'create' || (typeof panel === 'object' && panel.kind === 'edit')) && (
-                <DeptForm
-                  initial={typeof panel === 'object' && panel.kind === 'edit' ? panel.dept : null}
-                  onSave={handleCreateOrUpdate}
-                  onClose={() => setPanel(null)}
-                  saving={saving}
-                />
+              {panel === 'create' && (
+                <DeptForm onSave={handleCreateOrUpdate} onClose={() => setPanel(null)} saving={saving} />
               )}
-              {typeof panel === 'object' && panel.kind === 'hod' && (
+              {panel !== 'create' && panel.kind === 'edit' && (
+                <DeptForm initial={panel.dept} onSave={handleCreateOrUpdate} onClose={() => setPanel(null)} saving={saving} />
+              )}
+              {panel !== 'create' && panel.kind === 'hod' && (
                 <AssignHodPanel
                   dept={panel.dept}
                   eligible={eligible}
@@ -429,5 +549,3 @@ export const RegistrarDepartmentsView: React.FC = () => {
     </motion.div>
   );
 };
-
-

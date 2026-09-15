@@ -33,27 +33,39 @@ export async function resolveHoD(userId: string) {
   return record;
 }
 
-/** Ensure a CourseOffering belongs to the HoD's department */
-async function verifyOfferingDept(offeringId: string, departmentId: string) {
+/**
+ * Returns the HOD's departmentId (parent/TVET) PLUS any child (SP) department IDs.
+ * All scoped queries should use `departmentId: { in: deptIds }` to cover both branches.
+ */
+export async function resolveDeptIds(hodRecord: { departmentId: string }): Promise<string[]> {
+  const children = await prisma.department.findMany({
+    where:  { parentId: hodRecord.departmentId, isActive: true },
+    select: { id: true },
+  });
+  return [hodRecord.departmentId, ...children.map(c => c.id)];
+}
+
+/** Ensure a CourseOffering belongs to the HoD's department (parent or any child branch) */
+async function verifyOfferingDept(offeringId: string, deptIds: string[]) {
   const offering = await prisma.courseOffering.findUnique({
     where:  { id: offeringId },
     select: { id: true, status: true, course: { select: { departmentId: true } } },
   });
   if (!offering) throw new Error('Course offering not found.');
-  if (offering.course.departmentId !== departmentId) {
+  if (!deptIds.includes(offering.course.departmentId)) {
     throw new Error('Not authorized: this offering does not belong to your department.');
   }
   return offering;
 }
 
-/** Ensure a LeaveRequest belongs to faculty in the HoD's department */
-async function verifyLeaveDept(leaveId: string, departmentId: string) {
+/** Ensure a LeaveRequest belongs to faculty in the HoD's department (parent or child) */
+async function verifyLeaveDept(leaveId: string, deptIds: string[]) {
   const req = await prisma.departmentLeaveRequest.findUnique({
     where:  { id: leaveId },
     select: { id: true, status: true, instructor: { select: { departmentId: true } } },
   });
   if (!req) throw new Error('Leave request not found.');
-  if (req.instructor.departmentId !== departmentId) {
+  if (!deptIds.includes(req.instructor.departmentId)) {
     throw new Error('Not authorized: this leave request does not belong to your department.');
   }
   return req;
@@ -112,7 +124,8 @@ export async function updateProfile(
 
 export async function getDashboard(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptId  = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const [
     activeFaculty,
@@ -127,18 +140,18 @@ export async function getDashboard(userId: string) {
     unreadCount,
     deptRecord,
   ] = await Promise.all([
-    // Active faculty in department
+    // Active faculty across parent + child departments
     prisma.instructorRecord.count({
-      where: { departmentId: deptId, isActive: true },
+      where: { departmentId: { in: deptIds }, isActive: true },
     }),
-    // Active students in department
+    // Active students across parent + child departments
     prisma.studentRecord.count({
-      where: { departmentId: deptId, status: StudentStatus.ACTIVE },
+      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
     }),
     // Active course offerings (current semester)
     prisma.courseOffering.count({
       where: {
-        course: { departmentId: deptId },
+        course: { departmentId: { in: deptIds } },
         status: { in: [OfferingStatus.ACTIVE, OfferingStatus.SCHEDULED, OfferingStatus.INSTRUCTOR_ASSIGNED] },
         semester: { isCurrent: true },
       },
@@ -146,7 +159,7 @@ export async function getDashboard(userId: string) {
     // Pending approval offerings
     prisma.courseOffering.count({
       where: {
-        course: { departmentId: deptId },
+        course: { departmentId: { in: deptIds } },
         status: OfferingStatus.DRAFT,
         semester: { isCurrent: true },
       },
@@ -154,21 +167,21 @@ export async function getDashboard(userId: string) {
     // Pending leave requests
     prisma.departmentLeaveRequest.count({
       where: {
-        instructor: { departmentId: deptId },
+        instructor: { departmentId: { in: deptIds } },
         status: LeaveStatus.PENDING_DH,
       },
     }),
-    // Total courses in department
+    // Total courses
     prisma.course.count({
-      where: { departmentId: deptId },
+      where: { departmentId: { in: deptIds } },
     }),
-    // Active programs in department
+    // Active programs
     prisma.program.count({
-      where: { departmentId: deptId, isActive: true },
+      where: { departmentId: { in: deptIds }, isActive: true },
     }),
-    // Total classes / sections in department
+    // Total classes / sections
     prisma.courseOffering.count({
-      where: { course: { departmentId: deptId } },
+      where: { course: { departmentId: { in: deptIds } } },
     }),
     // Recent notifications for this user (last 10)
     prisma.notification.findMany({
@@ -179,21 +192,21 @@ export async function getDashboard(userId: string) {
     }),
     // Unread notification count
     prisma.notification.count({ where: { userId, isRead: false } }),
-    // Department details
+    // Department details (show the parent/canonical dept record)
     prisma.department.findUnique({
       where:  { id: deptId },
       select: { id: true, name: true, code: true, programType: true },
     }),
   ]);
 
-  // Department avg GPA
+  // Department avg GPA across all branches
   const gpaAgg = await prisma.studentRecord.aggregate({
-    where:   { departmentId: deptId, status: StudentStatus.ACTIVE },
+    where:   { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
     _avg:    { gpa: true },
     _count:  { id: true },
   });
 
-  // Dept attendance average — compute from AttendanceRecords for dept students
+  // Dept attendance average across all branches
   const attendanceData = await prisma.$queryRaw<{ rate: number }[]>`
     SELECT
       ROUND(
@@ -207,14 +220,14 @@ export async function getDashboard(userId: string) {
     INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
     INNER JOIN "Course" c ON c.id = co."courseId"
     INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
-    WHERE sr."departmentId" = ${deptId}
+    WHERE sr."departmentId" = ANY(${deptIds})
   `;
   const attendanceRate = attendanceData[0]?.rate ?? 0;
 
-  // Capacity utilization
+  // Capacity utilization across all branches
   const capacityData = await prisma.courseOffering.aggregate({
     where: {
-      course:   { departmentId: deptId },
+      course:   { departmentId: { in: deptIds } },
       semester: { isCurrent: true },
       status:   { in: [OfferingStatus.ACTIVE, OfferingStatus.SCHEDULED, OfferingStatus.INSTRUCTOR_ASSIGNED] },
     },
@@ -224,7 +237,7 @@ export async function getDashboard(userId: string) {
     where: {
       status:         EnrollmentStatus.ACTIVE,
       courseOffering: {
-        course:   { departmentId: deptId },
+        course:   { departmentId: { in: deptIds } },
         semester: { isCurrent: true },
         status:   { in: [OfferingStatus.ACTIVE, OfferingStatus.SCHEDULED, OfferingStatus.INSTRUCTOR_ASSIGNED] },
       },
@@ -235,7 +248,7 @@ export async function getDashboard(userId: string) {
     ? Math.round((enrolledData / totalCapacity) * 100)
     : 0;
 
-  // Enrollment trend (last 5 semesters)
+  // Enrollment trend (last 5 semesters) across all branches
   const enrollmentTrend = await prisma.$queryRaw<{ sem: string; count: bigint }[]>`
     SELECT
       s.name || ' ' || ay.name AS sem,
@@ -245,7 +258,7 @@ export async function getDashboard(userId: string) {
     INNER JOIN "Course" c ON c.id = co."courseId"
     INNER JOIN "Semester" s ON s.id = co."semesterId"
     INNER JOIN "AcademicYear" ay ON ay.id = s."academicYearId"
-    WHERE c."departmentId" = ${deptId}
+    WHERE c."departmentId" = ANY(${deptIds})
       AND e.status != 'DROPPED'
     GROUP BY s.name, ay.name, s."startDate"
     ORDER BY s."startDate" DESC
@@ -288,13 +301,13 @@ export async function getCourseOfferings(
   },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
   const page  = params.page  ?? 1;
   const limit = params.limit ?? 20;
   const skip  = (page - 1) * limit;
 
   const where: any = {
-    course: { departmentId: deptId },
+    course: { departmentId: { in: deptIds } },
   };
 
   if (params.status && params.status !== 'ALL') {
@@ -372,7 +385,8 @@ export async function getCourseOfferings(
 
 export async function getCourseOfferingDetail(userId: string, offeringId: string) {
   const hod = await resolveHoD(userId);
-  await verifyOfferingDept(offeringId, hod.departmentId);
+  const deptIds = await resolveDeptIds(hod);
+  await verifyOfferingDept(offeringId, deptIds);
 
   const offering = await prisma.courseOffering.findUnique({
     where:  { id: offeringId },
@@ -437,7 +451,8 @@ export async function approveOffering(
   ipAddress?: string,
 ) {
   const hod = await resolveHoD(userId);
-  const existing = await verifyOfferingDept(offeringId, hod.departmentId);
+  const deptIds = await resolveDeptIds(hod);
+  const existing = await verifyOfferingDept(offeringId, deptIds);
 
   if (existing.status !== OfferingStatus.DRAFT) {
     throw new Error(`Cannot approve: offering is currently "${existing.status}", not DRAFT.`);
@@ -480,7 +495,8 @@ export async function rejectOffering(
   ipAddress?: string,
 ) {
   const hod = await resolveHoD(userId);
-  const existing = await verifyOfferingDept(offeringId, hod.departmentId);
+  const deptIds = await resolveDeptIds(hod);
+  const existing = await verifyOfferingDept(offeringId, deptIds);
 
   if (existing.status !== OfferingStatus.DRAFT) {
     throw new Error(`Cannot reject: offering is currently "${existing.status}", not DRAFT.`);
@@ -517,12 +533,12 @@ export async function getFaculty(
   params: { page?: number; limit?: number; search?: string; isActive?: boolean },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
   const page  = params.page  ?? 1;
   const limit = params.limit ?? 20;
   const skip  = (page - 1) * limit;
 
-  const where: any = { departmentId: deptId };
+  const where: any = { departmentId: { in: deptIds } };
   if (params.isActive !== undefined) where.isActive = params.isActive;
   if (params.search) {
     where.OR = [
@@ -575,6 +591,7 @@ export async function getFaculty(
 
 export async function getFacultyDetail(userId: string, instructorId: string) {
   const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
 
   const instructor = await prisma.instructorRecord.findUnique({
     where:  { id: instructorId },
@@ -605,7 +622,7 @@ export async function getFacultyDetail(userId: string, instructorId: string) {
     },
   });
   if (!instructor) throw new Error('Instructor not found.');
-  if (instructor.departmentId !== hod.departmentId) {
+  if (!deptIds.includes(instructor.departmentId)) {
     throw new Error('Not authorized: this instructor does not belong to your department.');
   }
 
@@ -624,12 +641,12 @@ export async function getStudents(
   },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
   const page  = params.page  ?? 1;
   const limit = params.limit ?? 20;
   const skip  = (page - 1) * limit;
 
-  const where: any = { departmentId: deptId };
+  const where: any = { departmentId: { in: deptIds } };
   if (params.status && params.status !== 'ALL') where.status = params.status;
   if (params.yearLevel) where.yearLevel = params.yearLevel;
   if (params.search) {
@@ -699,6 +716,7 @@ export async function getStudents(
 
 export async function getStudentDetail(userId: string, studentRecordId: string) {
   const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
 
   const student = await prisma.studentRecord.findUnique({
     where:  { id: studentRecordId },
@@ -727,7 +745,7 @@ export async function getStudentDetail(userId: string, studentRecordId: string) 
     },
   });
   if (!student) throw new Error('Student not found.');
-  if (student.departmentId !== hod.departmentId) {
+  if (!deptIds.includes(student.departmentId)) {
     throw new Error('Not authorized: this student does not belong to your department.');
   }
 
@@ -768,46 +786,34 @@ export async function getStudentDetail(userId: string, studentRecordId: string) 
 
 export async function getEnrollmentReport(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const [byCourse, byProgram, trend] = await Promise.all([
-    // Enrollment by course (current semester)
     prisma.$queryRaw<{ code: string; name: string; enrolled: bigint; capacity: bigint; pct: number }[]>`
-      SELECT
-        c.code, c.name,
-        COUNT(e.id) AS enrolled,
-        SUM(co.capacity) AS capacity,
+      SELECT c.code, c.name, COUNT(e.id) AS enrolled, SUM(co.capacity) AS capacity,
         ROUND(100.0 * COUNT(e.id) / NULLIF(SUM(co.capacity), 0), 1) AS pct
       FROM "CourseOffering" co
       INNER JOIN "Course" c    ON c.id = co."courseId"
       INNER JOIN "Semester" s  ON s.id = co."semesterId" AND s."isCurrent" = true
       LEFT  JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status != 'DROPPED'
-      WHERE c."departmentId" = ${deptId}
-      GROUP BY c.code, c.name
-      ORDER BY enrolled DESC
+      WHERE c."departmentId" = ANY(${deptIds})
+      GROUP BY c.code, c.name ORDER BY enrolled DESC
     `,
-    // Enrollment by program
     prisma.$queryRaw<{ prog: string; count: bigint }[]>`
       SELECT p.name AS prog, COUNT(sr.id) AS count
-      FROM "StudentRecord" sr
-      INNER JOIN "Program" p ON p.id = sr."programId"
-      WHERE sr."departmentId" = ${deptId}
-        AND sr.status = 'ACTIVE'
-      GROUP BY p.name
-      ORDER BY count DESC
+      FROM "StudentRecord" sr INNER JOIN "Program" p ON p.id = sr."programId"
+      WHERE sr."departmentId" = ANY(${deptIds}) AND sr.status = 'ACTIVE'
+      GROUP BY p.name ORDER BY count DESC
     `,
-    // Enrollment trend (last 6 semesters)
     prisma.$queryRaw<{ sem: string; count: bigint }[]>`
       SELECT s.name || ' ' || ay.name AS sem, COUNT(e.id) AS count
       FROM "Enrollment" e
-      INNER JOIN "CourseOffering" co ON co.id  = e."courseOfferingId"
+      INNER JOIN "CourseOffering" co ON co.id = e."courseOfferingId"
       INNER JOIN "Course" c ON c.id = co."courseId"
       INNER JOIN "Semester" s ON s.id = co."semesterId"
       INNER JOIN "AcademicYear" ay ON ay.id = s."academicYearId"
-      WHERE c."departmentId" = ${deptId} AND e.status != 'DROPPED'
-      GROUP BY s.name, ay.name, s."startDate"
-      ORDER BY s."startDate" DESC
-      LIMIT 6
+      WHERE c."departmentId" = ANY(${deptIds}) AND e.status != 'DROPPED'
+      GROUP BY s.name, ay.name, s."startDate" ORDER BY s."startDate" DESC LIMIT 6
     `,
   ]);
 
@@ -820,14 +826,11 @@ export async function getEnrollmentReport(userId: string) {
 
 export async function getAttendanceReport(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const [byCourse, lowStudents, weeklyTrend] = await Promise.all([
-    // Attendance rate by course
     prisma.$queryRaw<{ code: string; name: string; total: bigint; present: bigint; rate: number }[]>`
-      SELECT
-        c.code, c.name,
-        COUNT(ar.id) AS total,
+      SELECT c.code, c.name, COUNT(ar.id) AS total,
         SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) AS present,
         ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
       FROM "AttendanceRecord" ar
@@ -836,30 +839,22 @@ export async function getAttendanceReport(userId: string) {
       INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
       INNER JOIN "Course" c ON c.id = co."courseId"
       INNER JOIN "Semester" s ON s.id = co."semesterId" AND s."isCurrent" = true
-      WHERE c."departmentId" = ${deptId}
-      GROUP BY c.code, c.name
-      ORDER BY rate ASC
+      WHERE c."departmentId" = ANY(${deptIds})
+      GROUP BY c.code, c.name ORDER BY rate ASC
     `,
-    // Low-attendance students (< 80%)
     prisma.$queryRaw<{ sr_id: string; name: string; student_id: string; rate: number }[]>`
-      SELECT
-        sr.id AS sr_id,
-        u."fullName" AS name,
-        sr."studentId" AS student_id,
+      SELECT sr.id AS sr_id, u."fullName" AS name, sr."studentId" AS student_id,
         ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
       FROM "AttendanceRecord" ar
       INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
       INNER JOIN "User" u ON u.id = sr."userId"
-      WHERE sr."departmentId" = ${deptId}
+      WHERE sr."departmentId" = ANY(${deptIds})
       GROUP BY sr.id, u."fullName", sr."studentId"
       HAVING ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) < 80
-      ORDER BY rate ASC
-      LIMIT 20
+      ORDER BY rate ASC LIMIT 20
     `,
-    // Weekly trend (last 8 weeks) — simplified date bucketing
     prisma.$queryRaw<{ week: string; rate: number }[]>`
-      SELECT
-        TO_CHAR(DATE_TRUNC('week', cs.date), 'Mon DD') AS week,
+      SELECT TO_CHAR(DATE_TRUNC('week', cs.date), 'Mon DD') AS week,
         ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
       FROM "AttendanceRecord" ar
       INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
@@ -867,10 +862,8 @@ export async function getAttendanceReport(userId: string) {
       INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
       INNER JOIN "Course" c ON c.id = co."courseId"
       INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
-      WHERE sr."departmentId" = ${deptId}
-        AND cs.date >= NOW() - INTERVAL '8 weeks'
-      GROUP BY DATE_TRUNC('week', cs.date)
-      ORDER BY DATE_TRUNC('week', cs.date) ASC
+      WHERE sr."departmentId" = ANY(${deptIds}) AND cs.date >= NOW() - INTERVAL '8 weeks'
+      GROUP BY DATE_TRUNC('week', cs.date) ORDER BY DATE_TRUNC('week', cs.date) ASC
     `,
   ]);
 
@@ -883,35 +876,27 @@ export async function getAttendanceReport(userId: string) {
 
 export async function getPerformanceReport(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const [avgGpa, gpaByProgram, gradeDist, atRisk] = await Promise.all([
-    // Overall dept GPA
     prisma.studentRecord.aggregate({
-      where: { departmentId: deptId, status: StudentStatus.ACTIVE },
+      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
       _avg:  { gpa: true },
     }),
-    // GPA by program
     prisma.$queryRaw<{ prog: string; avg_gpa: number; count: bigint }[]>`
       SELECT p.name AS prog, ROUND(AVG(sr.gpa)::numeric, 2) AS avg_gpa, COUNT(sr.id) AS count
-      FROM "StudentRecord" sr
-      INNER JOIN "Program" p ON p.id = sr."programId"
-      WHERE sr."departmentId" = ${deptId} AND sr.status = 'ACTIVE'
-      GROUP BY p.name
-      ORDER BY avg_gpa DESC
+      FROM "StudentRecord" sr INNER JOIN "Program" p ON p.id = sr."programId"
+      WHERE sr."departmentId" = ANY(${deptIds}) AND sr.status = 'ACTIVE'
+      GROUP BY p.name ORDER BY avg_gpa DESC
     `,
-    // Grade distribution
     prisma.$queryRaw<{ letter: string; count: bigint }[]>`
       SELECT cg."letterGrade" AS letter, COUNT(*) AS count
-      FROM "CourseGrade" cg
-      INNER JOIN "StudentRecord" sr ON sr.id = cg."studentRecordId"
-      WHERE sr."departmentId" = ${deptId} AND cg."letterGrade" IS NOT NULL
-      GROUP BY cg."letterGrade"
-      ORDER BY count DESC
+      FROM "CourseGrade" cg INNER JOIN "StudentRecord" sr ON sr.id = cg."studentRecordId"
+      WHERE sr."departmentId" = ANY(${deptIds}) AND cg."letterGrade" IS NOT NULL
+      GROUP BY cg."letterGrade" ORDER BY count DESC
     `,
-    // At-risk students (GPA < 2.0)
     prisma.studentRecord.count({
-      where: { departmentId: deptId, status: StudentStatus.ACTIVE, gpa: { lt: 2.0 } },
+      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, gpa: { lt: 2.0 } },
     }),
   ]);
 
@@ -925,25 +910,19 @@ export async function getPerformanceReport(userId: string) {
 
 export async function getWorkloadReport(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const workload = await prisma.$queryRaw<{
     instr_id: string; name: string; emp_id: string; offerings: bigint; enrolled: bigint;
   }[]>`
-    SELECT
-      ir.id AS instr_id,
-      u."fullName" AS name,
-      ir."employeeId" AS emp_id,
-      COUNT(DISTINCT co.id) AS offerings,
-      COUNT(DISTINCT e.id) AS enrolled
-    FROM "InstructorRecord" ir
-    INNER JOIN "User" u ON u.id = ir."userId"
-    LEFT  JOIN "CourseOffering" co ON co."instructorId" = ir.id
+    SELECT ir.id AS instr_id, u."fullName" AS name, ir."employeeId" AS emp_id,
+      COUNT(DISTINCT co.id) AS offerings, COUNT(DISTINCT e.id) AS enrolled
+    FROM "InstructorRecord" ir INNER JOIN "User" u ON u.id = ir."userId"
+    LEFT JOIN "CourseOffering" co ON co."instructorId" = ir.id
       AND co."semesterId" IN (SELECT id FROM "Semester" WHERE "isCurrent" = true)
-    LEFT  JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status = 'ACTIVE'
-    WHERE ir."departmentId" = ${deptId} AND ir."isActive" = true
-    GROUP BY ir.id, u."fullName", ir."employeeId"
-    ORDER BY offerings DESC
+    LEFT JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status = 'ACTIVE'
+    WHERE ir."departmentId" = ANY(${deptIds}) AND ir."isActive" = true
+    GROUP BY ir.id, u."fullName", ir."employeeId" ORDER BY offerings DESC
   `;
 
   return workload.map(r => ({
@@ -964,12 +943,12 @@ export async function getLeaveRequests(
   params: { page?: number; limit?: number; status?: string; search?: string },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
   const page  = params.page  ?? 1;
   const limit = params.limit ?? 20;
   const skip  = (page - 1) * limit;
 
-  const where: any = { instructor: { departmentId: deptId } };
+  const where: any = { instructor: { departmentId: { in: deptIds } } };
   if (params.status && params.status !== 'ALL') where.status = params.status;
   if (params.search) {
     where.instructor = {
@@ -1017,7 +996,8 @@ export async function approveLeave(
   ipAddress?: string,
 ) {
   const hod = await resolveHoD(userId);
-  const existing = await verifyLeaveDept(leaveId, hod.departmentId);
+  const deptIds = await resolveDeptIds(hod);
+  const existing = await verifyLeaveDept(leaveId, deptIds);
 
   if (existing.status !== LeaveStatus.PENDING_DH) {
     throw new Error(`Cannot approve: request is currently "${existing.status}".`);
@@ -1057,7 +1037,8 @@ export async function rejectLeave(
   ipAddress?: string,
 ) {
   const hod = await resolveHoD(userId);
-  const existing = await verifyLeaveDept(leaveId, hod.departmentId);
+  const deptIds = await resolveDeptIds(hod);
+  const existing = await verifyLeaveDept(leaveId, deptIds);
 
   if (existing.status !== LeaveStatus.PENDING_DH) {
     throw new Error(`Cannot reject: request is currently "${existing.status}".`);
@@ -1186,10 +1167,10 @@ export async function getAuditLog(
 
 export async function getPrograms(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const programs = await prisma.program.findMany({
-    where:   { departmentId: deptId },
+    where:   { departmentId: { in: deptIds } },
     orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
     include: {
       _count: {
@@ -1220,7 +1201,7 @@ export async function createProgram(
   data: { name: string; code: string; description?: string; durationYears?: number; totalCredits?: number },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptId = hod.departmentId; // new programs go to the parent (TVET) dept
 
   const codeUpper = data.code.trim().toUpperCase();
   const nameTrim  = data.name.trim();
@@ -1253,11 +1234,11 @@ export async function updateProgram(
   data: { name?: string; code?: string; description?: string; durationYears?: number; totalCredits?: number; isActive?: boolean },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const program = await prisma.program.findUnique({ where: { id: programId } });
   if (!program) throw new Error('Program not found.');
-  if (program.departmentId !== deptId) {
+  if (!deptIds.includes(program.departmentId)) {
     throw new Error('Not authorized: program does not belong to your department.');
   }
 
@@ -1283,9 +1264,10 @@ export async function updateProgram(
 
 export async function toggleProgramStatus(userId: string, programId: string) {
   const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
   const program = await prisma.program.findUnique({ where: { id: programId } });
   if (!program) throw new Error('Program not found.');
-  if (program.departmentId !== hod.departmentId) {
+  if (!deptIds.includes(program.departmentId)) {
     throw new Error('Not authorized: program does not belong to your department.');
   }
 
@@ -1304,9 +1286,9 @@ export async function getCourses(
   params: { search?: string; status?: string; programType?: string },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
-  const where: any = { departmentId: deptId };
+  const where: any = { departmentId: { in: deptIds } };
   if (params.status && params.status !== 'ALL') {
     where.status = params.status;
   }
@@ -1351,7 +1333,7 @@ export async function createCourse(
   data: { code: string; name: string; description?: string; creditHours?: number; ects?: number; programType?: string },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptId = hod.departmentId; // new courses go to the parent (TVET) dept by default
 
   const codeUpper = data.code.trim().toUpperCase();
   const nameTrim  = data.name.trim();
@@ -1385,15 +1367,16 @@ export async function updateCourse(
   data: { code?: string; name?: string; description?: string; creditHours?: number; ects?: number; status?: string },
 ) {
   const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
   const course = await prisma.course.findUnique({ where: { id: courseId } });
   if (!course) throw new Error('Course not found.');
-  if (course.departmentId !== hod.departmentId) {
+  if (!deptIds.includes(course.departmentId)) {
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
   if (data.code && data.code.trim().toUpperCase() !== course.code) {
     const conflict = await prisma.course.findFirst({
-      where: { code: data.code.trim().toUpperCase(), departmentId: hod.departmentId, id: { not: courseId } },
+      where: { code: data.code.trim().toUpperCase(), departmentId: { in: deptIds }, id: { not: courseId } },
     });
     if (conflict) throw new Error('A course with this code already exists in your department.');
   }
@@ -1413,9 +1396,10 @@ export async function updateCourse(
 
 export async function toggleCourseStatus(userId: string, courseId: string) {
   const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
   const course = await prisma.course.findUnique({ where: { id: courseId } });
   if (!course) throw new Error('Course not found.');
-  if (course.departmentId !== hod.departmentId) {
+  if (!deptIds.includes(course.departmentId)) {
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
@@ -1435,9 +1419,9 @@ export async function getInstructors(
   params: { search?: string; isActive?: boolean },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
-  const where: any = { departmentId: deptId };
+  const where: any = { departmentId: { in: deptIds } };
   if (params.isActive !== undefined) where.isActive = params.isActive;
   if (params.search) {
     where.user = {
@@ -1514,10 +1498,10 @@ export async function getClasses(
   params: { semesterId?: string; courseId?: string; search?: string },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const where: any = {
-    course: { departmentId: deptId },
+    course: { departmentId: { in: deptIds } },
   };
   if (params.semesterId && params.semesterId !== 'ALL') {
     where.semesterId = params.semesterId;
@@ -1610,9 +1594,10 @@ export async function createClassSection(
   },
 ) {
   const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
   const course = await prisma.course.findUnique({ where: { id: data.courseId } });
   if (!course) throw new Error('Course not found.');
-  if (course.departmentId !== hod.departmentId) {
+  if (!deptIds.includes(course.departmentId)) {
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
@@ -1660,7 +1645,8 @@ export async function updateClassSection(
   data: { section?: string; capacity?: number; roomId?: string | null; status?: string },
 ) {
   const hod = await resolveHoD(userId);
-  const offering = await verifyOfferingDept(offeringId, hod.departmentId);
+  const deptIds = await resolveDeptIds(hod);
+  const offering = await verifyOfferingDept(offeringId, deptIds);
 
   return prisma.courseOffering.update({
     where: { id: offeringId },
@@ -1679,10 +1665,11 @@ export async function updateClassSection(
 
 export async function getCourseAssignments(userId: string, semesterId?: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptId  = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const where: any = {
-    course: { departmentId: deptId },
+    course: { departmentId: { in: deptIds } },
   };
   if (semesterId && semesterId !== 'ALL') {
     where.semesterId = semesterId;
@@ -1764,9 +1751,10 @@ export async function assignInstructorToOffering(
   data: { offeringId: string; instructorId: string },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptId  = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
-  // 1. Verify offering belongs to HOD's department
+  // 1. Verify offering belongs to HOD's department (parent or child branch)
   const offering = await prisma.courseOffering.findUnique({
     where:   { id: data.offeringId },
     include: {
@@ -1775,7 +1763,7 @@ export async function assignInstructorToOffering(
     },
   });
   if (!offering) throw new Error('Course offering not found.');
-  if (offering.course.departmentId !== deptId) {
+  if (!deptIds.includes(offering.course.departmentId)) {
     throw new Error('Not authorized: this course offering does not belong to your department.');
   }
 
@@ -1880,7 +1868,8 @@ export async function assignInstructorToOffering(
 
 export async function unassignInstructorFromOffering(userId: string, offeringId: string) {
   const hod = await resolveHoD(userId);
-  const offering = await verifyOfferingDept(offeringId, hod.departmentId);
+  const deptIds = await resolveDeptIds(hod);
+  const offering = await verifyOfferingDept(offeringId, deptIds);
 
   await prisma.courseOffering.update({
     where: { id: offeringId },
@@ -1899,12 +1888,13 @@ export async function unassignInstructorFromOffering(userId: string, offeringId:
 
 export async function getAcademicMonitoring(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptId  = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
-  // 1. Department offerings in current semester
+  // 1. Department offerings in current semester (across all branches)
   const offerings = await prisma.courseOffering.findMany({
     where: {
-      course:   { departmentId: deptId },
+      course:   { departmentId: { in: deptIds } },
       semester: { isCurrent: true },
     },
     include: {
@@ -1926,7 +1916,7 @@ export async function getAcademicMonitoring(userId: string) {
     INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
     INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
     INNER JOIN "Course" c ON c.id = co."courseId"
-    WHERE c."departmentId" = ${deptId}
+    WHERE c."departmentId" = ANY(${deptIds})
   `;
   const attTotal   = Number(attendanceAgg[0]?.total ?? 0);
   const attPresent = Number(attendanceAgg[0]?.present ?? 0);
@@ -1939,7 +1929,7 @@ export async function getAcademicMonitoring(userId: string) {
     where: {
       enrollment: {
         courseOffering: {
-          course: { departmentId: deptId },
+          course: { departmentId: { in: deptIds } },
           semester: { isCurrent: true },
         },
       },
@@ -2041,11 +2031,12 @@ export async function getAcademicMonitoring(userId: string) {
 
 export async function getAcademicPerformance(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptId  = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
-  // 1. Department students GPA stats
+  // 1. Department students GPA stats (across all branches)
   const students = await prisma.studentRecord.findMany({
-    where: { departmentId: deptId, status: StudentStatus.ACTIVE },
+    where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
     select: {
       id:        true,
       studentId: true,
@@ -2090,12 +2081,12 @@ export async function getAcademicPerformance(userId: string) {
       totalCredits: 0,
     }));
 
-  // 2. Grade Distribution across department course grades
+  // 2. Grade Distribution across department course grades (all branches)
   const grades = await prisma.courseGrade.findMany({
     where: {
       enrollment: {
         courseOffering: {
-          course: { departmentId: deptId },
+          course: { departmentId: { in: deptIds } },
         },
       },
       letterGrade: { not: null },
@@ -2195,7 +2186,8 @@ export async function getAcademicPerformance(userId: string) {
 
 export async function getDepartmentReports(userId: string) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId;
+  const deptId  = hod.departmentId;
+  const deptIds = await resolveDeptIds(hod);
 
   const [
     dept,
@@ -2210,18 +2202,18 @@ export async function getDepartmentReports(userId: string) {
     }),
     prisma.studentRecord.groupBy({
       by:      ['yearLevel'],
-      where:   { departmentId: deptId, status: StudentStatus.ACTIVE },
+      where:   { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
       _count:  { id: true },
       orderBy: { yearLevel: 'asc' },
     }),
     prisma.studentRecord.groupBy({
       by:     ['programId'],
-      where:  { departmentId: deptId, status: StudentStatus.ACTIVE },
+      where:  { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
       _count: { id: true },
     }),
     prisma.courseOffering.findMany({
       where: {
-        course:   { departmentId: deptId },
+        course:   { departmentId: { in: deptIds } },
         semester: { isCurrent: true },
       },
       include: {
@@ -2231,7 +2223,7 @@ export async function getDepartmentReports(userId: string) {
       },
     }),
     prisma.instructorRecord.findMany({
-      where: { departmentId: deptId, isActive: true },
+      where: { departmentId: { in: deptIds }, isActive: true },
       include: {
         user: { select: { fullName: true, email: true } },
         _count: { select: { offerings: { where: { semester: { isCurrent: true } } } } },
@@ -2241,7 +2233,7 @@ export async function getDepartmentReports(userId: string) {
 
   // Map program names
   const programs = await prisma.program.findMany({
-    where:  { departmentId: deptId },
+    where:  { departmentId: { in: deptIds } },
     select: { id: true, name: true, code: true },
   });
   const pMap = new Map(programs.map((p) => [p.id, p.name]));

@@ -306,6 +306,34 @@ export async function createEmployee(
   const dept = await prisma.hRDepartment.findUnique({ where: { id: data.departmentId }, select: { id: true, name: true } });
   if (!dept) throw new Error('Department not found');
 
+  // ── One HOD per department: check if the target academic department already
+  //    has an active DepartmentHeadRecord before creating a DEPARTMENT_HEAD employee ─
+  if (data.systemRole === 'DEPARTMENT_HEAD') {
+    // Try to find the corresponding academic Department by matching HR department name or id
+    const academicDeptForCheck = await prisma.department.findFirst({
+      where: {
+        OR: [
+          { name: { equals: dept.name, mode: 'insensitive' } },
+          { id: data.departmentId },
+        ],
+        isActive: true,
+      },
+      select: { id: true, name: true },
+    });
+    if (academicDeptForCheck) {
+      const existingHod = await prisma.departmentHeadRecord.findFirst({
+        where: { departmentId: academicDeptForCheck.id, isActive: true },
+        include: { user: { select: { fullName: true } } },
+      });
+      if (existingHod) {
+        throw new Error(
+          `${academicDeptForCheck.name} already has an active Head of Department (${existingHod.user.fullName}). ` +
+          `Remove that assignment before registering a new HOD for this department.`
+        );
+      }
+    }
+  }
+
   // ── Create ───────────────────────────────────────────────────────────────
   const employee = await prisma.hREmployee.create({
     data: {

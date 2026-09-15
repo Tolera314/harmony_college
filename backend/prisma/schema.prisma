@@ -597,6 +597,12 @@ model Department {
   description String?
   isActive    Boolean     @default(true)
 
+  // Parent department: SP rows point to their TVET counterpart.
+  // TVET rows have parentId = null and act as the administrative parent.
+  parentId   String?
+  parent     Department?  @relation("DeptChildren", fields: [parentId], references: [id])
+  children   Department[] @relation("DeptChildren")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -614,6 +620,7 @@ model Department {
   @@index([programType])
   @@index([code])
   @@index([isActive])
+  @@index([parentId])
 }
 
 model Program {
