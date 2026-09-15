@@ -48,15 +48,30 @@ export interface DepartmentHod {
   user: { id: string; fullName: string; email: string | null; phone: string | null };
 }
 
-export interface DepartmentCard {
-  id: string; name: string; code: string; description: string | null; isActive: boolean;
+export interface DepartmentBranch {
+  id: string; name: string; code: string; programType: string;
+  description: string | null; isActive: boolean;
   programs: DepartmentProgram[];
-  departmentHeads: DepartmentHod[];
   _count: { studentRecords: number; courses: number; instructors: number; programs: number };
 }
 
+export interface DepartmentCard {
+  id: string; name: string; code: string; programType: string;
+  description: string | null; isActive: boolean;
+  createdAt: string; updatedAt: string;
+  programs: DepartmentProgram[];
+  departmentHeads: DepartmentHod[];
+  assignedHod: {
+    id: string; recordId: string; name: string; email: string | null;
+    phone: string | null; employeeId: string; title: string;
+  } | null;
+  _count: { studentRecords: number; courses: number; instructors: number; programs: number };
+  /** SP child branches under this parent (TVET) department */
+  branches: DepartmentBranch[];
+}
+
 export interface EligibleHod {
-  id: string; employeeId: string; title: string; specialization: string | null;
+  id: string; userId: string; employeeId: string; title: string; specialization: string | null;
   departmentId: string | null;
   user: { id: string; fullName: string; email: string | null; role: string };
   department: { id: string; name: string; code: string } | null;
@@ -72,8 +87,8 @@ export const departmentMgmtApi = {
     apiFetch<DepartmentCard>(`/api/registrar/departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   getEligibleHods: () =>
     apiFetch<EligibleHod[]>('/api/registrar/departments/eligible-hods'),
-  assignHod: (deptId: string, instructorId: string) =>
-    apiFetch<DepartmentHod>(`/api/registrar/departments/${deptId}/assign-hod`, { method: 'POST', body: JSON.stringify({ instructorId }) }),
+  assignHod: (deptId: string, userId: string) =>
+    apiFetch<DepartmentHod>(`/api/registrar/departments/${deptId}/assign-hod`, { method: 'POST', body: JSON.stringify({ userId }) }),
   removeHod: (deptId: string) =>
     apiFetch<{ success: boolean; message: string }>(`/api/registrar/departments/${deptId}/remove-hod`, { method: 'DELETE' }),
 };

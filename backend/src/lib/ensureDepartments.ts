@@ -215,7 +215,8 @@ export async function ensureRealDepartments() {
     }
   }
 
-  // 3. Upsert 10 Real Departments for TVET
+  // 3. Upsert 10 Real Departments for TVET (these become the administrative parents)
+  //    Then link each Short Program dept as a child of the TVET dept with the same name.
   for (const dept of REAL_DEPARTMENTS) {
     const tvetDept = await prisma.department.upsert({
       where: {
@@ -228,6 +229,7 @@ export async function ensureRealDepartments() {
         code: dept.tvetCode,
         description: dept.description,
         isActive: true,
+        parentId: null, // TVET is always the parent — no parent of its own
       },
       create: {
         name: dept.name,
@@ -235,6 +237,7 @@ export async function ensureRealDepartments() {
         programType: ProgramType.TVET,
         description: dept.description,
         isActive: true,
+        parentId: null,
       },
     });
 
@@ -306,8 +309,16 @@ export async function ensureRealDepartments() {
     }
   }
 
-  // 4. Upsert 10 Real Departments for SHORT_PROGRAM
+  // 4. Upsert 10 Real Departments for SHORT_PROGRAM and link each to its TVET parent.
+  //    The SP dept is a child: parentId → the TVET dept with the same name.
+  //    HOD assignment always goes on the TVET (parent) dept — never on the SP child.
   for (const dept of REAL_DEPARTMENTS) {
+    // Re-fetch the TVET parent to get its id
+    const tvetParent = await prisma.department.findUnique({
+      where: { name_programType: { name: dept.name, programType: ProgramType.TVET } },
+      select: { id: true },
+    });
+
     const spDept = await prisma.department.upsert({
       where: {
         name_programType: {
@@ -319,6 +330,7 @@ export async function ensureRealDepartments() {
         code: dept.spCode,
         description: `${dept.description} (Short Program)`,
         isActive: true,
+        parentId: tvetParent?.id ?? null, // link to TVET parent
       },
       create: {
         name: dept.name,
@@ -326,6 +338,7 @@ export async function ensureRealDepartments() {
         programType: ProgramType.SHORT_PROGRAM,
         description: `${dept.description} (Short Program)`,
         isActive: true,
+        parentId: tvetParent?.id ?? null,
       },
     });
 

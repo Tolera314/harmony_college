@@ -51,19 +51,21 @@ function pageParams(query: Q) {
 // DEPARTMENT MANAGEMENT
 // ══════════════════════════════════════════════════════════════════════════════
 
-// GET /api/registrar/departments — list all departments with stats + HOD
+// GET /api/registrar/departments — list departments grouped as parent (TVET) + children (SP)
+// Returns one entry per subject area; each entry contains the TVET dept as parent
+// and its Short Program child as a nested branch. Academic data stays separate.
 router.get('/departments', async (req: AuthRequest, res) => {
   try {
-    const departments = await prisma.department.findMany({
+    // Fetch all active parent (TVET) departments with their children, HOD, counts
+    const parents = await prisma.department.findMany({
+      where: { parentId: null, isActive: true }, // TVET = no parent
       orderBy: { name: 'asc' },
       include: {
-        programs: { select: { id: true, name: true, code: true, isActive: true } },
+        programs: { select: { id: true, name: true, code: true, isActive: true }, orderBy: { name: 'asc' } },
         departmentHeads: {
           where: { isActive: true },
           take: 1,
-          include: {
-            user: { select: { id: true, fullName: true, email: true, phone: true } },
-          },
+          include: { user: { select: { id: true, fullName: true, email: true, phone: true } } },
         },
         _count: {
           select: {
@@ -73,9 +75,69 @@ router.get('/departments', async (req: AuthRequest, res) => {
             programs: true,
           },
         },
+        children: {
+          where: { isActive: true },
+          include: {
+            programs: { select: { id: true, name: true, code: true, isActive: true }, orderBy: { name: 'asc' } },
+            _count: {
+              select: {
+                studentRecords: true,
+                courses: true,
+                instructors: { where: { isActive: true } },
+                programs: true,
+              },
+            },
+          },
+        },
       },
     });
-    ok(res, departments);
+
+    const result = parents.map(p => {
+      const hod = p.departmentHeads[0] ?? null;
+      return {
+        // Parent (TVET) fields
+        id:          p.id,
+        name:        p.name,
+        code:        p.code,
+        programType: p.programType,
+        description: p.description,
+        isActive:    p.isActive,
+        createdAt:   p.createdAt,
+        updatedAt:   p.updatedAt,
+        // HOD is always on the parent
+        departmentHeads: p.departmentHeads,
+        assignedHod: hod ? {
+          id:         hod.user.id,
+          recordId:   hod.id,
+          name:       hod.user.fullName,
+          email:      hod.user.email,
+          phone:      hod.user.phone,
+          employeeId: hod.employeeId,
+          title:      hod.title,
+        } : null,
+        // Aggregate counts across parent + all children
+        programs: p.programs,
+        _count: {
+          studentRecords: p._count.studentRecords + p.children.reduce((s, c) => s + c._count.studentRecords, 0),
+          courses:        p._count.courses        + p.children.reduce((s, c) => s + c._count.courses, 0),
+          instructors:    p._count.instructors    + p.children.reduce((s, c) => s + c._count.instructors, 0),
+          programs:       p._count.programs       + p.children.reduce((s, c) => s + c._count.programs, 0),
+        },
+        // Children branches (SP depts) — academic data stays separate
+        branches: p.children.map(c => ({
+          id:          c.id,
+          name:        c.name,
+          code:        c.code,
+          programType: c.programType,
+          description: c.description,
+          isActive:    c.isActive,
+          programs:    c.programs,
+          _count:      c._count,
+        })),
+      };
+    });
+
+    ok(res, result);
   } catch (e) { fail(res, e); }
 });
 
@@ -126,106 +188,17 @@ router.patch('/departments/:id', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
-// GET /api/registrar/departments/eligible-hods — instructors eligible to be HOD
-router.get('/departments/eligible-hods', async (req: AuthRequest, res) => {
-  try {
-    const instructors = await prisma.instructorRecord.findMany({
-      where:   { isActive: true },
-      orderBy: { user: { fullName: 'asc' } },
-      select:  {
-        id: true, employeeId: true, title: true, specialization: true,
-        departmentId: true,
-        user: {
-          select: {
-            id: true, fullName: true, email: true, role: true,
-            departmentHeadRecord: { select: { id: true, isActive: true } },
-          },
-        },
-        department: { select: { id: true, name: true, code: true } },
-      },
-    });
-    const formatted = instructors.map((inst) => ({
-      id: inst.id,
-      employeeId: inst.employeeId,
-      title: inst.title,
-      specialization: inst.specialization,
-      departmentId: inst.departmentId,
-      user: {
-        id: inst.user.id,
-        fullName: inst.user.fullName,
-        email: inst.user.email,
-        role: inst.user.role,
-      },
-      department: inst.department,
-      _count: {
-        departmentHeadRecords: (inst.user.departmentHeadRecord && inst.user.departmentHeadRecord.isActive) ? 1 : 0,
-      },
-    }));
-    ok(res, formatted);
-  } catch (e) { fail(res, e); }
-});
+// GET /api/registrar/departments/eligible-hods — REMOVED (duplicate, superseded below)
 
-// POST /api/registrar/departments/:id/assign-hod — assign HOD
-router.post('/departments/:id/assign-hod', async (req: AuthRequest, res) => {
-  try {
-    const id = req.params.id as string;
-    const schema = z.object({ instructorId: z.string().uuid() });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: 'Validation failed' }); return; }
+// ── placeholder comment — route registered further down in this file ──────────────────────
 
-    const dept = await prisma.department.findUnique({ where: { id } });
-    if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
+// POST /api/registrar/departments/:id/assign-hod — REMOVED (duplicate, superseded below)
 
-    const instructor = await prisma.instructorRecord.findUnique({
-      where:  { id: parsed.data.instructorId },
-      include: { user: { select: { id: true, fullName: true } } },
-    });
-    if (!instructor) { res.status(404).json({ error: 'Instructor not found' }); return; }
+// ── placeholder comment — route registered further down in this file ──────────────────────
 
-    // Atomic: deactivate existing HOD, create new one, update user role
-    const result = await prisma.$transaction(async (tx) => {
-      // Deactivate any existing active HOD for this department
-      await tx.departmentHeadRecord.updateMany({
-        where: { departmentId: id, isActive: true },
-        data:  { isActive: false },
-      });
-      // Create new HOD record
-      const newHod = await tx.departmentHeadRecord.create({
-        data: {
-          userId:       instructor.userId,
-          departmentId: id,
-          employeeId:   instructor.employeeId,
-          title:        `Head of ${dept.name}`,
-          isActive:     true,
-        },
-        include: {
-          user: { select: { id: true, fullName: true, email: true } },
-          department: { select: { id: true, name: true } },
-        },
-      });
-      // Upgrade user role if needed
-      await tx.user.update({
-        where: { id: instructor.userId },
-        data:  { role: Role.DEPARTMENT_HEAD },
-      });
-      return newHod;
-    });
+// DELETE /api/registrar/departments/:id/remove-hod — REMOVED (duplicate, superseded below)
 
-    ok(res, result, 201);
-  } catch (e) { fail(res, e); }
-});
-
-// DELETE /api/registrar/departments/:id/remove-hod — remove active HOD
-router.delete('/departments/:id/remove-hod', async (req: AuthRequest, res) => {
-  try {
-    const id = req.params.id as string;
-    await prisma.departmentHeadRecord.updateMany({
-      where: { departmentId: id, isActive: true },
-      data:  { isActive: false },
-    });
-    ok(res, { success: true, message: 'HOD assignment removed' });
-  } catch (e) { fail(res, e); }
-});
+// ── placeholder comment — route registered further down in this file ──────────────────────
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
@@ -400,93 +373,13 @@ router.patch('/courses/:id/status', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // GET /api/registrar/departments — list departments with complete card information
-router.get('/departments', async (req: AuthRequest, res) => {
-  try {
-    const qp = q(req);
-    const programType = qp.programType as 'TVET' | 'SHORT_PROGRAM' | 'ALL' | undefined;
-    const includeInactive = qp.includeInactive === 'true';
-
-    const depts = await prisma.department.findMany({
-      where: {
-        ...(includeInactive ? {} : { isActive: true }),
-        ...(programType && programType !== 'ALL' ? { programType } : {}),
-      },
-      orderBy: [{ programType: 'asc' }, { name: 'asc' }],
-      include: {
-        programs: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            durationYears: true,
-            totalCredits: true,
-            isActive: true,
-          },
-          orderBy: { name: 'asc' },
-        },
-        departmentHeads: {
-          where: { isActive: true },
-          include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-                phone: true,
-              },
-            },
-          },
-          take: 1,
-        },
-        _count: {
-          select: {
-            courses: true,
-            instructors: { where: { isActive: true } },
-            studentRecords: true,
-            programs: true,
-          },
-        },
-      },
-    });
-
-    const enriched = depts.map((d) => {
-      const activeHod = d.departmentHeads[0];
-      return {
-        id:          d.id,
-        name:        d.name,
-        code:        d.code,
-        programType: d.programType,
-        description: d.description,
-        isActive:    d.isActive,
-        createdAt:   d.createdAt,
-        updatedAt:   d.updatedAt,
-        programs:    d.programs,
-        assignedHod: activeHod ? {
-          id:          activeHod.user.id,
-          recordId:    activeHod.id,
-          name:        activeHod.user.fullName,
-          email:       activeHod.user.email,
-          phone:       activeHod.user.phone,
-          employeeId:  activeHod.employeeId,
-          title:       activeHod.title,
-        } : null,
-        counts: {
-          courses:     d._count.courses,
-          instructors: d._count.instructors,
-          students:    d._count.studentRecords,
-          programs:    d._count.programs,
-        },
-      };
-    });
-
-    ok(res, enriched);
-  } catch (e) { fail(res, e); }
-});
+// NOTE: The canonical GET /departments handler is registered above (grouped parent+children).
+// This previous flat-list version has been replaced.
 
 // GET /api/registrar/departments/eligible-hods — list instructors/employees who can be assigned as HOD
+// Excludes anyone who already has an active DepartmentHeadRecord (they are already an HOD)
 router.get('/departments/eligible-hods', async (req: AuthRequest, res) => {
   try {
-    // Find users with INSTRUCTOR or DEPARTMENT_HEAD role, or having an InstructorRecord
     const users = await prisma.user.findMany({
       where: {
         role: { in: [Role.INSTRUCTOR, Role.DEPARTMENT_HEAD, Role.ADMIN] },
@@ -519,17 +412,28 @@ router.get('/departments/eligible-hods', async (req: AuthRequest, res) => {
       orderBy: { fullName: 'asc' },
     });
 
-    const formatted = users.map((u) => ({
-      userId:            u.id,
-      name:              u.fullName,
-      email:             u.email,
-      phone:             u.phone,
-      systemRole:        u.role,
-      employeeId:        u.instructorRecord?.employeeId || u.departmentHeadRecord?.employeeId || `EMP-${u.id.slice(0, 6).toUpperCase()}`,
-      title:             u.departmentHeadRecord?.title || u.instructorRecord?.title || 'Faculty Member',
-      currentHodDept:    u.departmentHeadRecord?.isActive ? u.departmentHeadRecord.department : null,
-      primaryInstructorDept: u.instructorRecord?.department || null,
-    }));
+    const formatted = users
+      // Filter out anyone who is already an active HOD somewhere
+      .filter((u) => !(u.departmentHeadRecord?.isActive))
+      .map((u) => ({
+        // Use instructorRecord id as primary id for backward-compat; fall back to userId
+        id:                    u.instructorRecord?.id ?? u.id,
+        userId:                u.id,
+        name:                  u.fullName,
+        email:                 u.email,
+        phone:                 u.phone,
+        systemRole:            u.role,
+        employeeId:            u.instructorRecord?.employeeId || u.departmentHeadRecord?.employeeId || `EMP-${u.id.slice(0, 6).toUpperCase()}`,
+        title:                 u.instructorRecord?.title || 'Faculty Member',
+        currentHodDept:        null,   // always null here — active HODs are filtered out above
+        primaryInstructorDept: u.instructorRecord?.department || null,
+        // Keep _count for any frontend code that still reads it
+        _count: { departmentHeadRecords: 0 },
+        user: { id: u.id, fullName: u.fullName, email: u.email, role: u.role },
+        department: u.instructorRecord?.department || null,
+        specialization: null,
+        departmentId: u.instructorRecord?.id ? undefined : undefined,
+      }));
 
     ok(res, formatted);
   } catch (e) { fail(res, e); }
@@ -628,9 +532,24 @@ router.patch('/departments/:id', async (req: AuthRequest, res) => {
 });
 
 // POST /api/registrar/departments/:id/assign-hod — assign or replace Head of Department
+// HOD is always assigned to the parent (TVET) department.
+// If a child (SP) department id is passed, we resolve the parent automatically.
 router.post('/departments/:id/assign-hod', async (req: AuthRequest, res) => {
   try {
-    const deptId = pid(req);
+    let deptId = pid(req);
+
+    // Resolve to parent dept if a child (SP) dept id was passed
+    const deptRaw = await prisma.department.findUnique({
+      where: { id: deptId },
+      select: { id: true, name: true, programType: true, parentId: true },
+    });
+    if (!deptRaw) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    // If the selected dept is a child (has parentId), use the parent for HOD assignment
+    if (deptRaw.parentId) {
+      deptId = deptRaw.parentId;
+    }
+
     const dept = await prisma.department.findUnique({ where: { id: deptId } });
     if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
 
@@ -651,13 +570,37 @@ router.post('/departments/:id/assign-hod', async (req: AuthRequest, res) => {
     });
 
     if (!targetUser) {
-      res.status(404).json({ error: 'Selected instructor / user was not found.' });
+      res.status(404).json({ error: 'Selected user was not found.' });
       return;
     }
 
-    // Atomic transaction: deactivate previous HOD and assign new HOD
+    // ── Guard 1: the employee is already an active HOD somewhere ──────────
+    if (targetUser.departmentHeadRecord?.isActive) {
+      const existingDept = await prisma.department.findUnique({
+        where: { id: targetUser.departmentHeadRecord.departmentId },
+        select: { name: true },
+      });
+      res.status(409).json({
+        error: `${targetUser.fullName} is already the Head of Department for ${existingDept?.name ?? 'another department'}. Remove that assignment first.`,
+      });
+      return;
+    }
+
+    // ── Guard 2: the target department already has a different active HOD ─
+    const existingHod = await prisma.departmentHeadRecord.findFirst({
+      where: { departmentId: deptId, isActive: true },
+      include: { user: { select: { fullName: true } } },
+    });
+    if (existingHod && existingHod.userId !== userId) {
+      res.status(409).json({
+        error: `${dept.name} already has an active HOD (${existingHod.user.fullName}). Remove that assignment before assigning a new one.`,
+      });
+      return;
+    }
+
+    // Atomic transaction: deactivate any stale HOD record and assign new HOD
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Deactivate any existing active HOD for this department
+      // 1. Deactivate any existing active HOD for this department (safety net)
       await tx.departmentHeadRecord.updateMany({
         where: { departmentId: deptId, isActive: true },
         data:  { isActive: false },
@@ -676,7 +619,7 @@ router.post('/departments/:id/assign-hod', async (req: AuthRequest, res) => {
           data: {
             departmentId: deptId,
             isActive:     true,
-            title:        title || 'Head of Department',
+            title:        title || `Head of ${dept.name}`,
           },
         });
       } else {
@@ -685,19 +628,17 @@ router.post('/departments/:id/assign-hod', async (req: AuthRequest, res) => {
             userId,
             departmentId: deptId,
             employeeId:   empId,
-            title:        title || 'Head of Department',
+            title:        title || `Head of ${dept.name}`,
             isActive:     true,
           },
         });
       }
 
-      // 4. Update user's role to DEPARTMENT_HEAD if they were INSTRUCTOR
-      if (targetUser.role === Role.INSTRUCTOR) {
-        await tx.user.update({
-          where: { id: userId },
-          data:  { role: Role.DEPARTMENT_HEAD },
-        });
-      }
+      // 4. Upgrade user role to DEPARTMENT_HEAD
+      await tx.user.update({
+        where: { id: userId },
+        data:  { role: Role.DEPARTMENT_HEAD },
+      });
 
       return hodRec;
     });
@@ -717,9 +658,30 @@ router.delete('/departments/:id/remove-hod', async (req: AuthRequest, res) => {
     const dept = await prisma.department.findUnique({ where: { id: deptId } });
     if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
 
-    await prisma.departmentHeadRecord.updateMany({
+    // Find the active HOD record to get the userId for role downgrade
+    const activeHod = await prisma.departmentHeadRecord.findFirst({
       where: { departmentId: deptId, isActive: true },
-      data:  { isActive: false },
+      include: { user: { include: { instructorRecord: true } } },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.departmentHeadRecord.updateMany({
+        where: { departmentId: deptId, isActive: true },
+        data:  { isActive: false },
+      });
+
+      // Downgrade role: if they have an InstructorRecord, revert to INSTRUCTOR
+      if (activeHod?.user) {
+        const downgradedRole = activeHod.user.instructorRecord
+          ? Role.INSTRUCTOR
+          : Role.ADMIN; // fallback — leave as-is by keeping current if no instructor record
+        if (activeHod.user.instructorRecord) {
+          await tx.user.update({
+            where: { id: activeHod.userId },
+            data:  { role: downgradedRole },
+          });
+        }
+      }
     });
 
     ok(res, { success: true, message: `Head of Department removed from ${dept.name}.` });
