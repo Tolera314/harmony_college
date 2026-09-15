@@ -274,7 +274,13 @@ router.patch('/admissions/:id/approve', async (req: AuthRequest, res) => {
   try {
     const { comment } = req.body as { comment?: string };
     ok(res, await admissions.approveApplication(pid(req), req.user!.userId, comment));
-  } catch (e) { fail(res, e, 400); }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[Approve Admission] Error:', msg);
+    // If it's a known business-logic error return 400; unhandled → 500
+    const status = (e instanceof Error) ? 400 : 500;
+    res.status(status).json({ error: msg });
+  }
 });
 
 router.patch('/admissions/:id/reject', async (req: AuthRequest, res) => {

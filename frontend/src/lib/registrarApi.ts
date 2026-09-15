@@ -162,6 +162,10 @@ export interface Application {
   phone: string; city: string; address: string; emergencyContact: string;
   reviewComment: string | null; reviewedAt: string | null;
   submittedAt: string | null; createdAt: string; updatedAt: string;
+  /** Finance Officer approval fields — populated from StudentProfile */
+  financeVerified:       boolean;
+  financeVerifiedAt:     string | null;
+  financeVerifiedByName: string | null;
   user: { id: string; fullName: string; email: string; phone: string };
   documents: { id: string; type: string; fileUrl: string; uploadedAt: string }[];
 }
