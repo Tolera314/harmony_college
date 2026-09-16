@@ -1,5 +1,6 @@
-import { prisma } from '../../lib/prisma';
-import { GraduationStatus } from '@prisma/client';
+﻿import { prisma }              from '../../lib/prisma';
+import { createNotification } from '../notificationService';
+import { GraduationStatus }   from '@prisma/client';
 
 export async function listGraduationAudits(q: {
   page: number; limit: number; search?: string; status?: string;
@@ -116,16 +117,16 @@ export async function reviewGraduation(id: string, action: 'approve' | 'reject',
     });
 
     if (action === 'approve') {
-      await tx.notification.create({
-        data: {
-          userId: audit.studentRecord.userId,
-          title: 'Graduation Approved',
-          message: 'Congratulations! Your graduation has been approved by the Registrar.',
-          type: 'SUCCESS',
-          entityType: 'GraduationAudit',
-          entityId: id,
-        },
-      });
+      // createNotification handles DB + socket push outside tx
+      createNotification({
+        userId:     audit.studentRecord.userId,
+        title:      'Graduation Approved',
+        message:    'Congratulations! Your graduation has been approved by the Registrar.',
+        type:       'SUCCESS',
+        entityType: 'GraduationAudit',
+        entityId:   id,
+        actionTab:  'degree_audit',
+      }).catch(() => {});
     }
 
     return updated;

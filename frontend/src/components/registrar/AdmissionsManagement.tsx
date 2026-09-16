@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, CheckCircle2, XCircle, AlertCircle, FileText,
   Download, ZoomIn, ZoomOut, RotateCw, Maximize2, Send,
-  Image as ImageIcon, Calendar, User, Phone, MapPin, FileCheck2, ChevronDown
+  Image as ImageIcon, Calendar, User, Phone, MapPin, FileCheck2, ChevronDown, ExternalLink
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -244,34 +244,150 @@ export const AdmissionsManagement: React.FC = () => {
                     <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Uploaded Documents</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {selected.documents.map(doc => (
-                        <button key={doc.id} onClick={() => { setActiveDoc(doc); setZoom(1); setRotation(0); }}
+                        <button key={doc.id} onClick={() => { setActiveDoc(doc); setZoom(1); setRotation(0); setFullscreen(false); }}
                           className={`p-3 border rounded-xl flex flex-col items-center gap-2 text-center text-[10px] font-semibold transition-all ${activeDoc?.id === doc.id ? 'bg-(--accent-gold-subtle) border-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) hover:border-(--border-strong)'}`}>
                           {doc.type === 'MATRIC' || doc.type?.includes('TRANSCRIPT') ? <FileText className="w-5 h-5 text-(--status-danger)" /> : <ImageIcon className="w-5 h-5 text-blue-400" />}
                           <span className="truncate w-full">{doc.type.replace(/_/g, ' ')}</span>
                         </button>
                       ))}
                     </div>
-                    {activeDoc && (
-                      <div className="p-4 bg-black/60 border border-(--border-default) rounded-2xl space-y-3">
-                        <div className="flex items-center justify-between border-b border-(--border-subtle) pb-2">
-                          <span className="text-[10px] font-mono text-(--brand-gold)">{activeDoc.fileUrl}</span>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => setZoom(p => Math.max(0.5, p - 0.2))} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><ZoomOut className="w-3.5 h-3.5" /></button>
-                            <span className="text-[10px] font-mono text-(--text-secondary)">{Math.round(zoom * 100)}%</span>
-                            <button onClick={() => setZoom(p => Math.min(2.5, p + 0.2))} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><ZoomIn className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => setRotation(p => (p + 90) % 360)} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><RotateCw className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => setFullscreen(!fullscreen)} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><Maximize2 className="w-3.5 h-3.5" /></button>
+                    {activeDoc && (() => {
+                      const url = activeDoc.fileUrl;
+                      const lower = url?.toLowerCase() ?? '';
+                      const isPdf   = lower.includes('.pdf') || lower.includes('pdf');
+                      const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)/.test(lower) ||
+                                      activeDoc.type === 'PHOTO' || activeDoc.type?.includes('PHOTO');
+                      return (
+                        <div className="p-4 bg-black/60 border border-(--border-default) rounded-2xl space-y-3">
+                          {/* Toolbar */}
+                          <div className="flex items-center justify-between border-b border-(--border-subtle) pb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] font-mono text-(--brand-gold) truncate max-w-[180px]">
+                                {activeDoc.type.replace(/_/g, ' ')}
+                              </span>
+                              {activeDoc.uploadedAt && (
+                                <span className="text-[9px] font-mono text-(--text-faint)">
+                                  · {new Date(activeDoc.uploadedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isImage && (
+                                <>
+                                  <button onClick={() => setZoom(p => Math.max(0.5, p - 0.2))} title="Zoom out"
+                                    className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)">
+                                    <ZoomOut className="w-3.5 h-3.5" />
+                                  </button>
+                                  <span className="text-[10px] font-mono text-(--text-secondary)">{Math.round(zoom * 100)}%</span>
+                                  <button onClick={() => setZoom(p => Math.min(3, p + 0.2))} title="Zoom in"
+                                    className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)">
+                                    <ZoomIn className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => setRotation(p => (p + 90) % 360)} title="Rotate"
+                                    className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)">
+                                    <RotateCw className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                              {url && (
+                                <a href={url} target="_blank" rel="noopener noreferrer"
+                                  title="Open in new tab"
+                                  className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted) hover:text-(--text-primary) transition-colors">
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                              {url && (
+                                <a href={url} download
+                                  title="Download"
+                                  className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted) hover:text-(--text-primary) transition-colors">
+                                  <Download className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                              <button onClick={() => setFullscreen(!fullscreen)} title="Toggle fullscreen"
+                                className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)">
+                                <Maximize2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Viewer */}
+                          <div className={`relative overflow-hidden flex items-center justify-center bg-(--bg-base) border border-(--border-subtle) rounded-xl transition-all ${fullscreen ? 'fixed inset-4 z-[200] bg-(--bg-base)' : 'h-[280px]'}`}>
+                            {fullscreen && (
+                              <button onClick={() => setFullscreen(false)}
+                                className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl z-50 text-(--text-muted) hover:text-(--text-primary) transition-colors">
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            {!url ? (
+                              /* No URL */
+                              <div className="text-center p-6 space-y-2">
+                                <FileText className="w-10 h-10 text-(--text-faint) mx-auto" />
+                                <p className="text-sm text-(--text-faint)">No file available</p>
+                              </div>
+                            ) : isImage ? (
+                              /* Image preview — real render with zoom + rotation */
+                              <div className="w-full h-full overflow-auto flex items-center justify-center">
+                                <img
+                                  src={url}
+                                  alt={activeDoc.type.replace(/_/g, ' ')}
+                                  style={{
+                                    transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                                    transformOrigin: 'center',
+                                    transition: 'transform 0.2s ease',
+                                    maxWidth: '100%',
+                                    maxHeight: fullscreen ? '90vh' : '260px',
+                                    objectFit: 'contain',
+                                  }}
+                                  onError={e => {
+                                    const img = e.currentTarget;
+                                    img.style.display = 'none';
+                                    img.parentElement!.innerHTML = `
+                                      <div class="text-center p-6 space-y-2">
+                                        <p class="text-sm" style="color:var(--text-faint)">Unable to load image</p>
+                                        <a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--brand-gold);font-size:12px">Open in new tab ↗</a>
+                                      </div>`;
+                                  }}
+                                />
+                              </div>
+                            ) : isPdf ? (
+                              /* PDF preview — authenticated inline iframe */
+                              <iframe
+                                src={`${url}#toolbar=0&navpanes=0`}
+                                title={activeDoc.type.replace(/_/g, ' ')}
+                                className="w-full border-0 rounded-xl"
+                                style={{ height: fullscreen ? '90vh' : '260px' }}
+                              />
+                            ) : (
+                              /* Unsupported type — provide open + download links */
+                              <div className="text-center p-6 space-y-3">
+                                <FileText className="w-10 h-10 text-(--text-faint) mx-auto" />
+                                <p className="text-sm text-(--text-faint)">
+                                  {activeDoc.type.replace(/_/g, ' ')} — preview not available for this file type.
+                                </p>
+                                <div className="flex items-center justify-center gap-3">
+                                  <a href={url} target="_blank" rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-(--hover-overlay) border border-(--border-default) rounded-lg text-xs text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-strong) transition-colors">
+                                    <ExternalLink className="w-3.5 h-3.5" /> Open file
+                                  </a>
+                                  <a href={url} download
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-(--hover-overlay) border border-(--border-default) rounded-lg text-xs text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-strong) transition-colors">
+                                    <Download className="w-3.5 h-3.5" /> Download
+                                  </a>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className={`relative overflow-hidden flex items-center justify-center bg-(--bg-base) border border-(--border-subtle) rounded-xl ${fullscreen ? 'fixed inset-4 z-50' : 'h-[200px]'}`}>
-                          {fullscreen && <button onClick={() => setFullscreen(false)} className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl z-50"><X className="w-4 h-4" /></button>}
-                          <p className="text-xs text-(--text-faint) text-center p-4">
-                            Document: <span className="text-(--brand-gold) font-mono">{activeDoc.fileUrl}</span>
-                            <br /><span className="text-[10px]">(Preview requires authenticated file access)</span>
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })()}
+                  </div>
+                )}
+                {/* Missing documents notice */}
+                {selected.documents.length === 0 && (
+                  <div className="p-4 bg-(--hover-overlay) border border-(--border-subtle) rounded-2xl text-center">
+                    <FileText className="w-8 h-8 text-(--text-faint) mx-auto mb-2" />
+                    <p className="text-xs text-(--text-faint)">No documents uploaded for this application.</p>
                   </div>
                 )}
 

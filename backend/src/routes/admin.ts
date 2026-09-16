@@ -237,7 +237,7 @@ router.post('/notifications/broadcast', async (req: AuthRequest, res) => {
 
 // PATCH /api/admin/notifications/:id/read
 router.patch('/notifications/:id/read', async (req: AuthRequest, res) => {
-  try { ok(res, await svc.markNotificationRead(pid(req))); } catch (e) { fail(res, e, 400); }
+  try { ok(res, await svc.markNotificationRead(pid(req), req.user!.userId)); } catch (e) { fail(res, e, 400); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

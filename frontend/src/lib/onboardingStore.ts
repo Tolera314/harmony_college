@@ -28,9 +28,11 @@ export interface ProfileData {
   gender: string;
   region: string;
   city: string;
-  address: string;
+  nationalId: string;
   // Step 2 — Academic
   program: string;
+  programType: string;
+  shortProgramDuration: string;
   academicYear: string;
   semester: string;
   matricResult: string;
@@ -42,7 +44,6 @@ export interface ProfileData {
   transcriptName: string;
   // Step 4 — Emergency contact
   emergencyName: string;
-  emergencyRelationship: string;
   emergencyPhone: string;
   emergencyNotes: string;
 }
@@ -72,10 +73,12 @@ const DEFAULT_PROFILE: ProfileData = {
   gender: '',
   region: '',
   city: '',
-  address: '',
+  nationalId: '',
   program: '',
-  academicYear: '',
-  semester: '',
+  programType: '',
+  shortProgramDuration: '',
+  academicYear: '2026/2027',
+  semester: 'Semester I',
   matricResult: '',
   ministryResult: '',
   profilePictureName: '',
@@ -83,7 +86,6 @@ const DEFAULT_PROFILE: ProfileData = {
   faydaIdName: '',
   transcriptName: '',
   emergencyName: '',
-  emergencyRelationship: '',
   emergencyPhone: '',
   emergencyNotes: '',
 };
@@ -105,12 +107,26 @@ function generateAppNumber(): string {
 
 export function computeCompletion(profile: ProfileData): number {
   const fields: (keyof ProfileData)[] = [
-    'nationality', 'dob', 'gender', 'city', 'address',
-    'program', 'academicYear', 'semester',
-    'profilePictureName', 'faydaIdName',
+    'nationality', 'dob', 'gender', 'city', 'nationalId',
+    'program', 'programType',
+    'matricResult', 'ministryResult',
+    'profilePictureName', 'transcriptName',
     'emergencyName', 'emergencyPhone',
   ];
-  const filled = fields.filter((f) => !!profile[f]).length;
+  let filled = 0;
+  for (const f of fields) {
+    if (f === 'nationalId') {
+      if (profile.nationalId && /^\d{16}$/.test(profile.nationalId.trim())) filled++;
+    } else if (f === 'programType') {
+      if (profile.programType === 'TVET') {
+        filled++;
+      } else if (profile.programType === 'Short Program') {
+        if (profile.shortProgramDuration === '2 Months' || profile.shortProgramDuration === '4 Months') filled++;
+      }
+    } else if (profile[f]) {
+      filled++;
+    }
+  }
   return Math.round((filled / fields.length) * 100);
 }
 

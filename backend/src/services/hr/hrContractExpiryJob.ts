@@ -104,7 +104,7 @@ export async function runContractExpiryCheck(): Promise<void> {
 
 /** Start the daily contract expiry job. Called once at server startup. */
 export function startContractExpiryJob(): void {
-  // Run immediately on startup, then repeat every 24 hours
+  // Run once immediately (DB should be ready by now), then every 24 h.
   runContractExpiryCheck();
   setInterval(runContractExpiryCheck, CHECK_INTERVAL_MS);
   console.log('[contractExpiryJob] Started — checking every 24 hours.');

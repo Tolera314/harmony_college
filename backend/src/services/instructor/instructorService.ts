@@ -1,7 +1,8 @@
 /**
  * Instructor Service
  *
- * All business logic for the Instructor Dashboard.
+ * All business logic for the Instructor Dashboard. Uses notificationService
+ * for all in-app notification creation so socket push is automatic.
  *
  * Security principles enforced here:
  * 1. Every operation resolves the InstructorRecord from the authenticated userId.
@@ -11,7 +12,8 @@
  * 5. Notification creation is side-effect of grade/announcement actions.
  */
 
-import { prisma } from '../../lib/prisma';
+import { prisma }              from '../../lib/prisma';
+import { createNotification } from '../notificationService';
 import {
   AssignmentStatus,
   QuizStatus,
@@ -817,16 +819,15 @@ export async function gradeSubmission(
     },
   });
 
-  // Notify student of posted grade
+  // Notify student of posted assignment grade
   try {
     if (updated.studentRecord?.userId) {
-      await prisma.notification.create({
-        data: {
-          userId: updated.studentRecord.userId,
-          title: `Grade Posted: ${updated.assignment.title}`,
-          message: `Your submission for "${updated.assignment.title}" has been graded: ${updated.score}/${updated.assignment.totalPoints} (${updated.letterGrade ?? 'Graded'}).`,
-          type: 'GRADE',
-        },
+      await createNotification({
+        userId:    updated.studentRecord.userId,
+        title:     `Grade Posted: ${updated.assignment.title}`,
+        message:   `Your submission for "${updated.assignment.title}" has been graded: ${updated.score}/${updated.assignment.totalPoints} (${updated.letterGrade ?? 'Graded'}).`,
+        type:      'GRADE',
+        actionTab: 'grades',
       });
     }
   } catch { /* ignore notification side effect error */ }
@@ -1097,16 +1098,16 @@ export async function submitCourseGrade(
       select: { userId: true },
     });
     if (studentUser) {
-      await tx.notification.create({
-        data: {
-          userId: studentUser.userId,
-          title: 'Course Grade Updated',
-          message: `Your grade has been recorded.`,
-          type: 'INFO',
-          entityType: 'CourseGrade',
-          entityId: grade.id,
-        },
-      });
+      // Fire-and-forget: createNotification handles push + DB write
+      createNotification({
+        userId:     studentUser.userId,
+        title:      'Course Grade Updated',
+        message:    'Your grade has been recorded.',
+        type:       'INFO',
+        entityType: 'CourseGrade',
+        entityId:   grade.id,
+        actionTab:  'grades',
+      }).catch(() => { /* non-blocking */ });
     }
 
     return grade;

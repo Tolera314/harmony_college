@@ -24,6 +24,7 @@ import {
   hodProfileApi, hodDashboardApi, hodNotificationsApi,
   type HoDProfile, type ApiNotification,
 } from '@/src/lib/hodApi';
+import { useNotifications } from '@/src/hooks/useNotifications';
 
 // ── Adapter: map ApiNotification → the shape DHHeader / DHNotificationsView expect ──
 function toHeaderNotif(n: ApiNotification) {
@@ -49,11 +50,19 @@ export default function DepartmentHeadPage() {
   const [profile,              setProfile]              = useState<HoDProfile | null>(null);
   const [profileLoading,       setProfileLoading]       = useState(true);
   const [notifications,        setNotifications]        = useState<ApiNotification[]>([]);
-  const [unreadCount,          setUnreadCount]          = useState(0);
   const [pendingCount,         setPendingCount]         = useState(0);
   const [currentSemesterLabel, setCurrentSemesterLabel] = useState('');
 
+
+
   const { toast, show: showToast, hide: hideToast } = useToast();
+
+  // ── Real-time unread badge ─────────────────────────────────────────────────
+  const { unreadCount } = useNotifications({
+    fetchFn:       () => hodNotificationsApi.list({ limit: 50 }),
+    markReadFn:    (id) => hodNotificationsApi.markRead(id),
+    markAllReadFn: () => hodNotificationsApi.markAllRead(),
+  });
 
   // ── Load profile + notifications ────────────────────────────────────────
   const loadProfile = useCallback(async () => {
@@ -65,7 +74,7 @@ export default function DepartmentHeadPage() {
       ]);
       setProfile(prof);
       setNotifications(dash.notifications.map(n => ({ ...n, userId: '' })));
-      setUnreadCount(dash.unreadNotifications);
+
       setPendingCount(dash.kpis.pendingOfferings + dash.kpis.pendingLeaves);
       if (dash.currentSemester) setCurrentSemesterLabel(dash.currentSemester);
     } catch (e) {
@@ -82,7 +91,7 @@ export default function DepartmentHeadPage() {
     try {
       const res = await hodNotificationsApi.list({ limit: 50 });
       setNotifications(res.notifications);
-      setUnreadCount(res.unreadCount);
+
     } catch { /* keep existing */ }
   }, []);
 
@@ -108,13 +117,13 @@ export default function DepartmentHeadPage() {
   // ── Notification helpers ─────────────────────────────────────────────────
   const handleMarkRead = useCallback(async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+
     try { await hodNotificationsApi.markRead(id); } catch { /* optimistic */ }
   }, []);
 
   const handleMarkAllRead = useCallback(async () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    setUnreadCount(0);
+
     try { await hodNotificationsApi.markAllRead(); } catch { /* optimistic */ }
   }, []);
 

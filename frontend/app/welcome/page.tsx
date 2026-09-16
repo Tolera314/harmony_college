@@ -28,8 +28,10 @@ interface BackendProfile {
   nationality?:          string | null;
   region?:               string | null;
   city?:                 string | null;
-  address?:              string | null;
+  nationalId?:           string | null;
   program?:              string | null;
+  programType?:          string | null;
+  shortProgramDuration?: string | null;
   academicYear?:         string | null;
   semester?:             string | null;
   matricResult?:         string | null;
@@ -38,7 +40,6 @@ interface BackendProfile {
   faydaIdUrl?:           string | null;
   transcriptUrl?:        string | null;
   emergencyName?:        string | null;
-  emergencyRelationship?:string | null;
   emergencyPhone?:       string | null;
   emergencyNotes?:       string | null;
 }
@@ -50,10 +51,12 @@ function mapToProfileData(bp: BackendProfile | null): ProfileData {
     gender:               bp?.gender              ?? '',
     region:               bp?.region              ?? '',
     city:                 bp?.city                ?? '',
-    address:              bp?.address             ?? '',
+    nationalId:           bp?.nationalId          ?? '',
     program:              bp?.program             ?? '',
-    academicYear:         bp?.academicYear        ?? '',
-    semester:             bp?.semester            ?? '',
+    programType:          bp?.programType         ?? '',
+    shortProgramDuration: bp?.shortProgramDuration ?? '',
+    academicYear:         bp?.academicYear        || '2026/2027',
+    semester:             bp?.semester            || 'Semester I',
     matricResult:         bp?.matricResult        ?? '',
     ministryResult:       bp?.ministryResult      ?? '',
     profilePictureName:   bp?.profilePictureUrl   ? 'Uploaded' : '',
@@ -61,7 +64,6 @@ function mapToProfileData(bp: BackendProfile | null): ProfileData {
     faydaIdName:          bp?.faydaIdUrl          ? 'Uploaded' : '',
     transcriptName:       bp?.transcriptUrl       ? 'Uploaded' : '',
     emergencyName:        bp?.emergencyName        ?? '',
-    emergencyRelationship:bp?.emergencyRelationship ?? '',
     emergencyPhone:       bp?.emergencyPhone       ?? '',
     emergencyNotes:       bp?.emergencyNotes       ?? '',
   };
@@ -136,6 +138,22 @@ export default function WelcomePage() {
           setShowCongrats(true);
         }
 
+        // Check dual-approval status: student may only access the dashboard
+        // once BOTH Finance Officer AND Registrar have approved.
+        try {
+          const prereqRes = await fetch('/api/student/onboarding/prereqs', { credentials: 'include' });
+          if (prereqRes.ok) {
+            const prereqs = await prereqRes.json();
+            if (prereqs.fullyApproved === true) {
+              try {
+                await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+              } catch {}
+              window.location.href = '/dashboard/student';
+              return;
+            }
+          }
+        } catch { /* non-fatal — continue to welcome portal */ }
+
         setMounted(true);
       } catch {
         // Network failure — fall back to sessionStorage if available
@@ -152,9 +170,28 @@ export default function WelcomePage() {
     load();
   }, [router]);
 
-  // Re-sync state when returning from onboarding wizard
+  // Re-sync state and check approval when returning from onboarding wizard or
+  // when the window regains focus. Also polls every 30 seconds so the student
+  // auto-redirects when Finance/Registrar approval arrives while they wait.
   useEffect(() => {
     if (!mounted) return;
+
+    const checkApproval = async () => {
+      try {
+        const prereqRes = await fetch('/api/student/onboarding/prereqs', { credentials: 'include' });
+        if (prereqRes.ok) {
+          const prereqs = await prereqRes.json();
+          if (prereqs.fullyApproved === true) {
+            try {
+              await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+            } catch {}
+            window.location.href = '/dashboard/student';
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+    };
+
     const sync = async () => {
       try {
         const meRes = await fetch('/api/auth/me', { credentials: 'include' });
@@ -172,17 +209,53 @@ export default function WelcomePage() {
           stage: u.profileCompleted ? 'success' : 'complete-profile',
           profile: mapToProfileData(pd.profile),
         }));
+
+        // If user's profileCompleted is now true (set by dual-approval), redirect
+        if (u.profileCompleted) {
+          try {
+            await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+          } catch {}
+          window.location.href = '/dashboard/student';
+        }
       } catch { /* ignore */ }
     };
 
-    window.addEventListener('focus', sync);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') sync();
-    });
-    return () => { window.removeEventListener('focus', sync); };
-  }, [mounted]);
+    const handleFocus = () => { sync(); checkApproval(); };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') { sync(); checkApproval(); }
+    };
 
-  if (!mounted) return null;
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Poll every 30 seconds for automatic redirect when both approvals arrive
+    const pollTimer = setInterval(checkApproval, 30_000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(pollTimer);
+    };
+  }, [mounted, router]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#0F0F10] text-white">
+        <div className="relative flex flex-col items-center gap-6 p-8">
+          <div className="relative flex items-center justify-center">
+            <div className="w-16 h-16 rounded-2xl border border-[#D4AF37]/30 bg-white/5 flex items-center justify-center shadow-2xl backdrop-blur-xl animate-pulse">
+              <GraduationCap className="w-8 h-8 text-[#D4AF37]" />
+            </div>
+            <div className="absolute inset-0 rounded-2xl border-2 border-[#D4AF37]/20 border-t-[#D4AF37] animate-spin" />
+          </div>
+          <div className="text-center space-y-2">
+            <h2 className="font-serif text-xl font-medium tracking-wide text-white">Harmony College</h2>
+            <p className="text-xs text-gray-400 font-mono uppercase tracking-widest">Loading Student Portal...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Congratulations overlay for brand-new students ────────────────────────
   const handleCongratsClose = () => {

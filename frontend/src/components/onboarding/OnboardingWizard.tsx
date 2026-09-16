@@ -9,7 +9,7 @@ import {
   Flag, Calendar, GraduationCap, Phone,
   Info, Star, Trophy, Camera, Music, Palette,
   Globe, Stethoscope, Film, Headphones,
-  Quote, Shield, Clock, Award
+  Quote, Shield, Clock, Award, CreditCard
 } from 'lucide-react';
 import { OnboardingBackground } from './OnboardingBackground';
 import { OnboardingProgress } from './OnboardingProgress';
@@ -399,11 +399,21 @@ function OnboardingContextPanel({
 }
 
 const PROGRAMS = [
-  'Photography', 'Videography', 'Theatrical Art', 'Filmmaking',
-  'Music Instruments', 'Vocal Arts', 'Cubase Music Production',
-  'Graphic Design', 'Digital Marketing', 'Journalism',
-  'Information Technology (IT)', 'English', 'Arabic', 'French',
-  'Other Languages', 'Pharmacy',
+  'Photography & Videography',
+  'Theatrical Art & Filmmaking',
+  'Music Instruments & Vocal',
+  'Cubase Music Production',
+  'Graphic Design & Digital Marketing',
+  'Graphic Design',
+  'Digital Marketing',
+  'Journalism & Communication',
+  'Information Technology (IT)',
+  'Languages & Linguistics',
+  'Pharmacy',
+  'Accounting & Finance',
+  'Management',
+  'Marketing Management',
+  'Computer Science',
 ];
 
 const WIZARD_STEPS = [
@@ -521,7 +531,7 @@ function StepPersonal({ profile, errors, onChange }: {
           Gender <span style={{ color: 'var(--status-danger)' }}>*</span>
         </label>
         <div className="flex rounded-xl p-1.5 gap-1.5" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-default)' }}>
-          {['Male', 'Female', 'Prefer not to say'].map((g) => (
+          {['Male', 'Female'].map((g) => (
             <button key={g} type="button" onClick={() => onChange('gender', g)}
               className="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
               style={{
@@ -541,8 +551,8 @@ function StepPersonal({ profile, errors, onChange }: {
         <WizardInput id="city" label="City" value={profile.city}
           onChange={(v) => onChange('city', v)} required error={errors.city} icon={MapPin} />
       </div>
-      <WizardInput id="address" label="Full Address" value={profile.address}
-        onChange={(v) => onChange('address', v)} required error={errors.address} />
+      <WizardInput id="nationalId" label="National ID (16 Digits)" value={profile.nationalId}
+        onChange={(v) => onChange('nationalId', v.replace(/\D/g, '').slice(0, 16))} required error={errors.nationalId} icon={CreditCard} />
     </div>
   );
 }
@@ -553,31 +563,114 @@ function StepAcademic({ profile, errors, onChange }: {
   errors: Partial<Record<keyof ProfileData, string>>;
   onChange: (key: keyof ProfileData, val: string) => void;
 }) {
+  const programOptions = React.useMemo(() => {
+    if (profile.program && !PROGRAMS.includes(profile.program)) {
+      return [profile.program, ...PROGRAMS];
+    }
+    return PROGRAMS;
+  }, [profile.program]);
+
   return (
     <div className="space-y-5">
-      <WizardSelect id="program" label="Program Applying For" value={profile.program}
+      <WizardSelect id="program" label="Program" value={profile.program}
         onChange={(v) => onChange('program', v)} required error={errors.program}
-        icon={GraduationCap} options={PROGRAMS} />
+        icon={GraduationCap} options={programOptions} />
+
+      {/* Mandatory Program Type */}
+      <div className="space-y-2">
+        <label className="block text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>
+          Program Type <span style={{ color: 'var(--status-danger)' }}>*</span>
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { id: 'TVET', label: 'TVET Program', desc: 'Comprehensive technical diploma track' },
+            { id: 'Short Program', label: 'Short Program', desc: 'Accelerated intensive certificate' },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                onChange('programType', t.id);
+                if (t.id === 'TVET') onChange('shortProgramDuration', '');
+              }}
+              className="p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1"
+              style={{
+                backgroundColor: profile.programType === t.id ? 'var(--accent-gold-subtle)' : 'var(--bg-input)',
+                borderColor:     profile.programType === t.id ? 'var(--accent-gold-border)' : 'var(--border-default)',
+              }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-sm font-bold font-sans" style={{ color: profile.programType === t.id ? 'var(--brand-gold)' : 'var(--text-primary)' }}>
+                  {t.label}
+                </span>
+                {profile.programType === t.id && <CheckCircle2 className="w-4 h-4 text-[#E9C349]" />}
+              </div>
+              <span className="text-[11px] font-sans" style={{ color: 'var(--text-muted)' }}>{t.desc}</span>
+            </button>
+          ))}
+        </div>
+        {errors.programType && <p className="text-[11px] font-sans" style={{ color: 'var(--status-danger)' }}>{errors.programType}</p>}
+      </div>
+
+      {/* Short Program Duration — shown only if Short Program selected */}
+      {profile.programType === 'Short Program' && (
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
+          <label className="block text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>
+            Short Program Duration <span style={{ color: 'var(--status-danger)' }}>*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {['2 Months', '4 Months'].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onChange('shortProgramDuration', d)}
+                className="py-2.5 px-4 rounded-xl border text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                style={{
+                  backgroundColor: profile.shortProgramDuration === d ? 'var(--accent-gold-subtle)' : 'var(--bg-input)',
+                  borderColor:     profile.shortProgramDuration === d ? 'var(--accent-gold-border)' : 'var(--border-default)',
+                  color:           profile.shortProgramDuration === d ? 'var(--brand-gold)' : 'var(--text-secondary)',
+                }}
+              >
+                <Clock className="w-4 h-4" />
+                {d}
+              </button>
+            ))}
+          </div>
+          {errors.shortProgramDuration && <p className="text-[11px] font-sans" style={{ color: 'var(--status-danger)' }}>{errors.shortProgramDuration}</p>}
+        </motion.div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <WizardSelect id="academicYear" label="Academic Year" value={profile.academicYear}
-          onChange={(v) => onChange('academicYear', v)} required error={errors.academicYear}
-          icon={Calendar}
-          options={['2024/2025', '2025/2026', '2026/2027']} />
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>
+            Academic Year <span className="text-[10px] font-normal font-mono ml-1.5 text-(--brand-gold)">(Auto-Assigned)</span>
+          </label>
+          <div className="w-full py-3 px-4 rounded-xl border text-sm font-sans font-mono flex items-center justify-between"
+            style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
+            <span>{profile.academicYear || '2026/2027'}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wider font-semibold"
+              style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)' }}>
+              Current Period
+            </span>
+          </div>
+        </div>
         <WizardSelect id="semester" label="Semester" value={profile.semester}
           onChange={(v) => onChange('semester', v)} icon={BookOpen}
-          options={['Semester I', 'Semester II']} />
+          options={['Semester I', 'Semester II', 'Semester III', 'Summer / Kiremt']} />
       </div>
+
+      {/* Required academic results — no Optional label */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <WizardInput id="matricResult" label="Matric / Grade 12 Result" value={profile.matricResult}
-          onChange={(v) => onChange('matricResult', v)} />
+          onChange={(v) => onChange('matricResult', v)} required error={errors.matricResult} />
         <WizardInput id="ministryResult" label="Ministry Exam Result" value={profile.ministryResult}
-          onChange={(v) => onChange('ministryResult', v)} />
+          onChange={(v) => onChange('ministryResult', v)} required error={errors.ministryResult} />
       </div>
       <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--status-info-bg)', border: '1px solid var(--status-info-border)' }}>
         <div className="flex items-start gap-2.5">
           <Info className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--status-info)' }} />
           <p className="text-xs font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            Academic documents and transcripts will be uploaded in the next step. You can also provide them later from your student portal.
+            Your examination results will be registered in your official student dossier with the Registrar.
           </p>
         </div>
       </div>
@@ -602,11 +695,12 @@ function StepDocuments({ profilePic, faydaId, transcript, onProfilePic, onFaydaI
           accept=".pdf,image/*" maxSizeMB={5}
           state={faydaId} onChange={onFaydaId} onRemove={onRemoveFaydaId} required />
       </div>
-      <FileUploadCard title="Academic Transcript" description="School transcript or certificate · PDF/JPG · 10 MB max"
+      {/* Academic Transcript — Required (no Optional label) */}
+      <FileUploadCard title="Academic Transcript" description="Official school transcript · PDF/JPG · 10 MB max"
         accept=".pdf,image/*" maxSizeMB={10}
-        state={transcript} onChange={onTranscript} onRemove={onRemoveTranscript} />
+        state={transcript} onChange={onTranscript} onRemove={onRemoveTranscript} required />
       <p className="text-[11px] font-sans" style={{ color: 'var(--text-faint)' }}>
-        * Files are stored locally in this demo. Backend integration will handle secure server upload.
+        All uploaded files are verified by the Office of the Registrar.
       </p>
     </div>
   );
@@ -623,13 +717,9 @@ function StepEmergency({ profile, errors, onChange }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <WizardInput id="emergencyName" label="Contact Full Name" value={profile.emergencyName}
           onChange={(v) => onChange('emergencyName', v)} required error={errors.emergencyName} icon={User} />
-        <WizardSelect id="emergencyRelationship" label="Relationship" value={profile.emergencyRelationship}
-          onChange={(v) => onChange('emergencyRelationship', v)} required error={errors.emergencyRelationship}
-          icon={Users}
-          options={['Parent', 'Guardian', 'Sibling', 'Spouse', 'Relative', 'Friend', 'Other']} />
+        <WizardInput id="emergencyPhone" label="Emergency Phone Number" type="tel" value={profile.emergencyPhone}
+          onChange={(v) => onChange('emergencyPhone', v)} required error={errors.emergencyPhone} icon={Phone} />
       </div>
-      <WizardInput id="emergencyPhone" label="Emergency Phone Number" type="tel" value={profile.emergencyPhone}
-        onChange={(v) => onChange('emergencyPhone', v)} required error={errors.emergencyPhone} icon={Phone} />
       <WizardInput id="emergencyNotes" label="Notes (Optional)" value={profile.emergencyNotes}
         onChange={(v) => onChange('emergencyNotes', v)}
         children={
@@ -656,22 +746,24 @@ function StepReview({ state, profilePic, onEdit }: {
       { label: 'Date of Birth', value: profile.dob },
       { label: 'Gender', value: profile.gender },
       { label: 'City', value: profile.city },
-      { label: 'Address', value: profile.address },
+      { label: 'National ID', value: profile.nationalId },
     ]},
     { step: 2, title: 'Academic Information', icon: BookOpen, fields: [
       { label: 'Program', value: profile.program },
+      { label: 'Program Type', value: profile.programType || '—' },
+      { label: 'Duration', value: profile.programType === 'Short Program' ? (profile.shortProgramDuration || '—') : 'N/A' },
       { label: 'Academic Year', value: profile.academicYear },
       { label: 'Semester', value: profile.semester },
       { label: 'Matric Result', value: profile.matricResult || '—' },
+      { label: 'Ministry Result', value: profile.ministryResult || '—' },
     ]},
     { step: 3, title: 'Documents', icon: Upload, fields: [
       { label: 'Profile Picture', value: profile.profilePictureName || '—' },
       { label: 'Fayda / National ID', value: profile.faydaIdName || '—' },
-      { label: 'Transcript', value: profile.transcriptName || '—' },
+      { label: 'Academic Transcript', value: profile.transcriptName || '—' },
     ]},
     { step: 4, title: 'Emergency Contact', icon: Users, fields: [
       { label: 'Name', value: profile.emergencyName },
-      { label: 'Relationship', value: profile.emergencyRelationship },
       { label: 'Phone', value: profile.emergencyPhone },
     ]},
   ];
@@ -799,7 +891,7 @@ function SuccessScreen({ appNumber, onContinue }: { appNumber: string; onContinu
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85 }} className="w-full max-w-xs">
           <Button variant="gold" size="lg" className="w-full" onClick={onContinue}
             icon={<ArrowRight className="w-4 h-4" />}>
-            Discover Harmony College →
+            Go to Student Dashboard →
           </Button>
         </motion.div>
       </motion.div>
@@ -876,10 +968,12 @@ export function OnboardingWizard() {
             gender:               bp.gender              ?? '',
             region:               bp.region              ?? '',
             city:                 bp.city                ?? '',
-            address:              bp.address             ?? '',
-            program:              bp.program             ?? '',
-            academicYear:         bp.academicYear        ?? '',
-            semester:             bp.semester            ?? '',
+            nationalId:           bp.nationalId          ?? '',
+            program:              bp.program              ?? '',
+            programType:          bp.programType          ?? '',
+            shortProgramDuration: bp.shortProgramDuration ?? '',
+            academicYear:         bp.academicYear         || '2026/2027',
+            semester:             bp.semester             || 'Semester I',
             matricResult:         bp.matricResult        ?? '',
             ministryResult:       bp.ministryResult      ?? '',
             profilePictureName:   bp.profilePictureUrl   ? 'Uploaded' : '',
@@ -887,7 +981,6 @@ export function OnboardingWizard() {
             faydaIdName:          bp.faydaIdUrl          ? 'Uploaded' : '',
             transcriptName:       bp.transcriptUrl       ? 'Uploaded' : '',
             emergencyName:        bp.emergencyName        ?? '',
-            emergencyRelationship:bp.emergencyRelationship ?? '',
             emergencyPhone:       bp.emergencyPhone       ?? '',
             emergencyNotes:       bp.emergencyNotes       ?? '',
           };
@@ -1010,20 +1103,27 @@ export function OnboardingWizard() {
         gender:      p.gender      || undefined,
         region:      p.region      || undefined,
         city:        p.city        || undefined,
-        address:     p.address     || undefined,
+        nationalId:  p.nationalId  || undefined,
       });
     } else if (step === 2) {
       Object.assign(stepPayload, {
-        program:       p.program       || undefined,
-        academicYear:  p.academicYear  || undefined,
-        semester:      p.semester      || undefined,
-        matricResult:  p.matricResult  || undefined,
-        ministryResult:p.ministryResult|| undefined,
+        program:              p.program              || undefined,
+        programType:          p.programType          || undefined,
+        shortProgramDuration: p.programType === 'Short Program' ? (p.shortProgramDuration || undefined) : null,
+        academicYear:         p.academicYear         || '2026/2027',
+        semester:             p.semester             || undefined,
+        matricResult:         p.matricResult         || undefined,
+        ministryResult:       p.ministryResult       || undefined,
+      });
+    } else if (step === 3) {
+      Object.assign(stepPayload, {
+        profilePictureUrl: p.profilePicturePreview || undefined,
+        faydaIdUrl:        faydaId.preview         || undefined,
+        transcriptUrl:     transcript.preview      || undefined,
       });
     } else if (step === 4) {
       Object.assign(stepPayload, {
         emergencyName:         p.emergencyName         || undefined,
-        emergencyRelationship: p.emergencyRelationship || undefined,
         emergencyPhone:        p.emergencyPhone        || undefined,
         emergencyNotes:        p.emergencyNotes        || undefined,
       });
@@ -1053,16 +1153,23 @@ export function OnboardingWizard() {
       if (!profile.dob)         errs.dob         = 'Required.';
       if (!profile.gender)      errs.gender      = 'Select a gender.';
       if (!profile.city)        errs.city        = 'Required.';
-      if (!profile.address)     errs.address     = 'Required.';
+      if (!profile.nationalId || profile.nationalId.trim().length !== 16 || !/^\d{16}$/.test(profile.nationalId.trim())) {
+        errs.nationalId = 'National ID must be exactly 16 digits.';
+      }
     }
     if (wizardStep === 2) {
-      if (!profile.program)      errs.program      = 'Select a program.';
-      if (!profile.academicYear) errs.academicYear = 'Select an academic year.';
+      if (!profile.program) errs.program = 'Select a program.';
+      if (!profile.programType) {
+        errs.programType = 'Please select a program type (TVET or Short Program).';
+      } else if (profile.programType === 'Short Program' && !profile.shortProgramDuration) {
+        errs.shortProgramDuration = 'Please select a duration: 2 Months or 4 Months.';
+      }
+      if (!profile.matricResult) errs.matricResult = 'Matric / Grade 12 result is required.';
+      if (!profile.ministryResult) errs.ministryResult = 'Ministry Exam result is required.';
     }
     if (wizardStep === 4) {
-      if (!profile.emergencyName)         errs.emergencyName         = 'Required.';
-      if (!profile.emergencyRelationship) errs.emergencyRelationship = 'Required.';
-      if (!profile.emergencyPhone)        errs.emergencyPhone        = 'Required.';
+      if (!profile.emergencyName)  errs.emergencyName  = 'Required.';
+      if (!profile.emergencyPhone) errs.emergencyPhone = 'Required.';
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -1092,15 +1199,18 @@ export function OnboardingWizard() {
         gender:               p.gender               || undefined,
         region:               p.region               || undefined,
         city:                 p.city                 || undefined,
-        address:              p.address              || undefined,
+        nationalId:           p.nationalId           || undefined,
         program:              p.program              || undefined,
-        academicYear:         p.academicYear         || undefined,
+        programType:          p.programType          || undefined,
+        shortProgramDuration: p.programType === 'Short Program' ? (p.shortProgramDuration || undefined) : null,
+        academicYear:         p.academicYear         || '2026/2027',
         semester:             p.semester             || undefined,
         matricResult:         p.matricResult         || undefined,
         ministryResult:       p.ministryResult       || undefined,
         profilePictureUrl:    p.profilePicturePreview || undefined,
+        faydaIdUrl:           faydaId.preview         || undefined,
+        transcriptUrl:        transcript.preview      || undefined,
         emergencyName:        p.emergencyName         || undefined,
-        emergencyRelationship:p.emergencyRelationship || undefined,
         emergencyPhone:       p.emergencyPhone        || undefined,
         emergencyNotes:       p.emergencyNotes        || undefined,
         submit: true,
@@ -1148,7 +1258,7 @@ export function OnboardingWizard() {
           <div className="w-full max-w-lg rounded-2xl p-8 shadow-2xl"
             style={{ backgroundColor: 'var(--bg-modal)', border: '1px solid var(--accent-gold-border)', backdropFilter: 'blur(24px)' }}>
             <SuccessScreen appNumber={onboardingState.applicationNumber}
-              onContinue={() => router.push('/onboarding/about')} />
+              onContinue={() => router.push('/dashboard/student')} />
           </div>
         </div>
       </OnboardingBackground>
@@ -1164,15 +1274,15 @@ export function OnboardingWizard() {
           className="lg:hidden flex items-center justify-between px-5 py-3.5 border-b sticky top-0 z-30"
           style={{ backgroundColor: 'var(--bg-header)', borderColor: 'var(--border-subtle)', backdropFilter: 'blur(20px)' }}
         >
-          {/* Back to portal */}
+          {/* Back to dashboard */}
           <button
             type="button"
-            onClick={() => router.push('/welcome')}
+            onClick={() => router.push('/dashboard/student')}
             className="flex items-center gap-2 text-xs font-semibold font-sans transition-colors"
             style={{ color: 'var(--text-muted)' }}
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Portal</span>
+            <span>Dashboard</span>
           </button>
 
           {/* Mobile progress pill */}
@@ -1269,15 +1379,15 @@ export function OnboardingWizard() {
             />
           </div>
 
-          {/* Back to portal link */}
+          {/* Back to dashboard link */}
           <button
             type="button"
-            onClick={() => router.push('/welcome')}
+            onClick={() => router.push('/dashboard/student')}
             className="flex items-center gap-2 mt-4 pt-4 text-xs font-sans font-medium transition-colors group"
             style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--text-faint)' }}
           >
             <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-            <span className="group-hover:underline">Back to Welcome Portal</span>
+            <span className="group-hover:underline">Back to Student Dashboard</span>
           </button>
         </div>
 
@@ -1357,16 +1467,16 @@ export function OnboardingWizard() {
                   </Button>
                 )}
               </div>
-              {/* Save progress & return to portal */}
+              {/* Save progress & return to dashboard */}
               <div className="flex justify-center">
                 <button
                   type="button"
-                  onClick={() => router.push('/welcome')}
+                  onClick={() => router.push('/dashboard/student')}
                   className="flex items-center gap-1.5 text-xs font-sans transition-colors group"
                   style={{ color: 'var(--text-faint)' }}
                 >
                   <ArrowLeft className="w-3 h-3 transition-transform group-hover:-translate-x-0.5" />
-                  <span className="group-hover:underline">Save progress &amp; return to portal</span>
+                  <span className="group-hover:underline">Save progress &amp; return to Dashboard</span>
                 </button>
               </div>
             </div>

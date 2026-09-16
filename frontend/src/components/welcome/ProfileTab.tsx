@@ -69,7 +69,7 @@ function getStepStatus(
   profile: OnboardingState['profile']
 ): 'complete' | 'partial' | 'empty' {
   const checks: Record<number, () => boolean> = {
-    1: () => !!(profile.nationality && profile.dob && profile.gender && profile.city && profile.address),
+    1: () => !!(profile.nationality && profile.dob && profile.gender && profile.city && profile.nationalId),
     2: () => !!(profile.program && profile.academicYear),
     3: () => !!(profile.profilePictureName && profile.faydaIdName),
     4: () => !!(profile.emergencyName && profile.emergencyPhone),

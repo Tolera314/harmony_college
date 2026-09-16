@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNotifications } from '@/src/hooks/useNotifications';
 import { ChatView } from '@/src/components/chat/ChatView';
 import {
   ClipboardList, BookOpen, GraduationCap, FileText,
@@ -15,7 +16,7 @@ import { MobileNav, GenericMobileNavItem } from '@/src/components/layout/MobileN
 import { DHLogoutModal } from '@/src/components/dh/DHLogoutModal';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import dynamic from 'next/dynamic';
-import { settingsApi, notificationsApi, type RegistrarProfile, type RegistrarNotification } from '@/src/lib/registrarApi';
+import { settingsApi, notificationsApi, registrarNotifApi, type RegistrarProfile, type RegistrarNotification } from '@/src/lib/registrarApi';
 
 import { DashboardOverview } from '@/src/components/registrar/DashboardOverview';
 
@@ -121,7 +122,14 @@ export default function RegistrarDashboardPage() {
 
   const [profile,       setProfile]  = useState<RegistrarProfile | null>(null);
   const [auditLogs,     setAuditLogs] = useState<RegistrarNotification[]>([]);
-  const [unreadCount,   setUnreadCount] = useState(0);
+
+  // ── Real-time notification badge ────────────────────────────────────────────
+  const { unreadCount } = useNotifications({
+    fetchFn:       () => registrarNotifApi.list({ limit: 20 }),
+    markReadFn:    (id) => registrarNotifApi.markRead(id),
+    markAllReadFn: () => registrarNotifApi.markAllRead(),
+  });
+
 
   // Real-time search state — debounced API query
   const [searchQuery,   setSearchQuery]  = useState('');
@@ -136,7 +144,7 @@ export default function RegistrarDashboardPage() {
     notificationsApi.list(12).then(r => {
       const logs = r.logs ?? [];
       setAuditLogs(logs);
-      setUnreadCount(logs.length);
+
     }).catch(() => {});
   }, []);
 
@@ -182,7 +190,7 @@ export default function RegistrarDashboardPage() {
     setTimeout(() => { setRawTab(tab); setTabLoading(false); }, 120);
   }, [activeTab]);
 
-  const handleMarkAllRead = useCallback(() => setUnreadCount(0), []);
+  const handleMarkAllRead = useCallback(() => {}, []);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});

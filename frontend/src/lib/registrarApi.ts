@@ -62,7 +62,19 @@ export const dashboardApi = {
 export interface StudentListItem {
   id: string; studentId: string; status: string; yearLevel: number;
   gpa: number; totalCredits: number; admittedAt: string;
-  user: { id: string; fullName: string; email: string; phone: string };
+  user: {
+    id: string; fullName: string; email: string; phone: string;
+    studentProfile?: {
+      program?: string | null;
+      programType?: string | null;
+      shortProgramDuration?: string | null;
+      matricResult?: string | null;
+      ministryResult?: string | null;
+      transcriptUrl?: string | null;
+      profilePictureUrl?: string | null;
+      nationalId?: string | null;
+    } | null;
+  };
   program: { id: string; name: string; code: string };
   department: { id: string; name: string; code: string };
   _count: { enrollments: number };
@@ -383,6 +395,16 @@ export const notificationsApi = {
   list: (limit = 15) =>
     apiFetch<{ total: number; logs: RegistrarNotification[] }>(`/api/registrar/audit-logs?limit=${limit}`),
   markAllRead: () => Promise.resolve({ success: true }), // audit logs don't have read state; UI resets badge
+};
+
+// ── Registrar in-app notification inbox (Notification table, userId-scoped) ──
+export const registrarNotifApi = {
+  list:        (params: Record<string, unknown> = {}) =>
+    apiFetch<{ total: number; page: number; limit: number; totalPages: number; unreadCount: number; notifications: { id: string; title: string; message: string; type: string; isRead: boolean; actionTab: string | null; entityType: string | null; entityId: string | null; createdAt: string }[] }>(`/api/registrar/notifications${qs(params)}`),
+  markRead:    (id: string) =>
+    apiFetch<{ id: string; isRead: boolean }>(`/api/registrar/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllRead: () =>
+    apiFetch<{ updatedCount: number }>('/api/registrar/notifications/read-all', { method: 'POST' }),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

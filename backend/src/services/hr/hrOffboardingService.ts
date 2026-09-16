@@ -11,21 +11,54 @@ const DEFAULT_ASSETS = [
   'Parking Pass',
 ];
 
-/** List all active offboarding records (NOT_STARTED + IN_PROGRESS). */
-export async function listOffboarding() {
-  return prisma.hROffboardingRecord.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      employee: {
-        select: {
-          id: true, fullName: true, avatarUrl: true,
-          position: true, employeeCode: true,
-          department: { select: { name: true } },
+export interface OffboardingListQuery {
+  page:          number;
+  limit:         number;
+  search?:       string;
+  departmentId?: string;
+  status?:       string;  // HROffboardingStatus
+}
+
+/** Paginated, filterable offboarding list. */
+export async function listOffboarding(q: OffboardingListQuery) {
+  const { page, limit, search, departmentId, status } = q;
+  const skip = (page - 1) * limit;
+
+  const empWhere: any = {};
+  if (departmentId && departmentId !== 'All') empWhere.departmentId = departmentId;
+  if (search) {
+    empWhere.OR = [
+      { fullName:     { contains: search, mode: 'insensitive' } },
+      { employeeCode: { contains: search, mode: 'insensitive' } },
+      { email:        { contains: search, mode: 'insensitive' } },
+      { position:     { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const where: any = {};
+  if (status && status !== 'All') where.status = status;
+  if (Object.keys(empWhere).length) where.employee = empWhere;
+
+  const [total, records] = await Promise.all([
+    prisma.hROffboardingRecord.count({ where }),
+    prisma.hROffboardingRecord.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        employee: {
+          select: {
+            id: true, fullName: true, avatarUrl: true, position: true, employeeCode: true,
+            department: { select: { id: true, name: true } },
+          },
         },
+        assetChecklist: true,
       },
-      assetChecklist: true,
-    },
-  });
+    }),
+  ]);
+
+  return { total, page, limit, totalPages: Math.ceil(total / limit), records };
 }
 
 /** Get a single offboarding record by employee id. */

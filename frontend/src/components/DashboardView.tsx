@@ -259,51 +259,79 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex justify-between items-end">
             <div>
               <h2 className="font-serif text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>My Courses</h2>
-              <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Semester 5 — Enrolled curriculum courses</p>
+              <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Enrolled curriculum courses</p>
             </div>
             <button onClick={() => setActiveTab('my_courses')} className="font-sans text-xs sm:text-sm font-semibold hover:underline flex items-center gap-1" style={{ color: 'var(--brand-gold)' }}>
               View All Courses <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {activeCourses.map((course) => (
-              <Card key={course.id} onClick={() => setSelectedCourse(course)} className="flex flex-col cursor-pointer group">
-                <div className="p-1 flex-1 space-y-4">
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <Badge variant="gold">{course.code}</Badge>
-                      <h4 className="font-sans text-base font-semibold mt-2 transition-colors leading-snug" style={{ color: 'var(--text-primary)' }}>
-                        {course.title}
-                      </h4>
+          {activeCourses.length === 0 ? (
+            <div
+              className="py-12 px-6 text-center rounded-2xl border flex flex-col items-center justify-center"
+              style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}
+            >
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center mb-3"
+                style={{ backgroundColor: 'rgba(233,195,73,0.1)', border: '1px solid var(--accent-gold-border)' }}
+              >
+                <BookOpen className="w-6 h-6" style={{ color: 'var(--brand-gold)' }} />
+              </div>
+              <p className="font-serif text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                No Courses Enrolled
+              </p>
+              <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>
+                Your courses will appear here once assigned by the Registrar.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {activeCourses.map((course) => (
+                <Card key={course.id} onClick={() => setSelectedCourse(course)} className="flex flex-col cursor-pointer group">
+                  <div className="p-1 flex-1 space-y-4">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        {course.code && <Badge variant="gold">{course.code}</Badge>}
+                        <h4 className="font-sans text-base font-semibold mt-2 transition-colors leading-snug" style={{ color: 'var(--text-primary)' }}>
+                          {course.title}
+                        </h4>
+                      </div>
+                      {course.instructor && course.instructor !== 'TBA' && course.instructor !== 'Not Assigned' && (
+                        <div className="w-10 h-10 rounded-full overflow-hidden border shrink-0 flex items-center justify-center font-serif font-bold text-xs" style={{ backgroundColor: 'var(--accent-gold-subtle)', borderColor: 'var(--accent-gold-border)', color: 'var(--brand-gold)' }}>
+                          {course.instructorPhoto ? (
+                            <img src={course.instructorPhoto} alt={course.instructor} className="w-full h-full object-cover" />
+                          ) : (
+                            course.instructor.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="w-10 h-10 rounded-full overflow-hidden border shrink-0" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}>
-                      <img src={course.instructorPhoto} alt={course.instructor} className="w-full h-full object-cover" />
-                    </div>
+                    {typeof course.progress === 'number' && !isNaN(course.progress) && (
+                      <div className="space-y-1.5 pt-2">
+                        <div className="flex justify-between text-xs font-mono">
+                          <span style={{ color: 'var(--text-muted)' }}>Course Progress</span>
+                          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{course.progress}%</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--hover-overlay)' }}>
+                          <div className="h-full" style={{ width: `${course.progress}%`, backgroundColor: 'var(--brand-gold)' }} />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-1.5 pt-2">
-                    <div className="flex justify-between text-xs font-mono">
-                      <span style={{ color: 'var(--text-muted)' }}>Course Progress</span>
-                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{course.progress}%</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--hover-overlay)' }}>
-                      <div className="h-full" style={{ width: `${course.progress}%`, backgroundColor: 'var(--brand-gold)' }} />
-                    </div>
+                  <div className="mt-4 pt-3 border-t flex justify-between items-center text-xs" style={{ borderColor: 'var(--border-default)' }}>
+                    {course.midtermAlert ? (
+                      <span className="font-mono font-bold" style={{ color: 'var(--status-danger)' }}>{course.midtermAlert}</span>
+                    ) : course.assignmentsDueText ? (
+                      <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{course.assignmentsDueText}</span>
+                    ) : (
+                      <span className="font-mono" style={{ color: 'var(--text-faint)' }}>No pending tasks</span>
+                    )}
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" style={{ color: 'var(--text-muted)' }} />
                   </div>
-                </div>
-                <div className="mt-4 pt-3 border-t flex justify-between items-center text-xs" style={{ borderColor: 'var(--border-default)' }}>
-                  {course.midtermAlert ? (
-                    <span className="font-mono font-bold" style={{ color: 'var(--status-danger)' }}>{course.midtermAlert}</span>
-                  ) : course.assignmentsDueText ? (
-                    <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{course.assignmentsDueText}</span>
-                  ) : (
-                    <span className="font-mono" style={{ color: 'var(--text-faint)' }}>No pending tasks</span>
-                  )}
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" style={{ color: 'var(--text-muted)' }} />
-                </div>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Calendar & Timetable */}

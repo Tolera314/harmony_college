@@ -1,4 +1,5 @@
-import { prisma } from '../../lib/prisma';
+﻿import { prisma }              from '../../lib/prisma';
+import { createNotification } from '../notificationService';
 
 const PROFILE_SELECT = {
   userId: true,
@@ -11,7 +12,17 @@ const PROFILE_SELECT = {
   selectedDepartmentId: true,
   createdAt: true,
   user: {
-    select: { id: true, fullName: true, email: true, phone: true, createdAt: true },
+    select: {
+      id: true, fullName: true, email: true, phone: true, createdAt: true,
+      application: {
+        select: {
+          registrationScreenshotUrl: true,
+          screenshotUploadedAt:      true,
+          onboardingStatus:          true,
+          program:                   true,
+        },
+      },
+    },
   },
   selectedDepartment: {
     select: { id: true, name: true, code: true },
@@ -99,15 +110,36 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
     select: PROFILE_SELECT,
   });
 
-  try {
-    await prisma.notification.create({
-      data: {
-        userId,
-        title: 'Payment Verified ✓',
-        message: "Your registration fee payment has been verified by the Finance Office. You now appear in the Registrar's admissions queue.",
-        type: 'SUCCESS',
-      },
+  // ── Dual-approval gate ────────────────────────────────────────────────────
+  // Check if the Registrar has already approved this student's application.
+  // If BOTH approvals are now in place, set profileCompleted = true so the
+  // student's next authenticated request routes to /dashboard/student.
+  const application = await prisma.application.findUnique({
+    where:  { userId },
+    select: { status: true },
+  });
+  const registrarApproved = application?.status === 'ACCEPTED';
+
+  if (registrarApproved) {
+    await prisma.user.update({
+      where: { id: userId },
+      data:  { profileCompleted: true },
     });
+  }
+
+  // ── Notify student ────────────────────────────────────────────────────────
+  try {
+    const message = registrarApproved
+      ? 'Your registration fee payment has been verified and your admission is approved. You can now access the Student Dashboard!'
+      : "Your registration fee payment has been verified by the Finance Office. You now appear in the Registrar's admissions queue.";
+
+    createNotification({
+      userId,
+      title:   registrarApproved ? 'Registration Complete - Welcome!' : 'Payment Verified',
+      message,
+      type:    'SUCCESS',
+      actionTab: 'financials',
+    }).catch(() => {});
   } catch { /* ignore notification errors */ }
 
   return updated;
@@ -185,14 +217,13 @@ export async function recordStudentPayment(
 
   if (account.studentRecord?.userId) {
     try {
-      await prisma.notification.create({
-        data: {
-          userId: account.studentRecord.userId,
-          title: 'Payment Received ✓',
-          message: `Payment of ETB ${paymentData.amount.toLocaleString()} received via ${paymentData.paymentMethod}. Receipt ID: ${receiptId}`,
-          type: 'SUCCESS',
-        },
-      });
+      createNotification({
+        userId:    account.studentRecord.userId,
+        title:     'Payment Received',
+        message:   `Payment of ETB ${paymentData.amount.toLocaleString()} received via ${paymentData.paymentMethod}. Receipt ID: ${receiptId}`,
+        type:      'SUCCESS',
+        actionTab: 'financials',
+      }).catch(() => {});
     } catch { /* ignore notification errors */ }
   }
 

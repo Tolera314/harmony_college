@@ -1,5 +1,6 @@
-import { prisma } from '../../lib/prisma';
-import { CertificateStatus } from '@prisma/client';
+﻿import { prisma }              from '../../lib/prisma';
+import { createNotification } from '../notificationService';
+import { CertificateStatus }  from '@prisma/client';
 import { randomBytes } from 'crypto';
 
 function generateCertNumber(): string {
@@ -90,16 +91,15 @@ export async function issueCertificate(studentRecordId: string, registrarUserId:
       },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: student.userId,
-        title: 'Digital Certificate Issued',
-        message: `Your academic certificate has been issued. Certificate #${cert.certificateNumber}`,
-        type: 'SUCCESS',
-        entityType: 'Certificate',
-        entityId: cert.id,
-      },
-    });
+    createNotification({
+      userId:     student.userId,
+      title:      'Digital Certificate Issued',
+      message:    `Your academic certificate has been issued. Certificate #${cert.certificateNumber}`,
+      type:       'SUCCESS',
+      entityType: 'Certificate',
+      entityId:   cert.id,
+      actionTab:  'degree_audit',
+    }).catch(() => {});
 
     return cert;
   });

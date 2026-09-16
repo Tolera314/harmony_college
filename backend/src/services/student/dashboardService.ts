@@ -45,7 +45,57 @@ export async function getStudentDashboard(userId: string) {
   });
 
   if (!studentRecord) {
-    return null;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        fullName: true,
+        email: true,
+        phone: true,
+        studentProfile: {
+          select: {
+            program: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      student: {
+        fullName:             user.fullName,
+        studentId:            '',
+        email:                user.email,
+        phone:                user.phone,
+        program:              user.studentProfile?.program ?? 'Not Enrolled',
+        programCode:          '',
+        department:           '',
+        yearLevel:            1,
+        status:               'PENDING',
+        gpa:                  0,
+        totalCredits:         0,
+        admittedAt:           null,
+        balance:              0,
+        clearedForTerm:       false,
+        isGraduationEligible: false,
+      },
+      kpis: {
+        gpa:                  0,
+        completedCredits:     0,
+        totalRequiredCredits: 0,
+        attendanceRate:       0,
+        accountBalance:       0,
+        clearedForTerm:       false,
+        pendingAssignments:   0,
+        totalAssignments:     0,
+      },
+      courses:        [],
+      todayTimetable: [],
+      announcements:  [],
+      upcomingEvents: [],
+    };
   }
 
   // 2. Active enrollments with course + instructor + timetable
@@ -125,7 +175,7 @@ export async function getStudentDashboard(userId: string) {
     a => a.status === 'PRESENT' || a.status === 'LATE',
   ).length;
   const attendanceRate =
-    totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 100;
+    totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0;
 
   // 6. Active announcements targeted to this student
   const announcements = await prisma.announcement.findMany({
@@ -201,7 +251,7 @@ export async function getStudentDashboard(userId: string) {
         a => a.status === 'PRESENT' || a.status === 'LATE',
       ).length;
       const courseAttendanceRate =
-        courseSessions > 0 ? Math.round((coursePresent / courseSessions) * 100) : 100;
+        courseSessions > 0 ? Math.round((coursePresent / courseSessions) * 100) : null;
 
       // Course progress based on graded assignments / total published assignments
       const totalPublished = await prisma.assignment.count({

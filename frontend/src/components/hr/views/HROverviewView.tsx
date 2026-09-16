@@ -40,7 +40,7 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
   if (error || !data) return <ErrorState variant="network" onRetry={load} description={error ?? 'Could not load HR dashboard'} />;
 
   const { kpis, currentPayroll, departmentBreakdown, employmentTypeBreakdown, statusBreakdown,
-          pendingLeaveRequests, expiringContractList, recentAudit } = data;
+          pendingLeaveRequests, expiringContractList, recentAudit, sparklines } = data;
 
   const deptBar = departmentBreakdown.map(d => ({
     label: d.name.split(' ')[0].slice(0, 6),
@@ -57,8 +57,20 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
          : 'var(--text-faint)',
   }));
 
+  const EMPLOYMENT_TYPE_COLORS: Record<string, string> = {
+    FULL_TIME: 'var(--status-success)',
+    PART_TIME: 'var(--brand-gold)',
+    CONTRACT:  'var(--status-info)',
+    INTERN:    'var(--text-faint)',
+  };
+  const employmentTypeSegs = employmentTypeBreakdown.map(t => ({
+    label: EMPLOYMENT_TYPE_LABEL[t.type] ?? t.type,
+    value: t.count,
+    color: EMPLOYMENT_TYPE_COLORS[t.type] ?? 'var(--text-faint)',
+  }));
+  const totalEmpsByType = employmentTypeBreakdown.reduce((a, t) => a + t.count, 0);
+
   const totalEmps = statusBreakdown.reduce((a, s) => a + s.count, 0);
-  const payrollSpark = [5.6, 5.7, 5.7, 5.8, 5.8];
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-7 pb-16">
@@ -105,12 +117,12 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
 
       {/* KPI Grid */}
       <section className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <KPICard label="Active Employees"     value={kpis.activeEmployees}        icon={<Users className="w-5 h-5" />}           trend="up"     trendLabel="+1 this month"   sparkline={[120,122,124,126,126,128]}  onClick={() => setActiveTab('employees')} />
-        <KPICard label="Pending Leave"        value={kpis.pendingLeaveRequests}   icon={<CalendarCheck className="w-5 h-5" />}   trend="down"   trendLabel="Needs action"    sparkline={[4,6,5,8,7,9,12]}          accent={kpis.pendingLeaveRequests > 0} onClick={() => setActiveTab('leave')} />
-        <KPICard label="Reviews Due"          value={kpis.reviewsDue}             icon={<TrendingUp className="w-5 h-5" />}      trend="down"   trendLabel="Action required" sparkline={[2,3,4,5,6,8]}             onClick={() => setActiveTab('performance')} />
-        <KPICard label="Upcoming Payroll"     value={currentPayroll ? `${currentPayroll.month} ${currentPayroll.year}` : '—'} icon={<Banknote className="w-5 h-5" />} trend="neutral" trendLabel={currentPayroll ? (PAYROLL_STAGE_LABEL[currentPayroll.stage] ?? currentPayroll.stage) : '—'} sparkline={payrollSpark} accent={currentPayroll?.stage === 'PENDING_HR_APPROVAL'} onClick={() => setActiveTab('payroll')} />
-        <KPICard label="New Hires This Month" value={kpis.newHiresThisMonth}      icon={<UserPlus className="w-5 h-5" />}        trend="up"     trendLabel="Since this month" sparkline={[0,1,0,0,1,0]}            onClick={() => setActiveTab('onboarding')} />
-        <KPICard label="Expiring Contracts"   value={kpis.expiringContracts}      icon={<AlertTriangle className="w-5 h-5" />}   trend={kpis.expiringContracts > 0 ? 'down' : 'neutral'} trendLabel="Renewal needed" sparkline={[0,0,1,1,2,2]} onClick={() => setActiveTab('employees')} />
+        <KPICard label="Active Employees"     value={kpis.activeEmployees}        icon={<Users className="w-5 h-5" />}           trend="up"     trendLabel="+1 this month"   sparkline={sparklines.activeEmployees}      onClick={() => setActiveTab('employees')} />
+        <KPICard label="Pending Leave"        value={kpis.pendingLeaveRequests}   icon={<CalendarCheck className="w-5 h-5" />}   trend="down"   trendLabel="Needs action"    sparkline={sparklines.pendingLeave}          accent={kpis.pendingLeaveRequests > 0} onClick={() => setActiveTab('leave')} />
+        <KPICard label="Reviews Due"          value={kpis.reviewsDue}             icon={<TrendingUp className="w-5 h-5" />}      trend="down"   trendLabel="Action required" sparkline={sparklines.reviewsDue}            onClick={() => setActiveTab('performance')} />
+        <KPICard label="Upcoming Payroll"     value={currentPayroll ? `${currentPayroll.month} ${currentPayroll.year}` : '—'} icon={<Banknote className="w-5 h-5" />} trend="neutral" trendLabel={currentPayroll ? (PAYROLL_STAGE_LABEL[currentPayroll.stage] ?? currentPayroll.stage) : '—'} sparkline={sparklines.payrollNet} accent={currentPayroll?.stage === 'PENDING_HR_APPROVAL'} onClick={() => setActiveTab('payroll')} />
+        <KPICard label="New Hires This Month" value={kpis.newHiresThisMonth}      icon={<UserPlus className="w-5 h-5" />}        trend="up"     trendLabel="Since this month" sparkline={sparklines.newHires}             onClick={() => setActiveTab('onboarding')} />
+        <KPICard label="Expiring Contracts"   value={kpis.expiringContracts}      icon={<AlertTriangle className="w-5 h-5" />}   trend={kpis.expiringContracts > 0 ? 'down' : 'neutral'} trendLabel="Renewal needed" sparkline={sparklines.expiringContracts} onClick={() => setActiveTab('employees')} />
       </section>
 
       {/* Charts */}
@@ -128,6 +140,60 @@ export const HROverviewView: React.FC<HROverviewViewProps> = ({ setActiveTab }) 
         <Card hoverable={false} className="space-y-4">
           <h3 className="font-serif text-lg font-bold text-(--text-primary)">Employee Status</h3>
           <DonutChart segments={statusSegs} total={totalEmps} centerLabel={String(totalEmps)} />
+        </Card>
+      </section>
+
+      {/* Employment type breakdown */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card hoverable={false} className="space-y-4">
+          <div>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Employment Type</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Breakdown by contract type</p>
+          </div>
+          <DonutChart segments={employmentTypeSegs} total={totalEmpsByType} centerLabel={String(totalEmpsByType)} />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 pt-1">
+            {employmentTypeSegs.map(seg => (
+              <div key={seg.label} className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: seg.color }} />
+                <span className="font-sans text-xs text-(--text-secondary) truncate">{seg.label}</span>
+                <span className="font-mono text-xs text-(--text-faint) ml-auto">{seg.value}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card hoverable={false} className="lg:col-span-2 space-y-3">
+          <div>
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Department Budget Overview</h3>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">Allocated budget per department (ETB)</p>
+          </div>
+          <div className="space-y-2.5">
+            {departmentBreakdown
+              .filter(d => d.budget > 0)
+              .sort((a, b) => b.budget - a.budget)
+              .map(d => {
+                const maxBudget = Math.max(...departmentBreakdown.map(x => x.budget), 1);
+                const pct = Math.round((d.budget / maxBudget) * 100);
+                return (
+                  <div key={d.id} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-sans text-xs text-(--text-secondary) truncate max-w-[55%]">{d.name}</span>
+                      <span className="font-mono text-xs text-(--text-faint)">
+                        {d.budget >= 1_000_000
+                          ? `${(d.budget / 1_000_000).toFixed(1)}M`
+                          : `${(d.budget / 1_000).toFixed(0)}K`} ETB
+                        <span className="text-(--text-faint) ml-1.5">· {d.employeeCount} staff</span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-(--border-default) overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, background: 'var(--brand-gold)' }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </Card>
       </section>
 

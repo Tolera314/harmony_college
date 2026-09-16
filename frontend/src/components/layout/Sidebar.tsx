@@ -15,7 +15,7 @@ import {
   LogOut,
   ChevronRight,
   UserCheck,
-  ShoppingBag
+  UserCircle,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GESTURE, SPRING } from '@/src/lib/motion';
@@ -46,6 +46,7 @@ interface SidebarProps<T extends string = NavTab> {
   onLogout?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  showChat?: boolean;
 }
 
 const defaultStudentNavItems: GenericNavItem<NavTab>[] = [
@@ -57,7 +58,7 @@ const defaultStudentNavItems: GenericNavItem<NavTab>[] = [
   { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-5 h-5" /> },
   { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-5 h-5" /> },
   { id: 'degree_audit', label: 'Degree Audit',         icon: <BarChart3 className="w-5 h-5" />, badge: '85%' },
-  { id: 'support',      label: 'Support & Advising',   icon: <HelpCircle className="w-5 h-5" /> },
+  { id: 'profile',      label: 'My Profile',           icon: <UserCircle className="w-5 h-5" /> },
 ];
 
 export const Sidebar = <T extends string = NavTab>({
@@ -68,7 +69,8 @@ export const Sidebar = <T extends string = NavTab>({
   portalTitle = 'College SIS',
   onLogout,
   collapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  showChat = true,
 }: SidebarProps<T>) => {
   const items = (navItems ?? defaultStudentNavItems) as GenericNavItem<T>[];
 
@@ -152,20 +154,8 @@ export const Sidebar = <T extends string = NavTab>({
       </nav>
 
       <div className="mt-auto border-t border-(--border-subtle) pt-4 space-y-1 shrink-0">
-        <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />
+        {showChat && <ChatSidebarButton variant="expanded" accent="#E9C349" isActive={activeTab === 'messages'} onClick={() => setActiveTab('messages' as any)} />}
 
-        {/* Marketplace shortcut */}
-        <motion.a
-          href="/marketplace"
-          whileHover={{ x: 4 }}
-          whileTap={{ scale: 0.97 }}
-          aria-label="Marketplace"
-          title="Learning Marketplace"
-          className="w-full flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl transition-all font-sans text-sm font-medium touch-target ds-nav-item"
-        >
-          <ShoppingBag className="w-5 h-5 shrink-0 text-[#E9C349]" />
-          {!collapsed && <span className="hidden xl:inline">Marketplace</span>}
-        </motion.a>
         <motion.button
           onClick={() => setActiveTab('settings' as T)}
           whileHover={{ x: 4 }}

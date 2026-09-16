@@ -42,7 +42,23 @@ export async function listStudents(q: StudentListQuery) {
       where, skip, take: limit, orderBy,
       select: {
         id: true, studentId: true, status: true, yearLevel: true, gpa: true, totalCredits: true, admittedAt: true,
-        user: { select: { id: true, fullName: true, email: true, phone: true } },
+        user: {
+          select: {
+            id: true, fullName: true, email: true, phone: true,
+            studentProfile: {
+              select: {
+                program: true,
+                programType: true,
+                shortProgramDuration: true,
+                matricResult: true,
+                ministryResult: true,
+                transcriptUrl: true,
+                profilePictureUrl: true,
+                nationalId: true,
+              },
+            },
+          },
+        },
         program: { select: { id: true, name: true, code: true } },
         department: { select: { id: true, name: true, code: true } },
         _count: { select: { enrollments: { where: { status: { in: ['ACTIVE', 'FORCE_ADDED'] as any } } } } },
@@ -57,7 +73,29 @@ export async function getStudentById(id: string) {
   const student = await prisma.studentRecord.findUnique({
     where: { id },
     include: {
-      user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
+      user: {
+        select: {
+          id: true, fullName: true, email: true, phone: true, createdAt: true,
+          studentProfile: {
+            select: {
+              program: true,
+              programType: true,
+              shortProgramDuration: true,
+              matricResult: true,
+              ministryResult: true,
+              transcriptUrl: true,
+              profilePictureUrl: true,
+              nationalId: true,
+              dob: true,
+              gender: true,
+              nationality: true,
+              city: true,
+              emergencyName: true,
+              emergencyPhone: true,
+            },
+          },
+        },
+      },
       program: { select: { id: true, name: true, code: true, durationYears: true, totalCredits: true } },
       department: { select: { id: true, name: true, code: true } },
       enrollments: {

@@ -20,6 +20,14 @@ interface OnboardingRecord {
   paymentVerifiedByFinance:  boolean;
   paymentVerifiedAt:        string | null;
   selectedDepartmentId:     string | null;
+  program:                  string | null;
+  programType:              string | null;
+  shortProgramDuration:     string | null;
+  matricResult:             string | null;
+  ministryResult:           string | null;
+  transcriptUrl:            string | null;
+  profilePictureUrl:        string | null;
+  nationalId:               string | null;
   createdAt:                string;
   user: { id: string; fullName: string; email: string | null; phone: string | null; createdAt: string };
   selectedDepartment: { id: string; name: string; code: string } | null;
@@ -134,10 +142,10 @@ export function RegistrarOnboardingsView() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--hover-overlay)' }}>
-          <table className="w-full text-left text-xs font-sans min-w-[750px]">
+          <table className="w-full text-left text-xs font-sans min-w-[1100px]">
             <thead style={{ borderBottom: '1px solid var(--border-default)', backgroundColor: 'var(--hover-overlay)' }}>
               <tr>
-                {['Student', 'Department', 'Fee Paid', 'Dept. Selected', 'Finance Verified', 'Registered'].map(h => (
+                {['Student', 'Program', 'Type / Duration', 'Matric Result', 'Ministry Result', 'Transcript', 'Fee Paid', 'Finance Verified', 'Registered'].map(h => (
                   <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                     {h}
                   </th>
@@ -157,20 +165,52 @@ export function RegistrarOnboardingsView() {
                     </p>
                   </td>
                   <td className="px-4 py-3.5">
-                    {r.selectedDepartment ? (
-                      <div>
-                        <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{r.selectedDepartment.name}</p>
-                        <p className="font-mono text-[10px]" style={{ color: 'var(--brand-gold)' }}>{r.selectedDepartment.code}</p>
+                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{r.program || '—'}</p>
+                    {r.selectedDepartment && (
+                      <p className="font-mono text-[10px]" style={{ color: 'var(--brand-gold)' }}>{r.selectedDepartment.code}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    {r.programType ? (
+                      <div className="space-y-0.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono"
+                          style={{
+                            backgroundColor: r.programType === 'TVET' ? 'rgba(96,165,250,0.12)' : 'rgba(233,195,73,0.12)',
+                            color: r.programType === 'TVET' ? '#60a5fa' : 'var(--brand-gold)',
+                            border: `1px solid ${r.programType === 'TVET' ? 'rgba(96,165,250,0.3)' : 'var(--accent-gold-border)'}`,
+                          }}>
+                          {r.programType}
+                        </span>
+                        {r.programType === 'Short Program' && r.shortProgramDuration && (
+                          <p className="text-[10px] font-mono" style={{ color: 'var(--text-faint)' }}>{r.shortProgramDuration}</p>
+                        )}
                       </div>
                     ) : (
                       <span className="text-xs" style={{ color: 'var(--text-faint)' }}>—</span>
                     )}
                   </td>
                   <td className="px-4 py-3.5">
-                    <StatusPill ok={r.registrationFeePaid} label={r.registrationFeePaid ? 'Paid' : 'Pending'} />
+                    <span className="text-xs" style={{ color: r.matricResult ? 'var(--text-primary)' : 'var(--text-faint)' }}>
+                      {r.matricResult || '—'}
+                    </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <StatusPill ok={r.departmentSelected} label={r.departmentSelected ? 'Selected' : 'Pending'} />
+                    <span className="text-xs" style={{ color: r.ministryResult ? 'var(--text-primary)' : 'var(--text-faint)' }}>
+                      {r.ministryResult || '—'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    {r.transcriptUrl ? (
+                      <a href={r.transcriptUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] font-semibold underline" style={{ color: 'var(--brand-gold)' }}>
+                        View
+                      </a>
+                    ) : (
+                      <span className="text-xs" style={{ color: 'var(--text-faint)' }}>—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <StatusPill ok={r.registrationFeePaid} label={r.registrationFeePaid ? 'Paid' : 'Pending'} />
                   </td>
                   <td className="px-4 py-3.5">
                     <StatusPill ok={r.paymentVerifiedByFinance} label={r.paymentVerifiedByFinance ? 'Verified' : 'Pending'} />

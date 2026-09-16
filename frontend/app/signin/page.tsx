@@ -56,8 +56,25 @@ export default function SignInPage() {
       };
 
       if (role === 'STUDENT') {
-        // profileCompleted=false → welcome portal (includes brand-new students)
-        window.location.href = profileCompleted ? '/dashboard/student' : '/welcome';
+        if (profileCompleted) {
+          window.location.href = '/dashboard/student';
+          return;
+        }
+        // profileCompleted in the JWT/DB may be stale for students who were approved
+        // before this code was deployed. Fall back to checking the real-time
+        // dual-approval status via the prereqs endpoint.
+        try {
+          const prereqRes = await fetch('/api/student/onboarding/prereqs', { credentials: 'include' });
+          if (prereqRes.ok) {
+            const prereqs = await prereqRes.json();
+            // fullyApproved = Finance verified AND Registrar approved
+            if (prereqs.fullyApproved) {
+              window.location.href = '/dashboard/student';
+              return;
+            }
+          }
+        } catch { /* fall through to /welcome */ }
+        window.location.href = '/welcome';
         return;
       }
 
