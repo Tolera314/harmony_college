@@ -94,7 +94,7 @@ const ProgramForm: React.FC<ProgramFormProps> = ({ initial, onSave, onClose, sav
 // Main View
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DHProgramsView: React.FC = () => {
+export const DHProgramsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [programs, setPrograms] = useState<DHProgram[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);

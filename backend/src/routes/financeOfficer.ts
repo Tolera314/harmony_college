@@ -46,9 +46,10 @@ async function resolveActorName(req: AuthRequest): Promise<string> {
 }
 
 // ── OVERVIEW / DASHBOARD ANITICS ──────────────────────────────────────────────
-router.get('/overview', async (_req: AuthRequest, res: Response): Promise<void> => {
+router.get('/overview', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const data = await foOverviewService.getOverviewData();
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const data = await foOverviewService.getOverviewData(programType);
     ok(res, data);
   } catch (err) {
     console.error('[FO/overview]', err);

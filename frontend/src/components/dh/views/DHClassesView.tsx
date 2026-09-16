@@ -110,7 +110,7 @@ function statusVariant(s: string): 'emerald' | 'rose' | 'amber' | 'glass' {
 // Main View
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DHClassesView: React.FC = () => {
+export const DHClassesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [classes,      setClasses]     = useState<DHClass[]>([]);
   const [total,        setTotal]       = useState(0);
   const [courses,      setCourses]     = useState<DHCourse[]>([]);

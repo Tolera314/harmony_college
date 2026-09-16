@@ -23,6 +23,7 @@ import { DHSettingsView }          from '@/src/components/dh/views/DHSettingsVie
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { MessagingView }           from '@/src/components/messaging/MessagingView';
 import { AnimatePresence, motion } from 'motion/react';
+import { ToggleLeft, ToggleRight } from 'lucide-react';
 import {
   hodProfileApi, hodDashboardApi, hodNotificationsApi,
   type HoDProfile, type ApiNotification,
@@ -70,6 +71,20 @@ export default function DepartmentHeadPage() {
   const [searchOpen,     setSearchOpen]     = useState(false);
   const [logoutOpen,     setLogoutOpen]     = useState(false);
 
+  // ── TVET / Short Program switch — persisted across page navigation ─────────
+  const [dhProgramType, setDHProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dh_program_type');
+      if (saved === 'TVET' || saved === 'SHORT_PROGRAM') return saved;
+    }
+    return 'TVET';
+  });
+
+  const setProgramType = (pt: 'TVET' | 'SHORT_PROGRAM') => {
+    setDHProgramType(pt);
+    localStorage.setItem('dh_program_type', pt);
+  };
+
   // Real data
   const [profile,        setProfile]        = useState<HoDProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -91,7 +106,7 @@ export default function DepartmentHeadPage() {
     try {
       const [prof, dash] = await Promise.all([
         hodProfileApi.get(),
-        hodDashboardApi.get(),
+        hodDashboardApi.get({ programType: dhProgramType }),
       ]);
       setProfile(prof);
       setNotifications(dash.notifications.map(n => ({ ...n, userId: '' })));
@@ -101,7 +116,7 @@ export default function DepartmentHeadPage() {
     } finally {
       setProfileLoading(false);
     }
-  }, []);
+  }, [dhProgramType]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
@@ -169,15 +184,15 @@ export default function DepartmentHeadPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':             return <DHOverviewView profile={profile} setActiveTab={setActiveTab} />;
-      case 'programs':             return <DHProgramsView />;
-      case 'courses':              return <DHCoursesView />;
-      case 'instructors':          return <DHInstructorsView />;
-      case 'students':             return <DHStudentsView />;
-      case 'classes':              return <DHClassesView />;
-      case 'course_assignments':   return <DHCourseAssignmentsView />;
-      case 'academic_monitoring':  return <DHAcademicMonitoringView />;
-      case 'academic_performance': return <DHAcademicPerformanceView />;
+      case 'overview':             return <DHOverviewView profile={profile} setActiveTab={setActiveTab} programType={dhProgramType} />;
+      case 'programs':             return <DHProgramsView programType={dhProgramType} />;
+      case 'courses':              return <DHCoursesView programType={dhProgramType} />;
+      case 'instructors':          return <DHInstructorsView programType={dhProgramType} />;
+      case 'students':             return <DHStudentsView programType={dhProgramType} />;
+      case 'classes':              return <DHClassesView programType={dhProgramType} />;
+      case 'course_assignments':   return <DHCourseAssignmentsView programType={dhProgramType} />;
+      case 'academic_monitoring':  return <DHAcademicMonitoringView programType={dhProgramType} />;
+      case 'academic_performance': return <DHAcademicPerformanceView programType={dhProgramType} />;
       case 'reports':              return <DHReportsView />;
       case 'notifications':
         return (
@@ -215,12 +230,46 @@ export default function DepartmentHeadPage() {
             semesterLabel={uiProfile.currentSemester || ''}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
-          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
+          
+          {/* TVET / Short Program Toggle Switch */}
+          <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-(--bg-secondary) border border-(--border-default) shadow-sm">
+                <button
+                  onClick={() => setProgramType('TVET')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    dhProgramType === 'TVET'
+                      ? 'bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black shadow-md scale-[1.02]'
+                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                  }`}
+                >
+                  {dhProgramType === 'TVET' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                  🎓 TVET
+                </button>
+                <button
+                  onClick={() => setProgramType('SHORT_PROGRAM')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    dhProgramType === 'SHORT_PROGRAM'
+                      ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md scale-[1.02]'
+                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                  }`}
+                >
+                  {dhProgramType === 'SHORT_PROGRAM' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                  ⏱ Short Program
+                </button>
+              </div>
+              <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">
+                {dhProgramType === 'TVET' ? 'Viewing TVET academic data' : 'Viewing Short Program academic data'}
+              </span>
+            </div>
+          </div>
+
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-2 pb-24 md:pb-8">
             {profileLoading && activeTab === 'overview' ? (
               <SkeletonPage />
             ) : (
               <AnimatePresence mode="wait">
-                <motion.div key={activeTab}
+                <motion.div key={`${activeTab}-${dhProgramType}`}
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   transition={{ duration: 0.18 }}>
                   {renderView()}

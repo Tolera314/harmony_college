@@ -51,7 +51,7 @@ function formatDate(dateStr?: string) {
   });
 }
 
-export function FOTuitionSetupView() {
+export function FOTuitionSetupView({ programType }: { programType?: 'TVET' | 'SHORT_PROGRAM' }) {
   const [configs, setConfigs] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

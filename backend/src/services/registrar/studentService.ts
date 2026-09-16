@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { StudentStatus } from '@prisma/client';
+import { calculateProfileCompletion, getMissingFields } from '../profileCompletion';
+import { createNotification } from '../notificationService';
 
 export interface StudentListQuery {
   page: number;
@@ -11,10 +13,11 @@ export interface StudentListQuery {
   status?: StudentStatus;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  profileIncomplete?: boolean; // Filter for incomplete profiles
 }
 
 export async function listStudents(q: StudentListQuery) {
-  const { page, limit, search, programType, programId, departmentId, status, sortBy = 'createdAt', sortOrder = 'desc' } = q;
+  const { page, limit, search, programType, programId, departmentId, status, sortBy = 'createdAt', sortOrder = 'desc', profileIncomplete } = q;
   const skip = (page - 1) * limit;
 
   const where: any = {};
@@ -47,7 +50,7 @@ export async function listStudents(q: StudentListQuery) {
         programType: true, shortProgramDuration: true,
         user: {
           select: {
-            id: true, fullName: true, email: true, phone: true,
+            id: true, fullName: true, email: true, phone: true, profileCompleted: true,
             studentProfile: {
               select: {
                 program: true,
@@ -58,6 +61,14 @@ export async function listStudents(q: StudentListQuery) {
                 transcriptUrl: true,
                 profilePictureUrl: true,
                 nationalId: true,
+                nationality: true,
+                dob: true,
+                gender: true,
+                city: true,
+                academicYear: true,
+                semester: true,
+                emergencyName: true,
+                emergencyPhone: true,
               },
             },
           },
@@ -69,7 +80,26 @@ export async function listStudents(q: StudentListQuery) {
     }),
   ]);
 
-  return { total, page, limit, totalPages: Math.ceil(total / limit), students };
+  // Calculate profile completion percentage for each student
+  const studentsWithCompletion = students.map(s => ({
+    ...s,
+    profileCompletion: calculateProfileCompletion(s.user.studentProfile),
+  }));
+
+  // Filter by incomplete profiles if requested
+  const filteredStudents = profileIncomplete
+    ? studentsWithCompletion.filter(s => s.profileCompletion < 100)
+    : studentsWithCompletion;
+
+  const filteredTotal = profileIncomplete ? filteredStudents.length : total;
+
+  return { 
+    total: filteredTotal, 
+    page, 
+    limit, 
+    totalPages: Math.ceil(filteredTotal / limit), 
+    students: filteredStudents.slice(0, limit) // Re-paginate after filtering
+  };
 }
 
 export async function getStudentById(id: string) {
@@ -147,4 +177,85 @@ export async function updateStudentStatus(id: string, status: StudentStatus, reg
   });
 
   return student;
+}
+
+export async function sendProfileReminder(studentId: string) {
+  const student = await prisma.studentRecord.findUnique({
+    where: { id: studentId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          studentProfile: {
+            select: {
+              program: true,
+              programType: true,
+              shortProgramDuration: true,
+              matricResult: true,
+              ministryResult: true,
+              transcriptUrl: true,
+              profilePictureUrl: true,
+              nationalId: true,
+              nationality: true,
+              dob: true,
+              gender: true,
+              city: true,
+              academicYear: true,
+              semester: true,
+              emergencyName: true,
+              emergencyPhone: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!student) {
+    throw new Error('Student not found');
+  }
+
+  const profileCompletion = calculateProfileCompletion(student.user.studentProfile);
+  
+  if (profileCompletion === 100) {
+    throw new Error('Student profile is already complete');
+  }
+
+  const missingFields = getMissingFields(student.user.studentProfile);
+  const fieldLabels: Record<string, string> = {
+    nationality: 'Nationality',
+    dob: 'Date of Birth',
+    gender: 'Gender',
+    city: 'City',
+    nationalId: 'National ID (16 digits)',
+    academicYear: 'Academic Year',
+    semester: 'Semester',
+    matricResult: 'Matric Result',
+    ministryResult: 'Ministry Result',
+    profilePictureUrl: 'Profile Picture',
+    transcriptUrl: 'Academic Transcript',
+    emergencyName: 'Emergency Contact Name',
+    emergencyPhone: 'Emergency Contact Phone',
+  };
+
+  const missingFieldsText = missingFields
+    .map(field => fieldLabels[field] || field)
+    .join(', ');
+
+  await createNotification({
+    userId: student.userId,
+    title: 'Complete Your Profile',
+    message: `Your profile is ${profileCompletion}% complete. Please complete the following required fields: ${missingFieldsText}`,
+    type: 'REMINDER',
+    module: 'ACADEMIC',
+    actionTab: 'profile',
+  });
+
+  return { 
+    success: true, 
+    message: `Profile completion reminder sent to ${student.user.fullName}`,
+    profileCompletion,
+    missingFields: missingFieldsText,
+  };
 }

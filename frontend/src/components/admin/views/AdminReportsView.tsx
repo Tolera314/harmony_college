@@ -41,7 +41,7 @@ function fmtETB(amount: number) {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminReportsView: React.FC = () => {
+export const AdminReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [analytics, setAnalytics]   = useState<AdminAnalytics | null>(null);
   const [financeStats, setFinanceStats] = useState<AdminFinanceStats | null>(null);
   const [hrOverview, setHrOverview]   = useState<HRDashboardData | null>(null);

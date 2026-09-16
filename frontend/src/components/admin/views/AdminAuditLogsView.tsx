@@ -44,7 +44,7 @@ const MODULE_BADGE: Record<string, 'gold' | 'emerald' | 'amber' | 'info' | 'glas
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminAuditLogsView: React.FC = () => {
+export const AdminAuditLogsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [stats, setStats]               = useState<AdminAuditStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 

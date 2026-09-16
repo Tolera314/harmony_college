@@ -59,7 +59,7 @@ function actionSeverity(action: string): 'Critical' | 'Warning' | 'Info' {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminSecurityView: React.FC = () => {
+export const AdminSecurityView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [activeTab, setActiveTab]       = useState<'feed' | 'sessions' | 'locked' | 'policies'>('feed');
 
   // Stats

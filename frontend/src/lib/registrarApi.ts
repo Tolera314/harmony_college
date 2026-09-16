@@ -150,6 +150,8 @@ export const studentsApi = {
     apiFetch<StudentAcademicRecord>(`/api/registrar/students/${id}/academic-record`),
   updateStatus: (id: string, status: string) =>
     apiFetch(`/api/registrar/students/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  sendProfileReminder: (id: string) =>
+    apiFetch<{ success: boolean; message: string; profileCompletion: number; missingFields: string }>(`/api/registrar/students/${id}/remind-profile`, { method: 'POST' }),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -185,6 +187,26 @@ export const admissionsApi = {
     apiFetch(`/api/registrar/admissions/${id}/request-correction`, { method: 'PATCH', body: JSON.stringify({ comment }) }),
   addComment: (id: string, comment: string) =>
     apiFetch(`/api/registrar/admissions/${id}/comments`, { method: 'POST', body: JSON.stringify({ comment }) }),
+};
+
+// ── Staff Invitations (read-only — for Admissions overview) ───────────────────
+export interface StaffInvitation {
+  id: string; fullName: string; email: string; role: string;
+  positionTitle: string | null; employeeId: string | null;
+  status: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
+  createdAt: string; expiresAt: string;
+  acceptedAt: string | null; revokedAt: string | null;
+  department: { id: string; name: string; code: string } | null;
+  invitedByUser: { id: string; fullName: string } | null;
+  acceptedByUser: { id: string; fullName: string } | null;
+}
+export interface StaffInvitationsResponse {
+  total: number; page: number; limit: number; totalPages: number;
+  invitations: StaffInvitation[];
+}
+export const staffInvitationsApi = {
+  list: (params: Record<string, unknown> = {}) =>
+    apiFetch<StaffInvitationsResponse>(`/api/registrar/staff-invitations${qs(params)}`),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

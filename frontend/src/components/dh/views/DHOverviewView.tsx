@@ -17,9 +17,10 @@ import { ErrorState, SkeletonKPICard } from '../../ui/States';
 interface DHOverviewViewProps {
   profile: HoDProfile | null;
   setActiveTab: (tab: DHNavTab) => void;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
-export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActiveTab }) => {
+export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActiveTab, programType }) => {
   const [data,    setData]    = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);

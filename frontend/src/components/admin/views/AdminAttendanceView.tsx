@@ -70,7 +70,7 @@ function formatTime(dateStr: string) {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminAttendanceView: React.FC = () => {
+export const AdminAttendanceView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   // Active sub-tab
   const [tab, setTab] = useState<'overview' | 'records' | 'low' | 'departments'>('overview');
 

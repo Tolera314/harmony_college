@@ -188,52 +188,12 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
 
     // Explicitly exclude fields that must never come from the client
     delete profileData.userId;
-
-    // Check if student has been assigned to an instructor/course before allowing department change
-    if (profileData.program || profileData.selectedDepartmentId) {
-      const studentRecord = await prisma.studentRecord.findUnique({
-        where: { userId },
-        include: {
-          enrollments: {
-            where: {
-              status: { in: ['ACTIVE', 'FORCE_ADDED'] },
-              courseOffering: { instructorId: { not: null } },
-            },
-          },
-        },
-      });
-
-      const isAssigned = (studentRecord?.enrollments?.length ?? 0) > 0;
-      if (isAssigned) {
-        const curProfile = await prisma.studentProfile.findUnique({
-          where: { userId },
-          select: { program: true, selectedDepartmentId: true },
-        });
-
-        const isChanging =
-          (profileData.program && curProfile?.program && curProfile.program !== profileData.program) ||
-          (profileData.selectedDepartmentId && curProfile?.selectedDepartmentId && curProfile.selectedDepartmentId !== profileData.selectedDepartmentId);
-
-        if (isChanging) {
-          res.status(403).json({
-            error: 'Department change is locked because you have already been assigned to an instructor/course. Please contact the Registrar.',
-            isDepartmentLocked: true,
-          });
-          return;
-        }
-      }
-    }
-
-    if (profileData.program && typeof profileData.program === 'string') {
-      const matchedProg = await prisma.program.findFirst({
-        where: { name: { contains: (profileData.program as string).split('(')[0].trim(), mode: 'insensitive' } },
-        include: { department: true },
-      });
-      if (matchedProg) {
-        profileData.selectedDepartmentId = matchedProg.departmentId;
-        profileData.departmentSelected = true;
-      }
-    }
+    // Program, programType, and shortProgramDuration are set during onboarding and cannot be changed via profile
+    delete profileData.program;
+    delete profileData.programType;
+    delete profileData.shortProgramDuration;
+    delete profileData.selectedDepartmentId;
+    delete profileData.departmentSelected;
 
     // ── 2. Upsert StudentProfile ──────────────────────────────────────────────
     const savedProfile = await prisma.studentProfile.upsert({
@@ -243,88 +203,8 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
       select: PROFILE_SELECT,
     });
 
-    // Also update application record if it exists so program change reflects everywhere
-    if (profileData.program || profileData.programType || profileData.shortProgramDuration !== undefined) {
-      const isShort = profileData.programType === 'Short Program' || profileData.programType === 'SHORT_PROGRAM';
-      await prisma.application.updateMany({
-        where: { userId },
-        data: {
-          ...(profileData.program ? { program: profileData.program as string } : {}),
-          ...(profileData.programType ? { programType: profileData.programType as string } : {}),
-          shortProgramDuration: isShort ? (profileData.shortProgramDuration as string | null) : null,
-        },
-      });
-    }
-
-    // ── Update StudentRecord.programType, duration, programId + departmentId ──
-    // This ensures the Registrar always sees the student's isolated academic records.
-    if (profileData.program || profileData.programType || profileData.shortProgramDuration !== undefined) {
-      const isShort = profileData.programType === 'Short Program' || profileData.programType === 'SHORT_PROGRAM' || (savedProfile.programType === 'Short Program');
-      const targetProgType = isShort ? ProgramType.SHORT_PROGRAM : ProgramType.TVET;
-      const targetDuration = isShort ? (profileData.shortProgramDuration as string ?? savedProfile.shortProgramDuration ?? '2 Months') : null;
-
-      const programName = (profileData.program as string) || savedProfile.program || '';
-      const cleanProgName = programName.split('(')[0].trim();
-
-      // Find the exact active department for this program and programType first!
-      let matchedDept = await prisma.department.findFirst({
-        where: {
-          isActive: true,
-          programType: targetProgType,
-          name: { contains: cleanProgName, mode: 'insensitive' },
-        },
-        select: { id: true, name: true },
-      });
-
-      let matchedProgram = matchedDept ? await prisma.program.findFirst({
-        where: { departmentId: matchedDept.id, isActive: true },
-        select: { id: true, departmentId: true, name: true },
-      }) : null;
-
-      if (!matchedProgram) {
-        matchedProgram = await prisma.program.findFirst({
-          where: {
-            name: { contains: cleanProgName, mode: 'insensitive' },
-            department: { programType: targetProgType, isActive: true },
-          },
-          select: { id: true, departmentId: true, name: true },
-        });
-      }
-
-      if (matchedProgram) {
-        const existingRecord = await prisma.studentRecord.findUnique({
-          where: { userId },
-          select: { id: true },
-        });
-        if (existingRecord) {
-          await prisma.studentRecord.update({
-            where: { userId },
-            data: {
-              programType: targetProgType,
-              shortProgramDuration: targetDuration,
-              programId:    matchedProgram.id,
-              departmentId: matchedProgram.departmentId,
-            },
-          });
-
-          // Drop any prior enrollments from wrong department or wrong programType to avoid data mixing
-          await prisma.enrollment.deleteMany({
-            where: {
-              studentRecordId: existingRecord.id,
-              courseOffering: {
-                OR: [
-                  { course: { departmentId: { not: matchedProgram.departmentId } } },
-                  { programType: { not: targetProgType } },
-                ],
-              },
-            },
-          });
-
-          // Sync active enrollments for the student under this department/program
-          await syncStudentEnrollments(existingRecord.id).catch(() => {});
-        }
-      }
-    }
+    // Note: Program, programType, shortProgramDuration, and department are NOT updated here
+    // They are set during onboarding (/api/student/onboarding/department) and locked after approval
 
     // ── 3. Calculate completion ───────────────────────────────────────────────
     const completion   = calculateProfileCompletion(savedProfile);

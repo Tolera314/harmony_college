@@ -297,7 +297,7 @@ router.patch('/department', async (req: AuthRequest, res: Response): Promise<voi
     const parsed = z.object({
       departmentId:         z.string().uuid(),
       programType:          z.enum(['TVET', 'SHORT_PROGRAM']).default('TVET'),
-      shortProgramDuration: z.enum(['2 Months', '4 Months']).optional(),
+      shortProgramDuration: z.enum(['4 Months', '8 Months', 'Summer']).optional(),
     }).safeParse(req.body);
 
     if (!parsed.success) {
@@ -309,7 +309,7 @@ router.patch('/department', async (req: AuthRequest, res: Response): Promise<voi
 
     // Enforce: Short Program must have duration
     if (programType === 'SHORT_PROGRAM' && !shortProgramDuration) {
-      res.status(400).json({ error: 'Short Program requires a duration (2 Months or 4 Months).' });
+      res.status(400).json({ error: 'Short Program requires a duration (4 Months, 8 Months, or Summer).' });
       return;
     }
 

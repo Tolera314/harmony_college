@@ -129,7 +129,7 @@ function LedgerModal({ student, onClose }: { student: FinanceStudent; onClose: (
 }
 
 // ── Main View ──────────────────────────────────────────────────────────────────
-export const FOStudentAccountsView: React.FC = () => {
+export const FOStudentAccountsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [studentList, setStudentList] = useState<FinanceStudent[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'All'>('All');

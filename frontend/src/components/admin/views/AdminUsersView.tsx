@@ -56,7 +56,7 @@ const STATUSES = ['ACTIVE', 'PENDING_VERIFICATION', 'SUSPENDED', 'DEACTIVATED', 
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export const AdminUsersView: React.FC<{ callerRole?: string }> = ({ callerRole = 'ADMIN' }) => {
+export const AdminUsersView: React.FC<{ callerRole?: string; programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ callerRole = 'ADMIN', programType }) => {
   // ── active tab
   const [activeTab, setActiveTab] = useState<'users' | 'invitations'>('users');
 

@@ -24,7 +24,7 @@ function formatDate(d: string) {
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export const AdminSystemConfigView: React.FC = () => {
+export const AdminSystemConfigView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [activeSection, setActiveSection] = useState<'academic' | 'semesters' | 'institution' | 'storage'>('academic');
   const [saved, setSaved]   = useState(false);
 

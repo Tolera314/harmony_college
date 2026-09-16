@@ -31,7 +31,7 @@ function gpaVariant(gpa: number): 'emerald' | 'gold' | 'amber' | 'rose' {
 // Main View
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DHAcademicPerformanceView: React.FC = () => {
+export const DHAcademicPerformanceView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [data,    setData]    = useState<DHAcademicPerformance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);

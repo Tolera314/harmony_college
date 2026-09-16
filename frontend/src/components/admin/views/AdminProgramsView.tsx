@@ -12,7 +12,7 @@ import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
 import { SkeletonTable, EmptyState, ErrorState, InlineError, useToast, ToastContainer } from '../../ui/States';
 
-export const AdminProgramsView: React.FC = () => {
+export const AdminProgramsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [programs, setPrograms]   = useState<ApiProgram[]>([]);
   const [depts, setDepts]         = useState<ApiDepartment[]>([]);
   const [search, setSearch]       = useState('');

@@ -122,10 +122,13 @@ export async function updateProfile(
 // DASHBOARD KPIs
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getDashboard(userId: string) {
+export async function getDashboard(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptId  = hod.departmentId;
   const deptIds = await resolveDeptIds(hod);
+
+  // ── Program type filter: if specified, filter across all queries ──
+  const progTypeFilter = programType ? { programType } : {};
 
   const [
     activeFaculty,
@@ -144,24 +147,26 @@ export async function getDashboard(userId: string) {
     prisma.instructorRecord.count({
       where: { departmentId: { in: deptIds }, isActive: true },
     }),
-    // Active students across parent + child departments
+    // Active students across parent + child departments (filtered by programType)
     prisma.studentRecord.count({
-      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
+      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, ...progTypeFilter },
     }),
-    // Active course offerings (current semester)
+    // Active course offerings (current semester, filtered by programType)
     prisma.courseOffering.count({
       where: {
         course: { departmentId: { in: deptIds } },
         status: { in: [OfferingStatus.ACTIVE, OfferingStatus.SCHEDULED, OfferingStatus.INSTRUCTOR_ASSIGNED] },
         semester: { isCurrent: true },
+        ...progTypeFilter,
       },
     }),
-    // Pending approval offerings
+    // Pending approval offerings (filtered by programType)
     prisma.courseOffering.count({
       where: {
         course: { departmentId: { in: deptIds } },
         status: OfferingStatus.DRAFT,
         semester: { isCurrent: true },
+        ...progTypeFilter,
       },
     }),
     // Pending leave requests
@@ -171,17 +176,21 @@ export async function getDashboard(userId: string) {
         status: LeaveStatus.PENDING_DH,
       },
     }),
-    // Total courses
+    // Total courses (filtered by programType)
     prisma.course.count({
-      where: { departmentId: { in: deptIds } },
+      where: { departmentId: { in: deptIds }, ...progTypeFilter },
     }),
-    // Active programs
+    // Active programs - count based on department programType (programs belong to departments)
     prisma.program.count({
-      where: { departmentId: { in: deptIds }, isActive: true },
+      where: {
+        departmentId: { in: deptIds },
+        isActive: true,
+        department: programType ? { programType } : undefined,
+      },
     }),
-    // Total classes / sections
+    // Total classes / sections (filtered by programType)
     prisma.courseOffering.count({
-      where: { course: { departmentId: { in: deptIds } } },
+      where: { course: { departmentId: { in: deptIds } }, ...progTypeFilter },
     }),
     // Recent notifications for this user (last 10)
     prisma.notification.findMany({
@@ -199,29 +208,46 @@ export async function getDashboard(userId: string) {
     }),
   ]);
 
-  // Department avg GPA across all branches
+  // Department avg GPA across all branches (filtered by programType)
   const gpaAgg = await prisma.studentRecord.aggregate({
-    where:   { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
+    where:   { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, ...progTypeFilter },
     _avg:    { gpa: true },
     _count:  { id: true },
   });
 
-  // Dept attendance average across all branches
-  const attendanceData = await prisma.$queryRaw<{ rate: number }[]>`
-    SELECT
-      ROUND(
-        100.0 * SUM(CASE WHEN ar.status = 'PRESENT' OR ar.status = 'LATE' THEN 1 ELSE 0 END)
-        / NULLIF(COUNT(ar.id), 0),
-        1
-      ) AS rate
-    FROM "AttendanceRecord" ar
-    INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
-    INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
-    INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
-    INNER JOIN "Course" c ON c.id = co."courseId"
-    INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
-    WHERE sr."departmentId" = ANY(${deptIds})
-  `;
+  // Dept attendance average across all branches (filtered by programType if specified)
+  const attendanceData = programType
+    ? await prisma.$queryRaw<{ rate: number }[]>`
+        SELECT
+          ROUND(
+            100.0 * SUM(CASE WHEN ar.status = 'PRESENT' OR ar.status = 'LATE' THEN 1 ELSE 0 END)
+            / NULLIF(COUNT(ar.id), 0),
+            1
+          ) AS rate
+        FROM "AttendanceRecord" ar
+        INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+        INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+        INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+        INNER JOIN "Course" c ON c.id = co."courseId"
+        INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
+        WHERE sr."departmentId" = ANY(${deptIds})
+          AND sr."programType" = ${programType}::"ProgramType"
+      `
+    : await prisma.$queryRaw<{ rate: number }[]>`
+        SELECT
+          ROUND(
+            100.0 * SUM(CASE WHEN ar.status = 'PRESENT' OR ar.status = 'LATE' THEN 1 ELSE 0 END)
+            / NULLIF(COUNT(ar.id), 0),
+            1
+          ) AS rate
+        FROM "AttendanceRecord" ar
+        INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+        INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+        INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+        INNER JOIN "Course" c ON c.id = co."courseId"
+        INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
+        WHERE sr."departmentId" = ANY(${deptIds})
+      `;
   const attendanceRate = attendanceData[0]?.rate ?? 0;
 
   // Capacity utilization across all branches
@@ -638,6 +664,7 @@ export async function getStudents(
   params: {
     page?: number; limit?: number; search?: string;
     yearLevel?: number; status?: string; standing?: string;
+    programType?: 'TVET' | 'SHORT_PROGRAM';
   },
 ) {
   const hod = await resolveHoD(userId);
@@ -649,6 +676,7 @@ export async function getStudents(
   const where: any = { departmentId: { in: deptIds } };
   if (params.status && params.status !== 'ALL') where.status = params.status;
   if (params.yearLevel) where.yearLevel = params.yearLevel;
+  if (params.programType) where.programType = params.programType;
   if (params.search) {
     where.OR = [
       { user:    { fullName: { contains: params.search, mode: 'insensitive' } } },
@@ -1165,12 +1193,21 @@ export async function getAuditLog(
 // PROGRAMS MANAGEMENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getPrograms(userId: string) {
+export async function getPrograms(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
 
+  const whereClause: any = {
+    departmentId: { in: deptIds },
+  };
+
+  // Filter by department's programType if specified
+  if (programType) {
+    whereClause.department = { programType };
+  }
+
   const programs = await prisma.program.findMany({
-    where:   { departmentId: { in: deptIds } },
+    where:   whereClause,
     orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
     include: {
       _count: {
@@ -1435,23 +1472,24 @@ export async function getInstructors(
   const instructors = await prisma.instructorRecord.findMany({
     where,
     orderBy: { user: { fullName: 'asc' } },
-    include: {
+    select: {
+      id: true,
+      userId: true,
+      employeeId: true,
+      title: true,
+      specialization: true,
+      isActive: true,
+      createdAt: true,
       user: {
-        select: {
-          id: true, fullName: true, email: true, phone: true,
-        },
+        select: { id: true, fullName: true, email: true, phone: true },
       },
       offerings: {
-        where: {
-          semester: { isCurrent: true },
-        },
-        include: {
-          course: {
-            select: { id: true, name: true, code: true, ects: true, creditHours: true },
-          },
-          _count: {
-            select: { enrollments: true },
-          },
+        where: { semester: { isCurrent: true } },
+        select: {
+          id: true,
+          section: true,
+          course: { select: { id: true, name: true, code: true, ects: true, creditHours: true } },
+          _count: { select: { enrollments: true } },
         },
       },
     },
@@ -1464,14 +1502,19 @@ export async function getInstructors(
 
     return {
       id:             inst.id,
-      userId:         inst.user.id,
-      name:           inst.user.fullName,
-      email:          inst.user.email,
-      phone:          inst.user.phone,
       employeeId:     inst.employeeId,
       title:          inst.title,
       specialization: inst.specialization,
       isActive:       inst.isActive,
+      joinedAt:       inst.createdAt.toISOString(),
+      user: {
+        fullName: inst.user.fullName,
+        email:    inst.user.email,
+        phone:    inst.user.phone,
+      },
+      assignedOfferings:  inst.offerings.length,
+      totalCreditHours:   totalCredits,
+      totalEcts:          totalEcts,
       workload: {
         activeSectionsCount: inst.offerings.length,
         totalEcts,
@@ -1495,7 +1538,7 @@ export async function getInstructors(
 
 export async function getClasses(
   userId: string,
-  params: { semesterId?: string; courseId?: string; search?: string },
+  params: { semesterId?: string; courseId?: string; search?: string; programType?: 'TVET' | 'SHORT_PROGRAM' },
 ) {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
@@ -1503,6 +1546,12 @@ export async function getClasses(
   const where: any = {
     course: { departmentId: { in: deptIds } },
   };
+  
+  // Program type filter
+  if (params.programType) {
+    where.programType = params.programType;
+  }
+  
   if (params.semesterId && params.semesterId !== 'ALL') {
     where.semesterId = params.semesterId;
   } else if (!params.semesterId) {
@@ -1663,14 +1712,22 @@ export async function updateClassSection(
 // COURSE ASSIGNMENT (HOD Instructor -> Course/Class Assignment)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getCourseAssignments(userId: string, semesterId?: string) {
+export async function getCourseAssignments(userId: string, params?: { semesterId?: string; programType?: 'TVET' | 'SHORT_PROGRAM' }) {
   const hod = await resolveHoD(userId);
   const deptId  = hod.departmentId;
   const deptIds = await resolveDeptIds(hod);
 
+  const semesterId = params?.semesterId;
+  const programType = params?.programType;
+
   const where: any = {
     course: { departmentId: { in: deptIds } },
   };
+  
+  if (programType) {
+    where.programType = programType;
+  }
+  
   if (semesterId && semesterId !== 'ALL') {
     where.semesterId = semesterId;
   } else {
@@ -1886,16 +1943,19 @@ export async function unassignInstructorFromOffering(userId: string, offeringId:
 // ACADEMIC MONITORING
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getAcademicMonitoring(userId: string) {
+export async function getAcademicMonitoring(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptId  = hod.departmentId;
   const deptIds = await resolveDeptIds(hod);
+
+  const progTypeFilter = programType ? { programType } : {};
 
   // 1. Department offerings in current semester (across all branches)
   const offerings = await prisma.courseOffering.findMany({
     where: {
       course:   { departmentId: { in: deptIds } },
       semester: { isCurrent: true },
+      ...progTypeFilter,
     },
     include: {
       course:     { select: { code: true, name: true } },
@@ -1904,20 +1964,36 @@ export async function getAcademicMonitoring(userId: string) {
     },
   });
 
-  // 2. Attendance Summary
-  const attendanceAgg = await prisma.$queryRaw<{ total: bigint; present: bigint; absent: bigint; late: bigint }[]>`
-    SELECT
-      COUNT(ar.id) AS total,
-      SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) AS present,
-      SUM(CASE WHEN ar.status = 'ABSENT' THEN 1 ELSE 0 END)  AS absent,
-      SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END)    AS late
-    FROM "AttendanceRecord" ar
-    INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
-    INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
-    INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
-    INNER JOIN "Course" c ON c.id = co."courseId"
-    WHERE c."departmentId" = ANY(${deptIds})
-  `;
+  // 2. Attendance Summary (filtered by programType if specified)
+  const attendanceAgg = programType
+    ? await prisma.$queryRaw<{ total: bigint; present: bigint; absent: bigint; late: bigint }[]>`
+        SELECT
+          COUNT(ar.id) AS total,
+          SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) AS present,
+          SUM(CASE WHEN ar.status = 'ABSENT' THEN 1 ELSE 0 END)  AS absent,
+          SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END)    AS late
+        FROM "AttendanceRecord" ar
+        INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+        INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+        INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+        INNER JOIN "Course" c ON c.id = co."courseId"
+        INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
+        WHERE c."departmentId" = ANY(${deptIds})
+          AND sr."programType" = ${programType}::"ProgramType"
+      `
+    : await prisma.$queryRaw<{ total: bigint; present: bigint; absent: bigint; late: bigint }[]>`
+        SELECT
+          COUNT(ar.id) AS total,
+          SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) AS present,
+          SUM(CASE WHEN ar.status = 'ABSENT' THEN 1 ELSE 0 END)  AS absent,
+          SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END)    AS late
+        FROM "AttendanceRecord" ar
+        INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+        INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+        INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+        INNER JOIN "Course" c ON c.id = co."courseId"
+        WHERE c."departmentId" = ANY(${deptIds})
+      `;
   const attTotal   = Number(attendanceAgg[0]?.total ?? 0);
   const attPresent = Number(attendanceAgg[0]?.present ?? 0);
   const attLate    = Number(attendanceAgg[0]?.late ?? 0);
@@ -2029,14 +2105,16 @@ export async function getAcademicMonitoring(userId: string) {
 // ACADEMIC PERFORMANCE
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getAcademicPerformance(userId: string) {
+export async function getAcademicPerformance(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptId  = hod.departmentId;
   const deptIds = await resolveDeptIds(hod);
 
-  // 1. Department students GPA stats (across all branches)
+  const progTypeFilter = programType ? { programType } : {};
+
+  // 1. Department students GPA stats (across all branches, filtered by programType)
   const students = await prisma.studentRecord.findMany({
-    where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
+    where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, ...progTypeFilter },
     select: {
       id:        true,
       studentId: true,

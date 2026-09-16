@@ -21,7 +21,7 @@ import {
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export const AdminFacultyView: React.FC = () => {
+export const AdminFacultyView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   // ── list state
   const [instructors, setInstructors] = useState<AdminInstructorRecord[]>([]);
   const [total, setTotal]             = useState(0);
