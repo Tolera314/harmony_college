@@ -18,7 +18,7 @@ const statusConfig: Record<FOAuditEntry['status'], { icon: React.ReactNode; badg
   Failed:  { icon: <XCircle className="w-3.5 h-3.5 text-(--status-danger)" />,         badge: 'rose'    },
 };
 
-export const FOAuditLogView: React.FC = () => {
+export const FOAuditLogView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [auditLog,     setAuditLog]     = useState<FOAuditEntry[]>([]);
   const [total,        setTotal]        = useState(0);
   const [search,       setSearch]       = useState('');

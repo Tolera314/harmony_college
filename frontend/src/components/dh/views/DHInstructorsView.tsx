@@ -9,8 +9,9 @@ import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { ErrorState } from '../../ui/States';
 import { hodInstructorsApi, type DHInstructor } from '../../../lib/hodApi';
+import { WithProgramType } from '../../../types/programType';
 
-export const DHInstructorsView: React.FC = () => {
+export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) => {
   const [instructors, setInstructors] = useState<DHInstructor[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);

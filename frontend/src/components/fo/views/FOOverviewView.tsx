@@ -24,6 +24,7 @@ import {
 
 interface FOOverviewViewProps {
   setActiveTab: (tab: FONavTab) => void;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
 // ── Zero-state KPIs (shown while loading or on empty DB) ─────────────────────
@@ -66,7 +67,7 @@ function PctLabel({ pct }: { pct: number | null }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) => {
+export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, programType }) => {
   const [kpis,            setKpis]            = useState(ZERO_KPIS);
   const [recentTxns,      setRecentTxns]      = useState<any[]>([]);
   const [monthlyRev,      setMonthlyRev]      = useState<any[]>([]);
@@ -87,7 +88,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
     setError(null);
     try {
       const [overviewData, notifsData, settingsData, submissionData] = await Promise.allSettled([
-        getOverviewData(),
+        getOverviewData(programType),
         getNotifications(),
         getSettings(),
         getPaymentSubmissionAnalytics(),
@@ -126,7 +127,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData, programType]);
 
   // ── Derived chart data ──────────────────────────────────────────────────
   const lineData        = monthlyRev.map((m) => ({ label: m.month, value: m.revenue ?? m.collections ?? 0 }));

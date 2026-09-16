@@ -176,7 +176,7 @@ function ReceiptPreviewModal({ receipt, onClose }: { receipt: ReceiptType; onClo
 }
 
 // ── Main View ──────────────────────────────────────────────────────────────────
-export const FOReceiptsView: React.FC = () => {
+export const FOReceiptsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [receiptList, setReceiptList] = useState<ReceiptType[]>([]);
   const [stats, setStats]             = useState({ totalReceipts: 0, totalAmount: 0, printedCount: 0, digitalCount: 0 });
   const [search, setSearch]           = useState('');

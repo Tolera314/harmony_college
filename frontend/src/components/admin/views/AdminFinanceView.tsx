@@ -74,7 +74,7 @@ function formatTime(dateStr: string) {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminFinanceView: React.FC = () => {
+export const AdminFinanceView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   // Tabs
   const [tab, setTab] = useState<'overview' | 'ledger' | 'accounts'>('overview');
 

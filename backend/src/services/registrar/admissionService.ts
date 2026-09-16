@@ -119,31 +119,38 @@ export async function approveApplication(id: string, registrarUserId: string, co
   if (app.status === ApplicationStatus.ACCEPTED) throw new Error('Application is already accepted');
   if (app.status === ApplicationStatus.REJECTED) throw new Error('Cannot approve a rejected application');
 
-  // Find matching program — try multiple strategies
-  const programName = app.program.split('(')[0].trim();
-  let program = await prisma.program.findFirst({
-    where: { name: { contains: programName, mode: 'insensitive' } },
-    include: { department: true },
-  });
-  // If no match by name, try matching by department name via StudentProfile's selectedDepartment
-  if (!program) {
-    const studentProfile = await prisma.studentProfile.findUnique({
-      where:  { userId: app.userId },
-      select: { selectedDepartmentId: true, programType: true },
-    });
-    if (studentProfile?.selectedDepartmentId) {
-      program = await prisma.program.findFirst({
-        where: { departmentId: studentProfile.selectedDepartmentId },
-        include: { department: true },
-      });
-    }
-  }
-
-  // Check if Finance Officer has already verified the registration fee payment.
+  // Get student's onboarding data (department, programType, duration)
   const studentProfile = await prisma.studentProfile.findUnique({
     where:  { userId: app.userId },
-    select: { paymentVerifiedByFinance: true },
+    select: { 
+      selectedDepartmentId: true, 
+      programType: true, 
+      shortProgramDuration: true,
+      paymentVerifiedByFinance: true 
+    },
   });
+
+  if (!studentProfile?.selectedDepartmentId) {
+    throw new Error('Student has not completed department selection during onboarding');
+  }
+
+  if (!studentProfile?.programType) {
+    throw new Error('Student has not selected a program type (TVET or Short Program) during onboarding');
+  }
+
+  // Find matching program from the selected department
+  const programName = app.program.split('(')[0].trim();
+  let program = await prisma.program.findFirst({
+    where: { 
+      OR: [
+        { name: { contains: programName, mode: 'insensitive' } },
+        { departmentId: studentProfile.selectedDepartmentId }
+      ]
+    },
+    include: { department: true },
+  });
+
+  // Check if Finance Officer has already verified the registration fee payment.
   const financeApproved = studentProfile?.paymentVerifiedByFinance ?? false;
 
   // ── GATE: Finance Officer must approve before Registrar can approve ────────
@@ -186,10 +193,8 @@ export async function approveApplication(id: string, registrarUserId: string, co
           if (!existing) break;
           attempt++;
         }
-        // Determine programType from the application
-        const appProgramType = app.programType === 'SHORT_PROGRAM' || app.programType === 'Short Program'
-          ? 'SHORT_PROGRAM'
-          : 'TVET';
+        
+        // Use programType and duration from StudentProfile (set during onboarding)
         const createdSR = await tx.studentRecord.create({
           data: {
             userId:               app.userId,
@@ -198,8 +203,8 @@ export async function approveApplication(id: string, registrarUserId: string, co
             departmentId:         program.departmentId,
             status:               StudentStatus.ACTIVE,
             yearLevel:            1,
-            programType:          appProgramType as any,
-            shortProgramDuration: appProgramType === 'SHORT_PROGRAM' ? (app.shortProgramDuration ?? null) : null,
+            programType:          studentProfile.programType as any,
+            shortProgramDuration: studentProfile.programType === 'SHORT_PROGRAM' ? studentProfile.shortProgramDuration : null,
           },
         });
         studentRecordId = createdSR.id;

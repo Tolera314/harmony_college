@@ -292,7 +292,7 @@ export const hodProfileApi = {
 };
 
 export const hodDashboardApi = {
-  get: () => apiFetch<DashboardData>(`${BASE}/dashboard`),
+  get: (params: Record<string, unknown> = {}) => apiFetch<DashboardData>(`${BASE}/dashboard${qs(params)}`),
 };
 
 export const hodOfferingsApi = {
@@ -365,7 +365,7 @@ export interface DHProgram {
 }
 
 export const hodProgramsApi = {
-  list: () => apiFetch<DHProgram[]>(`${BASE}/programs`),
+  list: (params: Record<string, unknown> = {}) => apiFetch<DHProgram[]>(`${BASE}/programs${qs(params)}`),
   create: (data: { name: string; code: string; description?: string; durationYears?: number; totalCredits?: number }) =>
     apiFetch<DHProgram>(`${BASE}/programs`, { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<{ name: string; code: string; description: string; durationYears: number; totalCredits: number; isActive: boolean }>) =>
@@ -475,8 +475,8 @@ export interface DHCourseAssignmentsResponse {
 }
 
 export const hodCourseAssignmentsApi = {
-  list: (semesterId?: string) =>
-    apiFetch<DHCourseAssignmentsResponse>(`${BASE}/course-assignments${semesterId ? `?semesterId=${semesterId}` : ''}`),
+  list: (params: Record<string, unknown> = {}) =>
+    apiFetch<DHCourseAssignmentsResponse>(`${BASE}/course-assignments${qs(params)}`),
   assign: (offeringId: string, instructorId: string) =>
     apiFetch<{ success: boolean; isCrossDept: boolean; message: string }>(`${BASE}/course-assignments/assign`, {
       method: 'POST', body: JSON.stringify({ offeringId, instructorId }),
@@ -507,7 +507,7 @@ export interface DHAcademicMonitoring {
 }
 
 export const hodAcademicMonitoringApi = {
-  get: () => apiFetch<DHAcademicMonitoring>(`${BASE}/academic-monitoring`),
+  get: (params: Record<string, unknown> = {}) => apiFetch<DHAcademicMonitoring>(`${BASE}/academic-monitoring${qs(params)}`),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -523,7 +523,7 @@ export interface DHAcademicPerformance {
 }
 
 export const hodAcademicPerformanceApi = {
-  get: () => apiFetch<DHAcademicPerformance>(`${BASE}/academic-performance`),
+  get: (params: Record<string, unknown> = {}) => apiFetch<DHAcademicPerformance>(`${BASE}/academic-performance${qs(params)}`),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

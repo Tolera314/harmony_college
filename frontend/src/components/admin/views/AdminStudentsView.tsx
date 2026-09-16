@@ -45,7 +45,7 @@ const STUDENT_STATUSES = ['ACTIVE', 'ON_LEAVE', 'SUSPENDED', 'GRADUATED', 'WITHD
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export const AdminStudentsView: React.FC = () => {
+export const AdminStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   // ── list state
   const [students, setStudents]     = useState<AdminStudentRecord[]>([]);
   const [total, setTotal]           = useState(0);

@@ -98,7 +98,7 @@ function EntryDetailModal({ entry, onClose, onMatch, onFlag }: {
 }
 
 // ── Main View ──────────────────────────────────────────────────────────────────
-export const FOReconciliationView: React.FC = () => {
+export const FOReconciliationView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [entriesList, setEntriesList] = useState<ReconciliationEntry[]>([]);
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatusFilter] = useState<ReconciliationStatus | 'All'>('All');

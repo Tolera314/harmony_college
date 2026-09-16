@@ -5,14 +5,18 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, CheckCircle2, XCircle, AlertCircle, FileText,
   Download, ZoomIn, ZoomOut, RotateCw, Maximize2, Send,
-  Image as ImageIcon, Calendar, User, Phone, MapPin, FileCheck2, ChevronDown, ExternalLink,
-  ShieldCheck, ShieldAlert,
+  Image as ImageIcon, Calendar, User, Phone, MapPin, FileCheck2, ExternalLink,
+  ShieldCheck, ShieldAlert, GraduationCap, Users, Clock, CheckCircle, XCircle as XCircleIcon,
 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { SkeletonTable, EmptyState, ErrorState } from '../ui/States';
-import { admissionsApi, type Application, type AdmissionsListResponse } from '@/src/lib/registrarApi';
+import {
+  admissionsApi, staffInvitationsApi,
+  type Application, type AdmissionsListResponse, type StaffInvitation, type StaffInvitationsResponse,
+} from '@/src/lib/registrarApi';
 
+// ── Status maps ───────────────────────────────────────────────────────────────
 const STATUS_BADGE: Record<string, any> = {
   DRAFT: 'glass', SUBMITTED: 'glass', UNDER_REVIEW: 'amber',
   ACCEPTED: 'emerald', REJECTED: 'rose', WAITLISTED: 'amber',
@@ -22,7 +26,165 @@ const STATUS_LABEL: Record<string, string> = {
   ACCEPTED: 'Approved', REJECTED: 'Rejected', WAITLISTED: 'Waitlisted',
 };
 
-export const AdmissionsManagement: React.FC = () => {
+const INV_BADGE: Record<string, any> = {
+  PENDING: 'amber', ACCEPTED: 'emerald', EXPIRED: 'glass', REVOKED: 'rose',
+};
+const ROLE_LABEL: Record<string, string> = {
+  INSTRUCTOR: 'Instructor', DEPARTMENT_HEAD: 'Dept. Head',
+  REGISTRAR: 'Registrar', FINANCE_OFFICER: 'Finance Officer',
+  HR_OFFICER: 'HR Officer', ADMIN: 'Admin', SUPER_ADMIN: 'Super Admin',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAFF INVITATIONS TAB
+// ─────────────────────────────────────────────────────────────────────────────
+const StaffInvitationsTab: React.FC = () => {
+  const [data, setData]           = useState<StaffInvitationsResponse | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [search, setSearch]       = useState('');
+  const [roleFilter, setRoleFilter]   = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage]           = useState(1);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const load = useCallback(async (pg = 1, q = search, r = roleFilter, s = statusFilter) => {
+    setLoading(true); setError(null);
+    try {
+      const res = await staffInvitationsApi.list({
+        page: pg, limit: 15,
+        ...(q ? { search: q } : {}),
+        ...(r ? { role: r } : {}),
+        ...(s ? { status: s } : {}),
+      });
+      setData(res);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load invitations');
+    } finally { setLoading(false); }
+  }, [search, roleFilter, statusFilter]);
+
+  useEffect(() => { load(page); }, [page]);
+
+  const handleSearch = (val: string) => {
+    setSearch(val); setPage(1);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => load(1, val, roleFilter, statusFilter), 350);
+  };
+
+  const invitations = data?.invitations ?? [];
+
+  return (
+    <div className="space-y-5">
+      {/* Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl">
+        <div className="relative md:col-span-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
+          <input type="text" value={search} onChange={e => handleSearch(e.target.value)}
+            placeholder="Search by name or email..."
+            className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
+        </div>
+        <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); load(1, search, e.target.value, statusFilter); }}
+          className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)">
+          <option value="">All Roles</option>
+          {Object.entries(ROLE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); load(1, search, roleFilter, e.target.value); }}
+          className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)">
+          <option value="">All Statuses</option>
+          <option value="PENDING">Pending</option>
+          <option value="ACCEPTED">Accepted</option>
+          <option value="EXPIRED">Expired</option>
+          <option value="REVOKED">Revoked</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      {loading ? <SkeletonTable /> : error ? (
+        <ErrorState variant="network" onRetry={() => load(page)} description={error} />
+      ) : (
+        <div className="overflow-x-auto border ds-card rounded-2xl backdrop-blur-xl">
+          <table className="w-full text-left text-xs font-sans">
+            <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
+              <tr>
+                <th className="px-5 py-4">Employee</th>
+                <th className="px-5 py-4">Role</th>
+                <th className="px-5 py-4">Department</th>
+                <th className="px-5 py-4">Position</th>
+                <th className="px-5 py-4">Invited By</th>
+                <th className="px-5 py-4">Invited On</th>
+                <th className="px-5 py-4">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y ds-table-row ds-table-cell">
+              {invitations.map(inv => (
+                <tr key={inv.id} className="ds-table-row transition-colors">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-(--hover-overlay) border border-(--border-strong) flex items-center justify-center font-serif font-bold text-xs text-(--brand-gold)">
+                        {inv.fullName[0]}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-(--text-primary)">{inv.fullName}</p>
+                        <p className="text-[10px] text-(--text-faint)">{inv.email}</p>
+                        {inv.employeeId && <p className="font-mono text-[10px] text-(--text-faint)">{inv.employeeId}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <Badge variant="gold">{ROLE_LABEL[inv.role] ?? inv.role}</Badge>
+                  </td>
+                  <td className="px-5 py-4 text-(--text-secondary)">
+                    {inv.department ? (
+                      <span>{inv.department.name} <span className="font-mono text-[10px] text-(--text-faint)">({inv.department.code})</span></span>
+                    ) : <span className="text-(--text-faint)">—</span>}
+                  </td>
+                  <td className="px-5 py-4 text-(--text-secondary)">{inv.positionTitle ?? '—'}</td>
+                  <td className="px-5 py-4 text-(--text-secondary)">
+                    {inv.acceptedAt ? (
+                      <div>
+                        <p className="font-semibold text-(--status-success)">{inv.acceptedByUser?.fullName ?? '—'}</p>
+                        <p className="text-[10px] text-(--text-faint)">Accepted {new Date(inv.acceptedAt).toLocaleDateString()}</p>
+                      </div>
+                    ) : inv.invitedByUser?.fullName ?? '—'}
+                  </td>
+                  <td className="px-5 py-4 font-mono text-(--text-muted)">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-1.5">
+                      {inv.status === 'ACCEPTED' && <CheckCircle className="w-3.5 h-3.5 text-(--status-success)" />}
+                      {inv.status === 'PENDING'  && <Clock className="w-3.5 h-3.5 text-yellow-400" />}
+                      {inv.status === 'EXPIRED'  && <XCircleIcon className="w-3.5 h-3.5 text-(--text-faint)" />}
+                      {inv.status === 'REVOKED'  && <XCircleIcon className="w-3.5 h-3.5 text-(--status-danger)" />}
+                      <Badge variant={INV_BADGE[inv.status] ?? 'glass'}>{inv.status}</Badge>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {invitations.length === 0 && (
+                <tr><td colSpan={7} className="p-0"><EmptyState variant="search" compact /></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {data && data.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-(--text-faint)">{data.total} invitations · Page {page} of {data.totalPages}</p>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</Button>
+            <Button variant="secondary" size="sm" disabled={page === data.totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STUDENT APPLICATIONS TAB (existing view)
+// ─────────────────────────────────────────────────────────────────────────────
+const StudentApplicationsTab: React.FC = () => {
   const [data, setData] = useState<AdmissionsListResponse | null>(null);
   const [selected, setSelected] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,7 +210,7 @@ export const AdmissionsManagement: React.FC = () => {
     try {
       const res = await admissionsApi.list({ page: pg, limit: 15, search: q, status: s || undefined });
       setData(res);
-    } catch (e: unknown) {
+    } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load applications');
     } finally { setLoading(false); }
   }, [page, search, statusFilter]);
@@ -61,22 +223,15 @@ export const AdmissionsManagement: React.FC = () => {
     searchTimer.current = setTimeout(() => load(1, val, statusFilter), 350);
   };
 
-  const handleFilter = (val: string) => {
-    setStatusFilter(val); setPage(1);
-    load(1, search, val);
-  };
+  const handleFilter = (val: string) => { setStatusFilter(val); setPage(1); load(1, search, val); };
 
-  const doAction = async (action: () => Promise<unknown>, successMsg?: string) => {
+  const doAction = async (action: () => Promise<unknown>) => {
     setActionLoading(true); setActionError(null);
     try {
       await action();
-      // Refresh list and drawer
       await load(page, search, statusFilter);
-      if (selected) {
-        const fresh = await admissionsApi.getById(selected.id);
-        setSelected(fresh);
-      }
-    } catch (e: unknown) {
+      if (selected) { const fresh = await admissionsApi.getById(selected.id); setSelected(fresh); }
+    } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Action failed');
     } finally { setActionLoading(false); }
   };
@@ -95,15 +250,7 @@ export const AdmissionsManagement: React.FC = () => {
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-serif font-bold text-(--text-primary)">Admissions Management</h2>
-          <p className="text-xs text-(--text-muted)">Review and process admission applications from the database.</p>
-        </div>
-        {data && <Badge variant="glass" className="font-mono text-xs self-start">{data.total} Total</Badge>}
-      </div>
-
+    <>
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl">
         <div className="relative md:col-span-2">
@@ -154,7 +301,6 @@ export const AdmissionsManagement: React.FC = () => {
                   <td className="px-5 py-4 text-(--text-secondary) max-w-[160px] truncate">{app.program}</td>
                   <td className="px-5 py-4 font-mono text-(--text-muted)">{app.academicYear}</td>
                   <td className="px-5 py-4 font-mono text-(--text-muted)">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '—'}</td>
-                  {/* Finance column */}
                   <td className="px-5 py-4">
                     {app.financeVerified ? (
                       <div className="flex items-center gap-1.5">
@@ -205,7 +351,7 @@ export const AdmissionsManagement: React.FC = () => {
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
               className="fixed right-0 top-0 bottom-0 w-full md:w-[750px] bg-(--bg-base) border-l border-(--border-default) z-50 overflow-y-auto flex flex-col shadow-2xl font-sans">
 
-              {/* Header */}
+              {/* Drawer Header */}
               <div className="p-6 border-b border-(--border-default) flex items-center justify-between sticky top-0 bg-(--bg-base) z-10">
                 <div>
                   <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">Application Review</span>
@@ -227,9 +373,7 @@ export const AdmissionsManagement: React.FC = () => {
                 {/* Personal Info */}
                 <div className="p-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl space-y-4">
                   <div className="flex items-center gap-4 border-b border-(--border-subtle) pb-4">
-                    <div className="w-12 h-12 rounded-xl bg-(--brand-gold)/20 border border-(--brand-gold)/30 flex items-center justify-center font-serif font-bold text-xl text-(--brand-gold)">
-                      {selected.fullName[0]}
-                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-(--brand-gold)/20 border border-(--brand-gold)/30 flex items-center justify-center font-serif font-bold text-xl text-(--brand-gold)">{selected.fullName[0]}</div>
                     <div>
                       <p className="text-sm font-semibold text-(--text-primary)">{selected.fullName}</p>
                       <p className="text-xs text-(--text-faint)">{selected.user?.email} · {selected.user?.phone}</p>
@@ -237,12 +381,12 @@ export const AdmissionsManagement: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {[
-                      { icon: User,      label: 'Gender / Age', val: `${selected.gender} · ${selected.age} yrs` },
-                      { icon: Calendar,  label: 'DOB',          val: selected.dob ? new Date(selected.dob).toLocaleDateString() : '—' },
-                      { icon: FileCheck2,label: 'Study Mode',   val: selected.studyMode },
-                      { icon: Phone,     label: 'Emergency',    val: selected.emergencyContact },
-                      { icon: MapPin,    label: 'Location',     val: `${selected.city}, ${selected.nationality}` },
-                      { icon: FileText,  label: 'Program',      val: selected.program },
+                      { icon: User,       label: 'Gender / Age', val: `${selected.gender} · ${selected.age} yrs` },
+                      { icon: Calendar,   label: 'DOB',          val: selected.dob ? new Date(selected.dob).toLocaleDateString() : '—' },
+                      { icon: FileCheck2, label: 'Study Mode',   val: selected.studyMode },
+                      { icon: Phone,      label: 'Emergency',    val: selected.emergencyContact },
+                      { icon: MapPin,     label: 'Location',     val: `${selected.city}, ${selected.nationality}` },
+                      { icon: FileText,   label: 'Program',      val: selected.program },
                     ].map((item, idx) => (
                       <div key={idx} className="space-y-1 p-2.5 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                         <span className="text-[10px] font-mono text-(--text-faint) flex items-center gap-1">
@@ -270,127 +414,39 @@ export const AdmissionsManagement: React.FC = () => {
                     {activeDoc && (() => {
                       const url = activeDoc.fileUrl;
                       const lower = url?.toLowerCase() ?? '';
-                      const isPdf   = lower.includes('.pdf') || lower.includes('pdf');
-                      const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)/.test(lower) ||
-                                      activeDoc.type === 'PHOTO' || activeDoc.type?.includes('PHOTO');
+                      const isPdf   = lower.includes('.pdf');
+                      const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)/.test(lower) || activeDoc.type === 'PHOTO' || activeDoc.type?.includes('PHOTO');
                       return (
                         <div className="p-4 bg-black/60 border border-(--border-default) rounded-2xl space-y-3">
-                          {/* Toolbar */}
                           <div className="flex items-center justify-between border-b border-(--border-subtle) pb-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] font-mono text-(--brand-gold) truncate max-w-[180px]">
-                                {activeDoc.type.replace(/_/g, ' ')}
-                              </span>
-                              {activeDoc.uploadedAt && (
-                                <span className="text-[9px] font-mono text-(--text-faint)">
-                                  · {new Date(activeDoc.uploadedAt).toLocaleDateString()}
-                                </span>
-                              )}
-                            </div>
+                            <span className="text-[10px] font-mono text-(--brand-gold) truncate max-w-[180px]">{activeDoc.type.replace(/_/g, ' ')}</span>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              {isImage && (
-                                <>
-                                  <button onClick={() => setZoom(p => Math.max(0.5, p - 0.2))} title="Zoom out"
-                                    className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)">
-                                    <ZoomOut className="w-3.5 h-3.5" />
-                                  </button>
-                                  <span className="text-[10px] font-mono text-(--text-secondary)">{Math.round(zoom * 100)}%</span>
-                                  <button onClick={() => setZoom(p => Math.min(3, p + 0.2))} title="Zoom in"
-                                    className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)">
-                                    <ZoomIn className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button onClick={() => setRotation(p => (p + 90) % 360)} title="Rotate"
-                                    className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)">
-                                    <RotateCw className="w-3.5 h-3.5" />
-                                  </button>
-                                </>
-                              )}
-                              {url && (
-                                <a href={url} target="_blank" rel="noopener noreferrer"
-                                  title="Open in new tab"
-                                  className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted) hover:text-(--text-primary) transition-colors">
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </a>
-                              )}
-                              {url && (
-                                <a href={url} download
-                                  title="Download"
-                                  className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted) hover:text-(--text-primary) transition-colors">
-                                  <Download className="w-3.5 h-3.5" />
-                                </a>
-                              )}
-                              <button onClick={() => setFullscreen(!fullscreen)} title="Toggle fullscreen"
-                                className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)">
-                                <Maximize2 className="w-3.5 h-3.5" />
-                              </button>
+                              {isImage && (<>
+                                <button onClick={() => setZoom(p => Math.max(0.5, p - 0.2))} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><ZoomOut className="w-3.5 h-3.5" /></button>
+                                <span className="text-[10px] font-mono text-(--text-secondary)">{Math.round(zoom * 100)}%</span>
+                                <button onClick={() => setZoom(p => Math.min(3, p + 0.2))} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><ZoomIn className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setRotation(p => (p + 90) % 360)} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><RotateCw className="w-3.5 h-3.5" /></button>
+                              </>)}
+                              {url && <a href={url} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                              {url && <a href={url} download className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><Download className="w-3.5 h-3.5" /></a>}
+                              <button onClick={() => setFullscreen(!fullscreen)} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><Maximize2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </div>
-
-                          {/* Viewer */}
-                          <div className={`relative overflow-hidden flex items-center justify-center bg-(--bg-base) border border-(--border-subtle) rounded-xl transition-all ${fullscreen ? 'fixed inset-4 z-[200] bg-(--bg-base)' : 'h-[280px]'}`}>
-                            {fullscreen && (
-                              <button onClick={() => setFullscreen(false)}
-                                className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl z-50 text-(--text-muted) hover:text-(--text-primary) transition-colors">
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
-
+                          <div className={`relative overflow-hidden flex items-center justify-center bg-(--bg-base) border border-(--border-subtle) rounded-xl ${fullscreen ? 'fixed inset-4 z-[200]' : 'h-[280px]'}`}>
+                            {fullscreen && <button onClick={() => setFullscreen(false)} className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl z-50 text-(--text-muted)"><X className="w-4 h-4" /></button>}
                             {!url ? (
-                              /* No URL */
-                              <div className="text-center p-6 space-y-2">
-                                <FileText className="w-10 h-10 text-(--text-faint) mx-auto" />
-                                <p className="text-sm text-(--text-faint)">No file available</p>
-                              </div>
+                              <div className="text-center p-6"><FileText className="w-10 h-10 text-(--text-faint) mx-auto mb-2" /><p className="text-sm text-(--text-faint)">No file available</p></div>
                             ) : isImage ? (
-                              /* Image preview — real render with zoom + rotation */
                               <div className="w-full h-full overflow-auto flex items-center justify-center">
-                                <img
-                                  src={url}
-                                  alt={activeDoc.type.replace(/_/g, ' ')}
-                                  style={{
-                                    transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                                    transformOrigin: 'center',
-                                    transition: 'transform 0.2s ease',
-                                    maxWidth: '100%',
-                                    maxHeight: fullscreen ? '90vh' : '260px',
-                                    objectFit: 'contain',
-                                  }}
-                                  onError={e => {
-                                    const img = e.currentTarget;
-                                    img.style.display = 'none';
-                                    img.parentElement!.innerHTML = `
-                                      <div class="text-center p-6 space-y-2">
-                                        <p class="text-sm" style="color:var(--text-faint)">Unable to load image</p>
-                                        <a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--brand-gold);font-size:12px">Open in new tab ↗</a>
-                                      </div>`;
-                                  }}
-                                />
+                                <img src={url} alt={activeDoc.type} style={{ transform: `scale(${zoom}) rotate(${rotation}deg)`, transformOrigin: 'center', transition: 'transform 0.2s ease', maxWidth: '100%', maxHeight: fullscreen ? '90vh' : '260px', objectFit: 'contain' }} />
                               </div>
                             ) : isPdf ? (
-                              /* PDF preview — authenticated inline iframe */
-                              <iframe
-                                src={`${url}#toolbar=0&navpanes=0`}
-                                title={activeDoc.type.replace(/_/g, ' ')}
-                                className="w-full border-0 rounded-xl"
-                                style={{ height: fullscreen ? '90vh' : '260px' }}
-                              />
+                              <iframe src={`${url}#toolbar=0&navpanes=0`} title={activeDoc.type} className="w-full border-0 rounded-xl" style={{ height: fullscreen ? '90vh' : '260px' }} />
                             ) : (
-                              /* Unsupported type — provide open + download links */
                               <div className="text-center p-6 space-y-3">
                                 <FileText className="w-10 h-10 text-(--text-faint) mx-auto" />
-                                <p className="text-sm text-(--text-faint)">
-                                  {activeDoc.type.replace(/_/g, ' ')} — preview not available for this file type.
-                                </p>
-                                <div className="flex items-center justify-center gap-3">
-                                  <a href={url} target="_blank" rel="noopener noreferrer"
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-(--hover-overlay) border border-(--border-default) rounded-lg text-xs text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-strong) transition-colors">
-                                    <ExternalLink className="w-3.5 h-3.5" /> Open file
-                                  </a>
-                                  <a href={url} download
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-(--hover-overlay) border border-(--border-default) rounded-lg text-xs text-(--text-secondary) hover:text-(--text-primary) hover:border-(--border-strong) transition-colors">
-                                    <Download className="w-3.5 h-3.5" /> Download
-                                  </a>
-                                </div>
+                                <p className="text-sm text-(--text-faint)">Preview not available.</p>
+                                {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-(--brand-gold)">Open file ↗</a>}
                               </div>
                             )}
                           </div>
@@ -399,53 +455,28 @@ export const AdmissionsManagement: React.FC = () => {
                     })()}
                   </div>
                 )}
-                {/* Missing documents notice */}
                 {selected.documents.length === 0 && (
                   <div className="p-4 bg-(--hover-overlay) border border-(--border-subtle) rounded-2xl text-center">
                     <FileText className="w-8 h-8 text-(--text-faint) mx-auto mb-2" />
-                    <p className="text-xs text-(--text-faint)">No documents uploaded for this application.</p>
+                    <p className="text-xs text-(--text-faint)">No documents uploaded.</p>
                   </div>
                 )}
 
                 {/* Finance Officer Approval */}
-                <div className={`p-5 rounded-2xl border space-y-3 ${
-                  selected.financeVerified
-                    ? 'bg-(--status-success-bg) border-(--status-success-border)/40'
-                    : 'bg-(--status-warning-bg) border-(--status-warning-border)/40'
-                }`}>
+                <div className={`p-5 rounded-2xl border space-y-3 ${selected.financeVerified ? 'bg-(--status-success-bg) border-(--status-success-border)/40' : 'bg-(--status-warning-bg) border-(--status-warning-border)/40'}`}>
                   <div className="flex items-center gap-2">
-                    {selected.financeVerified
-                      ? <ShieldCheck className="w-4 h-4 text-(--status-success) shrink-0" />
-                      : <ShieldAlert  className="w-4 h-4 text-(--status-warning) shrink-0" />
-                    }
-                    <h4 className={`text-xs font-semibold font-mono uppercase tracking-wider ${
-                      selected.financeVerified ? 'text-(--status-success)' : 'text-(--status-warning)'
-                    }`}>
+                    {selected.financeVerified ? <ShieldCheck className="w-4 h-4 text-(--status-success) shrink-0" /> : <ShieldAlert className="w-4 h-4 text-(--status-warning) shrink-0" />}
+                    <h4 className={`text-xs font-semibold font-mono uppercase tracking-wider ${selected.financeVerified ? 'text-(--status-success)' : 'text-(--status-warning)'}`}>
                       Finance Officer {selected.financeVerified ? 'Approved' : 'Approval Pending'}
                     </h4>
                   </div>
                   {selected.financeVerified ? (
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-0.5">
-                        <p className="text-[10px] font-mono text-(--text-faint)">Verified by</p>
-                        <p className="text-xs font-semibold text-(--text-primary)">
-                          {selected.financeVerifiedByName ?? 'Finance Officer'}
-                        </p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[10px] font-mono text-(--text-faint)">Verified on</p>
-                        <p className="text-xs font-semibold text-(--text-primary)">
-                          {selected.financeVerifiedAt
-                            ? new Date(selected.financeVerifiedAt).toLocaleString()
-                            : '—'}
-                        </p>
-                      </div>
+                      <div><p className="text-[10px] font-mono text-(--text-faint)">Verified by</p><p className="text-xs font-semibold text-(--text-primary)">{selected.financeVerifiedByName ?? 'Finance Officer'}</p></div>
+                      <div><p className="text-[10px] font-mono text-(--text-faint)">Verified on</p><p className="text-xs font-semibold text-(--text-primary)">{selected.financeVerifiedAt ? new Date(selected.financeVerifiedAt).toLocaleString() : '—'}</p></div>
                     </div>
                   ) : (
-                    <p className="text-xs text-(--status-warning) leading-relaxed">
-                      The Finance Officer has not yet verified this student's registration fee payment.
-                      Approval will be blocked until the Finance Office confirms payment.
-                    </p>
+                    <p className="text-xs text-(--status-warning) leading-relaxed">The Finance Officer has not yet verified this student's registration fee payment. Approval will be blocked until the Finance Office confirms payment.</p>
                   )}
                 </div>
 
@@ -453,26 +484,16 @@ export const AdmissionsManagement: React.FC = () => {
                 <div className="space-y-3">
                   <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Review Actions</h4>
                   <div className="flex flex-wrap gap-3">
-                    <Button variant="gold" size="sm"
-                      disabled={actionLoading || selected.status === 'ACCEPTED'}
-                      onClick={handleApprove}
-                      className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
+                    <Button variant="gold" size="sm" disabled={actionLoading || selected.status === 'ACCEPTED'} onClick={handleApprove} className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" /> {actionLoading ? 'Processing…' : 'Approve Admission'}
                     </Button>
-                    <Button variant="rose" size="sm"
-                      disabled={actionLoading || selected.status === 'REJECTED'}
-                      onClick={() => setShowRejectForm(!showRejectForm)}
-                      className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
+                    <Button variant="rose" size="sm" disabled={actionLoading || selected.status === 'REJECTED'} onClick={() => setShowRejectForm(!showRejectForm)} className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
                       <XCircle className="w-4 h-4" /> Reject Application
                     </Button>
-                    <Button variant="secondary" size="sm"
-                      disabled={actionLoading}
-                      onClick={handleRequestCorrection}
-                      className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
+                    <Button variant="secondary" size="sm" disabled={actionLoading} onClick={handleRequestCorrection} className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
                       <AlertCircle className="w-4 h-4 text-(--status-warning)" /> Request Correction
                     </Button>
                   </div>
-
                   {showRejectForm && (
                     <form onSubmit={handleReject} className="flex gap-2 mt-2">
                       <input type="text" required value={rejectReason} onChange={e => setRejectReason(e.target.value)}
@@ -483,7 +504,6 @@ export const AdmissionsManagement: React.FC = () => {
                   )}
                 </div>
 
-                {/* Review comment */}
                 {selected.reviewComment && (
                   <div className="p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl text-xs text-(--text-secondary)">
                     <span className="font-mono text-[10px] text-(--text-faint) block mb-1">Last Review Comment</span>
@@ -491,7 +511,6 @@ export const AdmissionsManagement: React.FC = () => {
                   </div>
                 )}
 
-                {/* Comments */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Add Comment</h4>
                   <form onSubmit={handleAddComment} className="flex gap-3">
@@ -508,7 +527,67 @@ export const AdmissionsManagement: React.FC = () => {
           </>
         )}
       </AnimatePresence>
-    </motion.div>
+    </>
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT — tab switcher
+// ─────────────────────────────────────────────────────────────────────────────
+export const AdmissionsManagement: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'students' | 'staff'>('students');
+
+  const tabs = [
+    { id: 'students' as const, label: 'Student Applications', icon: GraduationCap },
+    { id: 'staff'    as const, label: 'Staff Invitations',    icon: Users },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
+
+      {/* Page header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-serif font-bold text-(--text-primary)">Admissions Management</h2>
+          <p className="text-xs text-(--text-muted)">Review student applications and track staff onboarding invitations.</p>
+        </div>
+      </div>
+
+      {/* Top tab bar */}
+      <div className="flex gap-1 p-1 bg-(--hover-overlay) border border-(--border-default) rounded-2xl w-fit">
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold font-sans transition-all ${
+                active
+                  ? 'bg-(--brand-gold) text-(--bg-base) shadow-sm'
+                  : 'text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--active-overlay)'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          {activeTab === 'students' ? <StudentApplicationsTab /> : <StaffInvitationsTab />}
+        </motion.div>
+      </AnimatePresence>
+
+    </motion.div>
+  );
+};

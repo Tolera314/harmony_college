@@ -49,7 +49,16 @@ export default function FinanceOfficerPage() {
   const [mobileMenuOpen,     setMobileMenuOpen] = useState(false);
   const [pendingReconciliation, setPendingRecon] = useState(0);
   const [overdueCount,       setOverdueCount]  = useState(0);
+  const [programType,        setProgramType]   = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
   const { toast, show: showToast, hide: hideToast } = useToast();
+
+  // Load programType from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('fo_program_type');
+    if (saved === 'TVET' || saved === 'SHORT_PROGRAM') {
+      setProgramType(saved);
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
@@ -109,22 +118,22 @@ export default function FinanceOfficerPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':            return <FOOverviewView setActiveTab={setActiveTab} />;
-      case 'tuition_setup':       return <FOTuitionSetupView />;
-      case 'payment_submissions': return <FOPaymentSubmissionsView />;
-      case 'student_accounts':    return <FOStudentAccountsView />;
-      case 'payments':            return <FOPaymentsView />;
-      case 'registration_payments': return <FORegistrationPaymentsView />;
-      case 'receipts':         return <FOReceiptsView />;
-      case 'outstanding':      return <FOOutstandingView />;
-      case 'reports':          return <FOReportsView />;
-      case 'reconciliation':   return <FOReconciliationView />;
+      case 'overview':            return <FOOverviewView setActiveTab={setActiveTab} programType={programType} />;
+      case 'tuition_setup':       return <FOTuitionSetupView programType={programType} />;
+      case 'payment_submissions': return <FOPaymentSubmissionsView programType={programType} />;
+      case 'student_accounts':    return <FOStudentAccountsView programType={programType} />;
+      case 'payments':            return <FOPaymentsView programType={programType} />;
+      case 'registration_payments': return <FORegistrationPaymentsView programType={programType} />;
+      case 'receipts':         return <FOReceiptsView programType={programType} />;
+      case 'outstanding':      return <FOOutstandingView programType={programType} />;
+      case 'reports':          return <FOReportsView programType={programType} />;
+      case 'reconciliation':   return <FOReconciliationView programType={programType} />;
       case 'notifications':    return (
         <FONotificationsView
           setActiveTab={setActiveTab}
         />
       );
-      case 'audit_log':        return <FOAuditLogView />;
+      case 'audit_log':        return <FOAuditLogView programType={programType} />;
       case 'settings':         return <FOSettingsView />;
       case 'messages':         return <MessagingView />;
       default:                 return null;
@@ -164,6 +173,39 @@ export default function FinanceOfficerPage() {
             academicYear={profile.academicYear}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
+
+          {/* Program Type Toggle */}
+          <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/10 backdrop-blur-sm max-w-fit">
+              <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-semibold">Program:</span>
+              <button
+                onClick={() => {
+                  setProgramType('TVET');
+                  localStorage.setItem('fo_program_type', 'TVET');
+                }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  programType === 'TVET'
+                    ? 'bg-[#E9C349] text-black shadow-md'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                🎓 TVET
+              </button>
+              <button
+                onClick={() => {
+                  setProgramType('SHORT_PROGRAM');
+                  localStorage.setItem('fo_program_type', 'SHORT_PROGRAM');
+                }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  programType === 'SHORT_PROGRAM'
+                    ? 'bg-[#E9C349] text-black shadow-md'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                🎓 Short Program
+              </button>
+            </div>
+          </div>
 
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
             <AnimatePresence mode="wait">

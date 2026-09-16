@@ -59,7 +59,7 @@ function formatDateTime(dateStr?: string) {
   });
 }
 
-export function FOPaymentSubmissionsView() {
+export function FOPaymentSubmissionsView({ programType }: { programType?: 'TVET' | 'SHORT_PROGRAM' }) {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);

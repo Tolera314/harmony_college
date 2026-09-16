@@ -41,7 +41,7 @@ const capacityBar = (enrolled: number, cap: number) => {
   );
 };
 
-export const DHCoursesView: React.FC = () => {
+export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [offerings, setOfferings] = useState<CourseOfferingSummary[]>([]);
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [total,     setTotal]     = useState(0);

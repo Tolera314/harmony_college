@@ -59,7 +59,11 @@ router.patch('/profile', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/dashboard', async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getDashboard(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getDashboard(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 
@@ -143,6 +147,7 @@ router.get('/students', async (req: AuthRequest, res) => {
       search:    q.search,
       yearLevel: q.yearLevel ? parseInt(q.yearLevel, 10) : undefined,
       status:    q.status,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
@@ -329,7 +334,11 @@ router.get('/semesters', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/programs', async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getPrograms(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getPrograms(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 
@@ -446,6 +455,7 @@ router.get('/classes', async (req: AuthRequest, res) => {
       semesterId: q.semesterId,
       courseId:   q.courseId,
       search:     q.search,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
@@ -487,7 +497,8 @@ router.patch('/classes/:id', async (req: AuthRequest, res) => {
 router.get('/course-assignments', async (req: AuthRequest, res) => {
   try {
     const q = qp(req);
-    ok(res, await svc.getCourseAssignments(req.user!.userId, q.semesterId));
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getCourseAssignments(req.user!.userId, { semesterId: q.semesterId, programType }));
   } catch (e) { fail(res, e); }
 });
 
@@ -519,7 +530,11 @@ router.post('/course-assignments/unassign', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/academic-monitoring', async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getAcademicMonitoring(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getAcademicMonitoring(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 
@@ -528,7 +543,11 @@ router.get('/academic-monitoring', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/academic-performance', async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getAcademicPerformance(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getAcademicPerformance(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 

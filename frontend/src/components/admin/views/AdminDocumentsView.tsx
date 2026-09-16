@@ -51,7 +51,7 @@ const CATEGORY_BADGE: Record<string, 'gold' | 'emerald' | 'amber' | 'info' | 'gl
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminDocumentsView: React.FC = () => {
+export const AdminDocumentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [stats, setStats]               = useState<AdminDocumentStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 

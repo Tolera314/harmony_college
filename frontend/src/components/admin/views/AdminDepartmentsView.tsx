@@ -13,7 +13,7 @@ import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
 import { SkeletonCard, ErrorState, InlineError, useToast, ToastContainer } from '../../ui/States';
 
-export const AdminDepartmentsView: React.FC = () => {
+export const AdminDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [depts, setDepts]     = useState<ApiDepartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');

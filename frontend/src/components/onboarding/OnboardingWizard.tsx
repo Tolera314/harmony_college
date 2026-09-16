@@ -603,8 +603,8 @@ function StepAcademic({ profile, errors, onChange }: {
           <label className="block text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>
             Short Program Duration <span style={{ color: 'var(--status-danger)' }}>*</span>
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            {['2 Months', '4 Months'].map((d) => (
+          <div className="grid grid-cols-3 gap-3">
+            {['4 Months', '8 Months', 'Summer'].map((d) => (
               <button
                 key={d}
                 type="button"
@@ -1147,7 +1147,7 @@ export function OnboardingWizard() {
       if (!profile.programType) {
         errs.programType = 'Please select a program type (TVET or Short Program).';
       } else if (profile.programType === 'Short Program' && !profile.shortProgramDuration) {
-        errs.shortProgramDuration = 'Please select a duration: 2 Months or 4 Months.';
+        errs.shortProgramDuration = 'Please select a duration: 4 Months, 8 Months, or Summer.';
       }
       if (!profile.matricResult) errs.matricResult = 'Matric / Grade 12 result is required.';
       if (!profile.ministryResult) errs.ministryResult = 'Ministry Exam result is required.';

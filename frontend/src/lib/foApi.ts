@@ -26,8 +26,9 @@ function qs(params: Record<string, unknown>): string {
 }
 
 // ── Overview / Dashboard Analytics ───────────────────────────────────────────
-export async function getOverviewData() {
-  return apiFetch<any>('/overview');
+export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
+  const params = programType ? `?programType=${programType}` : '';
+  return apiFetch<any>(`/overview${params}`);
 }
 
 // ── Student Accounts ──────────────────────────────────────────────────────────

@@ -238,7 +238,7 @@ export function AboutOnboardingInner() {
   const [preview, setPreview]   = useState('');
   const [deptId, setDeptId]     = useState('');
   const [programType, setProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
-  const [duration, setDuration]   = useState<'2 Months' | '4 Months' | ''>('');
+  const [duration, setDuration]   = useState<'4 Months' | '8 Months' | 'Summer' | ''>('');
   const [departments, setDepts] = useState<Dept[]>([]);
 
   // ── UI state ─────────────────────────────────────────────────────────────────
@@ -301,7 +301,7 @@ export function AboutOnboardingInner() {
     if (!file)    { setError('Please upload a photo of your payment receipt.'); return; }
     if (!deptId)  { setError('Please select your department.'); return; }
     if (programType === 'SHORT_PROGRAM' && !duration) {
-      setError('Please select a program duration (2 Months or 4 Months).'); return;
+      setError('Please select a program duration (4 Months, 8 Months, or Summer).'); return;
     }
 
     setSubmitting(true); setError('');
@@ -372,6 +372,32 @@ export function AboutOnboardingInner() {
 
           {/* Header */}
           <div className="flex items-center gap-3">
+            {/* Back button */}
+            <button
+              onClick={() => router.back()}
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all hover:scale-105"
+              style={{ 
+                backgroundColor: 'rgba(233, 195, 73, 0.1)', 
+                border: '1px solid var(--accent-gold-border)',
+                color: 'var(--brand-gold)'
+              }}
+              title="Go back"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="20" 
+                height="20" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+            </button>
+            
             <div className="w-9 h-9 rounded-xl overflow-hidden border-2 shrink-0"
               style={{ borderColor: 'var(--accent-gold-border)' }}>
               <img src="/logo2.jpg" alt="Harmony" className="w-full h-full object-cover" />
@@ -647,8 +673,8 @@ export function AboutOnboardingInner() {
                             <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-faint)' }}>
                               Program Duration
                             </p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {(['2 Months', '4 Months'] as const).map(d => {
+                            <div className="grid grid-cols-3 gap-2">
+                              {(['4 Months', '8 Months', 'Summer'] as const).map(d => {
                                 const sel = duration === d;
                                 return (
                                   <button key={d} type="button"
@@ -662,7 +688,7 @@ export function AboutOnboardingInner() {
                                       {d}
                                     </span>
                                     <span className="text-[10px] font-sans" style={{ color: 'var(--text-faint)' }}>
-                                      {d === '2 Months' ? 'Intensive' : 'Standard'}
+                                      {d === '4 Months' ? 'Standard' : d === '8 Months' ? 'Extended' : 'Intensive'}
                                     </span>
                                   </button>
                                 );

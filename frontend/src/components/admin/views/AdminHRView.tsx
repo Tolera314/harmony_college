@@ -51,7 +51,7 @@ function formatDate(dateStr: string) {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminHRView: React.FC = () => {
+export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [tab, setTab] = useState<'employees' | 'invitations' | 'leave' | 'payroll'>('employees');
 
   // Summary / Stats

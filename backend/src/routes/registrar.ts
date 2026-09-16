@@ -226,6 +226,7 @@ router.get('/students', async (req: AuthRequest, res) => {
       status:       qp.status as StudentStatus | undefined,
       sortBy:       qp.sortBy,
       sortOrder:    qp.sortOrder as 'asc' | 'desc' | undefined,
+      profileIncomplete: qp.profileIncomplete === 'true',
     }));
   } catch (e) { fail(res, e); }
 });
@@ -243,6 +244,12 @@ router.patch('/students/:id/status', async (req: AuthRequest, res) => {
     const parsed = z.object({ status: z.nativeEnum(StudentStatus) }).safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Invalid status' }); return; }
     ok(res, await students.updateStudentStatus(pid(req), parsed.data.status, req.user!.userId));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.post('/students/:id/remind-profile', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await students.sendProfileReminder(pid(req)));
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -1121,6 +1128,71 @@ router.get('/audit-logs', async (req: AuthRequest, res) => {
       }),
     ]);
     ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), logs });
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STAFF INVITATIONS (read-only for Registrar — for Admissions overview)
+// ══════════════════════════════════════════════════════════════════════════════
+router.get('/staff-invitations', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    const skip = (page - 1) * limit;
+    const now = new Date();
+    const where: any = {};
+
+    if (qp.search) {
+      const s = qp.search.trim();
+      where.OR = [
+        { fullName: { contains: s, mode: 'insensitive' } },
+        { email:    { contains: s, mode: 'insensitive' } },
+      ];
+    }
+    if (qp.role)   where.role = qp.role;
+    if (qp.status === 'ACCEPTED') {
+      where.acceptedAt = { not: null };
+    } else if (qp.status === 'REVOKED') {
+      where.acceptedAt = null; where.revokedAt = { not: null };
+    } else if (qp.status === 'EXPIRED') {
+      where.acceptedAt = null; where.revokedAt = null; where.expiresAt = { lte: now };
+    } else if (qp.status === 'PENDING') {
+      where.acceptedAt = null; where.revokedAt = null; where.expiresAt = { gt: now };
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.staffInvitation.count({ where }),
+      prisma.staffInvitation.findMany({
+        where, skip, take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          department:     { select: { id: true, name: true, code: true } },
+          invitedByUser:  { select: { id: true, fullName: true } },
+          acceptedByUser: { select: { id: true, fullName: true } },
+        },
+      }),
+    ]);
+
+    const invitations = items.map(inv => ({
+      id:             inv.id,
+      fullName:       inv.fullName,
+      email:          inv.email,
+      role:           inv.role,
+      positionTitle:  inv.positionTitle,
+      employeeId:     inv.employeeId,
+      department:     inv.department,
+      invitedByUser:  inv.invitedByUser,
+      acceptedByUser: inv.acceptedByUser,
+      createdAt:      inv.createdAt,
+      expiresAt:      inv.expiresAt,
+      acceptedAt:     inv.acceptedAt,
+      revokedAt:      inv.revokedAt,
+      status: inv.acceptedAt ? 'ACCEPTED'
+        : inv.revokedAt      ? 'REVOKED'
+        : inv.expiresAt < now ? 'EXPIRED'
+        : 'PENDING',
+    }));
+
+    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), invitations });
   } catch (e) { fail(res, e); }
 });
 

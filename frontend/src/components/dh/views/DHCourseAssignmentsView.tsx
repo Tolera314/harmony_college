@@ -245,7 +245,7 @@ const AssignPanel: React.FC<AssignPanelProps> = ({
 // Main View
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DHCourseAssignmentsView: React.FC = () => {
+export const DHCourseAssignmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [data,      setData]      = useState<DHCourseAssignmentsResponse | null>(null);
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [semFilter, setSemFilter] = useState('');
@@ -260,7 +260,7 @@ export const DHCourseAssignmentsView: React.FC = () => {
     setLoading(true); setError(null);
     try {
       const [res, semList] = await Promise.all([
-        hodCourseAssignmentsApi.list(semFilter || undefined),
+        hodCourseAssignmentsApi.list({ semesterId: semFilter, programType }),
         hodSemestersApi.list(),
       ]);
       setData(res);

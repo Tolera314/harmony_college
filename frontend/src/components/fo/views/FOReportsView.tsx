@@ -26,7 +26,7 @@ const tabLabels: Record<ReportTab, string> = {
   collection:      'Collection Summary',
 };
 
-export const FOReportsView: React.FC = () => {
+export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [activeReport,     setActiveReport]     = useState<ReportTab>('revenue');
   const [monthlyRevenue,   setMonthlyRevenue]   = useState<any[]>([]);
   const [methodBreakdown,  setMethodBreakdown]  = useState<any[]>([]);

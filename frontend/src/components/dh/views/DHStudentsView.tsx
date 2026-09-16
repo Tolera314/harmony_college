@@ -24,7 +24,7 @@ const attColor = (rate: number | null) =>
   rate >= 90 ? 'text-(--status-success)' :
   rate >= 80 ? 'text-(--brand-gold)' : 'text-(--status-danger)';
 
-export const DHStudentsView: React.FC = () => {
+export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [students,  setStudents]  = useState<StudentSummary[]>([]);
   const [total,     setTotal]     = useState(0);
   const [page,      setPage]      = useState(1);
@@ -47,6 +47,7 @@ export const DHStudentsView: React.FC = () => {
         search:    search || undefined,
         yearLevel: yearFilter ? parseInt(yearFilter) : undefined,
         status:    statusFilter || undefined,
+        programType,
       });
       setStudents(res.students);
       setTotal(res.total);
@@ -55,7 +56,7 @@ export const DHStudentsView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, yearFilter, statusFilter]);
+  }, [search, yearFilter, statusFilter, programType]);
 
   useEffect(() => { load(page); }, [page, load]);
 

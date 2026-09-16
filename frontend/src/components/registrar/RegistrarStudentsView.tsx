@@ -44,18 +44,26 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
 
   const [search, setSearch] = useState('');
   const [statusFilter, setSF] = useState('');
+  const [profileIncompleteFilter, setProfileIncompleteFilter] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [suspendTarget, setSuspendTarget] = useState<StudentListItem | null>(null);
   const [suspendLoading, setSuspendLoading] = useState(false);
 
   // Load students & departments filtered strictly by programType
-  const load = useCallback(async (q = search, st = statusFilter) => {
+  const load = useCallback(async (q = search, st = statusFilter, incomplete = profileIncompleteFilter) => {
     setLoading(true);
     setError(null);
     try {
       const [studentsRes, deptsRes] = await Promise.all([
-        studentsApi.list({ page: 1, limit: 200, search: q, status: st || undefined, programType }),
+        studentsApi.list({ 
+          page: 1, 
+          limit: 200, 
+          search: q, 
+          status: st || undefined, 
+          programType,
+          profileIncomplete: incomplete || undefined 
+        }),
         departmentsApi.list(programType),
       ]);
       setData(studentsRes);
@@ -65,7 +73,7 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, programType]);
+  }, [search, statusFilter, profileIncompleteFilter, programType]);
 
   useEffect(() => {
     load();
@@ -310,7 +318,7 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
             value={statusFilter}
             onChange={e => {
               setSF(e.target.value);
-              load(search, e.target.value);
+              load(search, e.target.value, profileIncompleteFilter);
             }}
             className="px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-zinc-300 focus:outline-none focus:border-[#E9C349]"
           >
@@ -319,6 +327,22 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
               <option key={v} value={v}>{l}</option>
             ))}
           </select>
+
+          <button
+            onClick={() => {
+              setProfileIncompleteFilter(!profileIncompleteFilter);
+              load(search, statusFilter, !profileIncompleteFilter);
+            }}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              profileIncompleteFilter
+                ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
+                : 'bg-black/40 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'
+            }`}
+            title={profileIncompleteFilter ? 'Showing incomplete profiles only' : 'Show incomplete profiles only'}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            {profileIncompleteFilter ? 'Incomplete Only' : 'All Profiles'}
+          </button>
         </div>
       </div>
 
@@ -389,6 +413,7 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
                               <th className="px-4 py-3">Student ID</th>
                               <th className="px-4 py-3">Program / Major</th>
                               <th className="px-4 py-3">Year</th>
+                              <th className="px-4 py-3">Profile</th>
                               <th className="px-4 py-3">GPA</th>
                               <th className="px-4 py-3">Credits</th>
                               <th className="px-4 py-3">Status</th>
@@ -396,7 +421,10 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5">
-                            {students.map(student => (
+                            {students.map(student => {
+                              const profileCompletion = (student as any).profileCompletion ?? 0;
+                              const isIncomplete = profileCompletion < 100;
+                              return (
                               <tr key={student.id} className="hover:bg-white/5 transition-colors">
                                 <td className="px-4 py-3.5">
                                   <div className="flex items-center gap-3">
@@ -429,6 +457,25 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
                                   Year {student.yearLevel}
                                 </td>
 
+                                <td className="px-4 py-3.5">
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-white/10">
+                                        <div 
+                                          className={`h-full transition-all ${isIncomplete ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                          style={{ width: `${profileCompletion}%` }}
+                                        />
+                                      </div>
+                                      <span className={`font-mono text-xs font-bold ${isIncomplete ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                        {profileCompletion}%
+                                      </span>
+                                    </div>
+                                    {isIncomplete && (
+                                      <span className="text-[9px] text-amber-400/80 font-sans">Incomplete</span>
+                                    )}
+                                  </div>
+                                </td>
+
                                 <td className="px-4 py-3.5 font-mono text-xs font-semibold text-white">
                                   {student.gpa.toFixed(2)}
                                 </td>
@@ -445,6 +492,23 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
 
                                 <td className="px-4 py-3.5 text-right">
                                   <div className="flex items-center justify-end gap-1.5">
+                                    {isIncomplete && (
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await studentsApi.sendProfileReminder(student.id);
+                                            alert(`Profile completion reminder sent to ${student.user.fullName}`);
+                                          } catch (err: any) {
+                                            alert(err.message || 'Failed to send reminder');
+                                          }
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 transition-colors text-[10px] font-semibold"
+                                        title="Send profile completion reminder"
+                                      >
+                                        Send Reminder
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => openDetail(student)}
                                       className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
@@ -473,7 +537,8 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
                                   </div>
                                 </td>
                               </tr>
-                            ))}
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

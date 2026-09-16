@@ -8,7 +8,7 @@
  *
  * Requirements:
  *  - Real Harmony College Programs (10 official programs)
- *  - Mandatory Program Type (TVET vs Short Program with 2 Months / 4 Months)
+ *  - Mandatory Program Type (TVET vs Short Program with 4 Months / 8 Months / Summer)
  *  - Full Address & Relationship removed completely
  *  - Academic Year is automatically assigned from system configuration (read-only)
  *  - National ID entered as 16-digit number with strict frontend & backend validation
@@ -39,7 +39,7 @@ interface ProfileData {
   nationalId: string;
   program: string;
   programType: string; // 'TVET' | 'Short Program'
-  shortProgramDuration: string; // '2 Months' | '4 Months'
+  shortProgramDuration: string; // '4 Months' | '8 Months' | 'Summer'
   academicYear: string;
   semester: string;
   matricResult: string;
@@ -209,78 +209,31 @@ function StepPersonal({ p, errors, set }: { p: ProfileData; errors: Record<strin
 }
 
 function StepAcademic({ p, errors, set }: { p: ProfileData; errors: Record<string, string>; set: (k: keyof ProfileData, v: string) => void }) {
-  const programOptions = React.useMemo(() =>
-    p.program && !PROGRAMS.includes(p.program) ? [p.program, ...PROGRAMS] : PROGRAMS,
-  [p.program]);
-
+  // Program, Program Type, and Duration are now set during onboarding and cannot be changed here
   return (
     <div className="space-y-5">
-      {/* Real Harmony College Program Selection */}
-      <SelectField id="program" label="Program" value={p.program} onChange={v => set('program', v)}
-        required error={errors.program} icon={GraduationCap} options={programOptions} />
-
-      {/* Mandatory Program Type Selection */}
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>
-          Program Type <span style={{ color: 'var(--status-danger)' }}>*</span>
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { id: 'TVET', label: 'TVET Program', desc: 'Comprehensive technical diploma track' },
-            { id: 'Short Program', label: 'Short Program', desc: 'Accelerated intensive certificate' },
-          ].map(t => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => {
-                set('programType', t.id);
-                if (t.id === 'TVET') set('shortProgramDuration', '');
-              }}
-              className="p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1"
-              style={{
-                backgroundColor: p.programType === t.id ? 'var(--accent-gold-subtle)' : 'var(--bg-input)',
-                borderColor:     p.programType === t.id ? 'var(--accent-gold-border)' : 'var(--border-default)',
-              }}
-            >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-sm font-bold font-sans" style={{ color: p.programType === t.id ? 'var(--brand-gold)' : 'var(--text-primary)' }}>
-                  {t.label}
-                </span>
-                {p.programType === t.id && <CheckCircle2 className="w-4 h-4 text-[#E9C349]" />}
-              </div>
-              <span className="text-[11px] font-sans" style={{ color: 'var(--text-muted)' }}>{t.desc}</span>
-            </button>
-          ))}
-        </div>
-        {errors.programType && <p className="text-[11px] font-sans" style={{ color: 'var(--status-danger)' }}>{errors.programType}</p>}
-      </div>
-
-      {/* Conditional Short Program Duration */}
-      {p.programType === 'Short Program' && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2 pt-1">
+      {/* Display selected program (read-only) - set during onboarding */}
+      {p.program && (
+        <div className="space-y-1.5">
           <label className="block text-xs font-semibold font-sans" style={{ color: 'var(--text-secondary)' }}>
-            Short Program Duration <span style={{ color: 'var(--status-danger)' }}>*</span>
+            Program <span className="text-[10px] font-normal font-mono ml-1.5 text-[#E9C349]">(Set during onboarding)</span>
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            {['2 Months', '4 Months'].map(d => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => set('shortProgramDuration', d)}
-                className="py-2.5 px-4 rounded-xl border text-sm font-semibold transition-all flex items-center justify-center gap-2"
-                style={{
-                  backgroundColor: p.shortProgramDuration === d ? 'var(--accent-gold-subtle)' : 'var(--bg-input)',
-                  borderColor:     p.shortProgramDuration === d ? 'var(--accent-gold-border)' : 'var(--border-default)',
-                  color:           p.shortProgramDuration === d ? 'var(--brand-gold)' : 'var(--text-secondary)',
-                }}
-              >
-                <Clock className="w-4 h-4" />
-                {d}
-              </button>
-            ))}
+          <div className="w-full py-3 px-4 rounded-xl border text-sm font-sans flex items-center justify-between"
+            style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-default)', color: 'var(--text-primary)', opacity: 0.7 }}>
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-4 h-4" style={{ color: 'var(--brand-gold)' }} />
+              <span>{p.program}</span>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wider font-semibold"
+              style={{ backgroundColor: 'rgba(233,195,73,0.12)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)' }}>
+              {p.programType || 'TVET'}
+              {p.programType === 'Short Program' && p.shortProgramDuration ? ` · ${p.shortProgramDuration}` : ''}
+            </span>
           </div>
-          {errors.shortProgramDuration && <p className="text-[11px] font-sans" style={{ color: 'var(--status-danger)' }}>{errors.shortProgramDuration}</p>}
-        </motion.div>
+          <p className="text-[11px] font-sans" style={{ color: 'var(--text-faint)' }}>
+            To change your program, please contact the Registrar's office.
+          </p>
+        </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -622,7 +575,7 @@ export function StudentProfileView({ onProfileUpdated }: Props) {
       if (!profile.programType) {
         e.programType = 'Please select a program type.';
       } else if (profile.programType === 'Short Program' && !profile.shortProgramDuration) {
-        e.shortProgramDuration = 'Please select a duration (2 Months or 4 Months).';
+        e.shortProgramDuration = 'Please select a duration (4 Months, 8 Months, or Summer).';
       }
       if (!profile.matricResult) e.matricResult = 'Matric / Grade 12 result is required.';
       if (!profile.ministryResult) e.ministryResult = 'Ministry Exam result is required.';

@@ -46,9 +46,7 @@ const WEIGHTED_FIELDS: WeightedField[] = [
   { field: 'gender',            weight: 1 },
   { field: 'city',              weight: 1 },
   { field: 'nationalId',        weight: 2 },
-  // Academic (2+1+1+1+2+2 = 9)
-  { field: 'program',           weight: 2 },
-  { field: 'programType',       weight: 1 },
+  // Academic (1+1+2+2 = 6) — program/programType/duration removed, set during onboarding
   { field: 'academicYear',      weight: 1 },
   { field: 'semester',          weight: 1 },
   { field: 'matricResult',      weight: 2 },
@@ -61,7 +59,7 @@ const WEIGHTED_FIELDS: WeightedField[] = [
   { field: 'emergencyPhone',    weight: 2 },
 ];
 
-const TOTAL_WEIGHT = WEIGHTED_FIELDS.reduce((s, f) => s + f.weight, 0); // 24
+const TOTAL_WEIGHT = WEIGHTED_FIELDS.reduce((s, f) => s + f.weight, 0); // 21 (reduced from 24)
 
 /** Returns true if the value counts as "filled". */
 function isFilled(field: keyof ProfileLike, value: unknown, profile?: ProfileLike | null): boolean {
@@ -69,16 +67,8 @@ function isFilled(field: keyof ProfileLike, value: unknown, profile?: ProfileLik
   if (field === 'nationalId') {
     return typeof value === 'string' && /^\d{16}$/.test(value.trim());
   }
-  if (field === 'programType') {
-    if (value === 'TVET') return true;
-    if (value === 'Short Program') {
-      const dur = profile?.shortProgramDuration;
-      return dur === '2 Months' || dur === '4 Months';
-    }
-    return false;
-  }
   if (field === 'academicYear') {
-    return typeof value === 'string' && value.trim().length > 0 && Boolean(profile?.program && profile.program.trim().length > 0);
+    return typeof value === 'string' && value.trim().length > 0;
   }
   if (typeof value === 'string') return value.trim().length > 0;
   if (value instanceof Date) return !isNaN(value.getTime());

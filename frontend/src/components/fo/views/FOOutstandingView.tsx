@@ -83,7 +83,7 @@ function ReminderModal({ student, onClose }: { student: FinanceStudent; onClose:
 }
 
 // ── Main View ──────────────────────────────────────────────────────────────────
-export const FOOutstandingView: React.FC = () => {
+export const FOOutstandingView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [studentList, setStudentList] = useState<FinanceStudent[]>([]);
   const [search, setSearch]         = useState('');
   const [riskFilter, setRiskFilter] = useState<FinanceRiskLevel | 'All'>('All');

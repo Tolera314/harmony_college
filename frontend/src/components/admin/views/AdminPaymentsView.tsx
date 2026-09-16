@@ -49,7 +49,7 @@ function formatDate(dateStr: string) {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminPaymentsView: React.FC = () => {
+export const AdminPaymentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   // Reference Stats & Departments
   const [stats, setStats]               = useState<AdminFinanceStats | null>(null);
   const [departments, setDepartments] = useState<ApiDepartment[]>([]);

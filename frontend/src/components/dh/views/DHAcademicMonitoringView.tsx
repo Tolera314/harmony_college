@@ -30,7 +30,7 @@ const ProgressBar: React.FC<{ value: number; max?: number; color?: string }> = (
 // Main View
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DHAcademicMonitoringView: React.FC = () => {
+export const DHAcademicMonitoringView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [data,    setData]    = useState<DHAcademicMonitoring | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);

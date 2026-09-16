@@ -22,7 +22,10 @@ import { BarChart } from '../../dh/DHCharts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface Props { setActiveTab: (tab: AdminNavTab) => void; }
+interface Props { 
+  setActiveTab: (tab: AdminNavTab) => void; 
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}
 
 const healthColor: Record<string, string> = {
   Healthy:  'bg-(--status-success)',
@@ -32,7 +35,7 @@ const healthColor: Record<string, string> = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminOverviewView: React.FC<Props> = ({ setActiveTab }) => {
+export const AdminOverviewView: React.FC<Props> = ({ setActiveTab, programType }) => {
   const [stats,   setStats]   = useState<AdminDashboardStats | null>(null);
   const [health,  setHealth]  = useState<AdminSystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
