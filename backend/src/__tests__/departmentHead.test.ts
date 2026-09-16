@@ -501,4 +501,49 @@ describe('Department Head (HoD) Security & Authorization Test Suite', () => {
     expect(perf.status).toBe(200);
     expect(work.status).toBe(200);
   });
+
+  it('17. Full 5-step Course Offering approval lifecycle (Draft -> Scoped -> Query -> Approve -> Audit)', async () => {
+    // 1. Create a draft section in Dept A
+    const draftSection = await prisma.courseOffering.create({
+      data: {
+        courseId:   courseAId,
+        semesterId: semesterId,
+        section:    'Z',
+        status:     OfferingStatus.DRAFT,
+        capacity:   35,
+      },
+    });
+
+    try {
+      // 2. Query as HOD A — verifies it appears under DRAFT status for this semester
+      const queryRes = await request(testApp)
+        .get(`/api/department-head/course-offerings?status=DRAFT&semesterId=${semesterId}`)
+        .set('Cookie', hodACookies);
+
+      expect(queryRes.status).toBe(200);
+      const draftIds = queryRes.body.offerings.map((o: any) => o.id);
+      expect(draftIds).toContain(draftSection.id);
+
+      // 3. Approve as HOD A
+      const approveRes = await request(testApp)
+        .post(`/api/department-head/course-offerings/${draftSection.id}/approve`)
+        .set('Cookie', hodACookies);
+
+      expect(approveRes.status).toBe(200);
+      expect(approveRes.body.status).toBe(OfferingStatus.INSTRUCTOR_ASSIGNED);
+
+      // 4. Verify audit log entry
+      const auditRes = await request(testApp)
+        .get('/api/department-head/audit-log')
+        .set('Cookie', hodACookies);
+
+      expect(auditRes.status).toBe(200);
+      const auditEntries = auditRes.body.logs.filter((l: any) => l.entityId === draftSection.id);
+      expect(auditEntries.length).toBeGreaterThan(0);
+      expect(auditEntries[0].action).toBe(DepartmentHeadAction.OFFERING_APPROVED);
+    } finally {
+      // Guaranteed Cleanup before afterAll
+      await prisma.courseOffering.delete({ where: { id: draftSection.id } }).catch(() => {});
+    }
+  });
 });

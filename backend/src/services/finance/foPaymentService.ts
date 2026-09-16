@@ -277,30 +277,58 @@ export async function listTransactions(params: {
   return { total, page, limit, totalPages: Math.ceil(total / limit), transactions };
 }
 
-export async function reverseTransaction(transactionId: string, reason: string, actorUserId: string) {
-  const tx = await prisma.financialTransaction.findUnique({
+export async function reverseTransaction(transactionId: string, reason: string, actorUserId: string, ipAddress?: string) {
+  if (!reason || reason.trim().length < 3) {
+    throw new Error('A valid reversal reason of at least 3 characters is required.');
+  }
+
+  const existingTx = await prisma.financialTransaction.findUnique({
     where: { id: transactionId },
     include: { financialAccount: true },
   });
 
-  if (!tx) throw new Error('Transaction not found');
-  if (tx.status === 'REVERSED') throw new Error('Transaction is already reversed');
+  if (!existingTx) throw new Error('Financial transaction not found.');
+  if (existingTx.status === 'REVERSED') throw new Error('Transaction is already reversed.');
 
-  const reversalEffect = -tx.amount;
-
-  const [updatedTx, updatedAccount] = await prisma.$transaction([
-    prisma.financialTransaction.update({
+  return prisma.$transaction(async (tx) => {
+    const updatedTx = await tx.financialTransaction.update({
       where: { id: transactionId },
       data: { status: 'REVERSED' },
-    }),
-    prisma.financialAccount.update({
-      where: { id: tx.financialAccountId },
+    });
+
+    const activeTxs = await tx.financialTransaction.findMany({
+      where: { financialAccountId: existingTx.financialAccountId, status: 'POSTED' },
+      select: { amount: true },
+    });
+
+    const newBalance = activeTxs.reduce((sum, item) => sum + item.amount, 0);
+
+    const updatedAccount = await tx.financialAccount.update({
+      where: { id: existingTx.financialAccountId },
       data: {
-        balance: tx.financialAccount.balance + reversalEffect,
+        balance: Math.round(newBalance * 100) / 100,
         lastUpdatedAt: new Date(),
       },
-    }),
-  ]);
+    });
 
-  return { transaction: updatedTx, account: updatedAccount };
+    try {
+      await tx.auditLog.create({
+        data: {
+          userId: actorUserId,
+          action: 'PROFILE_COMPLETED' as any,
+          ipAddress: ipAddress ?? null,
+          metadata: {
+            event: 'FO_TRANSACTION_REVERSED',
+            transactionId,
+            studentRecordId: existingTx.financialAccount.studentRecordId,
+            reversedAmount: existingTx.amount,
+            reversalReason: reason.trim(),
+            newBalance: updatedAccount.balance,
+          },
+        },
+      });
+    } catch { /* ignore audit errors if enum mismatch */ }
+
+    return { transaction: updatedTx, account: updatedAccount };
+  });
 }

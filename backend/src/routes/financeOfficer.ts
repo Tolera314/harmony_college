@@ -361,6 +361,16 @@ router.get('/reconciliation', async (req: AuthRequest, res: Response): Promise<v
   }
 });
 
+router.post('/reconciliation/auto-match', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await foReconciliationService.runAutoMatchReconciliation(req.user!.userId);
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/reconciliation/auto-match]', err);
+    fail(res, err, 400);
+  }
+});
+
 router.post('/reconciliation/:id/match', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);
@@ -444,6 +454,7 @@ router.get('/audit-logs', async (req: AuthRequest, res: Response): Promise<void>
     const query = req.query as Record<string, string | undefined>;
     const data = await foAuditService.getAuditLogs({
       search: query.search,
+      module: query.module,
       status: query.status,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 20,
@@ -609,9 +620,9 @@ router.get('/payment-submissions/analytics', async (_req: AuthRequest, res: Resp
 });
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
-router.get('/settings', async (_req: AuthRequest, res: Response): Promise<void> => {
+router.get('/settings', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const data = await foSettingsService.getSettings();
+    const data = await foSettingsService.getSettings(req.user?.userId);
     ok(res, data);
   } catch (err) {
     console.error('[FO/settings/get]', err);
@@ -621,7 +632,7 @@ router.get('/settings', async (_req: AuthRequest, res: Response): Promise<void> 
 
 router.put('/settings', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await foSettingsService.updateSettings(req.body);
+    const result = await foSettingsService.updateSettings(req.body, req.user?.userId);
     ok(res, result);
   } catch (err) {
     console.error('[FO/settings/put]', err);

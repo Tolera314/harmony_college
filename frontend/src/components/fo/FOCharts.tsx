@@ -2,15 +2,14 @@
 // Pure SVG charts for Finance Officer Dashboard — no external charting library.
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { DURATION, EASE } from '@/src/lib/motion';
-
 // ─────────────────────────────────────────────────────────────
 // Utility: format ETB currency compactly
 // ─────────────────────────────────────────────────────────────
 export function fmtETB(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`;
-  return String(n);
+  const val = typeof n === 'number' && !isNaN(n) ? n : 0;
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+  if (val >= 1_000)     return `${(val / 1_000).toFixed(0)}K`;
+  return String(val);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -30,37 +29,47 @@ interface RevenueLineChartProps {
 }
 
 export const RevenueLineChart: React.FC<RevenueLineChartProps> = ({
-  data, secondaryData, color = '#E9C349', secondaryColor = '#34d399',
+  data = [], secondaryData, color = '#E9C349', secondaryColor = '#34d399',
   height = 140, area = true, showLabels = true, label, secondaryLabel,
 }) => {
   const [animated, setAnimated] = useState(false);
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 80); return () => clearTimeout(t); }, []);
-
-  // Guard: render empty placeholder when no data is available yet
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center rounded-xl"
-        style={{ height, background: 'var(--hover-overlay)' }}>
-        <p className="font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>No data yet</p>
-      </div>
-    );
-  }
 
   const W = 560; const H = height;
   const pad = { top: 12, right: 24, bottom: showLabels ? 28 : 10, left: 40 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
-  const allVals = [...data.map((d) => d.value), ...(secondaryData ?? []).map((d) => d.value)];
+  const validVals = [...(data || []).map((d) => d.value), ...((secondaryData ?? []).map((d) => d.value))].filter((v) => typeof v === 'number' && !isNaN(v));
   const minV = 0;
-  const maxV = Math.max(...allVals) * 1.1 || 1;
-  const range = maxV - minV;
+  const maxV = (validVals.length > 0 ? Math.max(...validVals) : 0) * 1.1 || 1;
+  const range = maxV - minV || 1;
 
+  const toX = (i: number, len: number) => {
+    if (len <= 1) return pad.left + iW / 2;
+    return pad.left + (i / (len - 1)) * iW;
+  };
+  const toY = (v: number) => pad.top + iH - (((v || 0) - minV) / range) * iH;
+
+  const pts = (d: LinePoint[]) => {
+    if (!d || d.length === 0) return '';
+    if (d.length === 1) {
+      const x = toX(0, 1);
+      const y = toY(d[0].value);
+      return `${x - 20},${y} ${x + 20},${y}`;
+    }
+    return d.map((p, i) => `${toX(i, d.length)},${toY(p.value)}`).join(' ');
+  };
   const toX = (i: number, len: number) => pad.left + (len <= 1 ? iW / 2 : (i / (len - 1)) * iW);
   const toY = (v: number) => range === 0 ? pad.top + iH / 2 : pad.top + iH - ((v - minV) / range) * iH;
 
-  const pts = (d: LinePoint[]) => d.map((p, i) => `${toX(i, d.length)},${toY(p.value)}`).join(' ');
   const areaPath = (d: LinePoint[], c: string) => {
+    if (!d || d.length === 0) return '';
+    if (d.length === 1) {
+      const x = toX(0, 1);
+      const y = toY(d[0].value);
+      return `M${x - 20},${y} L${x + 20},${y} L${x + 20},${H - pad.bottom} L${x - 20},${H - pad.bottom} Z`;
+    }
     const line = d.map((p, i) => `L${toX(i, d.length)},${toY(p.value)}`).join(' ');
     return `M${toX(0, d.length)},${toY(d[0].value)} ${line} L${toX(d.length - 1, d.length)},${H - pad.bottom} L${toX(0, d.length)},${H - pad.bottom} Z`;
   };
@@ -101,19 +110,21 @@ export const RevenueLineChart: React.FC<RevenueLineChartProps> = ({
           );
         })}
         {/* Secondary area + line */}
-        {secondaryData && area && <path d={areaPath(secondaryData, secondaryColor)} fill={`url(#areaGrad2-${secondaryColor.replace('#','')})`} />}
-        {secondaryData && (
+        {secondaryData && area && secondaryData.length > 0 && <path d={areaPath(secondaryData, secondaryColor)} fill={`url(#areaGrad2-${secondaryColor.replace('#','')})`} />}
+        {secondaryData && secondaryData.length > 0 && (
           <motion.polyline
             points={pts(secondaryData)} fill="none" stroke={secondaryColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="6 3"
             initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.4, ease: 'easeOut' }}
           />
         )}
         {/* Primary area + line */}
-        {area && <path d={areaPath(data, color)} fill={`url(#areaGrad-${color.replace('#','')})`} />}
-        <motion.polyline
-          points={pts(data)} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: 'easeOut' }}
-        />
+        {area && data.length > 0 && <path d={areaPath(data, color)} fill={`url(#areaGrad-${color.replace('#','')})`} />}
+        {data.length > 0 && (
+          <motion.polyline
+            points={pts(data)} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: 'easeOut' }}
+          />
+        )}
         {/* Dots */}
         {data.map((d, i) => (
           <motion.circle key={i} cx={toX(i, data.length)} cy={toY(d.value)} r="4"
@@ -132,22 +143,18 @@ export const RevenueLineChart: React.FC<RevenueLineChartProps> = ({
   );
 };
 
-// ─────────────────────────────────────────────────────────────
-// Grouped Bar Chart (revenue vs target)
-// ─────────────────────────────────────────────────────────────
 interface GroupedBarItem { label: string; primary: number; secondary: number; primaryColor?: string; secondaryColor?: string }
 interface GroupedBarChartProps { data: GroupedBarItem[]; height?: number; primaryLabel?: string; secondaryLabel?: string }
 
 export const GroupedBarChart: React.FC<GroupedBarChartProps> = ({
-  data, height = 160, primaryLabel = 'Revenue', secondaryLabel = 'Target',
+  data = [], height = 160, primaryLabel = 'Revenue', secondaryLabel = 'Target',
 }) => {
-  if (!data || data.length === 0) return <div className="flex items-center justify-center rounded-xl" style={{ height, background: 'var(--hover-overlay)' }}><p className="font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>No data yet</p></div>;
   const W = 560; const H = height;
   const pad = { top: 20, right: 12, bottom: 28, left: 40 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
-  const maxV = Math.max(...data.flatMap((d) => [d.primary, d.secondary])) * 1.1 || 1;
-  const slotW = iW / data.length;
+  const maxV = (data.length > 0 ? Math.max(...data.flatMap((d) => [d.primary || 0, d.secondary || 0])) : 0) * 1.1 || 1;
+  const slotW = iW / Math.max(1, data.length);
   const barW = slotW * 0.32;
 
   return (
@@ -168,8 +175,8 @@ export const GroupedBarChart: React.FC<GroupedBarChartProps> = ({
         })}
         {data.map((d, i) => {
           const cx = pad.left + i * slotW + slotW / 2;
-          const bh1 = (d.primary / maxV) * iH;
-          const bh2 = (d.secondary / maxV) * iH;
+          const bh1 = ((d.primary || 0) / maxV) * iH;
+          const bh2 = ((d.secondary || 0) / maxV) * iH;
           const x1 = cx - barW - 1;
           const x2 = cx + 1;
           return (
@@ -193,8 +200,7 @@ export const GroupedBarChart: React.FC<GroupedBarChartProps> = ({
 interface DonutSegment { label: string; value: number; color: string }
 interface DonutChartProps { segments: DonutSegment[]; total: number; centerLabel?: string; centerSub?: string }
 
-export const DonutChart: React.FC<DonutChartProps> = ({ segments, total, centerLabel, centerSub }) => {
-  if (!segments || segments.length === 0) return <div className="flex items-center justify-center rounded-full w-36 h-36 mx-auto" style={{ background: 'var(--hover-overlay)' }}><p className="font-mono text-[10px]" style={{ color: 'var(--text-faint)' }}>No data</p></div>;
+export const DonutChart: React.FC<DonutChartProps> = ({ segments = [], total = 0, centerLabel, centerSub }) => {
   const R = 58; const C = 72; const stroke = 16;
   const circ = 2 * Math.PI * R;
   let offset = 0;
@@ -247,10 +253,8 @@ export const DonutChart: React.FC<DonutChartProps> = ({ segments, total, centerL
 interface HBarItem { label: string; value: number; max: number; color?: string; subLabel?: string }
 
 export const HorizontalBarChart: React.FC<{ data: HBarItem[]; formatValue?: (v: number) => string }> = ({
-  data, formatValue = fmtETB,
-}) => {
-  if (!data || data.length === 0) return <div className="py-8 text-center"><p className="font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>No data yet</p></div>;
-  return (
+  data = [], formatValue = fmtETB,
+}) => (
   <div className="space-y-3.5" aria-label="Horizontal bar chart">
     {data.map((d, i) => {
       const pct = Math.min(100, d.max > 0 ? (d.value / d.max) * 100 : 0);
@@ -277,24 +281,23 @@ export const HorizontalBarChart: React.FC<{ data: HBarItem[]; formatValue?: (v: 
       );
     })}
   </div>
-  );
-};
+);
 
 // ─────────────────────────────────────────────────────────────
 // Vertical Bar Chart (daily collections)
 // ─────────────────────────────────────────────────────────────
 interface BarItem { label: string; value: number; color?: string }
 export const VerticalBarChart: React.FC<{ data: BarItem[]; height?: number; formatValue?: (v: number) => string }> = ({
-  data, height = 130, formatValue = fmtETB,
+  data = [], height = 130, formatValue = fmtETB,
 }) => {
-  if (!data || data.length === 0) return <div className="flex items-center justify-center rounded-xl" style={{ height, background: 'var(--hover-overlay)' }}><p className="font-mono text-[11px]" style={{ color: 'var(--text-faint)' }}>No data yet</p></div>;
   const W = 540; const H = height;
   const pad = { top: 20, right: 8, bottom: 28, left: 8 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
-  const maxV = Math.max(...data.map((d) => d.value)) || 1;
-  const barW = (iW / data.length) * 0.55;
-  const gap = iW / data.length;
+  const maxV = (data.length > 0 ? Math.max(...data.map((d) => d.value || 0)) : 0) || 1;
+  const slotCount = Math.max(1, data.length);
+  const barW = (iW / slotCount) * 0.55;
+  const gap = iW / slotCount;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden="true">
@@ -303,7 +306,7 @@ export const VerticalBarChart: React.FC<{ data: BarItem[]; height?: number; form
           stroke="white" strokeOpacity="0.06" strokeWidth="1" />
       ))}
       {data.map((d, i) => {
-        const bh = (d.value / maxV) * iH;
+        const bh = ((d.value || 0) / maxV) * iH;
         const x = pad.left + i * gap + gap / 2 - barW / 2;
         const col = d.color ?? '#E9C349';
         return (
@@ -312,7 +315,7 @@ export const VerticalBarChart: React.FC<{ data: BarItem[]; height?: number; form
               animate={{ y: pad.top + iH - bh, height: bh }} transition={{ delay: i * 0.07, duration: 0.55, ease: 'easeOut' }} />
             <motion.text x={x + barW / 2} y={0} textAnchor="middle" fill={col} fontSize="9" fontFamily="monospace" fontWeight="700"
               animate={{ y: pad.top + iH - bh - 5 }} transition={{ delay: i * 0.07 + 0.4, duration: 0.3 }}>
-              {formatValue(d.value)}
+              {formatValue(d.value || 0)}
             </motion.text>
             <text x={x + barW / 2} y={H - 4} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="10" fontFamily="monospace">
               {d.label}
@@ -327,13 +330,14 @@ export const VerticalBarChart: React.FC<{ data: BarItem[]; height?: number; form
 // ─────────────────────────────────────────────────────────────
 // Mini Sparkline (for KPI cards)
 // ─────────────────────────────────────────────────────────────
-export function MiniSparkline({ values, positive = true }: { values: number[]; positive?: boolean }) {
+export function MiniSparkline({ values = [], positive = true }: { values: number[]; positive?: boolean }) {
+  if (!values || values.length === 0) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
   const w = 60; const h = 24;
   const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
+    const x = values.length <= 1 ? w / 2 : (i / (values.length - 1)) * w;
     const y = h - ((v - min) / range) * h;
     return `${x},${y}`;
   });

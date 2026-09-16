@@ -3,14 +3,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { CheckSquare, CheckCircle2, XCircle, Eye, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { CheckSquare, CheckCircle2, XCircle, Eye, Clock, Loader2, RefreshCw, Search } from 'lucide-react';
 import { hodOfferingsApi, hodSemestersApi, type CourseOfferingSummary, type Semester } from '../../../lib/hodApi';
 import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
-import { EmptyState, ErrorState, SkeletonCard } from '../../ui/States';
+import { EmptyState, ErrorState, SkeletonCard, ToastContainer, useToast } from '../../ui/States';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
+import { Input } from '../../ui/Input';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -28,6 +29,7 @@ export const DHApprovalsView: React.FC = () => {
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+  const [search,    setSearch]    = useState('');
   const [filter,    setFilter]    = useState<'ALL' | 'DRAFT' | 'INSTRUCTOR_ASSIGNED' | 'CANCELLED'>('ALL');
   const [selected,  setSelected]  = useState<CourseOfferingSummary | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ offering: CourseOfferingSummary; action: 'Approve' | 'Reject' } | null>(null);
@@ -35,12 +37,14 @@ export const DHApprovalsView: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError,   setActionError]   = useState('');
 
+  const { toast, show: showToast, hide: hideToast } = useToast();
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [offData, semData] = await Promise.all([
-        hodOfferingsApi.list({ limit: 50 }),
+        hodOfferingsApi.list({ limit: 100 }),
         hodSemestersApi.list(),
       ]);
       setOfferings(offData.offerings);
@@ -54,7 +58,22 @@ export const DHApprovalsView: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = offerings.filter(o => filter === 'ALL' || o.status === filter);
+  const filtered = offerings.filter(o => {
+    const matchesFilter = filter === 'ALL'
+      ? true
+      : filter === 'INSTRUCTOR_ASSIGNED'
+      ? ['INSTRUCTOR_ASSIGNED', 'SCHEDULED', 'ACTIVE'].includes(o.status)
+      : o.status === filter;
+
+    const matchesSearch = !search || (
+      o.course.code.toLowerCase().includes(search.toLowerCase()) ||
+      o.course.name.toLowerCase().includes(search.toLowerCase()) ||
+      (o.instructor?.user.fullName ?? '').toLowerCase().includes(search.toLowerCase())
+    );
+
+    return matchesFilter && matchesSearch;
+  });
+
   const pendingCount   = offerings.filter(o => o.status === 'DRAFT').length;
   const approvedCount  = offerings.filter(o => ['INSTRUCTOR_ASSIGNED', 'SCHEDULED', 'ACTIVE'].includes(o.status)).length;
   const rejectedCount  = offerings.filter(o => o.status === 'CANCELLED').length;
@@ -66,6 +85,7 @@ export const DHApprovalsView: React.FC = () => {
     try {
       if (confirmModal.action === 'Approve') {
         await hodOfferingsApi.approve(confirmModal.offering.id);
+        showToast(`Approved course section ${confirmModal.offering.course.code}.`, 'success');
       } else {
         if (!rejectReason.trim() || rejectReason.trim().length < 5) {
           setActionError('Please provide a reason (minimum 5 characters).');
@@ -73,13 +93,16 @@ export const DHApprovalsView: React.FC = () => {
           return;
         }
         await hodOfferingsApi.reject(confirmModal.offering.id, rejectReason.trim());
+        showToast(`Rejected course section ${confirmModal.offering.course.code}.`, 'info');
       }
       setConfirmModal(null);
       setRejectReason('');
       setSelected(null);
       await load();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Action failed.');
+      const msg = e instanceof Error ? e.message : 'Action failed.';
+      setActionError(msg);
+      showToast(msg, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -89,6 +112,8 @@ export const DHApprovalsView: React.FC = () => {
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
+
       <DHPageHeader
         title="Approval Center"
         subtitle={`${pendingCount} pending · ${approvedCount} approved · ${rejectedCount} rejected`}
@@ -100,20 +125,30 @@ export const DHApprovalsView: React.FC = () => {
         }
       />
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {([
-          { key: 'ALL',               label: 'All',       count: offerings.length },
-          { key: 'DRAFT',             label: 'Pending',   count: pendingCount },
-          { key: 'INSTRUCTOR_ASSIGNED', label: 'Approved', count: approvedCount },
-          { key: 'CANCELLED',         label: 'Rejected',  count: rejectedCount },
-        ] as const).map(tab => (
-          <button key={tab.key} onClick={() => setFilter(tab.key)}
-            className={`px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${filter === tab.key ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
-            {tab.label}
-            <span className="ml-1.5 font-mono text-[10px] opacity-70">({tab.count})</span>
-          </button>
-        ))}
+      {/* Filter tabs & Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {([
+            { key: 'ALL',               label: 'All',       count: offerings.length },
+            { key: 'DRAFT',             label: 'Pending',   count: pendingCount },
+            { key: 'INSTRUCTOR_ASSIGNED', label: 'Approved', count: approvedCount },
+            { key: 'CANCELLED',         label: 'Rejected',  count: rejectedCount },
+          ] as const).map(tab => (
+            <button key={tab.key} onClick={() => setFilter(tab.key)}
+              className={`px-4 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${filter === tab.key ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
+              {tab.label}
+              <span className="ml-1.5 font-mono text-[10px] opacity-70">({tab.count})</span>
+            </button>
+          ))}
+        </div>
+        <div className="w-full sm:w-64">
+          <Input
+            icon={<Search className="w-4 h-4" />}
+            placeholder="Search approvals..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Cards */}

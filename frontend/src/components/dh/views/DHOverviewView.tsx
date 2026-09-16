@@ -63,7 +63,7 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
               {dept?.name ?? 'Department Head Portal'} · Active
             </div>
             <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
-              Welcome back{profile ? `, ${profile.fullName.split(' ')[1] ?? profile.fullName}.` : '.'}
+              Welcome back{profile ? `, ${profile.fullName.split(' ')[0] ?? profile.fullName}.` : '.'}
             </h2>
             <p className="font-sans text-sm text-(--text-secondary) max-w-xl leading-relaxed">
               {profile?.departmentHeadRecord?.title ?? 'Department Head'} · {dept?.name ?? ''}
@@ -228,7 +228,13 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
           ) : (
             <div className="space-y-2">
               {notifications.slice(0, 5).map(n => (
-                <div key={n.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${n.isRead ? 'border-(--border-subtle) bg-transparent' : 'border-[#E9C349]/15 bg-[#E9C349]/5'}`}>
+                <button
+                  key={n.id}
+                  onClick={() => setActiveTab('notifications')}
+                  className={`w-full text-left flex items-start gap-3 p-3 rounded-xl border transition-all hover:translate-x-0.5 ${
+                    n.isRead ? 'border-(--border-subtle) bg-transparent hover:bg-(--hover-overlay)' : 'border-[#E9C349]/25 bg-[#E9C349]/10 hover:bg-[#E9C349]/15'
+                  }`}
+                >
                   <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${n.isRead ? 'bg-(--active-overlay)' : n.type === 'WARNING' || n.type === 'ERROR' ? 'bg-(--status-warning)' : 'bg-[#E9C349]'}`} />
                   <div className="flex-1 min-w-0">
                     <p className={`font-sans text-xs font-semibold ${n.isRead ? 'text-(--text-secondary)' : 'text-(--text-primary)'}`}>{n.title}</p>
@@ -237,7 +243,7 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
                   <p className="font-mono text-[10px] text-(--text-faint) shrink-0 hidden sm:block">
                     {new Date(n.createdAt).toLocaleDateString()}
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           )}

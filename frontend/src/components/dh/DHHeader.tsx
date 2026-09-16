@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { DHNavTab, DHProfile, DHNotification } from '../../types/department';
-import { Search, Bell, ChevronRight, Command, X, Menu } from 'lucide-react';
+import { Search, Bell, ChevronRight, Command, X, Menu, Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
 import ThemeToggle from '../ThemeToggle';
@@ -17,6 +17,7 @@ interface DHHeaderProps {
   onOpenSearch: () => void;
   semesterLabel?: string;
   onMobileMenuToggle?: () => void;
+  onLogout?: () => void;
 }
 
 const tabLabels: Record<DHNavTab, string> = {
@@ -37,9 +38,10 @@ const tabLabels: Record<DHNavTab, string> = {
 };
 
 export const DHHeader: React.FC<DHHeaderProps> = ({
-  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, semesterLabel, onMobileMenuToggle,
+  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, semesterLabel, onMobileMenuToggle, onLogout,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 w-full ds-header backdrop-blur-xl border-b h-16 flex items-center transition-all duration-300">
@@ -156,13 +158,61 @@ export const DHHeader: React.FC<DHHeaderProps> = ({
           {/* Theme Toggle */}
           <ThemeToggle />
 
-          {/* Avatar */}
-          <button onClick={() => setActiveTab('settings')}
-            className="w-9 h-9 rounded-full overflow-hidden border-2 transition-colors focus:outline-none ds-focus-ring"
-            style={{ borderColor: 'var(--accent-gold-border)' }}
-            aria-label="Settings">
-            <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
-          </button>
+          {/* Avatar & Profile Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setProfileMenuOpen(p => !p)}
+              className="flex items-center gap-2.5 pl-2 border-l border-(--border-default) focus:outline-none group"
+              aria-label="Account menu"
+            >
+              <div className="w-9 h-9 rounded-full overflow-hidden border-2 transition-colors group-hover:border-[var(--brand-gold)] shrink-0" style={{ borderColor: 'var(--accent-gold-border)' }}>
+                <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+              </div>
+              <div className="hidden lg:block text-left text-xs leading-none">
+                <p className="font-semibold text-(--text-primary) truncate max-w-[120px]">{profile.name}</p>
+                <span className="text-[9px] font-mono text-(--brand-gold) uppercase block mt-1">Dept Head</span>
+              </div>
+            </button>
+
+            <AnimatePresence>
+              {profileMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                    transition={{ duration: 0.18 }}
+                    className="absolute right-0 top-12 w-56 bg-(--bg-modal) border border-(--border-default) rounded-2xl shadow-2xl z-50 p-2 space-y-1 font-sans"
+                  >
+                    <div className="px-3 py-2 border-b border-(--border-subtle)">
+                      <p className="font-serif text-sm font-bold text-(--text-primary) truncate">{profile.name}</p>
+                      <p className="font-mono text-[10px] text-(--text-muted) truncate mt-0.5">{profile.department}</p>
+                    </div>
+
+                    <button
+                      onClick={() => { setActiveTab('settings'); setProfileMenuOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-(--text-primary) hover:bg-(--hover-overlay) transition-colors text-left"
+                    >
+                      <Settings className="w-4 h-4 text-(--brand-gold)" />
+                      <span>Settings & Preferences</span>
+                    </button>
+
+                    {onLogout && (
+                      <button
+                        onClick={() => { setProfileMenuOpen(false); onLogout(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-(--status-danger) hover:bg-(--status-danger-bg) transition-colors text-left"
+                      >
+                        <LogOut className="w-4 h-4 text-(--status-danger)" />
+                        <span>Sign Out</span>
+                      </button>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
         </div>
       </div>
     </header>

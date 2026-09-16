@@ -96,6 +96,7 @@ export interface DashboardNotification {
 
 export interface DashboardData {
   department:         { id: string };
+  currentSemester?:   string;
   kpis:               DashboardKPIs;
   enrollmentTrend:    { semester: string; count: number }[];
   notifications:      DashboardNotification[];
@@ -148,7 +149,7 @@ export interface CourseOfferingDetail extends Omit<CourseOfferingSummary, 'cours
 }
 
 export interface OfferingsResponse {
-  total: number; page: number; limit: number; totalPages: number;
+  total: number; pendingCount?: number; page: number; limit: number; totalPages: number;
   offerings: CourseOfferingSummary[];
 }
 
