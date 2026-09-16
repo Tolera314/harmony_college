@@ -22,6 +22,7 @@ import { getOverviewData } from '../../../lib/foApi';
 
 interface FOOverviewViewProps {
   setActiveTab: (tab: FONavTab) => void;
+  profile?: typeof foProfile;
 }
 
 const payStatusColor: Record<string, string> = {
@@ -40,7 +41,8 @@ const payStatusBadge: Record<string, 'emerald' | 'amber' | 'rose' | 'glass'> = {
   Deferred: 'glass',
 };
 
-export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) => {
+export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, profile: propProfile }) => {
+  const currentProfile = propProfile || foProfile;
   const [kpis, setKpis] = useState(defaultKpis);
   const [recentTxns, setRecentTxns] = useState(defaultTxns.slice(0, 8));
   const [monthlyRev, setMonthlyRev] = useState(defaultRevenue);
@@ -51,19 +53,11 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
     getOverviewData()
       .then((data) => {
         if (data) {
-          if (data.kpis) setKpis((prev) => ({ ...prev, ...data.kpis }));
-          if (data.recentTransactions && Array.isArray(data.recentTransactions)) {
-            setRecentTxns(data.recentTransactions);
-          }
-          if (data.monthlyRevenue && Array.isArray(data.monthlyRevenue)) {
-            setMonthlyRev(data.monthlyRevenue);
-          }
-          if (data.paymentMethodBreakdown && Array.isArray(data.paymentMethodBreakdown)) {
-            setMethodBreakdown(data.paymentMethodBreakdown);
-          }
-          if (data.departmentBreakdown && Array.isArray(data.departmentBreakdown)) {
-            setDeptList(data.departmentBreakdown);
-          }
+          if (data.kpis) setKpis(data.kpis);
+          if (Array.isArray(data.recentTransactions)) setRecentTxns(data.recentTransactions);
+          if (Array.isArray(data.monthlyRevenue)) setMonthlyRev(data.monthlyRevenue);
+          if (Array.isArray(data.paymentMethodBreakdown)) setMethodBreakdown(data.paymentMethodBreakdown);
+          if (Array.isArray(data.departments)) setDeptList(data.departments);
         }
       })
       .catch(() => {
@@ -110,13 +104,13 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab }) 
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[11px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" />
-              {foProfile.currentSemester} · Finance Portal Active
+              {currentProfile.currentSemester} · Finance Portal Active
             </div>
             <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
-              Good morning, {foProfile.name.split(' ')[1]}.
+              Good morning, {currentProfile.name.split(' ')[0] || currentProfile.name}.
             </h2>
             <p className="font-sans text-sm text-(--text-secondary) max-w-xl leading-relaxed">
-              {foProfile.department} · {foProfile.academicYear}
+              {currentProfile.department} · {currentProfile.academicYear}
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
               {overdue.length > 0 && (

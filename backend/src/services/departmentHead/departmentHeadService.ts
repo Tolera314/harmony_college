@@ -122,6 +122,7 @@ export async function getDashboard(userId: string) {
     totalCourses,
     recentNotifications,
     unreadCount,
+    currentSemesterObj,
   ] = await Promise.all([
     // Active faculty in department
     prisma.instructorRecord.count({
@@ -167,6 +168,11 @@ export async function getDashboard(userId: string) {
     }),
     // Unread notification count
     prisma.notification.count({ where: { userId, isRead: false } }),
+    // Current semester info
+    prisma.semester.findFirst({
+      where: { isCurrent: true },
+      select: { name: true, academicYear: { select: { name: true } } },
+    }),
   ]);
 
   // Department avg GPA
@@ -237,6 +243,9 @@ export async function getDashboard(userId: string) {
 
   return {
     department: { id: deptId },
+    currentSemester: currentSemesterObj
+      ? `${currentSemesterObj.name} (${currentSemesterObj.academicYear.name})`
+      : 'Active Semester',
     kpis: {
       activeFaculty,
       activeStudents,
@@ -298,7 +307,7 @@ export async function getCourseOfferings(
     ];
   }
 
-  const [total, offerings] = await Promise.all([
+  const [total, offerings, pendingCount] = await Promise.all([
     prisma.courseOffering.count({ where }),
     prisma.courseOffering.findMany({
       where,
@@ -336,10 +345,18 @@ export async function getCourseOfferings(
         _count: { select: { enrollments: true } },
       },
     }),
+    prisma.courseOffering.count({
+      where: {
+        course: { departmentId: deptId },
+        status: OfferingStatus.DRAFT,
+        ...(where.semesterId ? { semesterId: where.semesterId } : {}),
+      },
+    }),
   ]);
 
   return {
     total,
+    pendingCount,
     page,
     limit,
     totalPages: Math.ceil(total / limit),
@@ -424,10 +441,19 @@ export async function approveOffering(
     throw new Error(`Cannot approve: offering is currently "${existing.status}", not DRAFT.`);
   }
 
+  const fullOffering = await prisma.courseOffering.findUnique({
+    where: { id: offeringId },
+    select: { roomId: true, timetables: { select: { id: true } } },
+  });
+
+  const nextStatus = (fullOffering?.roomId && (fullOffering?.timetables.length ?? 0) > 0)
+    ? OfferingStatus.SCHEDULED
+    : OfferingStatus.INSTRUCTOR_ASSIGNED;
+
   const [updated] = await prisma.$transaction([
     prisma.courseOffering.update({
       where: { id: offeringId },
-      data:  { status: OfferingStatus.INSTRUCTOR_ASSIGNED },
+      data:  { status: nextStatus },
       select: { id: true, status: true },
     }),
     prisma.departmentHeadAuditLog.create({
@@ -436,8 +462,8 @@ export async function approveOffering(
         action:      DepartmentHeadAction.OFFERING_APPROVED,
         entityType:  'CourseOffering',
         entityId:    offeringId,
-        description: `Course offering approved by Department Head.`,
-        metadata:    { previousStatus: existing.status, newStatus: OfferingStatus.INSTRUCTOR_ASSIGNED },
+        description: `Course offering approved by Department Head. Status updated to ${nextStatus}.`,
+        metadata:    { previousStatus: existing.status, newStatus: nextStatus },
         ipAddress:   ipAddress ?? null,
       },
     }),
@@ -445,7 +471,7 @@ export async function approveOffering(
       data: {
         userId,
         title:   'Course Offering Approved',
-        message: `You approved a course offering (ID: ${offeringId}).`,
+        message: `You approved a course offering (ID: ${offeringId}). It is now open for student registration.`,
         type:    'SUCCESS',
       },
     }),

@@ -209,6 +209,7 @@ export async function checkConflicts(data: {
 export async function createOffering(data: {
   courseId: string; semesterId: string; instructorId?: string;
   roomId?: string; capacity: number; section?: string;
+  status?: OfferingStatus;
   timetables?: { dayOfWeek: number; startTime: string; endTime: string }[];
 }, registrarUserId: string) {
   const section = (data.section ?? 'A').toUpperCase();
@@ -225,10 +226,12 @@ export async function createOffering(data: {
   });
   if (conflicts.length) throw new Error(`Conflicts detected: ${conflicts.join('; ')}`);
 
-  // Determine status
-  let status: OfferingStatus = OfferingStatus.DRAFT;
-  if (data.instructorId && !data.roomId) status = OfferingStatus.INSTRUCTOR_ASSIGNED;
-  if (data.instructorId && data.roomId && data.timetables?.length) status = OfferingStatus.SCHEDULED;
+  // Determine status — defaults to DRAFT unless explicitly set
+  let status: OfferingStatus = data.status ?? OfferingStatus.DRAFT;
+  if (!data.status) {
+    if (data.instructorId && !data.roomId) status = OfferingStatus.INSTRUCTOR_ASSIGNED;
+    if (data.instructorId && data.roomId && data.timetables?.length) status = OfferingStatus.SCHEDULED;
+  }
 
   const offering = await prisma.$transaction(async (tx) => {
     const off = await tx.courseOffering.create({

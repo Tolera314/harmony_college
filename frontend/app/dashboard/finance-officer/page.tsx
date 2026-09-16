@@ -34,9 +34,29 @@ export default function FinanceOfficerPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [overdueCount,   setOverdueCount]  = useState(0);
   const [pendingReconciliation, setPendingReconciliation] = useState(0);
+  const [profile,       setProfile]        = useState(foProfile);
   const { toast, show: showToast, hide: hideToast } = useToast();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Fetch logged in user profile from auth API
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.authenticated && data.user) {
+          setProfile((prev) => ({
+            ...prev,
+            name: data.user.fullName || prev.name,
+            email: data.user.email || prev.email,
+            phone: data.user.phone || prev.phone,
+            avatar: data.user.avatarUrl || prev.avatar,
+            employeeId: data.user.id ? `EMP-FO-${data.user.id.slice(-4).toUpperCase()}` : prev.employeeId,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Fetch real notifications from database API
   const fetchNotifs = useCallback(async () => {
@@ -104,7 +124,7 @@ export default function FinanceOfficerPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':         return <FOOverviewView setActiveTab={setActiveTab} />;
+      case 'overview':         return <FOOverviewView setActiveTab={setActiveTab} profile={profile} />;
       case 'student_accounts': return <FOStudentAccountsView />;
       case 'payments':         return <FOPaymentsView />;
       case 'registration_payments': return <FORegistrationPaymentsView />;
@@ -139,7 +159,7 @@ export default function FinanceOfficerPage() {
         <FOSidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          profile={foProfile}
+          profile={profile}
           unreadCount={unreadCount}
           pendingReconciliation={pendingReconciliation}
           overdueCount={overdueCount}
@@ -151,13 +171,13 @@ export default function FinanceOfficerPage() {
           <FOHeader
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            profile={foProfile}
+            profile={profile}
             notifications={notifications}
             unreadCount={unreadCount}
             onMarkRead={handleMarkRead}
             onOpenSearch={() => setSearchOpen(true)}
-            semesterLabel={foProfile.currentSemester}
-            academicYear={foProfile.academicYear}
+            semesterLabel={profile.currentSemester}
+            academicYear={profile.academicYear}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
 

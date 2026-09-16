@@ -72,7 +72,7 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-1" role="navigation">
+      <nav className="flex-1 flex flex-col gap-1 overflow-y-auto" role="navigation">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (

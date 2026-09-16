@@ -190,7 +190,7 @@ export async function markAllNotificationsRead() {
   return apiFetch<any>('/notifications/read-all', { method: 'POST' });
 }
 
-export async function getAuditLogs(params?: { search?: string; status?: string; page?: number; limit?: number }) {
+export async function getAuditLogs(params?: { search?: string; module?: string; status?: string; page?: number; limit?: number }) {
   return apiFetch<any>(`/audit-logs${qs(params || {})}`);
 }
 

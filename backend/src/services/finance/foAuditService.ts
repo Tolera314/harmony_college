@@ -67,6 +67,74 @@ const auditLogsStore: FOAuditStoreItem[] = [
     ipAddress: '192.168.1.45',
     createdAt: new Date(),
   },
+  {
+    id: 'AUD-FO-103',
+    date: new Date().toISOString().split('T')[0],
+    time: '10:04',
+    actorUserId: 'usr-fo-001',
+    actorName: 'Finance Officer',
+    action: 'Auto-Matched Reconciliation Entry',
+    module: 'Reconciliation',
+    studentId: 'HC/2026/0089',
+    studentName: 'Dawit Solomon',
+    amount: 12000,
+    previousValue: 'Unmatched Gateway Txn TXN-CH-88401',
+    newValue: 'Matched to Receipt REC-2026-004',
+    status: 'Success',
+    ipAddress: '192.168.1.45',
+    createdAt: new Date(),
+  },
+  {
+    id: 'AUD-FO-104',
+    date: new Date().toISOString().split('T')[0],
+    time: '11:20',
+    actorUserId: 'usr-fo-001',
+    actorName: 'Finance Officer',
+    action: 'Flagged Discrepancy on Telebirr Payment',
+    module: 'Reconciliation',
+    studentId: 'HC/2026/0102',
+    studentName: 'Makeda Bekele',
+    amount: 4500,
+    previousValue: 'Pending Match',
+    newValue: 'Flagged for Review: Gateway Reference Mismatch',
+    status: 'Warning',
+    ipAddress: '192.168.1.45',
+    createdAt: new Date(),
+  },
+  {
+    id: 'AUD-FO-105',
+    date: new Date().toISOString().split('T')[0],
+    time: '14:10',
+    actorUserId: 'usr-fo-001',
+    actorName: 'Finance Officer',
+    action: 'Reversed Duplicate Payment Transaction',
+    module: 'Payments & Collections',
+    studentId: 'HC/2026/0033',
+    studentName: 'Yonas Haile',
+    amount: 6000,
+    previousValue: 'Payment Posted',
+    newValue: 'Transaction Reversed & Credited',
+    status: 'Warning',
+    ipAddress: '192.168.1.45',
+    createdAt: new Date(),
+  },
+  {
+    id: 'AUD-FO-106',
+    date: new Date().toISOString().split('T')[0],
+    time: '15:45',
+    actorUserId: 'usr-fo-001',
+    actorName: 'Finance Officer',
+    action: 'Failed Gateway Handshake Attempt',
+    module: 'Payment Gateways',
+    studentId: null,
+    studentName: null,
+    amount: 0,
+    previousValue: 'Connection Request',
+    newValue: 'Timeout: Gateway Gateway Response 504',
+    status: 'Failed',
+    ipAddress: '192.168.1.45',
+    createdAt: new Date(),
+  },
 ];
 
 export async function logFinanceAction(data: AuditEntryData): Promise<FOAuditStoreItem> {
@@ -89,30 +157,16 @@ export async function logFinanceAction(data: AuditEntryData): Promise<FOAuditSto
   };
 
   auditLogsStore.unshift(entry);
-
-  try {
-    if (data.actorUserId) {
-      await prisma.auditLog.create({
-        data: {
-          userId: data.actorUserId,
-          action: 'PROFILE_COMPLETED',
-          metadata: {
-            financeAction: data.action,
-            amount: data.amount,
-            studentId: data.studentId,
-          },
-        },
-      });
-    }
-  } catch { /* ignore db fallback errors */ }
-
   return entry;
 }
 
-export async function getAuditLogs(params: { search?: string; status?: string; page?: number; limit?: number }) {
+export async function getAuditLogs(params: { search?: string; module?: string; status?: string; page?: number; limit?: number }) {
   let filtered = [...auditLogsStore];
 
-  if (params.status) {
+  if (params.module && params.module !== 'All') {
+    filtered = filtered.filter((a) => a.module === params.module);
+  }
+  if (params.status && params.status !== 'All') {
     filtered = filtered.filter((a) => a.status === params.status);
   }
   if (params.search) {
@@ -121,7 +175,10 @@ export async function getAuditLogs(params: { search?: string; status?: string; p
       (a) =>
         a.action.toLowerCase().includes(s) ||
         a.actorName.toLowerCase().includes(s) ||
-        (a.studentName && a.studentName.toLowerCase().includes(s))
+        a.module.toLowerCase().includes(s) ||
+        (a.studentName && a.studentName.toLowerCase().includes(s)) ||
+        (a.studentId && a.studentId.toLowerCase().includes(s)) ||
+        (a.ipAddress && a.ipAddress.toLowerCase().includes(s))
     );
   }
 
@@ -131,11 +188,19 @@ export async function getAuditLogs(params: { search?: string; status?: string; p
 
   const paginated = filtered.slice(skip, skip + limit);
 
+  const summary = {
+    total: auditLogsStore.length,
+    successCount: auditLogsStore.filter((a) => a.status === 'Success').length,
+    warningCount: auditLogsStore.filter((a) => a.status === 'Warning').length,
+    failedCount: auditLogsStore.filter((a) => a.status === 'Failed').length,
+  };
+
   return {
     total: filtered.length,
     page,
     limit,
     totalPages: Math.ceil(filtered.length / limit),
     auditLogs: paginated,
+    summary,
   };
 }

@@ -46,11 +46,12 @@ export default function DepartmentHeadPage() {
   const [logoutOpen,     setLogoutOpen]     = useState(false);
 
   // Real data
-  const [profile,        setProfile]        = useState<HoDProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [notifications,  setNotifications]  = useState<ApiNotification[]>([]);
-  const [unreadCount,    setUnreadCount]    = useState(0);
-  const [pendingCount,   setPendingCount]   = useState(0);
+  const [profile,              setProfile]              = useState<HoDProfile | null>(null);
+  const [profileLoading,       setProfileLoading]       = useState(true);
+  const [notifications,        setNotifications]        = useState<ApiNotification[]>([]);
+  const [unreadCount,          setUnreadCount]          = useState(0);
+  const [pendingCount,         setPendingCount]         = useState(0);
+  const [currentSemesterLabel, setCurrentSemesterLabel] = useState('');
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -66,6 +67,7 @@ export default function DepartmentHeadPage() {
       setNotifications(dash.notifications.map(n => ({ ...n, userId: '' })));
       setUnreadCount(dash.unreadNotifications);
       setPendingCount(dash.kpis.pendingOfferings + dash.kpis.pendingLeaves);
+      if (dash.currentSemester) setCurrentSemesterLabel(dash.currentSemester);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Failed to load profile', 'error');
     } finally {
@@ -134,7 +136,7 @@ export default function DepartmentHeadPage() {
     avatar:          '/logo2.jpg',
     employeeId:      dhr?.employeeId ?? '…',
     academicYear:    '',
-    currentSemester: '',
+    currentSemester: currentSemesterLabel || 'Active Term',
   };
 
   const headerNotifications = notifications.map(toHeaderNotif);
@@ -170,7 +172,7 @@ export default function DepartmentHeadPage() {
       case 'audit_log':
         return <DHAuditLogView />;
       case 'settings':
-        return <DHSettingsView profile={profile} />;
+        return <DHSettingsView profile={profile} onLogout={() => setLogoutOpen(true)} />;
       default:
         return null;
     }
@@ -195,6 +197,7 @@ export default function DepartmentHeadPage() {
             onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)}
             semesterLabel={uiProfile.currentSemester || ''}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
+            onLogout={() => setLogoutOpen(true)}
           />
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
             {profileLoading && activeTab === 'overview' ? (

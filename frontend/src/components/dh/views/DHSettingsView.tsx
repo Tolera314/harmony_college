@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { Settings, User, Bell, Lock, Monitor, Globe, Shield, CheckCircle2, Save, Loader2 } from 'lucide-react';
+import { Settings, User, Bell, Lock, Monitor, Globe, Shield, CheckCircle2, Save, Loader2, LogOut } from 'lucide-react';
 import { type HoDProfile, hodProfileApi } from '../../../lib/hodApi';
 import { DHPageHeader } from '../DHPageHeader';
 import { Card } from '../../ui/Card';
@@ -13,9 +13,10 @@ import { Badge } from '../../ui/Badge';
 
 interface DHSettingsViewProps {
   profile: HoDProfile | null;
+  onLogout?: () => void;
 }
 
-export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
+export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile, onLogout }) => {
   const [activeSection, setActiveSection] = useState('profile');
   const [saved,         setSaved]         = useState(false);
   const [saving,        setSaving]        = useState(false);
@@ -89,6 +90,13 @@ export const DHSettingsView: React.FC<DHSettingsViewProps> = ({ profile }) => {
               {s.label}
             </button>
           ))}
+          {onLogout && (
+            <button onClick={onLogout}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-sans text-sm font-semibold transition-all text-left text-rose-400 hover:bg-rose-500/10 border border-transparent mt-4">
+              <LogOut className="w-4 h-4 text-rose-400" />
+              Sign Out
+            </button>
+          )}
         </nav>
 
         <div className="flex-1 min-w-0">
