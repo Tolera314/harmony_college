@@ -4,8 +4,8 @@ import React from 'react';
 import { DHNavTab, DHProfile } from '../../types/department';
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, BarChart3,
-  CalendarCheck, CheckSquare, Bell, ClipboardList, Settings,
-  LogOut, FileText,
+  Bell, ClipboardList, Settings,
+  LogOut, Layers, GitBranch, UserCog, CalendarDays, TrendingUp,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ChatSidebarButton } from '../chat/ChatSidebarButton';
@@ -27,23 +27,23 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
   activeTab, setActiveTab, profile, pendingCount, unreadCount, onLogout,
 }) => {
   const navItems: NavItem[] = [
-    { id: 'overview',       label: 'Dashboard',          icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'courses',        label: 'Course Offerings',   icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'faculty',        label: 'Faculty',            icon: <Users className="w-5 h-5" /> },
-    { id: 'students',       label: 'Students',           icon: <GraduationCap className="w-5 h-5" /> },
-    { id: 'reports',        label: 'Department Reports', icon: <BarChart3 className="w-5 h-5" /> },
-    { id: 'attendance',     label: 'Attendance',         icon: <CalendarCheck className="w-5 h-5" /> },
-    {
-      id: 'approvals', label: 'Approvals', icon: <CheckSquare className="w-5 h-5" />,
-      badge: pendingCount > 0 ? String(pendingCount) : undefined, badgeVariant: 'gold',
-    },
-    { id: 'leave_requests', label: 'Leave Requests',    icon: <FileText className="w-5 h-5" /> },
+    { id: 'overview',             label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'programs',             label: 'Programs',             icon: <Layers className="w-5 h-5" /> },
+    { id: 'courses',              label: 'Courses',              icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'instructors',          label: 'Instructors',          icon: <UserCog className="w-5 h-5" /> },
+    { id: 'students',             label: 'Students',             icon: <GraduationCap className="w-5 h-5" /> },
+    { id: 'classes',              label: 'Classes & Sections',   icon: <CalendarDays className="w-5 h-5" /> },
+    { id: 'course_assignments',   label: 'Course Assignments',   icon: <GitBranch className="w-5 h-5" /> },
+    { id: 'academic_monitoring',  label: 'Academic Monitoring',  icon: <ClipboardList className="w-5 h-5" /> },
+    { id: 'academic_performance', label: 'Academic Performance', icon: <TrendingUp className="w-5 h-5" /> },
+    { id: 'reports',              label: 'Department Reports',   icon: <BarChart3 className="w-5 h-5" /> },
     {
       id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" />,
       badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeVariant: 'rose',
     },
-    { id: 'audit_log',      label: 'Audit Log',          icon: <ClipboardList className="w-5 h-5" /> },
+    { id: 'audit_log',            label: 'Audit Log',            icon: <Users className="w-5 h-5" /> },
   ];
+
 
   return (
     <aside
@@ -62,17 +62,29 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
           </div>
         </button>
 
-        {/* Department badge */}
+        {/* Department + HOD badge */}
         <div className="hidden xl:block mt-4 px-1">
-          <div className="p-3 ds-role-badge border rounded-xl">
-            <p className="font-sans text-[11px] font-semibold ds-role-badge-text leading-tight">{profile.department}</p>
-            <p className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--brand-gold)' }}>{profile.currentSemester}</p>
+          <div className="p-3 ds-role-badge border rounded-xl space-y-2">
+            {/* HOD title pill */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: 'var(--brand-gold)' }} />
+              <span className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--brand-gold)' }}>
+                Head of Department
+              </span>
+            </div>
+            <p className="font-sans text-[12px] font-semibold ds-role-badge-text leading-tight">{profile.department}</p>
+            {profile.title && profile.title !== 'Department Head' && (
+              <p className="font-sans text-[10px]" style={{ color: 'var(--text-faint)' }}>{profile.title}</p>
+            )}
+            {profile.currentSemester && (
+              <p className="font-mono text-[10px]" style={{ color: 'var(--brand-gold)' }}>{profile.currentSemester}</p>
+            )}
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-1 overflow-y-auto" role="navigation">
+      <nav className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" role="navigation">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -138,7 +150,13 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
           </div>
           <div className="overflow-hidden hidden xl:block">
             <p className="font-sans text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{profile.name}</p>
-            <p className="font-mono text-[10px] ds-profile-id truncate">{profile.employeeId}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="font-mono text-[10px] ds-profile-id truncate">{profile.employeeId}</span>
+              <span className="shrink-0 px-1.5 py-0.5 rounded-md font-mono text-[9px] font-bold uppercase tracking-wide"
+                style={{ backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid var(--accent-gold-border)' }}>
+                HOD
+              </span>
+            </div>
           </div>
         </div>
       </div>

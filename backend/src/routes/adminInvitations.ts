@@ -26,7 +26,7 @@ const createInvitationSchema = z.object({
   fullName:       z.string().min(2, 'Full name must be at least 2 characters long').max(100),
   email:          z.string().email('Valid official email address is required'),
   role:           z.nativeEnum(Role),
-  departmentId:   z.string().uuid('Valid department ID is required'),
+  departmentId:   z.string().uuid('Valid department ID is required').optional().nullable(),
   positionTitle:  z.string().max(100).optional(),
   employeeId:     z.string().max(50).optional(),
   phone:          z.string().max(20).optional(),
@@ -43,6 +43,12 @@ adminInvitationsRouter.post('/', async (req: AuthRequest, res) => {
       const msg = firstIssue?.message ?? 'Validation failed';
       const error = field ? `${field}: ${msg}` : msg;
       res.status(400).json({ error, details: parsed.error.flatten() });
+      return;
+    }
+
+    const { role, departmentId } = parsed.data;
+    if ((role === Role.INSTRUCTOR || role === Role.DEPARTMENT_HEAD) && !departmentId) {
+      res.status(400).json({ error: 'Academic Department is required for Instructor and Department Head roles.' });
       return;
     }
 
@@ -129,7 +135,7 @@ adminInvitationsRouter.patch('/:id', async (req: AuthRequest, res) => {
       fullName:       z.string().min(2, 'Full name must be at least 2 characters long').max(100).optional(),
       email:          z.string().email('Valid official email address is required').optional(),
       role:           z.nativeEnum(Role).optional(),
-      departmentId:   z.string().uuid('Valid department ID is required').optional(),
+      departmentId:   z.string().uuid('Valid department ID is required').optional().nullable(),
       positionTitle:  z.string().max(100).optional(),
       employeeId:     z.string().max(50).optional(),
       phone:          z.string().max(20).optional(),

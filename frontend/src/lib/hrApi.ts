@@ -45,7 +45,6 @@ export type HRDocumentCategory = 'CV' | 'CONTRACT' | 'NATIONAL_ID' | 'CERTIFICAT
 export type HROnboardingStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'ON_HOLD';
 export type HRAuditStatus    = 'SUCCESS' | 'WARNING' | 'FAILED';
 export type HRNotifType      = 'LEAVE' | 'PAYROLL' | 'PERFORMANCE' | 'CONTRACT' | 'ONBOARDING' | 'SYSTEM';
-
 // Helpers to map DB enums → display labels used by existing frontend components
 export const EMPLOYMENT_TYPE_LABEL: Record<HREmploymentType, string> = {
   FULL_TIME: 'Full-Time', PART_TIME: 'Part-Time', CONTRACT: 'Contract', INTERN: 'Intern',
@@ -102,6 +101,8 @@ export interface HREmployeeApi {
   // System role and course (for INSTRUCTOR/DEPARTMENT_HEAD)
   systemRole?: string | null;
   courseId?:   string | null;
+  // Invitation status for account activation
+  invitationStatus?: 'NONE' | 'PENDING' | 'ACCEPTED' | 'EXPIRED';
   // Document URLs (sensitive — only in /full endpoint)
   faydaIdUrl?: string | null;      faydaIdFileSize?: string | null;
   certificateUrl?: string | null;  certificateFileSize?: string | null;
@@ -184,9 +185,19 @@ export interface HRAuditLogApi {
 }
 
 export interface HRNotificationApi {
-  id: string; employeeId: string | null; type: HRNotifType;
-  title: string; message: string; tab: string; isRead: boolean; createdAt: string;
-  employee?: { id: string; fullName: string; avatarUrl: string | null } | null;
+  id:         string;
+  /** employeeId mapped from entityId in the unified Notification table */
+  employeeId: string | null;
+  /** HR notification type: LEAVE | PAYROLL | CONTRACT | ONBOARDING | PERFORMANCE | SYSTEM */
+  type:       HRNotifType;
+  title:      string;
+  message:    string;
+  /** Deep-link tab mapped from actionTab in the unified Notification table */
+  tab:        string;
+  isRead:     boolean;
+  createdAt:  string;
+  /** module is always 'HR' for these rows */
+  module:     string;
 }
 
 export interface HRDashboardSparklines {
@@ -239,6 +250,19 @@ export const hrDepartmentsApi = {
   list: () => apiFetch<HRDepartmentApi[]>('/departments'),
 };
 
+// ── Academic Departments (for Instructor & Department Head staff invitations) ─
+export interface HRAcademicDepartment {
+  id: string;
+  name: string;
+  code: string;
+  description?: string | null;
+  isActive: boolean;
+}
+
+export const hrAcademicDepartmentsApi = {
+  list: () => apiFetch<HRAcademicDepartment[]>('/academic-departments'),
+};
+
 // ── Courses (for INSTRUCTOR / DEPARTMENT_HEAD role assignment) ────────────────
 export interface HRCourseOption {
   id: string; code: string; name: string; creditHours: number;
@@ -271,6 +295,12 @@ export const hrEmployeesApi = {
 
   deactivate: (id: string) =>
     apiFetch<HREmployeeApi>(`/employees/${id}/deactivate`, { method: 'PATCH' }),
+
+  invite: (id: string) =>
+    apiFetch<{ success: boolean; email: string; activationLink: string; expiresInHours: number }>(`/employees/${id}/invite`, { method: 'POST' }),
+
+  resendInvite: (id: string) =>
+    apiFetch<{ success: boolean; email: string; activationLink: string; expiresInHours: number }>(`/employees/${id}/resend-invite`, { method: 'POST' }),
 };
 
 // ── Leave ─────────────────────────────────────────────────────────────────────

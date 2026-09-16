@@ -83,3 +83,22 @@ export const resetPasswordLimiter = rateLimit({
   skipSuccessfulRequests: true,
   message: { error: 'Too many reset attempts. Please wait 15 minutes before trying again.' },
 });
+
+/** 60 messages per minute per authenticated user (prevents spam floods). */
+export const sendMessageLimiter = rateLimit({
+  windowMs:        60 * 1000,
+  max:             60,
+  standardHeaders: 'draft-7',
+  legacyHeaders:   false,
+  keyGenerator:    (req) => (req as import('express').Request & { user?: { userId: string } }).user?.userId ?? req.ip ?? 'anon',
+  message: { error: 'Too many messages. Please slow down.' },
+});
+
+/** 30 conversation-list fetches per minute per user. */
+export const listConversationsLimiter = rateLimit({
+  windowMs:        60 * 1000,
+  max:             30,
+  standardHeaders: 'draft-7',
+  legacyHeaders:   false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

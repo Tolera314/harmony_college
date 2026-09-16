@@ -18,6 +18,8 @@ interface InOverviewViewProps {
   profile:     InstructorProfile;
   dashData:    DashboardData | null;
   setActiveTab: (tab: InstructorNavTab) => void;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+  onProgramTypeChange?: (pt: 'TVET' | 'SHORT_PROGRAM') => void;
 }
 
 const attColor = (r: number) =>
@@ -31,18 +33,23 @@ const lifecycleLabel = (lc: string | null) => {
   return null;
 };
 
-export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashData, setActiveTab }) => {
+export const InOverviewView: React.FC<InOverviewViewProps> = ({
+  profile,
+  dashData,
+  setActiveTab,
+  programType = 'TVET',
+  onProgramTypeChange,
+}) => {
   if (!dashData) return <SkeletonPage />;
 
-  const { kpis, todaySessions, attendanceTrend, notifications, instructor } = dashData;
+  const { kpis, todaySessions, attendanceTrend, notifications, instructor, academicContext } = dashData;
 
   const hasActiveSession = todaySessions.some(s => s.attendanceSessionLifecycle === 'OPEN');
   const unreadCount      = notifications.filter(n => !n.isRead).length;
 
-  const attendLine = (attendanceTrend.length > 0 ? attendanceTrend : [75, 78, 80, 82, 80, 85, 88, 90])
-    .map((v, i) => ({ label: `Wk${i + 1}`, value: v }));
+  const attendLine = attendanceTrend.map((v, i) => ({ label: `Wk${i + 1}`, value: v }));
 
-  const currentSemester = dashData.instructor.department?.name ?? '';
+  const hasBothContexts = Boolean(academicContext?.hasTVET && academicContext?.hasShortProgram);
 
   return (
     <motion.div
@@ -57,45 +64,75 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
         <div className="absolute top-0 right-0 w-72 h-72 bg-[#E9C349]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
           <div className="space-y-2.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[11px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" />
-              {instructor.department.name} · Active
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-[11px] font-mono font-semibold text-(--brand-gold) uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#E9C349] animate-pulse" />
+                {instructor.department.name} · Active Faculty
+              </div>
+
+              {/* Academic Context Switcher or Badge */}
+              {hasBothContexts ? (
+                <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-black/60 border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => onProgramTypeChange?.('TVET')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      programType === 'TVET'
+                        ? 'bg-[#E9C349] text-black font-bold shadow'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    [ TVET ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onProgramTypeChange?.('SHORT_PROGRAM')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      programType === 'SHORT_PROGRAM'
+                        ? 'bg-[#E9C349] text-black font-bold shadow'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    [ Short Program ]
+                  </button>
+                </div>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-[11px] font-mono font-semibold bg-white/5 border border-white/10 text-zinc-300 uppercase tracking-wider">
+                  {programType === 'SHORT_PROGRAM' ? 'Short Program Faculty' : 'TVET Faculty'}
+                </span>
+              )}
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-(--text-primary) leading-tight">
-              Welcome, {instructor.fullName.split(' ').pop()}.
+
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-(--text-primary)">
+              Welcome back, <span className="text-(--brand-gold)">{instructor.fullName}</span>
             </h2>
-            <p className="font-sans text-sm text-(--text-muted) max-w-lg">
-              {instructor.specialization ?? instructor.title} · {instructor.department.name}
+            <p className="font-sans text-xs sm:text-sm text-(--text-muted) max-w-xl">
+              Academic period overview, active enrollments, scheduled classes, and course progress for your assigned classes.
             </p>
-            <div className="flex flex-wrap gap-2 pt-1">
-              {hasActiveSession && (
-                <Button variant="primary" size="sm" onClick={() => setActiveTab('attendance')} icon={<QrCode className="w-4 h-4" />}>
-                  Live Attendance Session
-                </Button>
-              )}
-              {kpis.ungradedSubmissions > 0 && (
-                <Button variant="outline" size="sm" onClick={() => setActiveTab('assignments')}>
-                  {kpis.ungradedSubmissions} Ungraded Submissions
-                </Button>
-              )}
-              {unreadCount > 0 && (
-                <Button variant="secondary" size="sm" onClick={() => setActiveTab('notifications')}>
-                  {unreadCount} Unread Alerts
-                </Button>
-              )}
-            </div>
           </div>
-          <div className="hidden lg:flex items-center gap-3 shrink-0">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-(--accent-gold-border) shadow-xl bg-(--bg-card) flex items-center justify-center">
-              <span className="font-serif font-bold text-3xl text-(--brand-gold)">
-                {instructor.fullName.charAt(0).toUpperCase()}
-              </span>
-            </div>
+
+          <div className="flex flex-wrap gap-2.5 shrink-0">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<QrCode className="w-4 h-4" />}
+              onClick={() => setActiveTab('attendance')}
+            >
+              Take Attendance
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<BookOpen className="w-4 h-4" />}
+              onClick={() => setActiveTab('my_classes')}
+            >
+              View My Classes
+            </Button>
           </div>
         </div>
       </section>
 
-      {/* ── KPIs ─────────────────────────────────────────────────────────── */}
+      {/* ── KPI Row ───────────────────────────────────────────────────────── */}
       <section className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         <KPICard
           label="Classes Today"
@@ -103,7 +140,6 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
           icon={<BookOpen className="w-5 h-5" />}
           trend="neutral"
           trendLabel={hasActiveSession ? '1 active now' : 'No active session'}
-          sparkline={[2,2,3,2,2,3,2,2]}
           onClick={() => setActiveTab('my_classes')}
         />
         <KPICard
@@ -112,7 +148,6 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
           icon={<Users className="w-5 h-5" />}
           trend="neutral"
           trendLabel="Current semester"
-          sparkline={[55,57,58,59,60,60]}
           onClick={() => setActiveTab('students')}
         />
         <KPICard
@@ -121,7 +156,6 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
           icon={<ClipboardList className="w-5 h-5" />}
           trend={kpis.ungradedSubmissions > 0 ? 'down' : 'neutral'}
           trendLabel="Action needed"
-          sparkline={[0,4,8,4,8,4]}
           accent={kpis.ungradedSubmissions > 0}
           onClick={() => setActiveTab('assignments')}
         />
@@ -131,7 +165,6 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
           icon={<QrCode className="w-5 h-5" />}
           trend={kpis.activeSessions > 0 ? 'up' : 'neutral'}
           trendLabel={kpis.activeSessions > 0 ? 'QR Live' : 'None active'}
-          sparkline={[0,0,1,0,1,0,1,1]}
           accent={kpis.activeSessions > 0}
           onClick={() => setActiveTab('attendance')}
         />
@@ -141,7 +174,6 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
           icon={<Clock className="w-5 h-5" />}
           trend="neutral"
           trendLabel="Today"
-          sparkline={[1,2,1,2,1,2,1,1]}
           onClick={() => setActiveTab('my_classes')}
         />
         <KPICard
@@ -150,7 +182,6 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({ profile, dashDat
           icon={<TrendingUp className="w-5 h-5" />}
           trend="neutral"
           trendLabel="Current semester"
-          sparkline={[2,2,2,2,3,3,3,3]}
           onClick={() => setActiveTab('my_classes')}
         />
       </section>

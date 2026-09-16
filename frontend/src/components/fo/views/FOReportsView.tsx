@@ -43,31 +43,40 @@ const tabLabels: Record<ReportTab, string> = {
   collection:      'Collection Performance',
 };
 
-export function FOReportsView() {
-  const [activeReport, setActiveReport] = useState<ReportTab>('revenue');
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState('');
-  const [summaryData, setSummaryData]   = useState<any>(null);
-  const [agedData, setAgedData]         = useState<any>(null);
-  const [overviewData, setOverviewData] = useState<any>(null);
+export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
+  const [activeReport,     setActiveReport]     = useState<ReportTab>('revenue');
+  const [monthlyRevenue,   setMonthlyRevenue]   = useState<any[]>([]);
+  const [methodBreakdown,  setMethodBreakdown]  = useState<any[]>([]);
+  const [departments,      setDepartments]      = useState<any[]>([]);
+  const [agedReceivables,  setAgedReceivables]  = useState<any[]>([]);
+  const [dailyData,        setDailyData]        = useState<{ label: string; value: number }[]>([]);
+  const [academicYear,     setAcademicYear]     = useState<string>(`${new Date().getFullYear()}–${new Date().getFullYear() + 1}`);
+  const [revenueYoYPct,    setRevenueYoYPct]    = useState<number | null>(null);
+  const [collectionsYoYPct,setCollectionsYoYPct]= useState<number | null>(null);
+  const [kpis,             setKpis]             = useState<any>({});
 
-  const fetchReports = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [summaryRes, agedRes, overviewRes] = await Promise.all([
-        getFinancialSummaryReport().catch(() => null),
-        getAgedReceivablesReport().catch(() => null),
-        getOverviewData().catch(() => null),
-      ]);
+  // Load summary on tab change
+  useEffect(() => {
+    getFinancialSummaryReport(activeReport)
+      .then((data: any) => {
+        if (!data) return;
+        if (data.monthlyRevenue    && Array.isArray(data.monthlyRevenue))    setMonthlyRevenue(data.monthlyRevenue);
+        if (data.methodBreakdown   && Array.isArray(data.methodBreakdown))   setMethodBreakdown(data.methodBreakdown);
+        if (data.departments       && Array.isArray(data.departments))       setDepartments(data.departments);
+        if (data.dailyCollections  && Array.isArray(data.dailyCollections))  setDailyData(data.dailyCollections);
+        if (data.academicYearLabel)                                          setAcademicYear(data.academicYearLabel);
+        if (data.revenueYoYPct !== undefined)                                setRevenueYoYPct(data.revenueYoYPct);
+        if (data.collectionsYoYPct !== undefined)                            setCollectionsYoYPct(data.collectionsYoYPct);
+        if (data.kpis)                                                        setKpis((p: any) => ({ ...p, ...data.kpis }));
+      })
+      .catch(() => { /* keep defaults */ });
 
-      setSummaryData(summaryRes);
-      setAgedData(agedRes);
-      setOverviewData(overviewRes);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load financial reports');
-    } finally {
-      setLoading(false);
+    if (activeReport === 'outstanding') {
+      getAgedReceivablesReport()
+        .then((data: any) => {
+          if (data && Array.isArray(data.accounts)) setAgedReceivables(data.accounts);
+        })
+        .catch(() => {});
     }
   }, []);
 
@@ -131,17 +140,17 @@ export function FOReportsView() {
   const handleExportPDF = () => {
     if (activeReport === 'revenue') {
       downloadPDF(
-        'Revenue by Period Financial Report',
-        `Academic Year 2026 · Total Revenue: ETB ${totalRevenue.toLocaleString()}`,
-        ['Month', 'Revenue (ETB)', 'Target (ETB)', 'Collections (ETB)'],
-        monthlyRevenue.map((m: any) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString()])
+        'Revenue by Period Report',
+        `${kpis.totalRevenueSemester?.toLocaleString() ?? totalRevenue.toLocaleString()} ETB total · ${academicYear}`,
+        ['Month', 'Revenue (ETB)', 'Target (ETB)', 'Collections (ETB)', 'Variance'],
+        monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString(), (m.revenue - m.target > 0 ? '+' : '') + (m.revenue - m.target).toLocaleString()])
       );
     } else if (activeReport === 'department') {
       downloadPDF(
-        'Revenue by Department Financial Report',
-        'Academic Colleges Breakdown',
-        ['Department', 'Code', 'Revenue (ETB)', 'Outstanding (ETB)'],
-        departments.map((d: any) => [d.name, d.code, d.totalRevenue.toLocaleString(), d.outstandingBalance.toLocaleString()])
+        'Revenue by Department Report',
+        `${academicYear} · All Departments`,
+        ['Department', 'Code', 'Students', 'Revenue (ETB)', 'Outstanding (ETB)'],
+        departments.map((d) => [d.name, d.code, d.studentCount, d.totalRevenue.toLocaleString(), d.outstandingBalance.toLocaleString()])
       );
     } else if (activeReport === 'outstanding') {
       const accounts = agedData?.accounts || [];
@@ -161,12 +170,44 @@ export function FOReportsView() {
   };
 
   const handlePrint = () => {
-    printTable(
-      `${tabLabels[activeReport]} Financial Report`,
-      `Harmony College Treasury · Academic Year 2026`,
-      ['Month', 'Invoiced Revenue (ETB)', 'Target (ETB)', 'Collected (ETB)'],
-      monthlyRevenue.map((m: any) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString()])
-    );
+    if (activeReport === 'revenue') {
+      printTable(
+        'Revenue by Period Report',
+        `Academic Year ${academicYear}`,
+        ['Month', 'Revenue (ETB)', 'Target (ETB)', 'Collections (ETB)', 'Variance'],
+        monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.target.toLocaleString(), m.collections.toLocaleString(), (m.revenue - m.target > 0 ? '+' : '') + (m.revenue - m.target).toLocaleString()])
+      );
+    } else if (activeReport === 'department') {
+      printTable(
+        'Revenue by Department',
+        `${academicYear} · All Departments`,
+        ['Department', 'Code', 'Students', 'Revenue (ETB)', 'Outstanding (ETB)'],
+        departments.map((d) => [d.name, d.code, d.studentCount, d.totalRevenue.toLocaleString(), d.outstandingBalance.toLocaleString()])
+      );
+    } else if (activeReport === 'outstanding') {
+      printTable(
+        'Outstanding Balances',
+        `${agedReceivables.length} accounts`,
+        ['Student', 'Department', 'Outstanding (ETB)', 'Risk'],
+        agedReceivables.map((s: any) => [
+          s.studentName, s.department ?? '', `ETB ${(s.balance ?? 0).toLocaleString()}`, s.riskLevel ?? 'Medium',
+        ])
+      );
+    } else if (activeReport === 'payment_methods') {
+      printTable(
+        'Payment Method Analysis',
+        'Transaction breakdown by channel',
+        ['Method', 'Transactions', 'Amount (ETB)'],
+        methodBreakdown.map((p) => [p.method, p.count, p.amount.toLocaleString()])
+      );
+    } else {
+      printTable(
+        tabLabels[activeReport],
+        'Harmony College Finance',
+        ['Month', 'Revenue (ETB)', 'Collections (ETB)'],
+        monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.collections.toLocaleString()])
+      );
+    }
   };
 
   // Chart Mappings
@@ -178,16 +219,48 @@ export function FOReportsView() {
     max: maxDeptRevenue,
     subLabel: `${d.name}`, color: '#E9C349',
   }));
-  const donutSegments     = paymentMethodBreakdown.map((p: any) => ({ label: p.method, value: p.amount, color: p.color }));
-  const totalMethodAmount = paymentMethodBreakdown.reduce((s: number, p: any) => s + p.amount, 0);
-  const groupedBarData    = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.revenue, secondary: m.target }));
-  const cashFlowBars      = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.collections, secondary: m.revenue }));
+  const outstandingMax    = departments.length > 0 ? Math.max(...departments.map((d: any) => d.outstandingBalance || 1)) : 1;
+  const outstandingBars   = departments.map((d: any) => ({
+    label: d.code, value: d.outstandingBalance,
+    max: outstandingMax,
+    subLabel: `${(((d.outstandingBalance || 0) / Math.max(d.totalRevenue, 1)) * 100).toFixed(1)}% of revenue`, color: '#f87171',
+  }));
+  const donutSegments     = methodBreakdown.map((p: any) => ({ label: p.method, value: p.amount, color: p.color }));
+  const totalAmount       = methodBreakdown.reduce((s: number, p: any) => s + p.amount, 0);
+  const groupedBarData    = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.revenue ?? 0, secondary: m.target ?? 0 }));
+  const cashFlowBars      = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.collections ?? 0, secondary: m.revenue ?? 0 }));
 
+  const totalRevenue    = monthlyRevenue.reduce((s, m) => s + m.revenue, 0);
+  const totalCollected  = monthlyRevenue.reduce((s, m) => s + m.collections, 0);
+  const totalOutstanding = departments.reduce((s, d) => s + d.outstandingBalance, 0);
+  const collectionRate  = totalRevenue > 0 ? ((totalCollected / totalRevenue) * 100).toFixed(1) : '0.0';
+
+  // ── Summary KPI strip ───────────────────────────────────────────────────────
   const summaryKpis = [
-    { label: 'Total Invoiced Revenue', value: `ETB ${fmtETB(totalRevenue)}`, trend: '+0.0%', up: true },
-    { label: 'Total Cash Collections', value: `ETB ${fmtETB(totalCollected)}`, trend: '+0.0%', up: true },
-    { label: 'Collection Rate', value: `${collectionRate}%`, trend: '+0.0pp', up: true },
-    { label: 'Total Outstanding Debt', value: `ETB ${fmtETB(totalOutstanding)}`, trend: '0.0%', up: false },
+    {
+      label: 'YTD Revenue',
+      value: `ETB ${fmtETB(totalRevenue)}`,
+      trend: revenueYoYPct !== null ? `${revenueYoYPct >= 0 ? '+' : ''}${revenueYoYPct}% YoY` : `${academicYear} Baseline`,
+      up: revenueYoYPct !== null ? revenueYoYPct >= 0 : true,
+    },
+    {
+      label: 'YTD Collections',
+      value: `ETB ${fmtETB(totalCollected)}`,
+      trend: collectionsYoYPct !== null ? `${collectionsYoYPct >= 0 ? '+' : ''}${collectionsYoYPct}% YoY` : `${academicYear} Baseline`,
+      up: collectionsYoYPct !== null ? collectionsYoYPct >= 0 : true,
+    },
+    {
+      label: 'Collection Rate',
+      value: `${collectionRate}%`,
+      trend: totalRevenue > 0 ? `${collectionRate}% realized` : 'Pending revenue',
+      up: Number(collectionRate) >= 70,
+    },
+    {
+      label: 'Total Outstanding',
+      value: `ETB ${fmtETB(totalOutstanding)}`,
+      trend: totalOutstanding > 0 ? 'Action required' : 'All accounts settled',
+      up: totalOutstanding === 0,
+    },
   ];
 
   return (
@@ -247,10 +320,10 @@ export function FOReportsView() {
         {summaryKpis.map((k) => (
           <div key={k.label} className="p-4.5 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
             <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{k.label}</p>
-            <p className="font-serif text-xl font-bold text-(--text-primary) mt-1">{k.value}</p>
-            <div className={`flex items-center gap-1 mt-1 text-xs ${k.up ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {k.up ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              <span className="font-sans font-medium">{k.trend} vs Prior Term</span>
+            <p className="font-mono text-xl font-bold text-(--text-primary) mt-1">{k.value}</p>
+            <div className={`flex items-center gap-1 mt-1 ${k.up ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>
+              {k.up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <span className="font-sans text-xs">{k.trend}</span>
             </div>
           </div>
         ))}
@@ -282,6 +355,62 @@ export function FOReportsView() {
           {[...Array(3)].map((_, i) => (
             <div key={i} className="h-48 rounded-2xl animate-pulse bg-(--hover-overlay) border border-(--border-subtle)" />
           ))}
+      {/* ── Revenue by Period ─────────────────────────────────────────────────── */}
+      {activeReport === 'revenue' && (
+        <div className="space-y-6">
+          <Card hoverable={false} className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-(--text-primary)">Monthly Revenue vs Target</h3>
+                <p className="font-sans text-xs text-(--text-faint) mt-0.5">Academic Year {academicYear}</p>
+              </div>
+              {revenueYoYPct !== null ? (
+                <Badge variant={revenueYoYPct >= 0 ? "emerald" : "rose"}>
+                  {revenueYoYPct >= 0 ? '+' : ''}{revenueYoYPct}% YoY
+                </Badge>
+              ) : (
+                <Badge variant="emerald">{academicYear} Active</Badge>
+              )}
+            </div>
+            <GroupedBarChart data={groupedBarData} height={180} primaryLabel="Revenue" secondaryLabel="Target" />
+          </Card>
+          <Card hoverable={false} className="space-y-4">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue Trend Line</h3>
+            <RevenueLineChart data={revenueLineData} secondaryData={targetLineData} height={160} label="Revenue" secondaryLabel="Target" />
+          </Card>
+          {/* Monthly table */}
+          <Card hoverable={false} className="overflow-x-auto">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Monthly Breakdown</h3>
+            <table className="w-full text-xs font-sans min-w-[500px]">
+              <thead className="border-b border-(--border-default)">
+                <tr>
+                  {['Month','Revenue','Target','Collections','Variance','Rate'].map((h) => (
+                    <th key={h} className="pb-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider pr-4">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-(--border-subtle)">
+                {monthlyRevenue.map((m) => {
+                  const variance = m.revenue - m.target;
+                  const rate = ((m.collections / m.revenue) * 100).toFixed(1);
+                  return (
+                    <tr key={m.month} className="hover:bg-white/3 transition-colors">
+                      <td className="py-3 pr-4 font-mono text-sm text-(--text-primary) font-bold">{m.month}</td>
+                      <td className="py-3 pr-4 font-mono text-sm text-(--brand-gold)">ETB {fmtETB(m.revenue)}</td>
+                      <td className="py-3 pr-4 font-mono text-sm text-(--text-muted)">ETB {fmtETB(m.target)}</td>
+                      <td className="py-3 pr-4 font-mono text-sm text-(--status-success)">ETB {fmtETB(m.collections)}</td>
+                      <td className="py-3 pr-4">
+                        <span className={`font-mono text-xs ${variance >= 0 ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>
+                          {variance >= 0 ? '+' : ''}ETB {fmtETB(Math.abs(variance))}
+                        </span>
+                      </td>
+                      <td className="py-3 font-mono text-sm text-(--text-secondary)">{rate}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
         </div>
       ) : error ? (
         <div className="p-8 rounded-2xl text-center border bg-(--hover-overlay) border-(--border-subtle)">
@@ -427,7 +556,47 @@ export function FOReportsView() {
                 </Card>
               </div>
             </div>
-          )}
+            <RevenueLineChart data={outstandingLine} color="#f87171" height={160} />
+          </Card>
+          <Card hoverable={false} className="space-y-4">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Outstanding by Department</h3>
+            <HorizontalBarChart data={outstandingBars} />
+          </Card>
+          <Card hoverable={false} className="overflow-x-auto">
+            <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Student Outstanding Summary</h3>
+            <table className="w-full text-xs font-sans min-w-[600px]">
+              <thead className="border-b border-(--border-default)">
+                <tr>
+                  {['Student','Program','Total Charged','Paid','Outstanding','Risk'].map((h) => (
+                    <th key={h} className="pb-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider pr-4">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-(--border-subtle)">
+                {agedReceivables.filter((s: any) => (s.balance ?? s.outstanding ?? 0) > 0).sort((a: any, b: any) => (b.balance ?? 0) - (a.balance ?? 0)).map((s: any) => (
+                  <tr key={s.id ?? s.studentId} className="hover:bg-white/3 transition-colors">
+                    <td className="py-3 pr-4">
+                      <p className="font-sans text-sm text-(--text-primary) font-medium">{s.studentName ?? s.name}</p>
+                      <p className="font-mono text-[10px] text-(--text-faint)">{s.studentId}</p>
+                    </td>
+                    <td className="py-3 pr-4 font-sans text-xs text-(--text-secondary) max-w-[130px]"><span className="truncate block">{s.programName ?? s.department ?? 'N/A'}</span></td>
+                    <td className="py-3 pr-4 font-mono text-sm text-(--text-secondary)">ETB {fmtETB(s.totalCharged ?? s.charged ?? 0)}</td>
+                    <td className="py-3 pr-4 font-mono text-sm text-(--status-success)">ETB {fmtETB(s.totalPaid ?? s.paid ?? 0)}</td>
+                    <td className="py-3 pr-4 font-mono text-sm font-bold text-(--status-danger)">ETB {fmtETB(s.balance ?? s.outstanding ?? 0)}</td>
+                    <td className="py-3">
+                      <span className={`font-mono text-xs font-bold ${
+                        s.riskLevel === 'Critical' ? 'text-(--status-danger)' :
+                        s.riskLevel === 'High'     ? 'text-orange-400' :
+                        s.riskLevel === 'Medium'   ? 'text-(--status-warning)' : 'text-(--status-success)'
+                      }`}>{s.riskLevel}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      )}
 
           {/* Aged Receivables Tab */}
           {activeReport === 'outstanding' && (

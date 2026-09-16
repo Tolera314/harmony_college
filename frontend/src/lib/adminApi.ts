@@ -187,7 +187,7 @@ export interface ApiStaffInvitation {
   email:           string;
   fullName:        string;
   role:            string;
-  departmentId:    string;
+  departmentId?:   string | null;
   positionTitle?:  string;
   employeeId?:     string;
   phone?:          string;
@@ -197,7 +197,7 @@ export interface ApiStaffInvitation {
   revokedAt?:      string;
   createdAt:       string;
   status:          'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
-  department?:     { id: string; name: string; code: string };
+  department?:     { id: string; name: string; code: string } | null;
   invitedByUser?:  { id: string; fullName: string; email: string };
   acceptedByUser?: { id: string; fullName: string; email: string };
 }
@@ -218,7 +218,7 @@ export const adminInvitationsApi = {
     fullName: string;
     email: string;
     role: string;
-    departmentId: string;
+    departmentId?: string | null;
     positionTitle?: string;
     employeeId?: string;
     phone?: string;
@@ -232,7 +232,7 @@ export const adminInvitationsApi = {
     fullName?: string;
     email?: string;
     role?: string;
-    departmentId?: string;
+    departmentId?: string | null;
     positionTitle?: string;
     employeeId?: string;
     phone?: string;

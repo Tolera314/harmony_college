@@ -10,6 +10,7 @@
 
 import { Router, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { ProgramType } from '@prisma/client';
 import { patchProfileSchema } from '../lib/validations';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import {
@@ -21,6 +22,7 @@ import {
   Role,
   AuditAction,
 } from '../types/auth';
+import { syncStudentEnrollments } from '../services/registrar/enrollmentSyncService';
 
 const router = Router();
 
@@ -138,7 +140,22 @@ router.get('/profile', async (req: AuthRequest, res: Response): Promise<void> =>
         }
       : null;
 
-    res.status(200).json({ profile: mergedProfile, user });
+    // Check if student is assigned to an instructor/course
+    const hasAssignedInstructor = await prisma.enrollment.findFirst({
+      where: {
+        studentRecord: { userId },
+        status: { in: ['ACTIVE', 'FORCE_ADDED'] },
+        courseOffering: { instructorId: { not: null } },
+      },
+    });
+    const isDepartmentLocked = !!hasAssignedInstructor;
+
+    res.status(200).json({
+      profile: mergedProfile,
+      user,
+      isDepartmentLocked,
+      lockReason: isDepartmentLocked ? 'You have been assigned to an instructor/course. Department is locked.' : null,
+    });
   } catch (err: unknown) {
     console.error('[student/profile GET]', err instanceof Error ? err.message : err);
     res.status(500).json({ error: 'Failed to load profile. Please try again.' });
@@ -171,17 +188,12 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
 
     // Explicitly exclude fields that must never come from the client
     delete profileData.userId;
-
-    if (profileData.program && typeof profileData.program === 'string') {
-      const matchedProg = await prisma.program.findFirst({
-        where: { name: { contains: (profileData.program as string).split('(')[0].trim(), mode: 'insensitive' } },
-        include: { department: true },
-      });
-      if (matchedProg) {
-        profileData.selectedDepartmentId = matchedProg.departmentId;
-        profileData.departmentSelected = true;
-      }
-    }
+    // Program, programType, and shortProgramDuration are set during onboarding and cannot be changed via profile
+    delete profileData.program;
+    delete profileData.programType;
+    delete profileData.shortProgramDuration;
+    delete profileData.selectedDepartmentId;
+    delete profileData.departmentSelected;
 
     // ── 2. Upsert StudentProfile ──────────────────────────────────────────────
     const savedProfile = await prisma.studentProfile.upsert({
@@ -191,44 +203,8 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
       select: PROFILE_SELECT,
     });
 
-    // Also update application record if it exists so program change reflects everywhere
-    if (profileData.program || profileData.programType || profileData.shortProgramDuration) {
-      await prisma.application.updateMany({
-        where: { userId },
-        data: {
-          ...(profileData.program ? { program: profileData.program as string } : {}),
-          ...(profileData.programType ? { programType: profileData.programType as string } : {}),
-          ...(profileData.shortProgramDuration !== undefined ? { shortProgramDuration: profileData.shortProgramDuration as string | null } : {}),
-        },
-      });
-    }
-
-    // ── Update StudentRecord.programId + departmentId when program name changes ──
-    // This ensures the Registrar always sees the student's latest chosen program.
-    if (profileData.program) {
-      const programName = profileData.program as string;
-      // Find the Program row whose name matches (case-insensitive partial match)
-      const matchedProgram = await prisma.program.findFirst({
-        where: { name: { contains: programName, mode: 'insensitive' } },
-        select: { id: true, departmentId: true, name: true },
-      });
-
-      if (matchedProgram) {
-        const existingRecord = await prisma.studentRecord.findUnique({
-          where: { userId },
-          select: { id: true },
-        });
-        if (existingRecord) {
-          await prisma.studentRecord.update({
-            where: { userId },
-            data: {
-              programId:    matchedProgram.id,
-              departmentId: matchedProgram.departmentId,
-            },
-          });
-        }
-      }
-    }
+    // Note: Program, programType, shortProgramDuration, and department are NOT updated here
+    // They are set during onboarding (/api/student/onboarding/department) and locked after approval
 
     // ── 3. Calculate completion ───────────────────────────────────────────────
     const completion   = calculateProfileCompletion(savedProfile);

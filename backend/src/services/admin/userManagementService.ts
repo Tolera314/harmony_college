@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Harmony College — Admin User Management Service
  * ─────────────────────────────────────────────────
  * All business logic for admin user CRUD, sessions, stats, notifications,
@@ -18,6 +18,8 @@ import {
 } from '../../types/auth';
 import { StudentStatus, CourseStatus, ApplicationStatus, OfferingStatus } from '@prisma/client';
 import { approveApplication, rejectApplication } from '../registrar/admissionService';
+import { syncStudentEnrollments } from '../registrar/enrollmentSyncService';
+import { generateInstallmentsForStudent } from '../finance/installmentService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SAFE SELECT — never return passwordHash or refreshTokenHash
@@ -627,52 +629,56 @@ export async function createNotification(data: {
   title:       string;
   message:     string;
   type?:       string;
+  module?:     string;
   entityType?: string;
   entityId?:   string;
+  actionTab?:  string;
 }) {
-  // Delegate to unified service — persists row AND pushes via socket
   await _createNotification({
     userId:     data.userId,
     title:      data.title,
     message:    data.message,
     type:       data.type       ?? 'INFO',
+    module:     data.module     ?? 'ADMIN',
     entityType: data.entityType,
     entityId:   data.entityId,
+    actionTab:  data.actionTab,
   });
   return { userId: data.userId, title: data.title };
 }
-
 export async function broadcastNotification(data: {
   title:       string;
   message:     string;
   type?:       string;
+  module?:     string;
   role?:       Role;
   entityType?: string;
   entityId?:   string;
+  actionTab?:  string;
 }) {
   return _broadcastNotification({
     title:      data.title,
     message:    data.message,
     type:       data.type,
+    module:     data.module ?? 'ADMIN',
     role:       data.role,
     entityType: data.entityType,
     entityId:   data.entityId,
+    actionTab:  data.actionTab,
   });
 }
 
 /**
  * Mark a single notification as read.
- * `actorUserId` is the ADMIN performing the action — for admin's own inbox.
- * Uses updateMany with compound {id, userId} to prevent IDOR: a row not
- * belonging to actorUserId silently matches 0 rows and we return 404.
+ * For ADMIN oversight view, the admin can mark any notification read
+ * (they have ADMIN-level access). Uses the notification's own userId.
  */
-export async function markNotificationRead(id: string, actorUserId: string) {
-  const result = await prisma.notification.updateMany({
-    where: { id, userId: actorUserId },
+export async function markNotificationRead(id: string, _actorUserId: string) {
+  const result = await prisma.notification.update({
+    where: { id },
     data:  { isRead: true },
   });
-  if (result.count === 0) throw new Error('Notification not found.');
-  return { id, isRead: true };
+  return { id: result.id, isRead: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -693,10 +699,10 @@ export async function createDepartment(data: {
   code:         string;
   description?: string;
 }) {
-  const nameConflict = await prisma.department.findUnique({ where: { name: data.name }, select: { id: true } });
+  const nameConflict = await prisma.department.findFirst({ where: { name: data.name }, select: { id: true } });
   if (nameConflict) throw new Error('A department with this name already exists.');
 
-  const codeConflict = await prisma.department.findUnique({ where: { code: data.code }, select: { id: true } });
+  const codeConflict = await prisma.department.findFirst({ where: { code: data.code }, select: { id: true } });
   if (codeConflict) throw new Error('A department with this code already exists.');
 
   return prisma.department.create({
@@ -992,6 +998,11 @@ export async function createStudent(
     studentId: student.studentId,
   });
 
+  await syncStudentEnrollments(student.id).catch(() => {});
+
+  // Auto-generate monthly installment schedule (fire-and-forget)
+  generateInstallmentsForStudent(student.id).catch(() => {});
+
   return student;
 }
 
@@ -1034,25 +1045,29 @@ export async function updateStudent(
       });
     }
 
-    return tx.studentRecord.update({
-      where: { id },
-      data: {
-        ...(data.programId    && { programId:    data.programId }),
-        ...(data.departmentId && { departmentId: data.departmentId }),
-        ...(data.status       && { status:       data.status }),
-        ...(data.yearLevel    !== undefined && { yearLevel: data.yearLevel }),
-        ...(data.gpa          !== undefined && { gpa:       data.gpa }),
-      },
-      include: {
-        user: { select: SAFE_USER_SELECT },
-        program: { select: { id: true, name: true, code: true } },
-        department: { select: { id: true, name: true, code: true } },
-      },
+      return tx.studentRecord.update({
+        where: { id },
+        data: {
+          ...(data.programId    && { programId:    data.programId }),
+          ...(data.departmentId && { departmentId: data.departmentId }),
+          ...(data.status       && { status:       data.status }),
+          ...(data.yearLevel    !== undefined && { yearLevel: data.yearLevel }),
+          ...(data.gpa          !== undefined && { gpa:       data.gpa }),
+        },
+        include: {
+          user: { select: SAFE_USER_SELECT },
+          program: { select: { id: true, name: true, code: true } },
+          department: { select: { id: true, name: true, code: true } },
+        },
+      });
     });
-  });
 
-  return updated;
-}
+    if (data.departmentId || data.programId) {
+      await syncStudentEnrollments(id).catch(() => {});
+    }
+
+    return updated;
+  }
 
 export async function deleteStudent(id: string, callerId: string, ipAddress: string | null = null) {
   const record = await prisma.studentRecord.findUnique({ where: { id }, select: { userId: true } });
@@ -1373,7 +1388,7 @@ export async function createCourse(data: {
   status?:          CourseStatus;
   prerequisiteIds?: string[];
 }) {
-  const exists = await prisma.course.findUnique({ where: { code: data.code.trim().toUpperCase() } });
+  const exists = await prisma.course.findFirst({ where: { code: data.code.trim().toUpperCase() } });
   if (exists) throw new Error('Course code already exists');
 
   const dept = await prisma.department.findUnique({ where: { id: data.departmentId } });
@@ -2181,4 +2196,3 @@ export async function listOfferings(q: OfferingListQuery) {
     })),
   };
 }
-

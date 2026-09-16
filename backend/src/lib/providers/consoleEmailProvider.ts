@@ -67,4 +67,27 @@ export class ConsoleEmailProvider implements EmailProvider {
     console.log(`────────────────────────────────────────────────\n`);
     return { success: true };
   }
+
+  async sendAccountActivationEmail(
+    to: string,
+    params: {
+      fullName:       string;
+      role:           string;
+      position:       string;
+      departmentName: string;
+      activationLink: string;
+      expiresInHours: number;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    console.log(`\n🎓 [ACCOUNT ACTIVATION EMAIL — HARMONY COLLEGE] ───`);
+    console.log(`   To:             ${to}`);
+    console.log(`   Employee Name:  ${params.fullName}`);
+    console.log(`   Position:       ${params.position}`);
+    console.log(`   System Role:    ${params.role}`);
+    console.log(`   Department:     ${params.departmentName}`);
+    console.log(`   Activation Link:${params.activationLink}`);
+    console.log(`   Expires:        ${params.expiresInHours} hours`);
+    console.log(`────────────────────────────────────────────────\n`);
+    return { success: true };
+  }
 }

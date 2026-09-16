@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { MessageCircle } from 'lucide-react';
 import { useSocket } from '../../context/SocketContext';
+import { messagingApi } from '../../lib/messagingApi';
 
 interface ChatSidebarButtonProps {
   isActive?: boolean;
@@ -18,19 +19,47 @@ export function ChatSidebarButton({
   variant = 'expanded',
   accent = '#E9C349',
 }: ChatSidebarButtonProps) {
-  const { onNewMessage } = useSocket();
+  const { onNewMessage, onRead, onMessageStatus, connected } = useSocket();
   const [unread, setUnread] = useState(0);
 
-  useEffect(() => {
-    if (isActive) setUnread(0);
-  }, [isActive]);
+  const fetchUnread = useCallback(() => {
+    messagingApi.getUnreadCount()
+      .then(res => {
+        setUnread(res.total ?? 0);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
-    const off = onNewMessage(() => {
-      if (!isActive) setUnread((n) => n + 1);
+    fetchUnread();
+  }, [fetchUnread, connected]);
+
+  useEffect(() => {
+    if (isActive) {
+      setUnread(0);
+    } else {
+      fetchUnread();
+    }
+  }, [isActive, fetchUnread]);
+
+  useEffect(() => {
+    const offMsg = onNewMessage(() => {
+      if (!isActive) {
+        setUnread(n => n + 1);
+      }
     });
-    return off;
-  }, [onNewMessage, isActive]);
+    const offRead = onRead(() => {
+      fetchUnread();
+    });
+    const offStatus = onMessageStatus(() => {
+      fetchUnread();
+    });
+    return () => {
+      offMsg();
+      offRead();
+      offStatus();
+    };
+  }, [onNewMessage, onRead, onMessageStatus, isActive, fetchUnread]);
 
   return (
     <motion.button

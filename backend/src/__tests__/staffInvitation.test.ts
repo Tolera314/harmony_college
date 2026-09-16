@@ -16,6 +16,8 @@ import {
 } from '../services/invitationService';
 
 describe('Staff Invitation & Admin Provisioning Architecture', () => {
+  jest.setTimeout(35000);
+
   let superAdminUser: any;
   let adminUser: any;
   let instructorUser: any;

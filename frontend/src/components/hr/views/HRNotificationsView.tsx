@@ -106,11 +106,6 @@ export const HRNotificationsView: React.FC<HRNotificationsViewProps> = ({ setAct
                   <span className={`block w-2.5 h-2.5 rounded-full ${!notif.isRead ? cfg.dot : 'bg-(--border-default)'}`} />
                 </div>
 
-                {/* Employee avatar */}
-                {notif.employee && (
-                  <img src={notif.employee.avatarUrl ?? '/tigist.png'} alt="" className="w-9 h-9 rounded-full border border-(--border-default) shrink-0 object-cover" />
-                )}
-
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">

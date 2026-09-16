@@ -51,7 +51,7 @@ const healthColor: Record<string, string> = {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminBackupView: React.FC = () => {
+export const AdminBackupView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [stats, setStats]               = useState<AdminBackupStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Student Assignment Service
  * Handles: listing assignments across all enrolled courses,
  * viewing a single assignment, submitting (file or text), retrieving feedback.
@@ -28,10 +28,12 @@ export async function listAssignments(
   const offeringIds = enrollments.map(e => e.courseOfferingId);
   if (offeringIds.length === 0) return [];
 
+  if (filters.courseOfferingId && !offeringIds.includes(filters.courseOfferingId)) {
+    return [];
+  }
+
   const where: any = {
-    courseOfferingId: filters.courseOfferingId
-      ? filters.courseOfferingId
-      : { in: offeringIds },
+    courseOfferingId: filters.courseOfferingId ? filters.courseOfferingId : { in: offeringIds },
     status: 'PUBLISHED',
   };
 

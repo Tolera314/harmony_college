@@ -10,6 +10,7 @@ import { Card } from '../../ui/Card';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { FOAuditEntry } from '../../../types/finance';
 import { getAuditLogs } from '../../../lib/foApi';
+import { exportToExcel } from '../../../lib/exportUtils';
 
 const statusConfig: Record<FOAuditEntry['status'], { icon: React.ReactNode; badge: 'emerald' | 'amber' | 'rose' }> = {
   Success: { icon: <CheckCircle2 className="w-3.5 h-3.5 text-(--status-success)" />, badge: 'emerald' },
@@ -97,8 +98,10 @@ function AuditDetailModal({
 }
 
 // ── Main View Component ────────────────────────────────────────────────────────
-export const FOAuditLogView: React.FC = () => {
-  const [search, setSearch]             = useState('');
+export const FOAuditLogView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
+  const [auditLog,     setAuditLog]     = useState<FOAuditEntry[]>([]);
+  const [total,        setTotal]        = useState(0);
+  const [search,       setSearch]       = useState('');
   const [moduleFilter, setModuleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<FOAuditEntry['status'] | 'All'>('All');
   const [page, setPage]                 = useState(1);
@@ -119,6 +122,33 @@ export const FOAuditLogView: React.FC = () => {
     'Payments & Collections',
     'Payment Gateways',
   ];
+  const handleExportCSV = () => {
+    exportToExcel(
+      auditLog.map((log) => ({
+        'Timestamp': `${log.date} ${log.time}`,
+        'Officer': log.officerName,
+        'Action': log.action,
+        'Module': log.module,
+        'Status': log.status,
+        'Amount (ETB)': log.amount ?? '',
+        'Student': log.studentName ?? log.studentId ?? '',
+        'Previous Value': log.previousValue ?? '',
+        'New Value': log.newValue ?? '',
+      })),
+      'finance-officer-audit-log'
+    );
+  };
+
+  const loadLogs = useCallback(() => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      try {
+        const data: any = await getAuditLogs({ search: search || undefined, status: statusFilter !== 'All' ? statusFilter : undefined, page, limit: PAGE_SIZE });
+        if (data && Array.isArray(data.logs)) { setAuditLog(data.logs); setTotal(data.total ?? data.logs.length); }
+        else if (data && Array.isArray(data))  { setAuditLog(data); setTotal(data.length); }
+      } catch { /* keep default */ }
+    }, 280);
+  }, [search, statusFilter, page]);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -236,7 +266,8 @@ export const FOAuditLogView: React.FC = () => {
         subtitle="Complete chronological audit trail of finance officer activities and transactions"
         icon={<ClipboardList className="w-5 h-5" />}
         actions={
-          <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportCSV}>
+          <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />}
+            onClick={handleExportCSV}>
             Export CSV
           </Button>
         }

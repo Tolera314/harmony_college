@@ -23,7 +23,7 @@ import { AdminNotificationsView } from '@/src/components/admin/views/AdminNotifi
 import { AdminAuditLogsView }  from '@/src/components/admin/views/AdminAuditLogsView';
 import { AdminSettingsView }   from '@/src/components/admin/views/AdminSettingsView';
 import { AdminSystemConfigView } from '@/src/components/admin/views/AdminSystemConfigView';
-import { ChatView } from '@/src/components/chat/ChatView';
+import { MessagingView } from '@/src/components/messaging/MessagingView';
 import {
   AdminRegistrarView, AdminAttendanceView, AdminFinanceView,
   AdminHRView, AdminDocumentsView, AdminReportsView,
@@ -40,9 +40,18 @@ export default function AdminDashboardPage() {
   const [logoutOpen,      setLogoutOpen]    = useState(false);
   const [tabLoading,      setTabLoading]    = useState(false);
   const [mobileMenuOpen,  setMobileMenuOpen] = useState(false);
+  const [programType,     setProgramType]   = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
   const [impersonating,   setImpersonating] = useState<{
     targetName: string; targetRole: UserRole; startTime: string;
   } | null>(null);
+
+  // Load programType from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('admin_program_type');
+    if (saved === 'TVET' || saved === 'SHORT_PROGRAM') {
+      setProgramType(saved);
+    }
+  }, []);
 
   // Real profile — blank defaults while loading, populated from API
   // UiAdminProfile is the shape AdminSidebar/AdminHeader expect
@@ -111,31 +120,31 @@ export default function AdminDashboardPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':      return <AdminOverviewView setActiveTab={setActiveTab} />;
-      case 'users':         return <AdminUsersView callerRole={callerRole} />;
-      case 'students':      return <AdminStudentsView />;
-      case 'faculty':       return <AdminFacultyView />;
-      case 'departments':   return <AdminDepartmentsView />;
-      case 'programs':      return <AdminProgramsView />;
-      case 'admissions':    return <AdminAdmissionsView />;
-      case 'registrar':     return <AdminRegistrarView />;
-      case 'attendance':    return <AdminAttendanceView />;
-      case 'finance':       return <AdminFinanceView />;
-      case 'hr':            return <AdminHRView />;
-      case 'payments':      return <AdminPaymentsView />;
-      case 'documents':     return <AdminDocumentsView />;
-      case 'reports':       return <AdminReportsView />;
-      case 'audit_logs':    return <AdminAuditLogsView />;
-      case 'security':      return <AdminSecurityView />;
-      case 'backup':        return <AdminBackupView />;
-      case 'system_config': return <AdminSystemConfigView />;
+      case 'overview':      return <AdminOverviewView setActiveTab={setActiveTab} programType={programType} />;
+      case 'users':         return <AdminUsersView callerRole={callerRole} programType={programType} />;
+      case 'students':      return <AdminStudentsView programType={programType} />;
+      case 'faculty':       return <AdminFacultyView programType={programType} />;
+      case 'departments':   return <AdminDepartmentsView programType={programType} />;
+      case 'programs':      return <AdminProgramsView programType={programType} />;
+      case 'admissions':    return <AdminAdmissionsView programType={programType} />;
+      case 'registrar':     return <AdminRegistrarView programType={programType} />;
+      case 'attendance':    return <AdminAttendanceView programType={programType} />;
+      case 'finance':       return <AdminFinanceView programType={programType} />;
+      case 'hr':            return <AdminHRView programType={programType} />;
+      case 'payments':      return <AdminPaymentsView programType={programType} />;
+      case 'documents':     return <AdminDocumentsView programType={programType} />;
+      case 'reports':       return <AdminReportsView programType={programType} />;
+      case 'audit_logs':    return <AdminAuditLogsView programType={programType} />;
+      case 'security':      return <AdminSecurityView programType={programType} />;
+      case 'backup':        return <AdminBackupView programType={programType} />;
+      case 'system_config': return <AdminSystemConfigView programType={programType} />;
       case 'notifications': return (
         <AdminNotificationsView
           setActiveTab={setActiveTab}
         />
       );
       case 'settings':      return <AdminSettingsView />;
-      case 'messages':      return <ChatView />;
+      case 'messages':      return <MessagingView />;
       default:              return null;
     }
   };
@@ -168,6 +177,40 @@ export default function AdminDashboardPage() {
               onExit={() => setImpersonating(null)}
             />
           )}
+
+          {/* Program Type Toggle */}
+          <div className="px-4 sm:px-5 lg:px-7 pt-6 pb-2">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/10 backdrop-blur-sm max-w-fit">
+              <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-semibold">Program:</span>
+              <button
+                onClick={() => {
+                  setProgramType('TVET');
+                  localStorage.setItem('admin_program_type', 'TVET');
+                }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  programType === 'TVET'
+                    ? 'bg-[#E9C349] text-black shadow-md'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                🎓 TVET
+              </button>
+              <button
+                onClick={() => {
+                  setProgramType('SHORT_PROGRAM');
+                  localStorage.setItem('admin_program_type', 'SHORT_PROGRAM');
+                }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  programType === 'SHORT_PROGRAM'
+                    ? 'bg-[#E9C349] text-black shadow-md'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                🎓 Short Program
+              </button>
+            </div>
+          </div>
+
           <main id="main-content" className={`flex-1 px-4 sm:px-5 lg:px-7 pt-7 pb-24 md:pb-7 ${impersonating ? 'mt-10' : ''}`}>
             <AnimatePresence mode="wait">
               <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>

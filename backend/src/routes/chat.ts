@@ -1,7 +1,17 @@
+/**
+ * /api/chat — Legacy chat endpoints
+ * Updated to use the new Conversation.type field while keeping the
+ * isGroup response field for backward compatibility with the existing ChatView.
+ *
+ * NOTE: New features (group types, official messages, attachments) use
+ * /api/messages instead. This router handles the basic 1-on-1 and simple
+ * group flows consumed by ChatView.tsx.
+ */
+
 import { Router, Response } from 'express';
-import { prisma } from '../lib/prisma';
+import { prisma }            from '../lib/prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { Role } from '../types/auth';
+import { Role }              from '../types/auth';
 
 const router = Router();
 
@@ -9,46 +19,34 @@ const router = Router();
 router.use(requireAuth);
 
 // ── Permission helpers ────────────────────────────────────────────────────────
-// Updated to use the new Role enum values (REGISTRAR_OFFICER → REGISTRAR, LECTURER → INSTRUCTOR).
 const ADMIN_ROLES: string[] = [Role.SUPER_ADMIN, Role.ADMIN, Role.REGISTRAR];
 const PRIVILEGED_ROLES: string[] = [
   Role.SUPER_ADMIN, Role.ADMIN, Role.REGISTRAR,
   Role.FINANCE_OFFICER, Role.HR_OFFICER, Role.DEPARTMENT_HEAD,
 ];
 
-/** Returns true if the requester is allowed to open a DM with the target */
 async function canMessage(
-  requesterId: string,
+  _requesterId: string,
   requesterRole: string,
-  targetId: string,
+  _targetId: string,
   targetRole: string
 ): Promise<boolean> {
-  // Admin / Registrar can message anyone
   if (ADMIN_ROLES.includes(requesterRole)) return true;
-
-  // Any staff can message Admin / Registrar
-  if (ADMIN_ROLES.includes(targetRole)) return true;
-
-  // Instructor ↔ their enrolled students
+  if (ADMIN_ROLES.includes(targetRole))    return true;
   if (requesterRole === Role.INSTRUCTOR && targetRole === Role.STUDENT) return true;
   if (requesterRole === Role.STUDENT    && targetRole === Role.INSTRUCTOR) return true;
-
-  // Privileged staff can message each other
   if (PRIVILEGED_ROLES.includes(requesterRole) && PRIVILEGED_ROLES.includes(targetRole)) return true;
-
-  // Student → Student: blocked in v1
   return false;
 }
 
 // ── GET /api/chat/users ───────────────────────────────────────────────────────
-// Returns the list of users the current user is allowed to message
 router.get('/users', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { userId, role } = req.user!;
 
     const users = await prisma.user.findMany({
-      where: { id: { not: userId } },
-      select: { id: true, fullName: true, role: true },  // Phase 7 M4: fullName instead of email
+      where:  { id: { not: userId } },
+      select: { id: true, fullName: true, role: true, email: true },
     });
 
     const allowed = users.filter((u) => {
@@ -73,36 +71,45 @@ router.get('/conversations', async (req: AuthRequest, res: Response): Promise<vo
     const { userId } = req.user!;
 
     const rows = await prisma.conversationParticipant.findMany({
-      where: { userId },
+      where: { userId, leftAt: null },
       include: {
         conversation: {
           include: {
             participants: {
+              where: { leftAt: null },
               include: { user: { select: { id: true, email: true, role: true } } },
             },
             messages: {
+              where:   { isDeleted: false },
               orderBy: { createdAt: 'desc' },
-              take: 1,
+              take:    1,
               include: { sender: { select: { email: true } } },
             },
           },
         },
       },
-      orderBy: { conversation: { createdAt: 'desc' } },
+      orderBy: { conversation: { lastMessageAt: 'desc' } },
     });
 
     const convos = rows.map((row) => {
-      const conv = row.conversation;
+      const conv    = row.conversation;
       const lastMsg = conv.messages[0] ?? null;
-      // Unread = messages after lastReadAt
       return {
-        id: conv.id,
-        isGroup: conv.isGroup,
-        name: conv.name,
-        createdAt: conv.createdAt,
-        participants: conv.participants.map((p) => ({ ...p.user, lastReadAt: p.lastReadAt })),
+        id:           conv.id,
+        isGroup:      conv.type !== 'DIRECT',   // backward compat for ChatView
+        type:         conv.type,
+        name:         conv.name,
+        createdAt:    conv.createdAt,
+        participants: conv.participants.map((p) => ({
+          ...p.user,
+          lastReadAt: p.lastReadAt,
+        })),
         lastMessage: lastMsg
-          ? { content: lastMsg.content, senderEmail: lastMsg.sender.email, createdAt: lastMsg.createdAt }
+          ? {
+              content:     lastMsg.isDeleted ? '[Message deleted]' : lastMsg.content,
+              senderEmail: lastMsg.sender.email,
+              createdAt:   lastMsg.createdAt,
+            }
           : null,
         lastReadAt: row.lastReadAt,
       };
@@ -116,24 +123,24 @@ router.get('/conversations', async (req: AuthRequest, res: Response): Promise<vo
 });
 
 // ── GET /api/chat/conversations/:id/messages ──────────────────────────────────
-// Paginated: ?cursor=<messageId> — loads 30 messages before cursor
 router.get('/conversations/:id/messages', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { userId } = req.user!;
-    const conversationId = req.params['id'] as string;
-    const cursor = req.query.cursor as string | undefined;
-    const PAGE = 30;
+    const { userId }       = req.user!;
+    const conversationId   = String(req.params['id']);
+    const cursor           = req.query.cursor as string | undefined;
+    const PAGE             = 30;
 
-    // Check participant
     const participant = await prisma.conversationParticipant.findUnique({
       where: { conversationId_userId: { conversationId, userId } },
     });
-    if (!participant) { res.status(403).json({ error: 'Not a participant.' }); return; }
+    if (!participant || participant.leftAt) {
+      res.status(403).json({ error: 'Not a participant.' }); return;
+    }
 
     const messages = await prisma.message.findMany({
-      where: { conversationId },
+      where:   { conversationId, isDeleted: false },
       orderBy: { createdAt: 'desc' },
-      take: PAGE,
+      take:    PAGE,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: { sender: { select: { id: true, email: true, role: true } } },
     });
@@ -141,7 +148,7 @@ router.get('/conversations/:id/messages', async (req: AuthRequest, res: Response
     // Mark as read
     await prisma.conversationParticipant.update({
       where: { conversationId_userId: { conversationId, userId } },
-      data: { lastReadAt: new Date() },
+      data:  { lastReadAt: new Date() },
     });
 
     res.json(messages.reverse()); // oldest → newest
@@ -152,62 +159,65 @@ router.get('/conversations/:id/messages', async (req: AuthRequest, res: Response
 });
 
 // ── POST /api/chat/conversations ──────────────────────────────────────────────
-// Create a new 1-on-1 or group conversation
 router.post('/conversations', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { userId, role } = req.user!;
     const { targetUserIds, isGroup, name } = req.body as {
       targetUserIds: string[];
-      isGroup?: boolean;
-      name?: string;
+      isGroup?:      boolean;
+      name?:         string;
     };
 
     if (!Array.isArray(targetUserIds) || targetUserIds.length === 0) {
-      res.status(400).json({ error: 'targetUserIds is required.' });
-      return;
+      res.status(400).json({ error: 'targetUserIds is required.' }); return;
     }
 
-    // Permission check for each target
     const targets = await prisma.user.findMany({
-      where: { id: { in: targetUserIds } },
+      where:  { id: { in: targetUserIds } },
       select: { id: true, role: true },
     });
 
     for (const target of targets) {
-      const ok = await canMessage(userId, role, target.id, target.role);
-      if (!ok) {
-        res.status(403).json({ error: `You are not allowed to message user ${target.id}.` });
-        return;
+      const allowed = await canMessage(userId, role, target.id, target.role);
+      if (!allowed) {
+        res.status(403).json({ error: `You are not allowed to message user ${target.id}.` }); return;
       }
     }
+
+    const convType = isGroup ? 'GROUP' : 'DIRECT';
 
     // For 1-on-1: reuse existing conversation if it exists
     if (!isGroup && targetUserIds.length === 1) {
       const existing = await prisma.conversation.findFirst({
         where: {
-          isGroup: false,
-          participants: { every: { userId: { in: [userId, targetUserIds[0]] } } },
+          type: 'DIRECT',
           AND: [
             { participants: { some: { userId } } },
-            { participants: { some: { userId: targetUserIds[0] } } },
+            { participants: { some: { userId: targetUserIds[0]! } } },
           ],
         },
         include: {
           participants: { include: { user: { select: { id: true, email: true, role: true } } } },
-          messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+          messages:     { orderBy: { createdAt: 'desc' }, take: 1 },
         },
       });
       if (existing) { res.status(200).json(existing); return; }
     }
 
     const allParticipantIds = [...new Set([userId, ...targetUserIds])];
+    const now = new Date();
 
     const conversation = await prisma.conversation.create({
       data: {
-        isGroup: !!isGroup,
-        name: isGroup ? (name ?? 'Group Chat') : null,
+        type:        convType,
+        name:        isGroup ? (name ?? 'Group Chat') : null,
+        createdById: userId,
         participants: {
-          create: allParticipantIds.map((uid) => ({ userId: uid })),
+          create: allParticipantIds.map((uid) => ({
+            userId:          uid,
+            participantRole: uid === userId ? 'ADMIN' : 'MEMBER',
+            joinedAt:        now,
+          })),
         },
       },
       include: {

@@ -51,6 +51,7 @@ const defaultStudentTabLabels: Record<NavTab, string> = {
   quizzes:      'Quizzes & Exams',
   attendance:   'My Attendance',
   grades:       'Grades & Transcript',
+  gpa_simulator: 'GPA Simulator',
   financials:   'Financials & Tuition',
   degree_audit: 'Degree Audit',
   settings:     'Settings & Preferences',

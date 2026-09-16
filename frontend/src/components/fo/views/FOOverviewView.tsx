@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
   DollarSign, AlertTriangle, Receipt, TrendingUp, TrendingDown,
-  Clock, RefreshCw, BarChart3, CreditCard, Users,
+  Clock, RefreshCw, BarChart3, CreditCard, Users, Loader2, Landmark,
 } from 'lucide-react';
 import { KPICard } from '../KPICard';
 import { RevenueLineChart, GroupedBarChart, DonutChart, HorizontalBarChart, VerticalBarChart, fmtETB } from '../FOCharts';
@@ -18,10 +18,16 @@ import {
   outstandingTrend as defaultOutstandingTrend, departments as defaultDepartments, financeStudents,
   foNotifications, transactions as defaultTxns, foProfile,
 } from '../../../data/financeData';
-import { getOverviewData } from '../../../lib/foApi';
+
+  getOverviewData,
+  getNotifications,
+  getSettings,
+  getPaymentSubmissionAnalytics,
+} from '../../../lib/foApi';
 
 interface FOOverviewViewProps {
   setActiveTab: (tab: FONavTab) => void;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   profile?: typeof foProfile;
 }
 
@@ -41,14 +47,82 @@ const payStatusBadge: Record<string, 'emerald' | 'amber' | 'rose' | 'glass'> = {
   Deferred: 'glass',
 };
 
-export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, profile: propProfile }) => {
-  const currentProfile = propProfile || foProfile;
-  const [kpis, setKpis] = useState(defaultKpis);
-  const [recentTxns, setRecentTxns] = useState(defaultTxns.slice(0, 8));
-  const [monthlyRev, setMonthlyRev] = useState(defaultRevenue);
-  const [methodBreakdown, setMethodBreakdown] = useState(defaultPaymentMethods);
-  const [deptList, setDeptList] = useState(defaultDepartments);
+// ── Percentage label ──────────────────────────────────────────────────────────
+function PctLabel({ pct }: { pct: number | null }) {
+  if (pct === null) return <span className="font-sans text-xs text-(--text-faint)">No data yesterday</span>;
+  if (pct === 0)    return <span className="font-sans text-xs text-(--text-faint)">Same as yesterday</span>;
+  const up = pct > 0;
+  return (
+    <span className={`font-sans text-xs flex items-center gap-1 ${up ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>
+      {up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+      {up ? '+' : ''}{pct}% vs yesterday
+    </span>
+  );
+}
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, programType }) => {
+  const [kpis,            setKpis]            = useState(ZERO_KPIS);
+  const [recentTxns,      setRecentTxns]      = useState<any[]>([]);
+  const [monthlyRev,      setMonthlyRev]      = useState<any[]>([]);
+  const [methodBreakdown, setMethodBreakdown] = useState<any[]>([]);
+  const [deptList,        setDeptList]        = useState<any[]>([]);
+  const [dailyColls,      setDailyColls]      = useState<any[]>([]);
+  const [outstandingTrend,setOutstandingTrend]= useState<any[]>([]);
+  const [highRisk,        setHighRisk]        = useState<any[]>([]);
+  const [notifications,   setNotifications]   = useState<any[]>([]);
+  const [academicYear,    setAcademicYear]    = useState('');
+  const [foName,          setFoName]          = useState('');
+  const [pendingSubCount, setPendingSubCount] = useState(0);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [overviewData, notifsData, settingsData, submissionData] = await Promise.allSettled([
+        getOverviewData(programType),
+        getNotifications(),
+        getSettings(),
+        getPaymentSubmissionAnalytics(),
+      ]);
+
+      if (overviewData.status === 'fulfilled' && overviewData.value) {
+        const d = overviewData.value;
+        if (d.kpis)               setKpis((prev) => ({ ...prev, ...d.kpis }));
+        if (Array.isArray(d.recentTransactions))  setRecentTxns(d.recentTransactions);
+        if (Array.isArray(d.monthlyRevenue))       setMonthlyRev(d.monthlyRevenue);
+        if (Array.isArray(d.paymentMethodBreakdown)) setMethodBreakdown(d.paymentMethodBreakdown);
+        if (Array.isArray(d.departmentBreakdown))  setDeptList(d.departmentBreakdown);
+        if (Array.isArray(d.dailyCollections))     setDailyColls(d.dailyCollections);
+        if (Array.isArray(d.outstandingTrend))     setOutstandingTrend(d.outstandingTrend);
+        if (Array.isArray(d.highRiskAccounts))     setHighRisk(d.highRiskAccounts);
+        if (d.academicYearLabel)  setAcademicYear(d.academicYearLabel);
+      } else if (overviewData.status === 'rejected') {
+        setError('Could not load dashboard data. Please refresh.');
+      }
+
+      if (submissionData.status === 'fulfilled' && submissionData.value) {
+        setPendingSubCount(submissionData.value.pendingCount ?? 0);
+      }
+
+      if (notifsData.status === 'fulfilled' && Array.isArray(notifsData.value)) {
+        setNotifications(notifsData.value);
+      }
+
+      if (settingsData.status === 'fulfilled' && settingsData.value) {
+        const s = settingsData.value as any;
+        const name = s?.name ?? s?.fullName ?? s?.officerName ?? '';
+        if (name) setFoName(name);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData, programType]);
   useEffect(() => {
     getOverviewData()
       .then((data) => {
@@ -63,10 +137,6 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
       .catch(() => {
         // Keep default preset state on offline or error
       });
-  }, []);
-
-  const overdue = financeStudents.filter((s) => s.riskLevel === 'Critical' || s.riskLevel === 'High');
-  const unreadNotifs = foNotifications.filter((n) => !n.read);
 
   const lineData = monthlyRev.map((m) => ({ label: m.month, value: m.revenue }));
   const targetData = monthlyRev.map((m) => ({ label: m.month, value: m.target }));
@@ -116,6 +186,25 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
               {overdue.length > 0 && (
                 <Button variant="primary" size="sm" onClick={() => setActiveTab('outstanding')} icon={<AlertTriangle className="w-4 h-4" />}>
                   {overdue.length} High-Risk Accounts
+              <Button
+                variant={pendingSubCount > 0 ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('payment_submissions')}
+                icon={<CreditCard className="w-4 h-4" />}
+              >
+                {pendingSubCount > 0 ? `${pendingSubCount} Payment Submission${pendingSubCount !== 1 ? 's' : ''} to Review` : 'Payment Submissions'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('tuition_setup')}
+                icon={<Landmark className="w-4 h-4" />}
+              >
+                Tuition Setup
+              </Button>
+              {highRisk.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('outstanding')} icon={<AlertTriangle className="w-4 h-4 text-rose-500" />}>
+                  {highRisk.length} High-Risk Account{highRisk.length !== 1 ? 's' : ''}
                 </Button>
               )}
               {kpis.pendingReconciliation > 0 && (
@@ -124,7 +213,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
                 </Button>
               )}
               <Button variant="secondary" size="sm" onClick={() => setActiveTab('reports')} icon={<BarChart3 className="w-4 h-4" />}>
-                View Reports
+                Reports
               </Button>
             </div>
           </div>

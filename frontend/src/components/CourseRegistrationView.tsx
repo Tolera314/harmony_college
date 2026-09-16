@@ -5,6 +5,7 @@ import { StudentProfile } from '../types';
 import {
   Search, Filter, CheckCircle2, Plus, Trash2,
   Clock, Building, Info, RefreshCw, AlertCircle,
+  Lock, Building2, ChevronRight, Sparkles,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
@@ -86,35 +87,83 @@ export const CourseRegistrationView: React.FC<Props> = ({ profile }) => {
   const [dropping, setDropping]           = useState<string | null>(null);
   const [semesterName, setSemesterName]   = useState('');
 
+  // ── Department Academic Registration & Locking State ──
+  const [currentDept, setCurrentDept]             = useState<{ id: string; name: string; code: string } | null>(null);
+  const [realDepartments, setRealDepartments]     = useState<{ id: string; name: string; code: string }[]>([]);
+  const [isDeptLocked, setIsDeptLocked]           = useState(false);
+  const [changeDeptModalOpen, setChangeDeptModalOpen] = useState(false);
+  const [targetDeptId, setTargetDeptId]           = useState('');
+  const [savingDept, setSavingDept]               = useState(false);
+
   const showToast = (msg: string, ok = true) => {
     setNotification({ msg, ok });
     setTimeout(() => setNotification(null), 3500);
   };
 
-  // Load current-semester offerings from registrar API (no auth needed for viewing)
+  // Load current-semester offerings from registrar API
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      // Fetch with a large limit to get all current offerings
-      const res = await apiFetch<any>('/api/registrar/offerings?limit=200&currentSemester=true');
+      const progType = (profile?.programType === 'Short Program' || profile?.programType === 'SHORT_PROGRAM') ? 'SHORT_PROGRAM' : 'TVET';
+
+      // 1. Fetch offerings scoped to student's programType
+      const res = await apiFetch<any>(`/api/registrar/offerings?limit=200&currentSemester=true&programType=${progType}`);
       const items: OfferingDisplay[] = (res.offerings ?? []).map(mapOffering);
       setOfferings(items);
 
-      // Mark which ones the student is already enrolled in
-      // by checking /api/student/courses
+      // 2. Fetch enrolled
       try {
         const myCoursesRes = await apiFetch<any>('/api/student/courses');
         const myIds = new Set<string>(
           (myCoursesRes.courses ?? myCoursesRes ?? []).map((c: any) => c.offeringId ?? c.id),
         );
         setEnrolled(myIds);
-      } catch { /* can't fetch enrolled — treat all as not enrolled */ }
+      } catch { /* ignore */ }
+
+      // 3. Fetch student department registration & locking status
+      try {
+        const [prereqsRes, deptsRes] = await Promise.all([
+          apiFetch<any>('/api/student/onboarding/prereqs'),
+          apiFetch<any[]>(`/api/student/onboarding/departments?programType=${progType}`),
+        ]);
+        setRealDepartments(deptsRes);
+        setIsDeptLocked(prereqsRes.isDepartmentLocked ?? false);
+
+        if (prereqsRes.selectedDepartmentId) {
+          const matched = deptsRes.find((d: any) => d.id === prereqsRes.selectedDepartmentId);
+          if (matched) setCurrentDept(matched);
+        }
+      } catch { /* non-fatal */ }
 
       if (items.length > 0) setSemesterName(items[0].semesterName);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load course offerings');
     } finally { setLoading(false); }
-  }, []);
+  }, [profile?.programType]);
+
+  const handleDepartmentChange = async (newDeptId: string) => {
+    if (!newDeptId) return;
+    setSavingDept(true);
+    try {
+      const progType = (profile?.programType === 'Short Program' || profile?.programType === 'SHORT_PROGRAM') ? 'SHORT_PROGRAM' : 'TVET';
+      const res = await apiFetch<any>('/api/student/onboarding/department', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          departmentId: newDeptId,
+          programType: progType,
+          shortProgramDuration: profile?.shortProgramDuration ?? undefined,
+        }),
+      });
+      showToast(`Department successfully changed to ${res.department.name}`);
+      setCurrentDept(res.department);
+      setChangeDeptModalOpen(false);
+      await load();
+    } catch (err: any) {
+      showToast(err.message ?? 'Failed to change department', false);
+    } finally {
+      setSavingDept(false);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -228,6 +277,51 @@ export const CourseRegistrationView: React.FC<Props> = ({ profile }) => {
             </div>
             <div className="h-8 w-px" style={{ backgroundColor: 'var(--border-strong)' }} />
             <Button variant="secondary" size="sm" icon={<RefreshCw className="w-3.5 h-3.5" />} onClick={load}>&nbsp;</Button>
+          </div>
+        </div>
+
+        {/* ── Official Department Academic Registration Card ── */}
+        <div className="p-4 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-[#E9C349]/15 border border-[#E9C349]/30 flex items-center justify-center text-[#E9C349] font-mono font-bold text-xs shrink-0">
+                {currentDept?.code ?? 'HC'}
+              </div>
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#E9C349] font-bold block">
+                  Registered Academic Department
+                </span>
+                <h3 className="font-serif text-base font-bold text-white mt-0.5">
+                  {currentDept?.name ?? 'Department Pending'}
+                </h3>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  {isDeptLocked
+                    ? 'Your department is locked because you have already been assigned to an instructor/course.'
+                    : 'Department changes are permitted before instructor assignment.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              {isDeptLocked ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold">
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
+                  <span>Department Locked</span>
+                </div>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Building2 className="w-3.5 h-3.5" />}
+                  onClick={() => {
+                    setTargetDeptId(currentDept?.id ?? '');
+                    setChangeDeptModalOpen(true);
+                  }}
+                >
+                  Change Department
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -398,6 +492,71 @@ export const CourseRegistrationView: React.FC<Props> = ({ profile }) => {
           </div>
         </div>
       </div>
+
+      {/* ── Change Department Modal ── */}
+      {changeDeptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-[#141417] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl text-white font-sans"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <Building2 className="w-5 h-5 text-[#E9C349]" />
+                <h3 className="font-serif text-lg font-bold">Select Academic Department</h3>
+              </div>
+              <button
+                onClick={() => setChangeDeptModalOpen(false)}
+                className="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Choose from the official Harmony College departments. When you change departments, your record is updated immediately and prior department enrollments are cleanly re-allocated.
+            </p>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {realDepartments.map(dept => {
+                const isSelected = targetDeptId === dept.id;
+                return (
+                  <div
+                    key={dept.id}
+                    onClick={() => setTargetDeptId(dept.id)}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-[#E9C349]/15 border-[#E9C349] text-white'
+                        : 'bg-black/40 border-white/5 hover:border-white/20 text-zinc-300'
+                    }`}
+                  >
+                    <div>
+                      <p className="text-xs font-bold">{dept.name}</p>
+                      <span className="text-[10px] font-mono text-zinc-500">{dept.code}</span>
+                    </div>
+                    {isSelected && <CheckCircle2 className="w-4 h-4 text-[#E9C349]" />}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+              <Button variant="secondary" size="sm" onClick={() => setChangeDeptModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={savingDept || !targetDeptId || targetDeptId === currentDept?.id}
+                onClick={() => handleDepartmentChange(targetDeptId)}
+              >
+                {savingDept ? 'Saving...' : 'Confirm Department'}
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };

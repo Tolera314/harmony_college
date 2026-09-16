@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { getOutstandingAccounts, sendPaymentReminder } from '@/src/lib/foApi';
+import { FinanceStudent, FinanceRiskLevel } from '../../../types/finance';
+import { sendPaymentReminder, getOutstandingAccounts } from '../../../lib/foApi';
+import { fmtETB } from '../FOCharts';
 
 interface OutstandingStudent {
   id: string; // studentRecordId
@@ -292,6 +295,28 @@ export function FOOutstandingView() {
     document.body.removeChild(link);
   };
 
+  const handleSendAllReminders = async () => {
+    if (outstanding.length === 0) return;
+    setSendingAll(true);
+    try {
+      let sent = 0;
+      for (const st of outstanding.slice(0, 20)) {
+        await sendPaymentReminder(
+          st.id,
+          `Dear ${st.name}, this is an official reminder that you have an outstanding balance of ETB ${st.outstanding.toLocaleString()} at Harmony College. Please settle this balance at the Finance Office.`
+        ).catch(() => {});
+        sent++;
+      }
+      setBulkStatus(`Successfully sent reminders to ${sent} student${sent !== 1 ? 's' : ''}.`);
+      setTimeout(() => setBulkStatus(null), 4000);
+    } catch {
+      setBulkStatus('Error dispatching reminders.');
+      setTimeout(() => setBulkStatus(null), 4000);
+    } finally {
+      setSendingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-16">
       {/* Toast Notification */}
@@ -310,6 +335,35 @@ export function FOOutstandingView() {
           >
             {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
             <span>{toast.message}</span>
+    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+      <FOPageHeader
+        title="Outstanding Accounts"
+        subtitle={`${outstanding.length} students with unpaid balances · ETB ${fmtETB(totalOwed)} total outstanding`}
+        icon={<AlertTriangle className="w-5 h-5" />}
+        actions={
+          <Button variant="danger" size="sm" icon={<Mail className="w-4 h-4" />}
+            disabled={sendingAll || outstanding.length === 0}
+            onClick={handleSendAllReminders}>
+            {sendingAll ? 'Sending Reminders…' : 'Send All Reminders'}
+          </Button>
+        }
+      />
+
+      {bulkStatus && (
+        <div className="p-3 bg-(--status-success-bg) border border-(--status-success-border) text-(--status-success) rounded-xl font-sans text-xs flex items-center justify-between">
+          <span>{bulkStatus}</span>
+          <button onClick={() => setBulkStatus(null)} className="opacity-60 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
+
+      {/* Risk summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {(['Critical','High','Medium','Low'] as FinanceRiskLevel[]).map((level) => (
+          <motion.div key={level} whileHover={{ y: -3 }} onClick={() => { setRiskFilter(level); setPage(1); }}
+            className={`cursor-pointer border rounded-2xl p-4 transition-all ${riskFilter === level ? 'ring-2 ring-[#E9C349]/40' : ''} ${riskConfig[level].bg}`}>
+            <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{level} Risk</p>
+            <p className="font-mono text-3xl font-bold mt-1" style={{ color: riskConfig[level].bar }}>{counts[level]}</p>
+            <p className="font-sans text-xs text-(--text-faint) mt-0.5">students</p>
           </motion.div>
         )}
       </AnimatePresence>

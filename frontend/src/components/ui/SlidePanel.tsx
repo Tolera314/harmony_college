@@ -30,6 +30,8 @@ export interface SlidePanelProps {
   children: React.ReactNode;
   /** Extra class for the scrollable body area */
   bodyClassName?: string;
+  /** Side from which the panel slides in. Default: "right" */
+  side?: 'left' | 'right';
 }
 
 export const SlidePanel: React.FC<SlidePanelProps> = ({
@@ -40,6 +42,7 @@ export const SlidePanel: React.FC<SlidePanelProps> = ({
   width = 'max-w-2xl',
   children,
   bodyClassName = '',
+  side = 'right',
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -80,18 +83,20 @@ export const SlidePanel: React.FC<SlidePanelProps> = ({
             aria-hidden="true"
           />
 
-          {/* Panel container — right edge */}
-          <div className="absolute inset-y-0 right-0 flex max-w-full">
+          {/* Panel container — left or right edge */}
+          <div className={`absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} flex max-w-full`}>
             <motion.div
               ref={panelRef}
-              initial={{ x: '100%' }}
+              initial={{ x: side === 'left' ? '-100%' : '100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
+              exit={{ x: side === 'left' ? '-100%' : '100%' }}
               transition={SPRING.drawer}
               className={`relative flex w-screen flex-col shadow-2xl ${width}`}
               style={{
                 backgroundColor: 'var(--bg-modal, var(--bg-base))',
-                borderLeft: '1px solid var(--border-default)',
+                ...(side === 'left'
+                  ? { borderRight: '1px solid var(--border-default)' }
+                  : { borderLeft: '1px solid var(--border-default)' }),
               }}
             >
               {/* Header */}

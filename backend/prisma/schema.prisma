@@ -22,6 +22,11 @@ enum Role {
   STUDENT
 }
 
+enum ProgramType {
+  TVET
+  SHORT_PROGRAM
+}
+
 enum AccountStatus {
   ACTIVE
   PENDING_VERIFICATION
@@ -460,39 +465,124 @@ model Document {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CHAT MODELS
+// INTERNAL MESSAGING SYSTEM
+// Spec: message.md — staff-only, role-based, real-time
 // ─────────────────────────────────────────────────────────────────────────────
 
+enum ConversationType {
+  DIRECT
+  GROUP
+  DEPARTMENT
+  OFFICIAL
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum MessagePriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
 model Conversation {
-  id        String   @id @default(uuid())
-  isGroup   Boolean  @default(false)
-  name      String?
-  createdAt DateTime @default(now())
+  id           String           @id @default(uuid())
+  type         ConversationType @default(DIRECT)
+  name         String?
+  description  String?          @db.Text
+  createdById  String?
+  departmentId String?
+  priority     MessagePriority  @default(NORMAL)
+  requiresAck  Boolean          @default(false)
+  expiresAt    DateTime?
+  lastMessageAt DateTime?
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   participants ConversationParticipant[]
   messages     Message[]
+
+  @@index([type])
+  @@index([departmentId])
+  @@index([lastMessageAt])
+  @@index([isActive])
 }
 
 model ConversationParticipant {
-  conversationId String
-  userId         String
-  lastReadAt     DateTime?
+  conversationId    String
+  userId            String
+  participantRole   String   @default("MEMBER")
+  joinedAt          DateTime @default(now())
+  leftAt            DateTime?
+  lastReadAt        DateTime?
+  lastReadMessageId String?
+  isMuted           Boolean  @default(false)
+  isPinned          Boolean  @default(false)
+  isArchived        Boolean  @default(false)
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([conversationId, userId])
+  @@index([userId])
+  @@index([userId, isArchived])
 }
 
 model Message {
-  id             String   @id @default(uuid())
+  id             String        @id @default(uuid())
   conversationId String
   senderId       String
-  content        String   @db.VarChar(4000)
-  createdAt      DateTime @default(now())
+  content        String        @db.Text
+  messageType    String        @default("TEXT")
+  status         MessageStatus @default(SENT)
+  replyToId      String?
+  replyTo        Message?      @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]     @relation("MessageReplies")
+  editedAt       DateTime?
+  editedById     String?
+  deletedAt      DateTime?
+  deletedById    String?
+  isDeleted      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  attachments  MessageAttachment[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([conversationId, isDeleted])
+}
+
+model MessageAttachment {
+  id               String   @id @default(uuid())
+  messageId        String
+  originalFileName String
+  storedFileName   String
+  mimeType         String
+  fileSize         Int
+  storagePath      String
+  uploadedAt       DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model MessageAcknowledgment {
+  id             String   @id @default(uuid())
+  messageId      String
+  userId         String
+  acknowledgedAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -500,11 +590,18 @@ model Message {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Department {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  code        String  @unique
+  id          String      @id @default(uuid())
+  name        String
+  code        String
+  programType ProgramType @default(TVET)
   description String?
-  isActive    Boolean @default(true)
+  isActive    Boolean     @default(true)
+
+  // Parent department: SP rows point to their TVET counterpart.
+  // TVET rows have parentId = null and act as the administrative parent.
+  parentId   String?
+  parent     Department?  @relation("DeptChildren", fields: [parentId], references: [id])
+  children   Department[] @relation("DeptChildren")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -516,9 +613,14 @@ model Department {
   departmentHeads DepartmentHeadRecord[]
   onboardingStudents StudentProfile[]
   staffInvitations StaffInvitation[]
+  tuitionConfigs  TuitionConfiguration[]
 
+  @@unique([name, programType])
+  @@unique([code, programType])
+  @@index([programType])
   @@index([code])
   @@index([isActive])
+  @@index([parentId])
 }
 
 model Program {
@@ -539,6 +641,7 @@ model Program {
   courses        ProgramCourse[]
   studentRecords StudentRecord[]
   requirements   ProgramRequirement[]
+  tuitionConfigs TuitionConfiguration[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -566,6 +669,7 @@ model Semester {
   name           String // "Semester I", "Semester II"
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  programType    ProgramType  @default(TVET)
 
   startDate         DateTime
   endDate           DateTime
@@ -580,17 +684,20 @@ model Semester {
 
   offerings CourseOffering[]
 
-  @@unique([academicYearId, name])
+  @@unique([academicYearId, name, programType])
+  @@index([programType])
   @@index([isCurrent])
 }
 
 model Course {
   id          String       @id @default(uuid())
-  code        String       @unique
+  code        String
   name        String
   description String?
   creditHours Int          @default(3)
+  ects        Int          @default(4)
   status      CourseStatus @default(ACTIVE)
+  programType ProgramType  @default(TVET)
 
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
@@ -603,6 +710,8 @@ model Course {
   offerings      CourseOffering[]
   programCourses ProgramCourse[]
 
+  @@unique([code, programType])
+  @@index([programType])
   @@index([code])
   @@index([departmentId])
   @@index([status])
@@ -702,6 +811,9 @@ model StudentRecord {
   studentId String        @unique // e.g. HC-2024-0012
   status    StudentStatus @default(ACTIVE)
 
+  programType          ProgramType @default(TVET)
+  shortProgramDuration String?     // "2 Months" | "4 Months"
+
   programId    String
   program      Program    @relation(fields: [programId], references: [id])
   departmentId String
@@ -724,9 +836,13 @@ model StudentRecord {
   quizAttempts           QuizAttempt[]
   attendanceRecords      AttendanceRecord[]
   financialAccount       FinancialAccount?
+  monthlyInstallments    MonthlyInstallment[]
+  paymentSubmissions     PaymentSubmission[]
+  paymentReceipts        PaymentReceipt[]
   advisorAppointments    AdvisorAppointment[]
   notificationPreference StudentNotificationPreference?
 
+  @@index([programType])
   @@index([studentId])
   @@index([programId])
   @@index([departmentId])
@@ -738,12 +854,14 @@ model StudentRecord {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model CourseOffering {
-  id         String         @id @default(uuid())
-  courseId   String
-  course     Course         @relation(fields: [courseId], references: [id])
-  semesterId String
-  semester   Semester       @relation(fields: [semesterId], references: [id])
-  status     OfferingStatus @default(DRAFT)
+  id                   String         @id @default(uuid())
+  courseId             String
+  course               Course         @relation(fields: [courseId], references: [id])
+  semesterId           String
+  semester             Semester       @relation(fields: [semesterId], references: [id])
+  status               OfferingStatus @default(DRAFT)
+  programType          ProgramType    @default(TVET)
+  shortProgramDuration String?
 
   instructorId String?
   instructor   InstructorRecord? @relation(fields: [instructorId], references: [id])
@@ -764,6 +882,7 @@ model CourseOffering {
   classSessions ClassSession[]
 
   @@unique([courseId, semesterId, section])
+  @@index([programType])
   @@index([semesterId])
   @@index([courseId])
   @@index([instructorId])
@@ -842,9 +961,26 @@ model CourseGrade {
   studentRecordId String
   studentRecord   StudentRecord @relation(fields: [studentRecordId], references: [id])
 
-  letterGrade String? // A, B+, B, C+, C, D, F
-  gradePoints Float? // 4.0, 3.5, 3.0, ...
-  creditHours Int
+  letterGrade String? // A+, A, A-, B+, B, B-, C+, C, C-, D, F
+  gradePoints Float? // 4.0, 3.75, 3.5, 3.0, ...
+  creditHours Int          @default(3)
+  ects        Int          @default(4)
+  qualityPoints Float?
+
+  // Assessment breakdown entered by instructor
+  assignmentMarks Float?
+  quizMarks       Float?
+  midExamMarks    Float?
+  finalExamMarks  Float?
+  attendanceMarks Float?
+  otherMarks      Float?
+  finalMark       Float?
+
+  // Lifecycle: DRAFT (editable by instructor) -> SUBMITTED (to registrar) -> PUBLISHED (visible to students)
+  status      String    @default("DRAFT")
+  submittedAt DateTime?
+  submittedBy String?
+  publishedAt DateTime?
 
   gradedAt  DateTime?
   createdAt DateTime  @default(now())
@@ -852,6 +988,7 @@ model CourseGrade {
 
   @@index([studentRecordId])
   @@index([enrollmentId])
+  @@index([status])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1012,12 +1149,16 @@ model Notification {
   userId     String
   title      String
   message    String
-  /// INFO | SUCCESS | WARNING | ERROR | GRADE | SCHEDULE | ENROLLMENT | ANNOUNCEMENT | LEAVE | PAYROLL | FINANCE
+  /// INFO | SUCCESS | WARNING | ERROR | GRADE | SCHEDULE | ENROLLMENT | ANNOUNCEMENT | LEAVE | PAYROLL | FINANCE | CONTRACT | ONBOARDING | PERFORMANCE
   type       String   @default("INFO")
+  /// Module namespace — keeps notifications from different domains in one table.
+  /// Values: ACADEMIC | HR | FINANCE | ADMIN | SYSTEM
+  /// HR notifications carry module = "HR" so they can be filtered separately from academic notifications.
+  module     String   @default("ACADEMIC")
   isRead     Boolean  @default(false)
   entityType String?
   entityId   String?
-  /// Optional deep-link tab name for the recipient's dashboard (e.g. "grades", "leave")
+  /// Optional deep-link tab name for the recipient's dashboard (e.g. "grades", "leave", "employees")
   actionTab  String?
   /// Timestamp when a socket push was attempted; null = not yet pushed
   pushedAt   DateTime?
@@ -1027,6 +1168,7 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@index([userId, isRead])
+  @@index([userId, module])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1047,6 +1189,36 @@ model GradeScale {
 
   @@index([isActive])
   @@index([letterGrade])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRADE PORTAL SETTINGS (Registrar master switch for grade publication)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GradePortalSetting {
+  id        String    @id @default("default")
+  isOpen    Boolean   @default(false)
+  openedAt  DateTime?
+  openedBy  String?
+  closedAt  DateTime?
+  closedBy  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// GRADE EDITING SETTING (Registrar controls whether teachers can edit/save grades)
+// Completely independent from GradePortalSetting (student visibility).
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GradeEditingSetting {
+  id        String    @id @default("default")
+  isOpen    Boolean   @default(true)  // Teachers can edit by default
+  openedAt  DateTime?
+  openedBy  String?
+  closedAt  DateTime?
+  closedBy  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1127,6 +1299,21 @@ enum TransactionType {
   PAYMENT
   REFUND
   PENALTY
+}
+
+enum PaymentInstallmentStatus {
+  UPCOMING   // Not yet due
+  DUE        // Due date has passed, no submission
+  OVERDUE    // Significantly past due
+  PENDING_REVIEW // Student submitted evidence, awaiting FO approval
+  PAID       // FO approved, receipt generated
+  REJECTED   // FO rejected submission, student must resubmit
+}
+
+enum PaymentSubmissionStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
 }
 
 enum AppointmentStatus {
@@ -1437,7 +1624,8 @@ model FinancialAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  transactions FinancialTransaction[]
+  transactions        FinancialTransaction[]
+  monthlyInstallments MonthlyInstallment[]
 
   @@index([studentRecordId])
 }
@@ -1461,6 +1649,125 @@ model FinancialTransaction {
   @@index([financialAccountId])
   @@index([transactionDate])
   @@index([type])
+}
+
+/// Tuition fee configuration per academic context, department/program, and duration.
+/// Finance Officers create and manage these to set the monthly amount per student group.
+model TuitionConfiguration {
+  id               String      @id @default(uuid())
+  academicContext  ProgramType // TVET or SHORT_PROGRAM
+  departmentId     String
+  department       Department  @relation(fields: [departmentId], references: [id])
+  programId        String?
+  program          Program?    @relation(fields: [programId], references: [id])
+  durationMonths   Int?        // For SHORT_PROGRAM: 2, 4, 8. null = not applicable for TVET
+  academicYearLabel String?    // e.g. "2026-2027"
+  monthlyAmount    Float       // ETB amount per month
+  effectiveDate    DateTime    @default(now())
+  isActive         Boolean     @default(true)
+  description      String?
+
+  createdByUserId  String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  installments     MonthlyInstallment[]
+
+  @@index([academicContext])
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+/// One row per billing month per student. Status drives the payment countdown UI.
+model MonthlyInstallment {
+  id                   String                    @id @default(uuid())
+  financialAccountId   String
+  financialAccount     FinancialAccount          @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+  studentRecordId      String
+  studentRecord        StudentRecord             @relation(fields: [studentRecordId], references: [id], onDelete: Cascade)
+  tuitionConfigId      String?
+  tuitionConfig        TuitionConfiguration?     @relation(fields: [tuitionConfigId], references: [id])
+
+  academicContext      ProgramType
+  billingMonth         String                    // e.g. "2026-09" (YYYY-MM)
+  billingLabel         String                    // e.g. "September 2026"
+  dueDate              DateTime
+  expectedAmount       Float                     // ETB
+  status               PaymentInstallmentStatus  @default(UPCOMING)
+
+  activeSubmissionId   String?                   @unique // points to latest non-rejected submission
+  receiptId            String?                   @unique // set once PAID
+
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  submissions          PaymentSubmission[]
+  receipt              PaymentReceipt?           @relation(fields: [receiptId], references: [id])
+
+  @@unique([studentRecordId, billingMonth])
+  @@index([financialAccountId])
+  @@index([studentRecordId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+/// Student uploads payment evidence; FO reviews and approves/rejects.
+model PaymentSubmission {
+  id               String                  @id @default(uuid())
+  installmentId    String
+  installment      MonthlyInstallment      @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  studentRecordId  String
+  studentRecord    StudentRecord           @relation(fields: [studentRecordId], references: [id])
+
+  amount           Float
+  paymentDate      DateTime                // date on the bank receipt
+  paymentMethod    String                  // Cash, Bank Transfer, Telebirr, Chapa
+  referenceNumber  String?
+  evidenceUrl      String                  // uploaded file URL
+  evidenceFileName String?
+  note             String?
+
+  status           PaymentSubmissionStatus @default(PENDING_REVIEW)
+  rejectionReason  String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  receipt          PaymentReceipt?
+
+  @@index([installmentId])
+  @@index([studentRecordId])
+  @@index([status])
+}
+
+/// Official payment receipt generated by Finance Officer upon approval.
+model PaymentReceipt {
+  id               String            @id @default(uuid())
+  receiptNumber    String            @unique // e.g. HC-REC-2026-00042
+  installmentId    String            @unique // one receipt per installment
+  submissionId     String            @unique // one receipt per approved submission
+  submission       PaymentSubmission @relation(fields: [submissionId], references: [id])
+  studentRecordId  String
+  studentRecord    StudentRecord     @relation(fields: [studentRecordId], references: [id])
+
+  amountPaid       Float
+  paymentDate      DateTime
+  paymentMethod    String?
+  referenceNumber  String?
+  billingMonth     String
+  billingLabel     String
+
+  approvedByUserId String
+  approvedAt       DateTime          @default(now())
+
+  createdAt        DateTime          @default(now())
+
+  installment      MonthlyInstallment? @relation
+
+  @@index([studentRecordId])
+  @@index([approvedAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1736,15 +2043,6 @@ enum HRAuditStatus {
   FAILED
 }
 
-enum HRNotifType {
-  LEAVE
-  PAYROLL
-  PERFORMANCE
-  CONTRACT
-  ONBOARDING
-  SYSTEM
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HR MODELS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1840,7 +2138,7 @@ model HREmployee {
   documents        HRDocument[]
   onboardingRecord HROnboardingRecord?
   offboardingRecord HROffboardingRecord?
-  notifications    HRNotification[]
+
   salaryHistory    HRSalaryHistory[]
   contractRenewals HRContractRenewal[]
 
@@ -2069,23 +2367,6 @@ model HRAuditLog {
   @@index([status])
 }
 
-/// HR in-app notification
-model HRNotification {
-  id          String      @id @default(uuid())
-  employeeId  String?
-  employee    HREmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  recipientUserId String  // the HR officer's userId who receives this
-  type        HRNotifType
-  title       String
-  message     String      @db.Text
-  tab         String      // matches HRNavTab
-  isRead      Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-
-  @@index([recipientUserId])
-  @@index([isRead])
-  @@index([type])
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SALARY HISTORY (recommendation §1 — never lose previous salary when updated)
@@ -2146,8 +2427,8 @@ model StaffInvitation {
   email              String
   fullName           String
   role               Role
-  departmentId       String
-  department         Department @relation(fields: [departmentId], references: [id])
+  departmentId       String?
+  department         Department? @relation(fields: [departmentId], references: [id])
   positionTitle      String?
   employeeId         String?
   phone              String?

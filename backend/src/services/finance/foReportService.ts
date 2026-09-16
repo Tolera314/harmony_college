@@ -3,8 +3,12 @@ import { prisma } from '../../lib/prisma';
 export async function getFinancialSummaryReport(period?: string) {
   const now = new Date();
   const yearStart = new Date(now.getFullYear(), 0, 1);
+  const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
+  const lastYearSameDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), 23, 59, 59);
+  const last7Start = new Date(now);
+  last7Start.setDate(last7Start.getDate() - 7);
 
-  const [accounts, transactions] = await Promise.all([
+  const [accounts, transactions, prevYearTransactions, currentAcademicYear] = await Promise.all([
     prisma.financialAccount.findMany({
       select: {
         balance: true,
@@ -20,6 +24,17 @@ export async function getFinancialSummaryReport(period?: string) {
       where:   { transactionDate: { gte: yearStart }, status: 'POSTED' },
       orderBy: { transactionDate: 'desc' },
     }),
+    prisma.financialTransaction.findMany({
+      where: {
+        transactionDate: { gte: lastYearStart, lte: lastYearSameDate },
+        status: 'POSTED',
+      },
+      select: { type: true, amount: true },
+    }),
+    prisma.academicYear.findFirst({
+      where: { isCurrent: true },
+      select: { name: true },
+    }).catch(() => null),
   ]);
 
   let totalOutstanding  = 0;
@@ -51,18 +66,54 @@ export async function getFinancialSummaryReport(period?: string) {
       monthMap[monthKey].collections += abs;
     }
 
-    const desc   = (tx.description ?? '').toLowerCase();
-    const cat    = (tx.category    ?? '').toLowerCase();
-    let method   = 'Bank Transfer';
-    if (desc.includes('cash')     || cat.includes('cash'))     method = 'Cash';
-    else if (desc.includes('telebirr') || cat.includes('telebirr')) method = 'Telebirr';
-    else if (desc.includes('chapa')    || cat.includes('chapa'))    method = 'Chapa';
+    const desc = (tx.description ?? '').toLowerCase();
+    const cat  = (tx.category ?? '').toLowerCase();
+    const ref  = (tx.referenceId ?? '').toUpperCase();
+    let method = 'Cash';
+    if (desc.includes('telebirr') || cat.includes('telebirr') || ref.startsWith('TLB')) method = 'Telebirr';
+    else if (desc.includes('chapa') || cat.includes('chapa') || ref.startsWith('CHP'))   method = 'Chapa';
+    else if (desc.includes('bank') || cat.includes('bank') || ref.startsWith('BT-') || tx.referenceId) method = 'Bank Transfer';
+
     if (!methodMap[method]) methodMap[method] = { amount: 0, count: 0 };
     methodMap[method].amount += abs;
     methodMap[method].count  += 1;
   });
 
-  // Fill targets at 110% of revenue
+  // Calculate real YoY comparisons
+  let prevYearRevenue = 0;
+  let prevYearCollections = 0;
+  prevYearTransactions.forEach((tx) => {
+    if (tx.type === 'TUITION' || tx.type === 'FEE') prevYearRevenue += Math.abs(tx.amount);
+    if (tx.type === 'PAYMENT') prevYearCollections += Math.abs(tx.amount);
+  });
+
+  const revenueYoYPct = prevYearRevenue > 0
+    ? +(((totalRevenue - prevYearRevenue) / prevYearRevenue) * 100).toFixed(1)
+    : null;
+  const collectionsYoYPct = prevYearCollections > 0
+    ? +(((totalCollections - prevYearCollections) / prevYearCollections) * 100).toFixed(1)
+    : null;
+
+  // Daily collections for current week
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dailyMap: Record<string, number> = {};
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    dailyMap[dayNames[d.getDay()]] = 0;
+  }
+  transactions.forEach((tx) => {
+    if (tx.type === 'PAYMENT' && tx.status === 'POSTED') {
+      const d = new Date(tx.transactionDate);
+      if (d >= last7Start) {
+        const key = dayNames[d.getDay()];
+        dailyMap[key] = (dailyMap[key] ?? 0) + Math.abs(tx.amount);
+      }
+    }
+  });
+  const dailyCollections = Object.entries(dailyMap).map(([label, value]) => ({ label, value }));
+
+  // Set targets at 110% of revenue
   Object.keys(monthMap).forEach((m) => {
     monthMap[m].target = Math.round(monthMap[m].revenue * 1.1);
   });
@@ -92,20 +143,31 @@ export async function getFinancialSummaryReport(period?: string) {
     ? +((totalCollections / totalBilled) * 100).toFixed(1)
     : 0;
 
+  const academicYearLabel = currentAcademicYear?.name ?? `${now.getFullYear()}–${now.getFullYear() + 1}`;
+
   return {
-    period: period || `${now.getFullYear()} YTD`,
+    period: period || `${academicYearLabel} YTD`,
+    academicYearLabel,
     totalAccounts:         accounts.length,
     totalTransactions:     transactions.length,
     totalOutstanding,
     totalBilledRevenue:    totalRevenue,
     totalCollectedRevenue: totalCollections,
     collectionRate,
+    revenueYoYPct,
+    collectionsYoYPct,
+    dailyCollections,
     monthlyRevenue,
     departments,
     methodBreakdown,
     kpis: {
+      totalRevenue,
       totalRevenueSemester:  totalRevenue,
+      totalCollections,
       totalOutstanding,
+      collectionRate,
+      revenueYoYPct,
+      collectionsYoYPct,
       receiptsIssued:        transactions.filter((t) => t.receiptId).length,
       todaysCollections:     transactions
         .filter((t) => {
@@ -127,13 +189,17 @@ export async function getAgedReceivablesReport() {
         include: {
           user:       { select: { fullName: true, email: true } },
           department: { select: { name: true } },
+          program:    { select: { name: true } },
         },
+      },
+      transactions: {
+        where: { status: 'POSTED' },
+        select: { type: true, amount: true },
       },
     },
     orderBy: { balance: 'desc' },
   });
 
-  // Bucket by balance thresholds (no created-date on FinancialAccount to age by)
   const buckets = { current: 0, days30To60: 0, days60To90: 0, over90Days: 0 };
   accounts.forEach((acc) => {
     if      (acc.balance > 20000) buckets.over90Days  += acc.balance;
@@ -145,13 +211,28 @@ export async function getAgedReceivablesReport() {
   return {
     totalAccountsWithOutstanding: accounts.length,
     buckets,
-    accounts: accounts.slice(0, 50).map((acc) => ({
-      studentRecordId: acc.studentRecordId,
-      studentName:     acc.studentRecord.user.fullName,
-      studentId:       acc.studentRecord.studentId,
-      department:      acc.studentRecord.department?.name ?? 'General',
-      balance:         acc.balance,
-      lastUpdatedAt:   acc.lastUpdatedAt,
-    })),
+    accounts: accounts.slice(0, 100).map((acc) => {
+      const charged = acc.transactions
+        .filter((t) => t.type === 'TUITION' || t.type === 'FEE')
+        .reduce((s, t) => s + Math.abs(t.amount), 0);
+      const paid = acc.transactions
+        .filter((t) => t.type === 'PAYMENT')
+        .reduce((s, t) => s + Math.abs(t.amount), 0);
+      const riskLevel = acc.balance > 20000 ? 'Critical' : acc.balance > 10000 ? 'High' : acc.balance > 3000 ? 'Medium' : 'Low';
+
+      return {
+        studentRecordId: acc.studentRecordId,
+        studentName:     acc.studentRecord.user.fullName,
+        studentId:       acc.studentRecord.studentId,
+        department:      acc.studentRecord.department?.name ?? 'General',
+        programName:     acc.studentRecord.program?.name ?? 'Degree Program',
+        totalCharged:    charged,
+        totalPaid:       paid,
+        balance:         acc.balance,
+        outstanding:     acc.balance,
+        riskLevel,
+        lastUpdatedAt:   acc.lastUpdatedAt,
+      };
+    }),
   };
 }

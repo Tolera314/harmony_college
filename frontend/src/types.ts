@@ -53,6 +53,7 @@ export type NavTab =
   | 'quizzes'
   | 'attendance'
   | 'grades'
+  | 'gpa_simulator'
   | 'financials'
   | 'degree_audit'
   | 'settings'
@@ -77,6 +78,8 @@ export interface StudentProfile {
   expectedGraduation: string;
   advisorName: string;
   advisorEmail: string;
+  programType?: string;
+  shortProgramDuration?: string;
 }
 
 export interface Assignment {
@@ -118,6 +121,7 @@ export interface StudentQuizAttempt {
 export interface StudentQuiz {
   id: string;
   title: string;
+  assessmentType?: 'QUIZ' | 'EXAM';
   description?: string;
   instructions?: string;
   durationMinutes: number;
@@ -128,7 +132,7 @@ export interface StudentQuiz {
   totalPoints: number;
   showResultsImmediately: boolean;
   questions: QuizQuestion[];
-  attempt?: StudentQuizAttempt;
+  attempt?: StudentQuizAttempt | null;
 }
 
 export interface Course {
@@ -184,8 +188,13 @@ export interface GradeRecord {
   courseTitle: string;
   term: string;
   credits: number;
+  creditHours?: number;
+  ects?: number;
+  finalMark?: number | null;
   grade: string;
   numericGpa: number;
+  gradePoints?: number;
+  qualityPoints?: number;
   instructor: string;
 }
 

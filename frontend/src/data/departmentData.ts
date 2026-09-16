@@ -198,14 +198,14 @@ export const leaveRequests: LeaveRequest[] = [
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 export const notifications: DHNotification[] = [
-  { id: 'n01', type: 'approval', title: 'Course Awaiting Approval', message: 'Prof. Sarah Jenkins submitted AUDIO201 (Sound Design) for Spring 2025 approval.', timestamp: 'Jul 19, 2024 02:10 PM', read: false, module: 'approvals' },
-  { id: 'n02', type: 'approval', title: 'Course Awaiting Approval', message: 'Dr. Amina Okafor submitted ANIM350 (Motion Graphics) for Spring 2025 approval.', timestamp: 'Jul 19, 2024 02:10 PM', read: false, module: 'approvals' },
-  { id: 'n03', type: 'warning', title: 'Faculty Leave Request', message: 'Dr. Meron Tadesse submitted a 10-day medical leave request. Action required.', timestamp: 'Jul 19, 2024 09:00 AM', read: false, module: 'leave_requests' },
-  { id: 'n04', type: 'alert', title: 'Attendance Below Threshold', message: 'THEA201 attendance has dropped to 71% — below the 80% institutional minimum.', timestamp: 'Jul 18, 2024 04:00 PM', read: false, module: 'attendance' },
-  { id: 'n05', type: 'alert', title: 'Department GPA Alert', message: 'Department average GPA dropped 0.08 points from last semester. Review recommended.', timestamp: 'Jul 17, 2024 10:30 AM', read: true, module: 'reports' },
-  { id: 'n06', type: 'info', title: 'Course Reaching Capacity', message: 'THEA310 is at 93% capacity (42/45). Consider opening a second section.', timestamp: 'Jul 16, 2024 08:00 AM', read: true, module: 'courses' },
-  { id: 'n07', type: 'info', title: 'Faculty Leave Request', message: 'Ms. Rahel Solomon submitted a 5-day personal leave request.', timestamp: 'Jul 20, 2024 03:15 PM', read: false, module: 'leave_requests' },
-  { id: 'n08', type: 'info', title: 'Audit Log Updated', message: 'JOUR401 room change approval recorded in audit trail by registrar.', timestamp: 'Jul 15, 2024 11:00 AM', read: true, module: 'audit_log' },
+  { id: 'n01', type: 'approval', title: 'Unassigned Course Section',   message: 'AUDIO201 (Sound Design) has no instructor assigned for Spring 2025.',                   timestamp: 'Jul 19, 2024 02:10 PM', read: false, module: 'course_assignments' },
+  { id: 'n02', type: 'approval', title: 'Unassigned Course Section',   message: 'ANIM350 (Motion Graphics) has no instructor assigned for Spring 2025.',                  timestamp: 'Jul 19, 2024 02:10 PM', read: false, module: 'course_assignments' },
+  { id: 'n03', type: 'warning',  title: 'Low Attendance Alert',        message: 'Dr. Meron Tadesse — THEA201 attendance dropped to 71%. Review required.',                 timestamp: 'Jul 19, 2024 09:00 AM', read: false, module: 'academic_monitoring' },
+  { id: 'n04', type: 'alert',    title: 'Attendance Below Threshold',  message: 'THEA201 attendance has dropped to 71% — below the 80% institutional minimum.',           timestamp: 'Jul 18, 2024 04:00 PM', read: false, module: 'academic_monitoring' },
+  { id: 'n05', type: 'alert',    title: 'Department GPA Alert',        message: 'Department average GPA dropped 0.08 points from last semester. Review recommended.',      timestamp: 'Jul 17, 2024 10:30 AM', read: true,  module: 'academic_performance' },
+  { id: 'n06', type: 'info',     title: 'Course Reaching Capacity',   message: 'THEA310 is at 93% capacity (42/45). Consider opening a second section.',                 timestamp: 'Jul 16, 2024 08:00 AM', read: true,  module: 'courses' },
+  { id: 'n07', type: 'info',     title: 'Exam Marks Overdue',         message: 'Final marks for JOUR401 have not been submitted. 3 days past deadline.',                  timestamp: 'Jul 20, 2024 03:15 PM', read: false, module: 'academic_monitoring' },
+  { id: 'n08', type: 'info',     title: 'Audit Log Updated',          message: 'JOUR401 room change approval recorded in audit trail by registrar.',                       timestamp: 'Jul 15, 2024 11:00 AM', read: true,  module: 'audit_log' },
 ];
 
 // ── Audit Log ─────────────────────────────────────────────────────────────────

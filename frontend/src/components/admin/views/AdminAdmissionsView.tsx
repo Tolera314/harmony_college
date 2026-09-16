@@ -35,7 +35,7 @@ const ALL_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'ACCEPTED', 'WAITLISTED', 'RE
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export const AdminAdmissionsView: React.FC = () => {
+export const AdminAdmissionsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [admissions, setAdmissions] = useState<ApiAdmission[]>([]);
   const [total, setTotal]           = useState(0);
   const [totalPages, setTotalPages] = useState(1);

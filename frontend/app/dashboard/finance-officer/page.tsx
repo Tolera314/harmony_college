@@ -9,6 +9,8 @@ import { FOMobileNav }         from '@/src/components/fo/FOMobileNav';
 import { FOSearchModal }       from '@/src/components/fo/FOSearchModal';
 import { FOLogoutModal }       from '@/src/components/fo/FOLogoutModal';
 import { FOOverviewView }        from '@/src/components/fo/views/FOOverviewView';
+import { FOTuitionSetupView }    from '@/src/components/fo/views/FOTuitionSetupView';
+import { FOPaymentSubmissionsView } from '@/src/components/fo/views/FOPaymentSubmissionsView';
 import { FOStudentAccountsView } from '@/src/components/fo/views/FOStudentAccountsView';
 import { FORegistrationPaymentsView } from '@/src/components/fo/views/FORegistrationPaymentsView';
 import { FOPaymentsView }        from '@/src/components/fo/views/FOPaymentsView';
@@ -19,25 +21,67 @@ import { FOReconciliationView }  from '@/src/components/fo/views/FOReconciliatio
 import { FONotificationsView }   from '@/src/components/fo/views/FONotificationsView';
 import { FOAuditLogView }        from '@/src/components/fo/views/FOAuditLogView';
 import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView';
-import { ChatView }               from '@/src/components/chat/ChatView';
+import { MessagingView }               from '@/src/components/messaging/MessagingView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/src/lib/foApi';
 
+const DEFAULT_FO_PROFILE: FOProfile = {
+  name: 'Finance Officer',
+  title: 'Finance & Accounts',
+  department: 'Finance Office',
+  email: 'finance@harmony.edu',
+  phone: '',
+  officeRoom: 'Finance Hall',
+  avatar: '/logo2.jpg',
+  employeeId: 'HC-FIN-001',
+  academicYear: '2026-2027',
+  currentSemester: 'Semester I',
+};
+
 export default function FinanceOfficerPage() {
-  const [activeTab,     setRawTab]        = useState<FONavTab>('overview');
-  const [notifications, setNotifications] = useState<FONotification[]>(initialNotifs);
-  const [searchOpen,    setSearchOpen]     = useState(false);
-  const [logoutOpen,    setLogoutOpen]     = useState(false);
-  const [tabLoading,    setTabLoading]     = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [overdueCount,   setOverdueCount]  = useState(0);
-  const [pendingReconciliation, setPendingReconciliation] = useState(0);
-  const [profile,       setProfile]        = useState(foProfile);
+  const [activeTab,          setRawTab]       = useState<FONavTab>('overview');
+  const [profile,            setProfile]      = useState<FOProfile>(DEFAULT_FO_PROFILE);
+  const [notifications,      setNotifications] = useState<FONotification[]>([]);
+  const [searchOpen,         setSearchOpen]    = useState(false);
+  const [logoutOpen,         setLogoutOpen]    = useState(false);
+  const [tabLoading,         setTabLoading]    = useState(false);
+  const [mobileMenuOpen,     setMobileMenuOpen] = useState(false);
+  const [pendingReconciliation, setPendingRecon] = useState(0);
+  const [overdueCount,       setOverdueCount]  = useState(0);
+  const [programType,        setProgramType]   = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
   const { toast, show: showToast, hide: hideToast } = useToast();
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Load programType from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('fo_program_type');
+    if (saved === 'TVET' || saved === 'SHORT_PROGRAM') {
+      setProgramType(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.user) {
+          setProfile(p => ({
+            ...p,
+            name: data.user.fullName || p.name,
+            email: data.user.email || p.email,
+            phone: data.user.phone || p.phone,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const { unreadCount } = useNotifications({
+    fetchFn:       () => foGetNotifications(),
+    markReadFn:    (id) => foMarkNotifRead(id),
+    markAllReadFn: () => foMarkAllNotifRead(),
+  });
 
   // Fetch logged in user profile from auth API
   useEffect(() => {
@@ -124,14 +168,16 @@ export default function FinanceOfficerPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':         return <FOOverviewView setActiveTab={setActiveTab} profile={profile} />;
-      case 'student_accounts': return <FOStudentAccountsView />;
-      case 'payments':         return <FOPaymentsView />;
-      case 'registration_payments': return <FORegistrationPaymentsView />;
-      case 'receipts':         return <FOReceiptsView />;
-      case 'outstanding':      return <FOOutstandingView />;
-      case 'reports':          return <FOReportsView />;
-      case 'reconciliation':   return <FOReconciliationView />;
+      case 'overview':            return <FOOverviewView setActiveTab={setActiveTab} programType={programType} />;
+      case 'tuition_setup':       return <FOTuitionSetupView programType={programType} />;
+      case 'payment_submissions': return <FOPaymentSubmissionsView programType={programType} />;
+      case 'student_accounts':    return <FOStudentAccountsView programType={programType} />;
+      case 'payments':            return <FOPaymentsView programType={programType} />;
+      case 'registration_payments': return <FORegistrationPaymentsView programType={programType} />;
+      case 'receipts':         return <FOReceiptsView programType={programType} />;
+      case 'outstanding':      return <FOOutstandingView programType={programType} />;
+      case 'reports':          return <FOReportsView programType={programType} />;
+      case 'reconciliation':   return <FOReconciliationView programType={programType} />;
       case 'notifications':    return (
         <FONotificationsView
           notifications={notifications}
@@ -140,9 +186,9 @@ export default function FinanceOfficerPage() {
           setActiveTab={setActiveTab}
         />
       );
-      case 'audit_log':        return <FOAuditLogView />;
+      case 'audit_log':        return <FOAuditLogView programType={programType} />;
       case 'settings':         return <FOSettingsView />;
-      case 'messages':         return <ChatView />;
+      case 'messages':         return <MessagingView />;
       default:                 return null;
     }
   };
@@ -180,6 +226,39 @@ export default function FinanceOfficerPage() {
             academicYear={profile.academicYear}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
+
+          {/* Program Type Toggle */}
+          <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/10 backdrop-blur-sm max-w-fit">
+              <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-semibold">Program:</span>
+              <button
+                onClick={() => {
+                  setProgramType('TVET');
+                  localStorage.setItem('fo_program_type', 'TVET');
+                }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  programType === 'TVET'
+                    ? 'bg-[#E9C349] text-black shadow-md'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                🎓 TVET
+              </button>
+              <button
+                onClick={() => {
+                  setProgramType('SHORT_PROGRAM');
+                  localStorage.setItem('fo_program_type', 'SHORT_PROGRAM');
+                }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  programType === 'SHORT_PROGRAM'
+                    ? 'bg-[#E9C349] text-black shadow-md'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                🎓 Short Program
+              </button>
+            </div>
+          </div>
 
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
             <AnimatePresence mode="wait">
@@ -235,6 +314,8 @@ export default function FinanceOfficerPage() {
               <div className="flex-1 overflow-y-auto p-3 space-y-1">
                 {[
                   { id: 'overview', label: 'Dashboard Overview' },
+                  { id: 'tuition_setup', label: 'Tuition Setup' },
+                  { id: 'payment_submissions', label: 'Payment Submissions' },
                   { id: 'student_accounts', label: 'Student Accounts' },
                   { id: 'payments', label: 'Payments' },
                   { id: 'receipts', label: 'Receipts' },

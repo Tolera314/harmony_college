@@ -102,6 +102,47 @@ export const FOStudentAccountsView: React.FC = () => {
   const [submittingReversal, setSubmittingReversal] = useState(false);
 
   const [statementPrintOpen, setStatementPrintOpen] = useState(false);
+// ── Main View ──────────────────────────────────────────────────────────────────
+export const FOStudentAccountsView: React.FC = () => {
+  const [accounts, setAccounts]         = useState<FOStudentAccountItem[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState('');
+  const [total, setTotal]               = useState(0);
+  const [page, setPage]                 = useState(1);
+  const [totalPages, setTotalPages]     = useState(1);
+
+  // Filters
+  const [search, setSearch]             = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const limit = 15;
+
+  // Selected Student Drawer & Modals State
+  const [selectedStudentId, setSelectedStudentId]   = useState<string | null>(null);
+  const [studentDetail, setStudentDetail]           = useState<any | null>(null);
+  const [detailLoading, setDetailLoading]           = useState(false);
+
+  // Action Modals inside Drawer
+  const [chargeModalOpen, setChargeModalOpen]       = useState(false);
+  const [chargeForm, setChargeForm]                 = useState({ amount: '', category: 'Tuition', description: '' });
+  const [submittingCharge, setSubmittingCharge]     = useState(false);
+
+  const [creditModalOpen, setCreditModalOpen]       = useState(false);
+  const [creditForm, setCreditForm]                 = useState({ amount: '', category: 'Scholarship', description: '' });
+  const [submittingCredit, setSubmittingCredit]     = useState(false);
+
+  const [paymentModalOpen, setPaymentModalOpen]     = useState(false);
+  const [paymentForm, setPaymentForm]               = useState({ amount: '', paymentMethod: 'Bank Transfer' as const, referenceNumber: '', description: '' });
+  const [submittingPayment, setSubmittingPayment]   = useState(false);
+
+  const [clearanceModalOpen, setClearanceModalOpen] = useState(false);
+  const [clearanceTermInput, setClearanceTermInput] = useState('');
+  const [submittingClearance, setSubmittingClearance] = useState(false);
+
+  const [reversalModalTxId, setReversalModalTxId]   = useState<string | null>(null);
+  const [reversalReason, setReversalReason]         = useState('');
+  const [submittingReversal, setSubmittingReversal] = useState(false);
+
+  const [statementPrintOpen, setStatementPrintOpen] = useState(false);
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -163,6 +204,7 @@ export const FOStudentAccountsView: React.FC = () => {
         amount: numAmount,
         category: chargeForm.category,
         description: chargeForm.description || `${chargeForm.category} Charge`,
+
       });
       showToast('Charge posted successfully', 'success');
       setChargeModalOpen(false);

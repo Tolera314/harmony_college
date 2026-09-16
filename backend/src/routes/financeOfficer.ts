@@ -16,6 +16,9 @@ import * as foReportService from '../services/finance/foReportService';
 import * as foAuditService from '../services/finance/foAuditService';
 import * as foNotificationService from '../services/finance/foNotificationService';
 import * as foSettingsService from '../services/finance/foSettingsService';
+import * as tuitionConfigService from '../services/finance/tuitionConfigService';
+import * as installmentService from '../services/finance/installmentService';
+import * as paymentSubmissionService from '../services/finance/paymentSubmissionService';
 
 const router = Router();
 const FO_ROLES = [Role.FINANCE_OFFICER, Role.ADMIN, Role.SUPER_ADMIN];
@@ -31,10 +34,22 @@ function fail(res: Response, err: unknown, status = 500) {
   res.status(status).json({ error: msg });
 }
 
-// ── OVERVIEW / DASHBOARD ANITICS ──────────────────────────────────────────────
-router.get('/overview', async (_req: AuthRequest, res: Response): Promise<void> => {
+/** Resolve the full name of the authenticated user from the DB for audit logs */
+async function resolveActorName(req: AuthRequest): Promise<string> {
   try {
-    const data = await foOverviewService.getOverviewData();
+    const { prisma } = await import('../lib/prisma');
+    const u = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { fullName: true } });
+    return u?.fullName ?? req.user?.email ?? 'Finance Officer';
+  } catch {
+    return req.user?.email ?? 'Finance Officer';
+  }
+}
+
+// ── OVERVIEW / DASHBOARD ANITICS ──────────────────────────────────────────────
+router.get('/overview', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const data = await foOverviewService.getOverviewData(programType);
     ok(res, data);
   } catch (err) {
     console.error('[FO/overview]', err);
@@ -87,7 +102,7 @@ router.post('/student-accounts/:studentRecordId/charge', async (req: AuthRequest
     );
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: `Posted Charge: ${description || category} (ETB ${amount})`,
       module: 'Student Accounts',
       amount: Number(amount),
@@ -114,7 +129,7 @@ router.post('/student-accounts/:studentRecordId/credit', async (req: AuthRequest
     );
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: `Posted Credit/Discount: ${description || category} (ETB ${amount})`,
       module: 'Student Accounts',
       amount: Number(amount),
@@ -171,7 +186,7 @@ router.post('/payments/:userId/verify', async (req: AuthRequest, res: Response):
     const result = await foPaymentService.verifyRegistrationPayment(userId, req.user!.userId);
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: 'Verified Registration Fee Payment',
       module: 'Admissions & Verifications',
       previousValue: 'Unverified',
@@ -190,7 +205,7 @@ router.post('/payments/:userId/unverify', async (req: AuthRequest, res: Response
     const result = await foPaymentService.unverifyRegistrationPayment(userId);
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: 'Unverified Registration Fee Payment',
       module: 'Admissions & Verifications',
       previousValue: 'Verified',
@@ -224,7 +239,7 @@ router.post('/payments/record', async (req: AuthRequest, res: Response): Promise
     );
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: `Recorded Payment via ${paymentMethod} (ETB ${amount})`,
       module: 'Payments & Collections',
       amount: Number(amount),
@@ -260,7 +275,7 @@ router.post('/transactions/:id/reverse', async (req: AuthRequest, res: Response)
     const result = await foPaymentService.reverseTransaction(id, reason || 'Transaction reversed by FO', req.user!.userId);
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
-      actorName: 'Finance Officer',
+      actorName: await resolveActorName(req),
       action: `Reversed Transaction ${id}: ${reason || 'N/A'}`,
       module: 'Transactions',
       status: 'Warning',
@@ -280,7 +295,7 @@ router.get('/receipts', async (req: AuthRequest, res: Response): Promise<void> =
       search: query.search,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 20,
-    });
+    }, req.user?.userId);
     ok(res, data);
   } catch (err) {
     console.error('[FO/receipts]', err);
@@ -291,7 +306,7 @@ router.get('/receipts', async (req: AuthRequest, res: Response): Promise<void> =
 router.get('/receipts/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);
-    const data = await foReceiptService.getReceiptDetail(id);
+    const data = await foReceiptService.getReceiptDetail(id, req.user?.userId);
     ok(res, data);
   } catch (err) {
     console.error('[FO/receipts/:id]', err);
@@ -449,6 +464,159 @@ router.get('/audit-logs', async (req: AuthRequest, res: Response): Promise<void>
     console.error('[FO/audit-logs]', err);
     fail(res, err);
   }
+});
+
+// ── TUITION CONFIGURATION ─────────────────────────────────────────────────────
+router.get('/tuition-configs', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const q = req.query as Record<string, string | undefined>;
+    const data = await tuitionConfigService.listConfigs({
+      academicContext: q.academicContext as any,
+      departmentId:    q.departmentId,
+      isActive:        q.isActive === 'false' ? false : q.isActive === 'true' ? true : undefined,
+    });
+    ok(res, data);
+  } catch (err) { fail(res, err); }
+});
+
+router.get('/tuition-configs/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const data = await tuitionConfigService.getConfigById(id);
+    ok(res, data);
+  } catch (err) { fail(res, err, 404); }
+});
+
+router.post('/tuition-configs', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { academicContext, departmentId, programId, durationMonths, academicYearLabel, monthlyAmount, effectiveDate, description } = req.body;
+    if (!academicContext || !departmentId || !monthlyAmount || monthlyAmount <= 0) {
+      res.status(400).json({ error: 'academicContext, departmentId, and monthlyAmount (>0) are required.' });
+      return;
+    }
+    const data = await tuitionConfigService.createConfig({
+      academicContext,
+      departmentId,
+      programId:        programId || undefined,
+      durationMonths:   durationMonths ? parseInt(durationMonths, 10) : undefined,
+      academicYearLabel: academicYearLabel || undefined,
+      monthlyAmount:    Number(monthlyAmount),
+      effectiveDate:    effectiveDate ? new Date(effectiveDate) : undefined,
+      description,
+      createdByUserId: req.user!.userId,
+    });
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName:   await resolveActorName(req),
+      action:      `Created tuition config: ${academicContext} / ETB ${monthlyAmount}/month`,
+      module:      'Tuition Configuration',
+      amount:      Number(monthlyAmount),
+      status:      'Success',
+    });
+    ok(res, data, 201);
+  } catch (err) { fail(res, err, 400); }
+});
+
+router.patch('/tuition-configs/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const data = await tuitionConfigService.updateConfig(id, req.body);
+    ok(res, data);
+  } catch (err) { fail(res, err, 400); }
+});
+
+router.delete('/tuition-configs/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const data = await tuitionConfigService.deleteConfig(id);
+    ok(res, data);
+  } catch (err) { fail(res, err, 400); }
+});
+
+// ── MONTHLY INSTALLMENTS (FO VIEW) ────────────────────────────────────────────
+router.post('/installments/generate/:studentRecordId', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const studentRecordId = req.params.studentRecordId as string;
+    const data = await installmentService.generateInstallmentsForStudent(studentRecordId);
+    ok(res, data);
+  } catch (err) { fail(res, err, 400); }
+});
+
+router.post('/installments/sync-statuses', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await installmentService.syncInstallmentStatuses();
+    ok(res, data);
+  } catch (err) { fail(res, err); }
+});
+
+router.post('/installments/send-reminders', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await installmentService.sendPaymentReminders();
+    ok(res, data);
+  } catch (err) { fail(res, err); }
+});
+
+// ── PAYMENT SUBMISSIONS (FO REVIEW) ──────────────────────────────────────────
+router.get('/payment-submissions', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const q = req.query as Record<string, string | undefined>;
+    const data = await paymentSubmissionService.listPendingSubmissions({
+      search: q.search,
+      page:   q.page ? parseInt(q.page, 10) : 1,
+      limit:  q.limit ? parseInt(q.limit, 10) : 20,
+    });
+    ok(res, data);
+  } catch (err) { fail(res, err); }
+});
+
+router.post('/payment-submissions/:id/approve', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const data = await paymentSubmissionService.approveSubmission({
+      submissionId:     id,
+      reviewedByUserId: req.user!.userId,
+    });
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName:   await resolveActorName(req),
+      action:      `Approved payment submission ${id}. Receipt: ${data.receipt.receiptNumber}`,
+      module:      'Payment Submissions',
+      amount:      data.receipt.amountPaid,
+      status:      'Success',
+    });
+    ok(res, data);
+  } catch (err) { fail(res, err, 400); }
+});
+
+router.post('/payment-submissions/:id/reject', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { rejectionReason } = req.body;
+    if (!rejectionReason) {
+      res.status(400).json({ error: 'rejectionReason is required.' });
+      return;
+    }
+    const data = await paymentSubmissionService.rejectSubmission({
+      submissionId:     id,
+      reviewedByUserId: req.user!.userId,
+      rejectionReason,
+    });
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName:   await resolveActorName(req),
+      action:      `Rejected payment submission ${id}: ${rejectionReason}`,
+      module:      'Payment Submissions',
+      status:      'Warning',
+    });
+    ok(res, data);
+  } catch (err) { fail(res, err, 400); }
+});
+
+router.get('/payment-submissions/analytics', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await paymentSubmissionService.getPaymentSubmissionAnalytics();
+    ok(res, data);
+  } catch (err) { fail(res, err); }
 });
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────

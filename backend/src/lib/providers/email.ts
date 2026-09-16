@@ -45,4 +45,19 @@ export interface EmailProvider {
       expiresInHours: number;
     }
   ): Promise<{ success: boolean; error?: string }>;
+
+  /**
+   * Official Harmony College employee/instructor account activation email.
+   */
+  sendAccountActivationEmail(
+    to: string,
+    params: {
+      fullName:       string;
+      role:           string;
+      position:       string;
+      departmentName: string;
+      activationLink: string;
+      expiresInHours: number;
+    }
+  ): Promise<{ success: boolean; error?: string }>;
 }

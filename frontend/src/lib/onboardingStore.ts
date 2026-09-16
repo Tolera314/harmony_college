@@ -68,7 +68,7 @@ const DEFAULT_ACCOUNT: AccountData = {
 };
 
 const DEFAULT_PROFILE: ProfileData = {
-  nationality: '',
+  nationality: 'Ethiopian',
   dob: '',
   gender: '',
   region: '',

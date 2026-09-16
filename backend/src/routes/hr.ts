@@ -110,6 +110,19 @@ router.get('/departments', async (_req, res) => {
   catch (e) { fail(res, e); }
 });
 
+// ── Academic Departments (for Instructor / Department Head staff invitations) ──
+router.get('/academic-departments', async (_req, res) => {
+  try {
+    const { prisma } = await import('../lib/prisma');
+    const depts = await prisma.department.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, code: true, description: true, isActive: true },
+    });
+    ok(res, depts);
+  } catch (e) { fail(res, e); }
+});
+
 // ── Courses (used in EmployeeFormPanel for INSTRUCTOR / DEPARTMENT_HEAD) ──────
 router.get('/courses/options', async (_req, res) => {
   try {
@@ -164,32 +177,32 @@ router.post('/employees', async (req: AuthRequest, res) => {
       fullName:       z.string().min(2).max(100),
       gender:         z.enum(['MALE', 'FEMALE']),
       email:          z.string().email(),
-      phone:          z.string().optional(),
-      dateOfBirth:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-      address:        z.string().max(500).optional(),
-      position:       z.string().min(2).max(100),
+      phone:          z.string().nullable().optional(),
+      dateOfBirth:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+      address:        z.string().max(500).nullable().optional(),
+      position:       z.string().max(100).nullable().optional(),
       employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']),
-      systemRole:     z.string().max(30).optional(),
-      courseId:       z.string().uuid().optional(),
+      systemRole:     z.string().max(30).nullable().optional(),
+      courseId:       z.string().uuid().nullable().optional(),
       hireDate:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD format'),
-      contractEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-      managerId:      z.string().uuid().optional(),
-      education:      z.string().optional(),
+      contractEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+      managerId:      z.string().uuid().nullable().optional(),
+      education:      z.string().nullable().optional(),
       experienceYears: z.number().int().min(0).max(60).optional(),
       basicSalary:    z.number().min(0),
       allowances:     z.number().min(0).optional(),
       deductions:     z.number().min(0).optional(),
-      nationalId:     z.string().optional(),
-      bankAccount:    z.string().optional(),
-      taxNumber:      z.string().optional(),
-      faydaIdUrl:         z.string().url().optional(),
-      faydaIdFileSize:    z.string().optional(),
-      certificateUrl:     z.string().url().optional(),
-      certificateFileSize: z.string().optional(),
-      emergencyName:      z.string().optional(),
-      emergencyPhone:     z.string().optional(),
-      emergencyRelation:  z.string().optional(),
-      avatarUrl:      z.string().url().optional(),
+      nationalId:     z.string().nullable().optional(),
+      bankAccount:    z.string().nullable().optional(),
+      taxNumber:      z.string().nullable().optional(),
+      faydaIdUrl:         z.string().url().nullable().optional(),
+      faydaIdFileSize:    z.string().nullable().optional(),
+      certificateUrl:     z.string().url().nullable().optional(),
+      certificateFileSize: z.string().nullable().optional(),
+      emergencyName:      z.string().nullable().optional(),
+      emergencyPhone:     z.string().nullable().optional(),
+      emergencyRelation:  z.string().nullable().optional(),
+      avatarUrl:      z.string().url().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
@@ -215,6 +228,119 @@ router.patch('/employees/:id/deactivate', async (req: AuthRequest, res) => {
     const actor = await resolveActorName(req);
     ok(res, await employees.deactivateEmployee(pid(req), actor, req.user?.userId));
   } catch (e) { fail(res, e, 400); }
+});
+
+router.post('/employees/:id/invite', async (req: AuthRequest, res) => {
+  try {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket.remoteAddress ?? null;
+    const result = await employees.inviteEmployee(pid(req), req.user!.userId, ip);
+    res.status(200).json({
+      success:      true,
+      message:      result.emailWarning
+        ? `Invitation created for ${result.email}. (Email provider note: ${result.emailWarning})`
+        : `Activation invitation sent to ${result.email}`,
+      email:        result.email,
+      activationLink: result.activationLink,
+      expiresInHours: result.expiresInHours,
+      emailWarning: result.emailWarning ?? null,
+    });
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.post('/employees/:id/resend-invite', async (req: AuthRequest, res) => {
+  try {
+    const result = await employees.resendEmployeeInvite(pid(req), req.user!.userId);
+    res.status(200).json({
+      success:      true,
+      message:      result.emailWarning
+        ? `Invitation resent for ${result.email}. (Email provider note: ${result.emailWarning})`
+        : `Activation invitation resent to ${result.email}`,
+      email:        result.email,
+      activationLink: result.activationLink,
+      expiresInHours: result.expiresInHours,
+      emailWarning: result.emailWarning ?? null,
+    });
+  } catch (e) { fail(res, e, 400); }
+});
+
+// ── HR Direct Staff Invitation ────────────────────────────────────────────────
+// POST /api/hr/invitations — HR officers can invite staff (non-admin roles only)
+// HR is NOT allowed to invite: ADMIN, SUPER_ADMIN, STUDENT
+router.post('/invitations', async (req: AuthRequest, res) => {
+  try {
+    const { createStaffInvitation } = await import('../services/invitationService');
+    const HR_ALLOWED_ROLES: string[] = [
+      'INSTRUCTOR', 'DEPARTMENT_HEAD', 'REGISTRAR', 'FINANCE_OFFICER', 'HR_OFFICER',
+    ];
+
+    const schema = z.object({
+      fullName:       z.string().min(2).max(100),
+      email:          z.string().email(),
+      role:           z.string(),
+      departmentId:   z.string().uuid().optional().nullable(),
+      positionTitle:  z.string().max(100).optional(),
+      employeeId:     z.string().max(50).optional(),
+      phone:          z.string().max(20).optional(),
+      specialization: z.string().max(200).optional(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      const field = firstIssue?.path?.join('.');
+      const msg   = firstIssue?.message ?? 'Validation failed';
+      res.status(400).json({ error: field ? `${field}: ${msg}` : msg });
+      return;
+    }
+
+    const { role, departmentId } = parsed.data;
+    if (!HR_ALLOWED_ROLES.includes(role)) {
+      res.status(403).json({
+        error: `HR Officers cannot invite users with role "${role}". Allowed roles: ${HR_ALLOWED_ROLES.join(', ')}.`,
+      });
+      return;
+    }
+
+    const isAcademicRole = role === 'INSTRUCTOR' || role === 'DEPARTMENT_HEAD';
+    if (isAcademicRole && !departmentId) {
+      res.status(400).json({
+        error: 'Academic Department is required for Instructor and Department Head roles.',
+      });
+      return;
+    }
+
+    const ipAddr = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      ?? req.socket.remoteAddress
+      ?? null;
+
+    // HR_OFFICER creating an invitation is treated as if ADMIN for the purpose of
+    // validateRolePermission (since HR is an authorised staff manager).
+    // We override callerRole to ADMIN so the existing permission check passes.
+    const callerRole = Role.ADMIN;
+
+    const result = await createStaffInvitation(
+      parsed.data as any,
+      req.user!.userId,
+      callerRole,
+      ipAddr,
+    );
+
+    const emailWarning = result.emailResult && !result.emailResult.success
+      ? result.emailResult.error
+      : undefined;
+
+    res.status(201).json({
+      success: true,
+      message: emailWarning
+        ? `Invitation created for ${result.invitation.email}. (Email note: ${emailWarning})`
+        : `Invitation successfully sent to ${result.invitation.email}`,
+      invitation: result.invitation,
+      emailWarning,
+      invitationLink: result.invitationLink,
+    });
+  } catch (err: any) {
+    fail(res, err, 400);
+  }
 });
 
 // ── Salary History ────────────────────────────────────────────────────────────
@@ -605,7 +731,20 @@ router.get('/audit-logs', async (req: AuthRequest, res) => {
 // ── Notifications ─────────────────────────────────────────────────────────────
 router.get('/notifications', async (req: AuthRequest, res) => {
   try {
-    ok(res, await notifications.listNotifications(req.user!.userId));
+    const rows = await notifications.listNotifications(req.user!.userId);
+    // Map unified Notification shape -> HR frontend shape (entityId->employeeId, actionTab->tab)
+    const mapped = rows.map(n => ({
+      id:         n.id,
+      employeeId: n.entityId ?? null,
+      type:       n.type,
+      title:      n.title,
+      message:    n.message,
+      tab:        n.actionTab ?? 'overview',
+      isRead:     n.isRead,
+      createdAt:  n.createdAt,
+      module:     n.module,
+    }));
+    ok(res, mapped);
   } catch (e) { fail(res, e); }
 });
 

@@ -17,6 +17,7 @@ import { dashboardApi, type DashboardStats } from '@/src/lib/registrarApi';
 interface OverviewProps {
   setActiveTab: (tab: any) => void;
   onOpenCreateCourse: () => void;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -35,7 +36,7 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
-export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpenCreateCourse }) => {
+export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpenCreateCourse, programType = 'TVET' }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
   const loadStats = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const data = await dashboardApi.getStats();
+      const data = await dashboardApi.getStats(programType);
       setStats(data);
       // Animate counters
       const targets: Record<string, number> = {

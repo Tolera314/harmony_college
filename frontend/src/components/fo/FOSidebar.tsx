@@ -33,11 +33,13 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
   activeTab, setActiveTab, profile, unreadCount, pendingReconciliation, overdueCount, onLogout,
 }) => {
   const navItems: NavItem[] = [
-    { id: 'overview',         label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'student_accounts', label: 'Student Accounts',     icon: <Users className="w-5 h-5" /> },
-    { id: 'payments',         label: 'Payments',             icon: <CreditCard className="w-5 h-5" /> },
+    { id: 'overview',            label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'tuition_setup',       label: 'Tuition Setup',        icon: <Landmark className="w-5 h-5" /> },
+    { id: 'payment_submissions', label: 'Payment Submissions',  icon: <CreditCard className="w-5 h-5" /> },
+    { id: 'student_accounts',    label: 'Student Accounts',     icon: <Users className="w-5 h-5" /> },
+    { id: 'payments',            label: 'Payments',             icon: <CreditCard className="w-5 h-5" /> },
     { id: 'registration_payments', label: 'Reg. Fee Verification', icon: <ClipboardList className="w-5 h-5" /> },
-    { id: 'receipts',         label: 'Receipts',             icon: <Receipt className="w-5 h-5" /> },
+    { id: 'receipts',            label: 'Receipts',             icon: <Receipt className="w-5 h-5" /> },
     {
       id: 'outstanding', label: 'Outstanding Accounts', icon: <AlertTriangle className="w-5 h-5" />,
       badge: overdueCount > 0 ? String(overdueCount) : undefined, badgeVariant: 'rose',
@@ -84,7 +86,7 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-1 overflow-y-auto scrollbar-thin" role="navigation">
+      <nav className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" role="navigation">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (

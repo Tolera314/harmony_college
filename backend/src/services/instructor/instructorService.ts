@@ -22,6 +22,8 @@ import {
   EnrollmentStatus,
   QuestionType,
 } from '@prisma/client';
+import { calculateCourseResult, AssessmentBreakdown } from '../../lib/grading';
+import { syncStudentAssessmentGrades, syncOfferingAssessmentGrades } from '../student/gradeSyncService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -40,15 +42,18 @@ async function resolveInstructor(userId: string) {
   return record;
 }
 
-/** Verify the instructor owns the course offering. Throws 403 if not. */
-async function verifyOfferingOwnership(courseOfferingId: string, instructorRecordId: string) {
+/** Verify the instructor owns the course offering and optionally matches expected courseId. Throws 403 if not. */
+async function verifyOfferingOwnership(courseOfferingId: string, instructorRecordId: string, expectedCourseId?: string) {
   const offering = await prisma.courseOffering.findUnique({
     where: { id: courseOfferingId },
-    select: { instructorId: true },
+    select: { id: true, instructorId: true, courseId: true },
   });
   if (!offering) throw new Error('Course offering not found.');
   if (offering.instructorId !== instructorRecordId) {
     throw new Error('You are not authorized to access this course offering.');
+  }
+  if (expectedCourseId && offering.courseId !== expectedCourseId) {
+    throw new Error('Selected class does not belong to the selected course.');
   }
   return offering;
 }
@@ -125,14 +130,27 @@ export async function updateInstructorProfile(
 // DASHBOARD / OVERVIEW
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getDashboardStats(userId: string) {
+export async function getDashboardStats(userId: string, requestedProgramType?: 'TVET' | 'SHORT_PROGRAM') {
   const instructor = await resolveInstructor(userId);
 
-  // All active offerings for this instructor
-  const offerings = await prisma.courseOffering.findMany({
+  // Check all offerings to discover assigned academic contexts
+  const allOfferings = await prisma.courseOffering.findMany({
     where: { instructorId: instructor.id },
+    select: { id: true, programType: true, shortProgramDuration: true },
+  });
+
+  const hasTVET = allOfferings.some(o => o.programType === 'TVET');
+  const hasShortProgram = allOfferings.some(o => o.programType === 'SHORT_PROGRAM');
+  const effectiveProgramType = requestedProgramType || (hasTVET ? 'TVET' : (hasShortProgram ? 'SHORT_PROGRAM' : 'TVET'));
+
+  // Active offerings for this instructor filtered by academic context
+  const offerings = await prisma.courseOffering.findMany({
+    where: {
+      instructorId: instructor.id,
+      programType: effectiveProgramType as any,
+    },
     include: {
-      course: { select: { code: true, name: true, creditHours: true } },
+      course: { select: { code: true, name: true, creditHours: true, department: { select: { id: true, name: true } } } },
       semester: { select: { id: true, name: true, isCurrent: true, academicYear: { select: { name: true } } } },
       room: { select: { name: true, building: true } },
       _count: {
@@ -147,10 +165,11 @@ export async function getDashboardStats(userId: string) {
   });
 
   const currentOfferings = offerings.filter(o => o.semester.isCurrent);
+  const targetOfferings = currentOfferings.length > 0 ? currentOfferings : offerings;
 
-  // Total students across current offerings (deduplicated)
+  // Total students across active offerings (deduplicated)
   const allStudentIds = new Set<string>();
-  for (const off of currentOfferings) {
+  for (const off of targetOfferings) {
     const enrs = await prisma.enrollment.findMany({
       where: { courseOfferingId: off.id, status: { in: ACTIVE_STATUSES } },
       select: { studentRecordId: true },
@@ -166,10 +185,18 @@ export async function getDashboardStats(userId: string) {
   const todaySessions = await prisma.classSession.findMany({
     where: {
       date: { gte: startOfDay, lte: endOfDay },
-      courseOffering: { instructorId: instructor.id },
+      courseOffering: {
+        instructorId: instructor.id,
+        programType: effectiveProgramType as any,
+      },
     },
     include: {
-      courseOffering: { include: { course: { select: { code: true, name: true } }, room: { select: { name: true, building: true } } } },
+      courseOffering: {
+        include: {
+          course: { select: { code: true, name: true } },
+          room: { select: { name: true, building: true } },
+        },
+      },
       attendanceSession: { select: { id: true, lifecycle: true } },
     },
     orderBy: { startTime: 'asc' },
@@ -179,14 +206,22 @@ export async function getDashboardStats(userId: string) {
   const activeSessions = await prisma.attendanceSession.count({
     where: {
       lifecycle: 'OPEN',
-      classSession: { courseOffering: { instructorId: instructor.id } },
+      classSession: {
+        courseOffering: {
+          instructorId: instructor.id,
+          programType: effectiveProgramType as any,
+        },
+      },
     },
   });
 
   // Pending assignments (published, not yet closed, for instructor's offerings)
   const pendingAssignments = await prisma.assignment.count({
     where: {
-      courseOffering: { instructorId: instructor.id },
+      courseOffering: {
+        instructorId: instructor.id,
+        programType: effectiveProgramType as any,
+      },
       status: AssignmentStatus.PUBLISHED,
       dueDate: { gte: now },
     },
@@ -195,7 +230,12 @@ export async function getDashboardStats(userId: string) {
   // Ungraded submissions
   const ungradedSubmissions = await prisma.assignmentSubmission.count({
     where: {
-      assignment: { courseOffering: { instructorId: instructor.id } },
+      assignment: {
+        courseOffering: {
+          instructorId: instructor.id,
+          programType: effectiveProgramType as any,
+        },
+      },
       status: SubmissionStatus.SUBMITTED,
       score: null,
     },
@@ -203,7 +243,7 @@ export async function getDashboardStats(userId: string) {
 
   // Attendance trend (last 8 sessions per offering)
   const attendanceTrend: number[] = [];
-  for (const off of currentOfferings) {
+  for (const off of targetOfferings) {
     const sessions = await prisma.attendanceSession.findMany({
       where: {
         lifecycle: { in: ['CLOSED', 'FINALIZED'] },
@@ -239,6 +279,11 @@ export async function getDashboardStats(userId: string) {
       email: instructor.user.email,
       phone: instructor.user.phone,
       department: instructor.department,
+    },
+    academicContext: {
+      activeProgramType: effectiveProgramType,
+      hasTVET,
+      hasShortProgram,
     },
     kpis: {
       classesToday: todaySessions.length,
@@ -279,13 +324,21 @@ export async function getDashboardStats(userId: string) {
 // MY CLASSES
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getMyClasses(userId: string) {
+export async function getMyClasses(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const instructor = await resolveInstructor(userId);
 
   const offerings = await prisma.courseOffering.findMany({
-    where: { instructorId: instructor.id },
+    where: {
+      instructorId: instructor.id,
+      ...(programType ? { programType: programType as any } : {}),
+    },
     include: {
-      course: { select: { id: true, code: true, name: true, description: true, creditHours: true } },
+      course: {
+        select: {
+          id: true, code: true, name: true, description: true, creditHours: true,
+          department: { select: { id: true, name: true } },
+        },
+      },
       semester: {
         select: {
           id: true, name: true, isCurrent: true,
@@ -294,6 +347,15 @@ export async function getMyClasses(userId: string) {
         },
       },
       room: { select: { name: true, building: true, capacity: true } },
+      enrollments: {
+        where: { status: { in: ACTIVE_STATUSES } },
+        select: {
+          id: true,
+          grade: {
+            select: { status: true },
+          },
+        },
+      },
       _count: {
         select: {
           enrollments: { where: { status: { in: ACTIVE_STATUSES } } },
@@ -311,40 +373,61 @@ export async function getMyClasses(userId: string) {
 
   const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  return offerings.map(o => ({
-    id: o.id,
-    section: o.section,
-    status: o.status,
-    capacity: o.capacity,
-    enrolled: o._count.enrollments,
-    course: {
-      id: o.course.id,
-      code: o.course.code,
-      name: o.course.name,
-      description: o.course.description,
-      creditHours: o.course.creditHours,
-    },
-    semester: {
-      id: o.semester.id,
-      name: o.semester.name,
-      isCurrent: o.semester.isCurrent,
-      startDate: o.semester.startDate,
-      endDate: o.semester.endDate,
-      academicYear: o.semester.academicYear.name,
-    },
-    room: o.room
-      ? { name: o.room.name, building: o.room.building, capacity: o.room.capacity }
-      : null,
-    schedule: o.timetables.map(t => ({
-      day: DAY_NAMES[t.dayOfWeek] ?? `Day ${t.dayOfWeek}`,
-      startTime: t.startTime,
-      endTime: t.endTime,
-    })),
-    stats: {
-      assignments: o._count.assignments,
-      quizzes: o._count.quizzes,
-    },
-  }));
+  return offerings.map(o => {
+    const totalEnrolled = o.enrollments.length;
+    const submittedCount = o.enrollments.filter(e => e.grade && (e.grade.status === 'SUBMITTED' || e.grade.status === 'PUBLISHED')).length;
+    const publishedCount = o.enrollments.filter(e => e.grade && e.grade.status === 'PUBLISHED').length;
+    const draftCount = o.enrollments.filter(e => e.grade && e.grade.status === 'DRAFT').length;
+
+    let submissionStatus: 'PUBLISHED' | 'SUBMITTED' | 'IN_PROGRESS' | 'PENDING' = 'PENDING';
+    if (totalEnrolled > 0 && publishedCount === totalEnrolled) {
+      submissionStatus = 'PUBLISHED';
+    } else if (submittedCount > 0) {
+      submissionStatus = 'SUBMITTED';
+    } else if (draftCount > 0) {
+      submissionStatus = 'IN_PROGRESS';
+    }
+
+    return {
+      id: o.id,
+      section: o.section,
+      status: o.status,
+      capacity: o.capacity,
+      enrolled: o._count.enrollments,
+      submissionStatus,
+      submittedCount,
+      programType: o.programType,
+      shortProgramDuration: o.shortProgramDuration,
+      department: o.course.department,
+      course: {
+        id: o.course.id,
+        code: o.course.code,
+        name: o.course.name,
+        description: o.course.description,
+        creditHours: o.course.creditHours,
+      },
+      semester: {
+        id: o.semester.id,
+        name: o.semester.name,
+        isCurrent: o.semester.isCurrent,
+        startDate: o.semester.startDate,
+        endDate: o.semester.endDate,
+        academicYear: o.semester.academicYear.name,
+      },
+      room: o.room
+        ? { name: o.room.name, building: o.room.building, capacity: o.room.capacity }
+        : null,
+      schedule: o.timetables.map(t => ({
+        day: DAY_NAMES[t.dayOfWeek] ?? `Day ${t.dayOfWeek}`,
+        startTime: t.startTime,
+        endTime: t.endTime,
+      })),
+      stats: {
+        assignments: o._count.assignments,
+        quizzes: o._count.quizzes,
+      },
+    };
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -604,16 +687,19 @@ export async function getStudentAcademicView(
 // ASSIGNMENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getAssignments(userId: string, courseOfferingId?: string) {
+export async function getAssignments(userId: string, courseOfferingId?: string, courseId?: string) {
   const instructor = await resolveInstructor(userId);
 
   // When courseOfferingId is provided, verify ownership first
   if (courseOfferingId) {
-    await verifyOfferingOwnership(courseOfferingId, instructor.id);
+    await verifyOfferingOwnership(courseOfferingId, instructor.id, courseId);
   }
 
   const where: any = {
-    courseOffering: { instructorId: instructor.id },
+    courseOffering: {
+      instructorId: instructor.id,
+      ...(courseId && { courseId }),
+    },
     ...(courseOfferingId && { courseOfferingId }),
   };
 
@@ -621,7 +707,7 @@ export async function getAssignments(userId: string, courseOfferingId?: string) 
     where,
     include: {
       courseOffering: {
-        include: { course: { select: { code: true, name: true } } },
+        include: { course: { select: { id: true, code: true, name: true } } },
       },
       _count: { select: { submissions: true, attachments: true } },
     },
@@ -637,9 +723,11 @@ export async function getAssignments(userId: string, courseOfferingId?: string) 
     totalPoints: a.totalPoints,
     status: a.status,
     allowLateSubmit: a.allowLateSubmit,
+    courseId: a.courseOffering.course.id,
     courseCode: a.courseOffering.course.code,
     courseName: a.courseOffering.course.name,
     courseOfferingId: a.courseOfferingId,
+    section: a.courseOffering.section,
     createdAt: a.createdAt,
     submissionCount: a._count.submissions,
     attachmentCount: a._count.attachments,
@@ -666,6 +754,8 @@ export async function getAssignmentDetail(userId: string, assignmentId: string) 
 
   return {
     ...assignment,
+    courseId: assignment.courseOffering.courseId,
+    classId: assignment.courseOfferingId,
     attachments,
     submissions: submissions.map(s => ({
       id: s.id,
@@ -691,10 +781,81 @@ export async function getAssignmentDetail(userId: string, assignmentId: string) 
   };
 }
 
+export async function getOfferingSubmissions(
+  userId: string,
+  courseOfferingId: string,
+  assignmentId?: string,
+) {
+  const instructor = await resolveInstructor(userId);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  const where: any = {
+    assignment: {
+      courseOfferingId,
+      ...(assignmentId && { id: assignmentId }),
+    },
+  };
+
+  const submissions = await prisma.assignmentSubmission.findMany({
+    where,
+    include: {
+      assignment: {
+        select: {
+          id: true,
+          title: true,
+          totalPoints: true,
+          dueDate: true,
+          courseOffering: {
+            select: {
+              id: true,
+              section: true,
+              course: { select: { id: true, code: true, name: true } },
+            },
+          },
+        },
+      },
+      studentRecord: {
+        include: {
+          user: { select: { fullName: true, email: true } },
+        },
+      },
+    },
+    orderBy: { submittedAt: 'desc' },
+  });
+
+  return submissions.map(s => ({
+    id: s.id,
+    assignmentId: s.assignmentId,
+    assignmentTitle: s.assignment.title,
+    totalPoints: s.assignment.totalPoints,
+    dueDate: s.assignment.dueDate,
+    studentName: s.studentRecord.user.fullName,
+    studentId: s.studentRecord.studentId,
+    studentEmail: s.studentRecord.user.email,
+    courseId: s.assignment.courseOffering.course.id,
+    courseCode: s.assignment.courseOffering.course.code,
+    courseName: s.assignment.courseOffering.course.name,
+    classId: s.assignment.courseOffering.id,
+    section: s.assignment.courseOffering.section,
+    status: s.status,
+    submittedAt: s.submittedAt,
+    score: s.score,
+    letterGrade: s.letterGrade,
+    feedback: s.feedback,
+    gradedAt: s.gradedAt,
+    isLate: s.status === SubmissionStatus.LATE,
+    fileUrl: s.fileUrl,
+    fileName: s.fileName,
+    fileSize: s.fileSize,
+    textContent: s.textContent,
+  }));
+}
+
 export async function createAssignment(
   userId: string,
   courseOfferingId: string,
   data: {
+    courseId?: string;
     title: string;
     description: string;
     instructions: string;
@@ -702,11 +863,12 @@ export async function createAssignment(
     totalPoints?: number;
     allowLateSubmit?: boolean;
     maxFileSize?: number;
+    status?: AssignmentStatus;
     attachments?: Array<{ name: string; size: number | string; url: string; type?: string }>;
   },
 ) {
   const instructor = await resolveInstructor(userId);
-  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id, data?.courseId);
 
   return prisma.assignment.create({
     data: {
@@ -719,7 +881,7 @@ export async function createAssignment(
       totalPoints: data.totalPoints ?? 100,
       allowLateSubmit: data.allowLateSubmit ?? false,
       maxFileSize: data.maxFileSize ?? 250,
-      status: AssignmentStatus.DRAFT,
+      status: data.status ?? AssignmentStatus.DRAFT,
       ...(data.attachments && data.attachments.length > 0 && {
         attachments: {
           create: data.attachments.map(att => ({
@@ -819,6 +981,13 @@ export async function gradeSubmission(
     },
   });
 
+  // Automatically sync assignment score into CourseGrade
+  try {
+    await syncStudentAssessmentGrades(submission.studentRecordId, submission.assignment.courseOfferingId);
+  } catch (syncErr) {
+    console.error('Failed to auto-sync assignment grade to CourseGrade:', syncErr);
+  }
+
   // Notify student of posted assignment grade
   try {
     if (updated.studentRecord?.userId) {
@@ -839,31 +1008,50 @@ export async function gradeSubmission(
 // QUIZZES
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getQuizzes(userId: string, courseOfferingId?: string) {
+export async function getQuizzes(userId: string, courseOfferingId?: string, courseId?: string) {
   const instructor = await resolveInstructor(userId);
 
   // When courseOfferingId is provided, verify ownership
   if (courseOfferingId) {
-    await verifyOfferingOwnership(courseOfferingId, instructor.id);
+    await verifyOfferingOwnership(courseOfferingId, instructor.id, courseId);
   }
 
   const where: any = {
-    courseOffering: { instructorId: instructor.id },
+    courseOffering: {
+      instructorId: instructor.id,
+      ...(courseId && { courseId }),
+    },
     ...(courseOfferingId && { courseOfferingId }),
   };
 
-  return prisma.quiz.findMany({
+  const quizzes = await prisma.quiz.findMany({
     where,
     include: {
-      courseOffering: { include: { course: { select: { code: true, name: true } } } },
+      courseOffering: {
+        include: { course: { select: { id: true, code: true, name: true } } },
+      },
       _count: { select: { questions: true, attempts: true } },
     },
     orderBy: [{ status: 'asc' }, { availableFrom: 'asc' }],
+  });
+
+  return quizzes.map(qz => {
+    const isExam = qz.description?.startsWith('[EXAM]') ?? false;
+    return {
+      ...qz,
+      assessmentType: isExam ? ('EXAM' as const) : ('QUIZ' as const),
+      cleanDescription: qz.description ? qz.description.replace(/^\[EXAM\]\s*/, '') : '',
+      courseId: qz.courseOffering.course.id,
+      courseCode: qz.courseOffering.course.code,
+      courseName: qz.courseOffering.course.name,
+      section: qz.courseOffering.section,
+    };
   });
 }
 
 export async function getQuizDetail(userId: string, quizId: string) {
   const quiz = await verifyQuizOwnership(quizId, userId);
+  const isExam = quiz.description?.startsWith('[EXAM]') ?? false;
 
   const [questions, attempts] = await Promise.all([
     prisma.quizQuestion.findMany({
@@ -885,6 +1073,11 @@ export async function getQuizDetail(userId: string, quizId: string) {
 
   return {
     ...quiz,
+    assessmentType: isExam ? ('EXAM' as const) : ('QUIZ' as const),
+    cleanDescription: quiz.description ? quiz.description.replace(/^\[EXAM\]\s*/, '') : '',
+    courseId: quiz.courseOffering.courseId,
+    classId: quiz.courseOfferingId,
+    section: quiz.courseOffering.section,
     questions,
     attempts: attempts.map(a => ({
       id: a.id,
@@ -908,6 +1101,8 @@ export async function createQuiz(
   userId: string,
   courseOfferingId: string,
   data: {
+    courseId?: string;
+    assessmentType?: 'QUIZ' | 'EXAM';
     title: string;
     description?: string;
     instructions?: string;
@@ -919,6 +1114,7 @@ export async function createQuiz(
     totalPoints?: number;
     showResultsImmediately?: boolean;
     shuffleQuestions?: boolean;
+    status?: QuizStatus;
     questions?: Array<{
       questionText: string;
       type: string;
@@ -928,27 +1124,24 @@ export async function createQuiz(
   },
 ) {
   const instructor = await resolveInstructor(userId);
-  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id, data?.courseId);
 
   const from = new Date(data.availableFrom);
   const until = new Date(data.availableUntil);
   if (until <= from) throw new Error('availableUntil must be after availableFrom.');
 
-  const qTypeMap = (t: string): QuestionType => {
-    const u = t.toUpperCase().replace('-', '_');
-    if (u === 'TRUEFALSE' || u === 'TRUE_FALSE') return QuestionType.TRUE_FALSE;
-    if (u === 'FILLBLANK' || u === 'FILL_BLANK') return QuestionType.FILL_BLANK;
-    if (u === 'SHORTANSWER' || u === 'SHORT_ANSWER') return QuestionType.SHORT_ANSWER;
-    if (u === 'ESSAY') return QuestionType.ESSAY;
-    return QuestionType.MCQ;
-  };
+  const isExam = data.assessmentType === 'EXAM';
+  let formattedDescription = data.description?.trim() || null;
+  if (isExam) {
+    formattedDescription = formattedDescription ? (formattedDescription.startsWith('[EXAM]') ? formattedDescription : `[EXAM] ${formattedDescription}`) : '[EXAM]';
+  }
 
   return prisma.quiz.create({
     data: {
       courseOfferingId,
       createdBy: userId,
       title: data.title,
-      description: data.description,
+      description: formattedDescription,
       instructions: data.instructions,
       durationMinutes: data.durationMinutes ?? 30,
       availableFrom: from,
@@ -958,24 +1151,27 @@ export async function createQuiz(
       totalPoints: data.totalPoints ?? 100,
       showResultsImmediately: data.showResultsImmediately ?? true,
       shuffleQuestions: data.shuffleQuestions ?? false,
-      status: QuizStatus.DRAFT,
+      status: data.status ?? QuizStatus.DRAFT,
       ...(data.questions && data.questions.length > 0 && {
         questions: {
-          create: data.questions.map((q, idx) => ({
-            questionText: q.questionText,
-            type: qTypeMap(q.type),
-            points: q.points ?? 1,
-            orderIndex: idx,
-            ...(q.options && q.options.length > 0 && {
-              options: {
-                create: q.options.map((opt, oIdx) => ({
-                  text: opt.text,
-                  isCorrect: opt.isCorrect ?? false,
-                  orderIndex: oIdx,
-                })),
-              },
-            }),
-          })),
+          create: data.questions.map((q, idx) => {
+            const type = mapQuestionType(q.type);
+            return {
+              questionText: q.questionText,
+              type,
+              points: q.points ?? 1,
+              orderIndex: idx,
+              ...((type === QuestionType.MCQ || type === QuestionType.TRUE_FALSE) && q.options && q.options.length > 0 && {
+                options: {
+                  create: q.options.map((opt, oIdx) => ({
+                    text: opt.text,
+                    isCorrect: opt.isCorrect ?? false,
+                    orderIndex: oIdx,
+                  })),
+                },
+              }),
+            };
+          }),
         },
       }),
     },
@@ -985,43 +1181,274 @@ export async function createQuiz(
   });
 }
 
+function mapQuestionType(t: string): QuestionType {
+  const u = (t || '').toUpperCase().replace('-', '_');
+  if (u === 'TRUEFALSE' || u === 'TRUE_FALSE') return QuestionType.TRUE_FALSE;
+  if (u === 'FILLBLANK' || u === 'FILL_BLANK') return QuestionType.FILL_BLANK;
+  if (u === 'SHORTANSWER' || u === 'SHORT_ANSWER') return QuestionType.SHORT_ANSWER;
+  if (u === 'ESSAY') return QuestionType.ESSAY;
+  return QuestionType.MCQ;
+}
+
 export async function updateQuiz(
   userId: string,
   quizId: string,
-  data: Record<string, unknown>,
+  data: {
+    courseId?: string;
+    assessmentType?: 'QUIZ' | 'EXAM';
+    title?: string;
+    description?: string;
+    instructions?: string;
+    durationMinutes?: number;
+    availableFrom?: string;
+    availableUntil?: string;
+    passingScore?: number;
+    maxAttempts?: number;
+    totalPoints?: number;
+    showResultsImmediately?: boolean;
+    shuffleQuestions?: boolean;
+    status?: QuizStatus;
+    questions?: Array<{
+      id?: string;
+      questionText: string;
+      type: string;
+      points?: number;
+      options?: Array<{ id?: string; text: string; isCorrect?: boolean }>;
+    }>;
+  },
 ) {
   const quiz = await verifyQuizOwnership(quizId, userId);
   if (quiz.status === QuizStatus.CLOSED) {
     throw new Error('Cannot modify a closed quiz.');
   }
 
-  const allowed: (keyof typeof data)[] = [
-    'title', 'description', 'instructions', 'durationMinutes',
-    'availableFrom', 'availableUntil', 'passingScore', 'maxAttempts',
-    'totalPoints', 'showResultsImmediately', 'shuffleQuestions', 'status',
-  ];
-  const update: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (data[key] !== undefined) {
-      if ((key === 'availableFrom' || key === 'availableUntil') && typeof data[key] === 'string') {
-        update[key] = new Date(data[key] as string);
-      } else {
-        update[key] = data[key];
-      }
+  const isExam = data.assessmentType !== undefined
+    ? data.assessmentType === 'EXAM'
+    : (quiz.description?.startsWith('[EXAM]') ?? false);
+
+  let formattedDescription: string | null | undefined = undefined;
+  if (data.description !== undefined) {
+    const raw = data.description ? data.description.trim() : '';
+    if (isExam) {
+      formattedDescription = raw ? (raw.startsWith('[EXAM]') ? raw : `[EXAM] ${raw}`) : '[EXAM]';
+    } else {
+      formattedDescription = raw ? raw.replace(/^\[EXAM\]\s*/, '') : null;
+    }
+  } else if (data.assessmentType !== undefined) {
+    const clean = quiz.description ? quiz.description.replace(/^\[EXAM\]\s*/, '') : '';
+    if (isExam) {
+      formattedDescription = clean ? `[EXAM] ${clean}` : '[EXAM]';
+    } else {
+      formattedDescription = clean || null;
     }
   }
 
-  return prisma.quiz.update({ where: { id: quizId }, data: update });
+  const updateData: any = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (formattedDescription !== undefined) updateData.description = formattedDescription;
+  if (data.instructions !== undefined) updateData.instructions = data.instructions;
+  if (data.durationMinutes !== undefined) updateData.durationMinutes = Number(data.durationMinutes);
+  if (data.availableFrom !== undefined) updateData.availableFrom = new Date(data.availableFrom);
+  if (data.availableUntil !== undefined) updateData.availableUntil = new Date(data.availableUntil);
+  if (data.passingScore !== undefined) updateData.passingScore = Number(data.passingScore);
+  if (data.maxAttempts !== undefined) updateData.maxAttempts = Number(data.maxAttempts);
+  if (data.totalPoints !== undefined) updateData.totalPoints = Number(data.totalPoints);
+  if (data.showResultsImmediately !== undefined) updateData.showResultsImmediately = Boolean(data.showResultsImmediately);
+  if (data.shuffleQuestions !== undefined) updateData.shuffleQuestions = Boolean(data.shuffleQuestions);
+  if (data.status !== undefined) updateData.status = data.status;
+
+  if (!data.questions) {
+    return prisma.quiz.update({
+      where: { id: quizId },
+      data: updateData,
+      include: {
+        questions: {
+          include: { options: { orderBy: { orderIndex: 'asc' } } },
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Fetch existing questions
+    const existingQuestions = await tx.quizQuestion.findMany({
+      where: { quizId },
+      select: { id: true },
+    });
+    const existingIdSet = new Set(existingQuestions.map(q => q.id));
+
+    // 2. Identify incoming IDs that exist in DB
+    const incomingExistingIds = new Set(
+      data.questions!.map(q => q.id).filter((id): id is string => !!id && existingIdSet.has(id))
+    );
+
+    // 3. Delete questions that were removed
+    const toDelete = existingQuestions.filter(q => !incomingExistingIds.has(q.id)).map(q => q.id);
+    if (toDelete.length > 0) {
+      await tx.quizQuestion.deleteMany({
+        where: { id: { in: toDelete } },
+      });
+    }
+
+    // 4. Upsert/Update questions
+    let calculatedTotalPoints = 0;
+    for (let idx = 0; idx < data.questions!.length; idx++) {
+      const q = data.questions![idx];
+      const points = q.points ?? 1;
+      calculatedTotalPoints += points;
+      const type = mapQuestionType(q.type);
+
+      if (q.id && existingIdSet.has(q.id)) {
+        await tx.quizQuestion.update({
+          where: { id: q.id },
+          data: {
+            questionText: q.questionText,
+            type,
+            points,
+            orderIndex: idx,
+          },
+        });
+
+        // Replace options for MCQ or TRUE_FALSE
+        await tx.quizQuestionOption.deleteMany({ where: { questionId: q.id } });
+        if ((type === QuestionType.MCQ || type === QuestionType.TRUE_FALSE) && q.options && q.options.length > 0) {
+          await tx.quizQuestionOption.createMany({
+            data: q.options.map((opt, oIdx) => ({
+              questionId: q.id!,
+              text: opt.text,
+              isCorrect: Boolean(opt.isCorrect),
+              orderIndex: oIdx,
+            })),
+          });
+        }
+      } else {
+        // Create new question added to quiz
+        await tx.quizQuestion.create({
+          data: {
+            quizId,
+            questionText: q.questionText,
+            type,
+            points,
+            orderIndex: idx,
+            ...((type === QuestionType.MCQ || type === QuestionType.TRUE_FALSE) && q.options && q.options.length > 0 && {
+              options: {
+                create: q.options.map((opt, oIdx) => ({
+                  text: opt.text,
+                  isCorrect: Boolean(opt.isCorrect),
+                  orderIndex: oIdx,
+                })),
+              },
+            }),
+          },
+        });
+      }
+    }
+
+    if (data.totalPoints === undefined && calculatedTotalPoints > 0) {
+      updateData.totalPoints = calculatedTotalPoints;
+    }
+
+    return tx.quiz.update({
+      where: { id: quizId },
+      data: updateData,
+      include: {
+        questions: {
+          include: { options: { orderBy: { orderIndex: 'asc' } } },
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
+    });
+  });
+}
+
+export async function deleteQuiz(userId: string, quizId: string) {
+  await verifyQuizOwnership(quizId, userId);
+  return prisma.quiz.delete({ where: { id: quizId } });
+}
+
+export async function addQuizQuestion(
+  userId: string,
+  quizId: string,
+  data: {
+    questionText: string;
+    type: string;
+    points?: number;
+    options?: Array<{ text: string; isCorrect?: boolean }>;
+  },
+) {
+  const quiz = await verifyQuizOwnership(quizId, userId);
+  if (quiz.status === QuizStatus.CLOSED) throw new Error('Cannot modify a closed quiz.');
+
+  const count = await prisma.quizQuestion.count({ where: { quizId } });
+  const points = data.points ?? 1;
+  const type = mapQuestionType(data.type);
+
+  const question = await prisma.quizQuestion.create({
+    data: {
+      quizId,
+      questionText: data.questionText,
+      type,
+      points,
+      orderIndex: count,
+      ...((type === QuestionType.MCQ || type === QuestionType.TRUE_FALSE) && data.options && data.options.length > 0 && {
+        options: {
+          create: data.options.map((opt, oIdx) => ({
+            text: opt.text,
+            isCorrect: Boolean(opt.isCorrect),
+            orderIndex: oIdx,
+          })),
+        },
+      }),
+    },
+    include: { options: { orderBy: { orderIndex: 'asc' } } },
+  });
+
+  await prisma.quiz.update({
+    where: { id: quizId },
+    data: { totalPoints: { increment: points } },
+  });
+
+  return question;
+}
+
+export async function deleteQuizQuestion(userId: string, quizId: string, questionId: string) {
+  await verifyQuizOwnership(quizId, userId);
+  const q = await prisma.quizQuestion.findFirst({ where: { id: questionId, quizId } });
+  if (!q) throw new Error('Question not found in this quiz.');
+
+  await prisma.quizQuestion.delete({ where: { id: questionId } });
+  await prisma.quiz.update({
+    where: { id: quizId },
+    data: { totalPoints: { decrement: q.points } },
+  });
+  return { id: questionId };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GRADES / COURSE GRADES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Get all enrollments with course grade for a course offering. */
+/** Get all enrollments with detailed assessment breakdown and course grade for a course offering. */
 export async function getCourseGrades(userId: string, courseOfferingId: string) {
   const instructor = await resolveInstructor(userId);
   await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  // Auto-sync any completed assignment/quiz assessments for all enrolled students
+  try {
+    await syncOfferingAssessmentGrades(courseOfferingId);
+  } catch (syncErr) {
+    console.error('Failed to auto-sync offering grades:', syncErr);
+  }
+
+  const offering = await prisma.courseOffering.findUnique({
+    where: { id: courseOfferingId },
+    include: {
+      course: { select: { id: true, code: true, name: true, creditHours: true, ects: true } },
+      semester: { select: { id: true, name: true, isCurrent: true, academicYear: { select: { name: true } } } },
+    },
+  });
+  if (!offering) throw new Error('Course offering not found.');
 
   const enrollments = await prisma.enrollment.findMany({
     where: { courseOfferingId, status: { in: ACTIVE_STATUSES } },
@@ -1034,7 +1461,7 @@ export async function getCourseGrades(userId: string, courseOfferingId: string) 
     orderBy: { studentRecord: { user: { fullName: 'asc' } } },
   });
 
-  return enrollments.map(e => ({
+  const students = enrollments.map(e => ({
     enrollmentId: e.id,
     studentRecordId: e.studentRecordId,
     studentId: e.studentRecord.studentId,
@@ -1042,76 +1469,222 @@ export async function getCourseGrades(userId: string, courseOfferingId: string) 
     gpa: e.studentRecord.gpa,
     currentGrade: e.grade
       ? {
+        id: e.grade.id,
+        assignmentMarks: e.grade.assignmentMarks,
+        quizMarks: e.grade.quizMarks,
+        midExamMarks: e.grade.midExamMarks,
+        finalExamMarks: e.grade.finalExamMarks,
+        attendanceMarks: e.grade.attendanceMarks,
+        otherMarks: e.grade.otherMarks,
+        finalMark: e.grade.finalMark,
         letterGrade: e.grade.letterGrade,
         gradePoints: e.grade.gradePoints,
+        qualityPoints: e.grade.qualityPoints,
         creditHours: e.grade.creditHours,
+        ects: e.grade.ects ?? offering.course.ects,
+        status: e.grade.status, // DRAFT | SUBMITTED | PUBLISHED
+        submittedAt: e.grade.submittedAt,
         gradedAt: e.grade.gradedAt,
       }
       : null,
   }));
+
+  // Check global GradeEditingSetting
+  const editingSetting = await prisma.gradeEditingSetting.upsert({
+    where: { id: 'default' },
+    create: { id: 'default', isOpen: true },
+    update: {},
+  });
+
+  // Offering submission status: if any student is SUBMITTED or PUBLISHED
+  const hasSubmitted = students.some(s => s.currentGrade?.status === 'SUBMITTED' || s.currentGrade?.status === 'PUBLISHED');
+  const isAllPublished = students.length > 0 && students.every(s => s.currentGrade?.status === 'PUBLISHED');
+
+  return {
+    course: {
+      id: offering.course.id,
+      code: offering.course.code,
+      name: offering.course.name,
+      creditHours: offering.course.creditHours,
+      ects: offering.course.ects,
+      semester: offering.semester.name,
+      academicYear: offering.semester.academicYear.name,
+    },
+    isLocked: !editingSetting.isOpen,
+    submissionStatus: isAllPublished ? 'PUBLISHED' : (hasSubmitted ? 'SUBMITTED' : 'DRAFT'),
+    students,
+  };
 }
 
-/** Submit / update a final course grade for a student. Transactional. */
-export async function submitCourseGrade(
+/** Save or update draft assessment marks for an individual student. */
+export async function saveAssessmentGrade(
   userId: string,
+  courseOfferingId: string,
   enrollmentId: string,
-  data: { letterGrade: string; gradePoints: number },
+  breakdown: AssessmentBreakdown,
 ) {
   const instructor = await resolveInstructor(userId);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id);
 
   const enrollment = await prisma.enrollment.findUnique({
     where: { id: enrollmentId },
     include: {
-      courseOffering: { include: { instructor: { select: { id: true } }, course: { select: { creditHours: true } } } },
+      courseOffering: {
+        include: {
+          course: { select: { creditHours: true, ects: true } },
+        },
+      },
+      grade: true,
     },
   });
-  if (!enrollment) throw new Error('Enrollment not found.');
-  if (enrollment.courseOffering.instructor?.id !== instructor.id) {
-    throw new Error('Not authorized to grade this enrollment.');
+
+  if (!enrollment || enrollment.courseOfferingId !== courseOfferingId) {
+    throw new Error('Enrollment not found for this course offering.');
   }
 
-  // Validate via GradeScale
-  const scale = await prisma.gradeScale.findUnique({ where: { letterGrade: data.letterGrade } });
-  if (!scale) throw new Error(`Invalid letter grade: ${data.letterGrade}.`);
-
-  return prisma.$transaction(async tx => {
-    const grade = await tx.courseGrade.upsert({
-      where: { enrollmentId },
-      create: {
-        enrollmentId,
-        studentRecordId: enrollment.studentRecordId,
-        letterGrade: data.letterGrade,
-        gradePoints: scale.gradePoints,
-        creditHours: enrollment.courseOffering.course.creditHours,
-        gradedAt: new Date(),
-      },
-      update: {
-        letterGrade: data.letterGrade,
-        gradePoints: scale.gradePoints,
-        gradedAt: new Date(),
-      },
-    });
-
-    // Notify student
-    const studentUser = await tx.studentRecord.findUnique({
-      where: { id: enrollment.studentRecordId },
-      select: { userId: true },
-    });
-    if (studentUser) {
-      // Fire-and-forget: createNotification handles push + DB write
-      createNotification({
-        userId:     studentUser.userId,
-        title:      'Course Grade Updated',
-        message:    'Your grade has been recorded.',
-        type:       'INFO',
-        entityType: 'CourseGrade',
-        entityId:   grade.id,
-        actionTab:  'grades',
-      }).catch(() => { /* non-blocking */ });
-    }
-
-    return grade;
+  // Check if Registrar has grade editing OPEN or CLOSED
+  const editingSetting = await prisma.gradeEditingSetting.upsert({
+    where: { id: 'default' },
+    create: { id: 'default', isOpen: true },
+    update: {},
   });
+  if (!editingSetting.isOpen) {
+    throw new Error('Grade editing is currently closed by the Registrar.');
+  }
+
+  const ects = enrollment.courseOffering.course.ects;
+  const creditHours = enrollment.courseOffering.course.creditHours;
+  const computed = calculateCourseResult(breakdown, ects);
+
+  return prisma.courseGrade.upsert({
+    where: { enrollmentId },
+    create: {
+      enrollmentId,
+      studentRecordId: enrollment.studentRecordId,
+      assignmentMarks: breakdown.assignment !== undefined && breakdown.assignment !== null ? Number(breakdown.assignment) : null,
+      quizMarks: breakdown.quiz !== undefined && breakdown.quiz !== null ? Number(breakdown.quiz) : null,
+      midExamMarks: breakdown.midExam !== undefined && breakdown.midExam !== null ? Number(breakdown.midExam) : null,
+      finalExamMarks: breakdown.finalExam !== undefined && breakdown.finalExam !== null ? Number(breakdown.finalExam) : null,
+      attendanceMarks: breakdown.attendance !== undefined && breakdown.attendance !== null ? Number(breakdown.attendance) : null,
+      otherMarks: breakdown.other !== undefined && breakdown.other !== null ? Number(breakdown.other) : null,
+      finalMark: computed.finalMark,
+      letterGrade: computed.letterGrade,
+      gradePoints: computed.gradePoints,
+      qualityPoints: computed.qualityPoints,
+      creditHours,
+      ects,
+      status: 'DRAFT',
+      gradedAt: new Date(),
+    },
+    update: {
+      assignmentMarks: breakdown.assignment !== undefined && breakdown.assignment !== null ? Number(breakdown.assignment) : null,
+      quizMarks: breakdown.quiz !== undefined && breakdown.quiz !== null ? Number(breakdown.quiz) : null,
+      midExamMarks: breakdown.midExam !== undefined && breakdown.midExam !== null ? Number(breakdown.midExam) : null,
+      finalExamMarks: breakdown.finalExam !== undefined && breakdown.finalExam !== null ? Number(breakdown.finalExam) : null,
+      attendanceMarks: breakdown.attendance !== undefined && breakdown.attendance !== null ? Number(breakdown.attendance) : null,
+      otherMarks: breakdown.other !== undefined && breakdown.other !== null ? Number(breakdown.other) : null,
+      finalMark: computed.finalMark,
+      letterGrade: computed.letterGrade,
+      gradePoints: computed.gradePoints,
+      qualityPoints: computed.qualityPoints,
+      creditHours,
+      ects,
+      status: enrollment.grade?.status === 'PUBLISHED'
+        ? 'PUBLISHED'
+        : (enrollment.grade?.status === 'SUBMITTED' ? 'SUBMITTED' : 'DRAFT'),
+      gradedAt: new Date(),
+    },
+  });
+}
+
+/** Batch save draft assessment marks for students. */
+export async function saveBatchAssessmentGrades(
+  userId: string,
+  courseOfferingId: string,
+  entries: { enrollmentId: string; breakdown: AssessmentBreakdown }[],
+) {
+  const instructor = await resolveInstructor(userId);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  const results = [];
+  for (const entry of entries) {
+    const updated = await saveAssessmentGrade(userId, courseOfferingId, entry.enrollmentId, entry.breakdown);
+    results.push(updated);
+  }
+  return results;
+}
+
+/**
+ * Submit all grades for a course offering to the Registrar.
+ * Transitions status from DRAFT -> SUBMITTED.
+ * Teacher can still edit if Registrar's Grade Editing setting is OPEN.
+ */
+export async function submitCourseGradesToRegistrar(
+  userId: string,
+  courseOfferingId: string,
+) {
+  const instructor = await resolveInstructor(userId);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+
+  const offering = await prisma.courseOffering.findUnique({
+    where: { id: courseOfferingId },
+    include: {
+      course: { select: { code: true, name: true } },
+    },
+  });
+  if (!offering) throw new Error('Course offering not found.');
+
+  // Find all grades for this offering
+  const grades = await prisma.courseGrade.findMany({
+    where: {
+      enrollment: { courseOfferingId },
+    },
+  });
+
+  if (grades.length === 0) {
+    throw new Error('No grades found to submit. Please enter assessment marks first.');
+  }
+
+  const now = new Date();
+
+  // Transactionally set status to SUBMITTED for non-published grades
+  await prisma.$transaction(async tx => {
+    await tx.courseGrade.updateMany({
+      where: {
+        enrollment: { courseOfferingId },
+        status: { not: 'PUBLISHED' },
+      },
+      data: {
+        status: 'SUBMITTED',
+        submittedAt: now,
+        submittedBy: userId,
+      },
+    });
+
+    // Notify all Registrars
+    const registrars = await tx.user.findMany({
+      where: { role: 'REGISTRAR', status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    for (const r of registrars) {
+      await createNotification({
+        userId: r.id,
+        title: 'Grades Submitted to Registrar',
+        message: `${instructor.user.fullName} has submitted final grades for ${offering.course.code} — ${offering.course.name}.`,
+        type: 'INFO',
+        entityType: 'CourseOffering',
+        entityId: courseOfferingId,
+        actionTab: 'students',
+      }).catch(() => {});
+    }
+  });
+
+  return {
+    success: true,
+    submittedCount: grades.length,
+    submittedAt: now,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1150,10 +1723,12 @@ export async function getNotifications(
 }
 
 export async function markNotificationRead(userId: string, notificationId: string) {
-  const notif = await prisma.notification.findUnique({ where: { id: notificationId } });
-  if (!notif) throw new Error('Notification not found.');
-  if (notif.userId !== userId) throw new Error('Not authorized.');
-  return prisma.notification.update({ where: { id: notificationId }, data: { isRead: true } });
+  const result = await prisma.notification.updateMany({
+    where: { id: notificationId, userId },
+    data:  { isRead: true },
+  });
+  if (result.count === 0) throw new Error('Notification not found.');
+  return { id: notificationId, isRead: true };
 }
 
 export async function markAllNotificationsRead(userId: string) {

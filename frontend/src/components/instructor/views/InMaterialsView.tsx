@@ -49,8 +49,12 @@ interface MaterialItem {
   downloads?:  number;
 }
 
+export interface InMaterialsViewProps {
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-export const InMaterialsView: React.FC = () => {
+export const InMaterialsView: React.FC<InMaterialsViewProps> = ({ programType }) => {
   const [classes,          setClasses]         = useState<ClassOffering[]>([]);
   const [selectedOffering, setSelectedOffering] = useState('');
   const [materials,        setMaterials]       = useState<MaterialItem[]>([]);
@@ -68,15 +72,18 @@ export const InMaterialsView: React.FC = () => {
 
   // ── Load classes ────────────────────────────────────────────────────────────
   useEffect(() => {
-    instructorClassesApi.list()
+    instructorClassesApi.list(programType)
       .then(data => {
-        const current = data.filter(o => o.semester.isCurrent);
-        const list = current.length ? current : data;
-        setClasses(list);
-        if (list.length > 0) setSelectedOffering(list[0].id);
+        setClasses(data);
+        if (data.length > 0) {
+          const current = data.find(o => o.semester.isCurrent);
+          setSelectedOffering(prev => (prev && data.some(d => d.id === prev)) ? prev : (current ? current.id : data[0].id));
+        } else {
+          setSelectedOffering('');
+        }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [programType]);
 
   const selectedClass = classes.find(c => c.id === selectedOffering);
 

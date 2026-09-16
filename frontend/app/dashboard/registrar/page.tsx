@@ -1,14 +1,15 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNotifications } from '@/src/hooks/useNotifications';
-import { ChatView } from '@/src/components/chat/ChatView';
+import { MessagingView } from '@/src/components/messaging/MessagingView';
 import {
   ClipboardList, BookOpen, GraduationCap, FileText,
   Users, ShieldAlert, ChevronRight, Calendar, Send,
   ShieldCheck, Grid, LayoutDashboard, Clock, BarChart3,
-  Settings, X, LogOut,
+  Settings, X, LogOut, ToggleLeft, ToggleRight,
+  Award, Building2,
 } from 'lucide-react';
 import { Sidebar, GenericNavItem } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
@@ -21,6 +22,8 @@ import { settingsApi, notificationsApi, registrarNotifApi, type RegistrarProfile
 import { DashboardOverview } from '@/src/components/registrar/DashboardOverview';
 
 const RegistrarStudentsView  = dynamic(() => import('@/src/components/registrar/RegistrarStudentsView').then(m => m.RegistrarStudentsView), { ssr: false });
+const StudentGradesView      = dynamic(() => import('@/src/components/registrar/StudentGradesView').then(m => m.StudentGradesView), { ssr: false });
+
 const RegistrarOnboardingsView = dynamic(() => import('@/src/components/registrar/RegistrarOnboardingsView').then(m => m.RegistrarOnboardingsView), { ssr: false });
 const AdmissionsManagement   = dynamic(() => import('@/src/components/registrar/AdmissionsManagement').then(m => m.AdmissionsManagement), { ssr: false });
 const CourseCatalog          = dynamic(() => import('@/src/components/registrar/CourseCatalog').then(m => m.CourseCatalog), { ssr: false });
@@ -34,21 +37,25 @@ const InteractiveReports     = dynamic(() => import('@/src/components/registrar/
 const AcademicCalendarView   = dynamic(() => import('@/src/components/registrar/AcademicCalendarView').then(m => m.AcademicCalendarView), { ssr: false });
 const AnnouncementsManager   = dynamic(() => import('@/src/components/registrar/AnnouncementsManager').then(m => m.AnnouncementsManager), { ssr: false });
 const AuditLogsTimeline      = dynamic(() => import('@/src/components/registrar/AuditLogsTimeline').then(m => m.AuditLogsTimeline), { ssr: false });
-const RegistrarSettings      = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
+const RegistrarSettings          = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
+const RegistrarDepartmentsView   = dynamic(() => import('@/src/components/registrar/RegistrarDepartmentsView').then(m => m.RegistrarDepartmentsView), { ssr: false });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RegistrarTab =
-  | 'dashboard' | 'students' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
+  | 'dashboard' | 'students' | 'student_grades' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
-  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
+  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages'
+  | 'departments';
 
 interface MenuItem { id: RegistrarTab; label: string; icon: React.ComponentType<any> }
 
 const MENU_ITEMS: MenuItem[] = [
-  { id: 'dashboard',    label: 'Dashboard',           icon: LayoutDashboard },
-  { id: 'students',     label: 'Student Records',     icon: Users },
-  { id: 'onboardings',  label: 'Onboardings',         icon: ClipboardList },
+  { id: 'dashboard',         label: 'Dashboard',            icon: LayoutDashboard },
+  { id: 'departments',       label: 'Department Management',icon: Building2 },
+  { id: 'students',          label: 'Student Records',      icon: Users },
+  { id: 'student_grades',    label: 'Student Grades',       icon: Award },
+  { id: 'onboardings',       label: 'Onboardings',          icon: ClipboardList },
   { id: 'admissions',   label: 'Admissions',          icon: ClipboardList },
   { id: 'enrollments',  label: 'Course Enrollments',  icon: BookOpen },
   { id: 'catalog',      label: 'Course Catalog',      icon: BookOpen },
@@ -123,11 +130,29 @@ export default function RegistrarDashboardPage() {
   const [profile,       setProfile]  = useState<RegistrarProfile | null>(null);
   const [auditLogs,     setAuditLogs] = useState<RegistrarNotification[]>([]);
 
+  // ── TVET / Short Program switch — persisted across page navigation ─────────
+  const [registrarProgramType, setRegistrarProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('registrar_program_type');
+      if (saved === 'TVET' || saved === 'SHORT_PROGRAM') return saved;
+    }
+    return 'TVET';
+  });
+
+  const setProgramType = (pt: 'TVET' | 'SHORT_PROGRAM') => {
+    setRegistrarProgramType(pt);
+    localStorage.setItem('registrar_program_type', pt);
+  };
+
   // ── Real-time notification badge ────────────────────────────────────────────
+  const fetchNotifs = useCallback(() => registrarNotifApi.list({ limit: 20 }), []);
+  const markNotifRead = useCallback((id: string) => registrarNotifApi.markRead(id), []);
+  const markAllNotifsRead = useCallback(() => registrarNotifApi.markAllRead(), []);
+
   const { unreadCount } = useNotifications({
-    fetchFn:       () => registrarNotifApi.list({ limit: 20 }),
-    markReadFn:    (id) => registrarNotifApi.markRead(id),
-    markAllReadFn: () => registrarNotifApi.markAllRead(),
+    fetchFn:       fetchNotifs,
+    markReadFn:    markNotifRead,
+    markAllReadFn: markAllNotifsRead,
   });
 
 
@@ -215,9 +240,11 @@ export default function RegistrarDashboardPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'dashboard':    return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} />;
-      case 'students':     return <RegistrarStudentsView />;
-      case 'onboardings':  return <RegistrarOnboardingsView />;
+      case 'dashboard':         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} programType={registrarProgramType} />;
+      case 'departments':       return <RegistrarDepartmentsView />;
+      case 'students':          return <RegistrarStudentsView programType={registrarProgramType} />;
+      case 'student_grades':    return <StudentGradesView programType={registrarProgramType} />;
+      case 'onboardings':       return <RegistrarOnboardingsView />;
       case 'admissions':   return <AdmissionsManagement />;
       case 'catalog':      return <CourseCatalog />;
       case 'offerings':    return <CourseOfferings />;
@@ -232,7 +259,7 @@ export default function RegistrarDashboardPage() {
       case 'announcements':return <AnnouncementsManager />;
       case 'audit_logs':   return <AuditLogsTimeline />;
       case 'settings':     return <RegistrarSettings initialTab="account" />;
-      case 'messages':     return <ChatView />;
+      case 'messages':     return <MessagingView />;
       default:             return null;
     }
   };
@@ -255,6 +282,7 @@ export default function RegistrarDashboardPage() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSC(!sidebarCollapsed)}
           onLogout={() => setLogout(true)}
+          showChat={true}
           profile={{
             name:       profile?.fullName ?? 'Registrar',
             avatar:     undefined,
@@ -293,9 +321,43 @@ export default function RegistrarDashboardPage() {
 
           {/* Page content */}
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 max-w-[1600px] w-full mx-auto">
+
+            {/* ── Program Type Switcher ── */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-(--bg-secondary) border border-(--border-default) shadow-sm">
+                <button
+                  id="reg-switch-tvet"
+                  onClick={() => setProgramType('TVET')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    registrarProgramType === 'TVET'
+                      ? 'bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black shadow-md scale-[1.02]'
+                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                  }`}
+                >
+                  {registrarProgramType === 'TVET' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                  🎓 TVET
+                </button>
+                <button
+                  id="reg-switch-sp"
+                  onClick={() => setProgramType('SHORT_PROGRAM')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    registrarProgramType === 'SHORT_PROGRAM'
+                      ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md scale-[1.02]'
+                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                  }`}
+                >
+                  {registrarProgramType === 'SHORT_PROGRAM' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                  ⏱ Short Program
+                </button>
+              </div>
+              <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">
+                {registrarProgramType === 'TVET' ? 'Viewing TVET academic data' : 'Viewing Short Program academic data'}
+              </span>
+            </div>
+
             <AnimatePresence mode="wait">
               <motion.div
-                key={activeTab}
+                key={`${activeTab}-${registrarProgramType}`}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -15 }}

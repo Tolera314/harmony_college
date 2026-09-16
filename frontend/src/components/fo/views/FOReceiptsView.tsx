@@ -16,7 +16,10 @@ import {
 } from 'lucide-react';
 import { FOPageHeader } from '../FOPageHeader';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { getReceipts } from '@/src/lib/foApi';
+import type { Receipt as ReceiptType } from '../../../types/finance';
+import { shareContent, downloadPDF, exportToExcel } from '../../../lib/exportUtils';
+import { fmtETB } from '../FOCharts';
+import { getReceipts } from '../../../lib/foApi';
 
 interface ReceiptItem {
   label: string;
@@ -252,13 +255,122 @@ export function FOReceiptsView() {
           <p className="font-serif text-2xl font-bold mt-2 text-emerald-400">
             ETB {totalRevenue.toLocaleString()}
           </p>
-          <p className="text-[11px] text-(--text-faint) mt-1">Sum of posted transaction receipts</p>
-        </div>
+        </div>{/* end printable region */}
 
-        <div className="p-5 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-sans font-semibold text-(--text-muted)">Active Filter</span>
-            <Filter className="w-4 h-4 text-amber-400" />
+        {/* Share feedback */}
+        {shareMsg && <p className="font-sans text-xs text-emerald-400 text-center">{shareMsg}</p>}
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-2 no-print">
+          <Button variant="secondary" size="sm" className="flex-1" icon={<Printer className="w-4 h-4" />}
+            onClick={() => printTranscriptReceipt(receipt)}>Print</Button>
+          <Button variant="secondary" size="sm" className="flex-1" icon={<Download className="w-4 h-4" />}
+            onClick={() => printTranscriptReceipt(receipt)}>PDF</Button>
+          <Button variant="outline" size="sm" className="flex-1" icon={<Share2 className="w-4 h-4" />}
+            onClick={handleShare}>Share</Button>
+        </div>
+      </div>
+    </SlidePanel>
+  );
+}
+
+// ── Main View ──────────────────────────────────────────────────────────────────
+export const FOReceiptsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
+  const [receiptList, setReceiptList] = useState<ReceiptType[]>([]);
+  const [stats, setStats]             = useState({ totalReceipts: 0, totalAmount: 0, printedCount: 0, digitalCount: 0 });
+  const [search, setSearch]           = useState('');
+  const [methodFilter, setMethodFilter] = useState<string>('All');
+  const [selected, setSelected]       = useState<ReceiptType | null>(null);
+  const [page, setPage]               = useState(1);
+  const PAGE_SIZE = 10;
+
+  useEffect(() => {
+    getReceipts({ search: search || undefined, limit: 100 })
+      .then((data: any) => {
+        if (data && Array.isArray(data.receipts)) {
+          setReceiptList(data.receipts);
+          if (data.stats) {
+            setStats(data.stats);
+          } else {
+            const sum = data.totalAmount ?? data.receipts.reduce((s: number, r: any) => s + (r.amount || 0), 0);
+            const printed = data.printedCount ?? data.receipts.filter((r: any) => r.printed).length;
+            const digital = data.digitalCount ?? data.receipts.filter((r: any) => r.shared).length;
+            setStats({
+              totalReceipts: data.total ?? data.receipts.length,
+              totalAmount: sum,
+              printedCount: printed,
+              digitalCount: digital,
+            });
+          }
+        }
+      })
+      .catch(() => {});
+  }, [search]);
+
+  const filtered = useMemo(() => {
+    let list = [...receiptList];
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((r) =>
+        r.receiptNumber.toLowerCase().includes(q) ||
+        r.studentName.toLowerCase().includes(q) ||
+        r.referenceNumber.toLowerCase().includes(q)
+      );
+    }
+    if (methodFilter !== 'All') list = list.filter((r) => r.paymentMethod === methodFilter);
+    return list;
+  }, [search, methodFilter, receiptList]);
+
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const totalAmount = stats.totalAmount > 0 ? stats.totalAmount : filtered.reduce((s, r) => s + r.amount, 0);
+  const totalCount  = stats.totalReceipts > 0 ? stats.totalReceipts : filtered.length;
+
+  const handleExportAll = () => {
+    exportToExcel(
+      filtered.map((r) => ({
+        'Receipt No.': r.receiptNumber,
+        'Student Name': r.studentName,
+        'Program': r.studentProgramName,
+        'Amount (ETB)': r.amount,
+        'Payment Method': r.paymentMethod,
+        'Reference Number': r.referenceNumber,
+        'Date': `${r.date} ${r.time}`,
+        'Delivery Type': r.printed ? 'Printed' : 'Digital',
+      })),
+      'harmony-college-receipts'
+    );
+  };
+
+  const methodColor: Record<string, string> = {
+    Cash: 'text-amber-400', 'Bank Transfer': 'text-blue-400',
+    Telebirr: 'text-green-400', Chapa: 'text-purple-400',
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+      <FOPageHeader
+        title="Receipts"
+        subtitle={`${totalCount} receipt${totalCount !== 1 ? 's' : ''} issued · ETB ${fmtETB(totalAmount)} total`}
+        icon={<Receipt className="w-5 h-5" />}
+        actions={
+          <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportAll}>
+            Export All
+          </Button>
+        }
+      />
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Receipts',   value: totalCount,                              color: 'text-white' },
+          { label: 'Total Amount',     value: `ETB ${fmtETB(totalAmount)}`,            color: 'text-[#E9C349]' },
+          { label: 'Printed',          value: stats.printedCount,                      color: 'text-emerald-400' },
+          { label: 'Shared / Digital', value: stats.digitalCount,                      color: 'text-blue-400' },
+        ].map((s) => (
+          <div key={s.label} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <p className="font-mono text-[10px] text-white/40 uppercase tracking-wider">{s.label}</p>
+            <p className={`font-mono text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
           </div>
           <p className="font-serif text-2xl font-bold mt-2 text-(--brand-gold)">{methodFilter}</p>
           <p className="text-[11px] text-(--text-faint) mt-1">

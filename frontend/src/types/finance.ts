@@ -4,6 +4,8 @@
 
 export type FONavTab =
   | 'overview'
+  | 'tuition_setup'
+  | 'payment_submissions'
   | 'student_accounts'
   | 'payments'
   | 'registration_payments'

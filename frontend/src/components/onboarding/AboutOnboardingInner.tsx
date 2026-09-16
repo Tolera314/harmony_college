@@ -237,6 +237,8 @@ export function AboutOnboardingInner() {
   const [file, setFile]         = useState<File | null>(null);
   const [preview, setPreview]   = useState('');
   const [deptId, setDeptId]     = useState('');
+  const [programType, setProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
+  const [duration, setDuration]   = useState<'4 Months' | '8 Months' | 'Summer' | ''>('');
   const [departments, setDepts] = useState<Dept[]>([]);
 
   // ── UI state ─────────────────────────────────────────────────────────────────
@@ -272,7 +274,7 @@ export function AboutOnboardingInner() {
 
       // Load departments
       try {
-        const depts = await apiFetch<Dept[]>('/api/student/onboarding/departments');
+        const depts = await apiFetch<Dept[]>('/api/student/onboarding/departments?programType=TVET');
         setDepts(depts);
       } catch { /* non-fatal */ }
 
@@ -298,6 +300,9 @@ export function AboutOnboardingInner() {
     if (!method)  { setError('Please choose how you paid.'); return; }
     if (!file)    { setError('Please upload a photo of your payment receipt.'); return; }
     if (!deptId)  { setError('Please select your department.'); return; }
+    if (programType === 'SHORT_PROGRAM' && !duration) {
+      setError('Please select a program duration (4 Months, 8 Months, or Summer).'); return;
+    }
 
     setSubmitting(true); setError('');
     try {
@@ -315,7 +320,11 @@ export function AboutOnboardingInner() {
         apiFetch('/api/student/onboarding/payment', { method: 'PATCH' }),
         apiFetch('/api/student/onboarding/department', {
           method: 'PATCH',
-          body: JSON.stringify({ departmentId: deptId }),
+          body: JSON.stringify({
+            departmentId: deptId,
+            programType,
+            ...(programType === 'SHORT_PROGRAM' && duration ? { shortProgramDuration: duration } : {}),
+          }),
         }),
       ]);
 
@@ -329,7 +338,7 @@ export function AboutOnboardingInner() {
     } finally {
       setSubmitting(false);
     }
-  }, [method, file, deptId, router]);
+  }, [method, file, deptId, programType, duration, router]);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (!loaded) {
@@ -363,6 +372,32 @@ export function AboutOnboardingInner() {
 
           {/* Header */}
           <div className="flex items-center gap-3">
+            {/* Back button */}
+            <button
+              onClick={() => router.back()}
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all hover:scale-105"
+              style={{ 
+                backgroundColor: 'rgba(233, 195, 73, 0.1)', 
+                border: '1px solid var(--accent-gold-border)',
+                color: 'var(--brand-gold)'
+              }}
+              title="Go back"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="20" 
+                height="20" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+            </button>
+            
             <div className="w-9 h-9 rounded-xl overflow-hidden border-2 shrink-0"
               style={{ borderColor: 'var(--accent-gold-border)' }}>
               <img src="/logo2.jpg" alt="Harmony" className="w-full h-full object-cover" />
@@ -447,46 +482,126 @@ export function AboutOnboardingInner() {
                     </AnimatePresence>
 
                     {/* Upload receipt */}
-                    <div
-                      className="relative rounded-xl cursor-pointer transition-all"
-                      style={{
-                        border: `2px dashed ${file ? 'var(--status-success-border)' : 'var(--border-strong)'}`,
-                        backgroundColor: 'var(--hover-overlay)',
-                        minHeight: 100,
-                      }}
-                      onDragOver={e => e.preventDefault()}
-                      onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
-                      onClick={() => document.getElementById('receipt-input')?.click()}
-                    >
-                      <input id="receipt-input" type="file" accept="image/*,.pdf" className="hidden"
-                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold font-sans uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+                        Payment Receipt
+                      </p>
 
-                      {preview ? (
-                        <div className="relative">
-                          <img src={preview} alt="Receipt" className="w-full max-h-40 object-contain rounded-xl" />
-                          <button type="button" onClick={e => { e.stopPropagation(); setFile(null); setPreview(''); }}
-                            className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}>
-                            <X className="w-3 h-3" style={{ color: 'var(--status-danger)' }} />
-                          </button>
-                        </div>
-                      ) : file ? (
-                        <div className="flex items-center gap-3 px-4 py-4">
-                          <CheckCircle2 className="w-6 h-6 shrink-0" style={{ color: 'var(--status-success)' }} />
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{file.name}</p>
-                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{(file.size / 1024).toFixed(0)} KB · Tap to change</p>
+                      {/* Drop zone — hidden once file is selected */}
+                      {!file && (
+                        <div
+                          className="relative rounded-xl cursor-pointer transition-all"
+                          style={{
+                            border: '2px dashed var(--border-strong)',
+                            backgroundColor: 'var(--hover-overlay)',
+                          }}
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+                          onClick={() => document.getElementById('receipt-input')?.click()}
+                        >
+                          <input id="receipt-input" type="file" accept="image/*,.pdf" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+                          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                              style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}>
+                              <Upload className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                Tap to upload receipt
+                              </p>
+                              <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>
+                                Photo (JPG / PNG) or PDF · max 10 MB
+                              </p>
+                              <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
+                                Your name &amp; ETB 500 must be visible
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-3 px-4 py-5">
-                          <Upload className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-gold)' }} />
-                          <div>
-                            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Upload payment receipt</p>
-                            <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
-                              Photo or PDF · Your name &amp; ETB 500 must be visible
+                      )}
+
+                      {/* Uploaded image preview */}
+                      {file && preview && (
+                        <div className="rounded-2xl overflow-hidden"
+                          style={{ border: '2px solid var(--status-success-border)', backgroundColor: 'var(--hover-overlay)' }}>
+
+                          {/* Success bar */}
+                          <div className="flex items-center gap-2 px-4 py-2.5"
+                            style={{ backgroundColor: 'rgba(16,185,129,0.1)', borderBottom: '1px solid var(--status-success-border)' }}>
+                            <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: 'var(--status-success)' }} />
+                            <span className="text-xs font-semibold font-sans" style={{ color: 'var(--status-success)' }}>
+                              Receipt uploaded successfully
+                            </span>
+                          </div>
+
+                          {/* Image */}
+                          <div className="relative bg-black/30">
+                            <img
+                              src={preview}
+                              alt="Payment receipt"
+                              className="w-full object-contain"
+                              style={{ maxHeight: 260 }}
+                            />
+                            {/* Change button over image */}
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById('receipt-input')?.click()}
+                              className="absolute bottom-2 right-2 px-3 py-1.5 rounded-xl text-xs font-semibold font-sans transition-all"
+                              style={{ backgroundColor: 'rgba(0,0,0,0.65)', color: '#fff', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.15)' }}
+                            >
+                              Change image
+                            </button>
+                            <input id="receipt-input" type="file" accept="image/*,.pdf" className="hidden"
+                              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+                          </div>
+
+                          {/* File info + remove */}
+                          <div className="flex items-center justify-between gap-3 px-4 py-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold font-sans truncate" style={{ color: 'var(--text-primary)' }}>
+                                {file.name}
+                              </p>
+                              <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--text-faint)' }}>
+                                {(file.size / 1024).toFixed(0)} KB
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => { setFile(null); setPreview(''); }}
+                              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all hover:opacity-80"
+                              style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}
+                            >
+                              <X className="w-3.5 h-3.5" style={{ color: 'var(--status-danger)' }} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* PDF / non-image file uploaded */}
+                      {file && !preview && (
+                        <div className="flex items-center gap-3 px-4 py-4 rounded-xl"
+                          style={{ border: '2px solid var(--status-success-border)', backgroundColor: 'rgba(16,185,129,0.06)' }}>
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: 'rgba(16,185,129,0.15)', border: '1px solid var(--status-success-border)' }}>
+                            <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--status-success)' }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold font-sans truncate" style={{ color: 'var(--text-primary)' }}>
+                              {file.name}
+                            </p>
+                            <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--status-success)' }}>
+                              {(file.size / 1024).toFixed(0)} KB · uploaded
                             </p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => { setFile(null); setPreview(''); }}
+                            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all hover:opacity-80"
+                            style={{ backgroundColor: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}
+                          >
+                            <X className="w-3.5 h-3.5" style={{ color: 'var(--status-danger)' }} />
+                          </button>
                         </div>
                       )}
                     </div>
@@ -495,29 +610,107 @@ export function AboutOnboardingInner() {
                   {/* Divider */}
                   <div className="h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
 
-                  {/* ── SECTION 2: Department ── */}
+                  {/* ── SECTION 2: Program Type + Department ── */}
                   <section className="space-y-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-mono text-xs font-bold"
                         style={{ backgroundColor: 'var(--brand-gold)', color: 'var(--bg-base)' }}>2</div>
                       <div>
                         <h2 className="font-serif text-lg font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
-                          Choose Your Department
+                          Choose Your Program
                         </h2>
                         <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                          Which department interests you? You can change this later.
+                          Select your program type, then pick your department.
                         </p>
                       </div>
                     </div>
 
-                    {departments.length === 0 ? (
-                      <div className="flex items-center gap-2 py-4">
-                        <div className="w-5 h-5 border-2 border-t-[var(--brand-gold)] border-white/10 rounded-full animate-spin shrink-0" />
-                        <p className="text-sm font-sans" style={{ color: 'var(--text-faint)' }}>Loading departments…</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {departments.map(dept => {
+                    {/* Program type toggle */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { id: 'TVET',          label: 'TVET',          sub: '3-year full program' },
+                        { id: 'SHORT_PROGRAM', label: 'Short Program',  sub: '4 or 8 months' },
+                      ] as const).map(pt => {
+                        const sel = programType === pt.id;
+                        return (
+                          <button key={pt.id} type="button"
+                            onClick={async () => {
+                              setProgramType(pt.id);
+                              setDeptId('');
+                              setDuration('');
+                              try {
+                                const depts = await apiFetch<Dept[]>(`/api/student/onboarding/departments?programType=${pt.id}`);
+                                setDepts(depts);
+                              } catch { /* non-fatal */ }
+                            }}
+                            className="flex flex-col items-center gap-1 px-4 py-3.5 rounded-xl text-center transition-all"
+                            style={{
+                              backgroundColor: sel ? 'var(--accent-gold-subtle)' : 'var(--hover-overlay)',
+                              border: `1.5px solid ${sel ? 'var(--brand-gold)' : 'var(--border-subtle)'}`,
+                            }}>
+                            <span className="text-sm font-bold font-sans" style={{ color: sel ? 'var(--brand-gold)' : 'var(--text-primary)' }}>
+                              {pt.label}
+                            </span>
+                            <span className="text-[11px] font-sans" style={{ color: 'var(--text-faint)' }}>
+                              {pt.sub}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Duration picker — only for Short Program */}
+                    <AnimatePresence>
+                      {programType === 'SHORT_PROGRAM' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="space-y-2 pt-1">
+                            <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-faint)' }}>
+                              Program Duration
+                            </p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(['4 Months', '8 Months', 'Summer'] as const).map(d => {
+                                const sel = duration === d;
+                                return (
+                                  <button key={d} type="button"
+                                    onClick={() => setDuration(d)}
+                                    className="flex flex-col items-center gap-0.5 px-4 py-3 rounded-xl text-center transition-all"
+                                    style={{
+                                      backgroundColor: sel ? 'var(--accent-gold-subtle)' : 'var(--hover-overlay)',
+                                      border: `1.5px solid ${sel ? 'var(--brand-gold)' : 'var(--border-subtle)'}`,
+                                    }}>
+                                    <span className="text-sm font-bold font-sans" style={{ color: sel ? 'var(--brand-gold)' : 'var(--text-primary)' }}>
+                                      {d}
+                                    </span>
+                                    <span className="text-[10px] font-sans" style={{ color: 'var(--text-faint)' }}>
+                                      {d === '4 Months' ? 'Standard' : d === '8 Months' ? 'Extended' : 'Intensive'}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Department list */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold font-sans" style={{ color: 'var(--text-faint)' }}>
+                        Department
+                      </p>
+                      {departments.length === 0 ? (
+                        <div className="flex items-center gap-2 py-4">
+                          <div className="w-5 h-5 border-2 border-t-[var(--brand-gold)] border-white/10 rounded-full animate-spin shrink-0" />
+                          <p className="text-sm font-sans" style={{ color: 'var(--text-faint)' }}>Loading departments…</p>
+                        </div>
+                      ) : (
+                        departments.map(dept => {
                           const sel = deptId === dept.id;
                           return (
                             <button key={dept.id} type="button" onClick={() => setDeptId(dept.id)}
@@ -539,9 +732,9 @@ export function AboutOnboardingInner() {
                               </span>
                             </button>
                           );
-                        })}
-                      </div>
-                    )}
+                        })
+                      )}
+                    </div>
                   </section>
 
                   {/* Error */}

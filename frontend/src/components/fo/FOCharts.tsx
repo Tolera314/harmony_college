@@ -60,6 +60,8 @@ export const RevenueLineChart: React.FC<RevenueLineChartProps> = ({
     }
     return d.map((p, i) => `${toX(i, d.length)},${toY(p.value)}`).join(' ');
   };
+  const toX = (i: number, len: number) => pad.left + (len <= 1 ? iW / 2 : (i / (len - 1)) * iW);
+  const toY = (v: number) => range === 0 ? pad.top + iH / 2 : pad.top + iH - ((v - minV) / range) * iH;
 
   const areaPath = (d: LinePoint[], c: string) => {
     if (!d || d.length === 0) return '';

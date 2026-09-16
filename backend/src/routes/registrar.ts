@@ -6,7 +6,7 @@ import { Router, Response, Request } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
-import { Role, ApplicationStatus, StudentStatus, CourseStatus, OfferingStatus, EnrollmentStatus } from '@prisma/client';
+import { Role, ApplicationStatus, StudentStatus, CourseStatus, OfferingStatus, EnrollmentStatus, AccountStatus } from '@prisma/client';
 import * as dashboard from '../services/registrar/dashboardService';
 import * as students  from '../services/registrar/studentService';
 import * as admissions from '../services/registrar/admissionService';
@@ -18,6 +18,8 @@ import * as graduation from '../services/registrar/graduationService';
 import * as certificates from '../services/registrar/certificateService';
 import * as reports from '../services/registrar/reportsService';
 import { prisma } from '../lib/prisma';
+import { syncCourseOfferingEnrollments } from '../services/registrar/enrollmentSyncService';
+import { getGradeHistory } from '../services/student/gradesService';
 import {
   broadcastTimetableCreated,
   broadcastTimetableUpdated,
@@ -46,11 +48,168 @@ function pageParams(query: Q) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// DEPARTMENT MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/registrar/departments — list departments grouped as parent (TVET) + children (SP)
+// Returns one entry per subject area; each entry contains the TVET dept as parent
+// and its Short Program child as a nested branch. Academic data stays separate.
+router.get('/departments', async (req: AuthRequest, res) => {
+  try {
+    // Fetch all active parent (TVET) departments with their children, HOD, counts
+    const parents = await prisma.department.findMany({
+      where: { parentId: null, isActive: true }, // TVET = no parent
+      orderBy: { name: 'asc' },
+      include: {
+        programs: { select: { id: true, name: true, code: true, isActive: true }, orderBy: { name: 'asc' } },
+        departmentHeads: {
+          where: { isActive: true },
+          take: 1,
+          include: { user: { select: { id: true, fullName: true, email: true, phone: true } } },
+        },
+        _count: {
+          select: {
+            studentRecords: true,
+            courses: true,
+            instructors: { where: { isActive: true } },
+            programs: true,
+          },
+        },
+        children: {
+          where: { isActive: true },
+          include: {
+            programs: { select: { id: true, name: true, code: true, isActive: true }, orderBy: { name: 'asc' } },
+            _count: {
+              select: {
+                studentRecords: true,
+                courses: true,
+                instructors: { where: { isActive: true } },
+                programs: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const result = parents.map(p => {
+      const hod = p.departmentHeads[0] ?? null;
+      return {
+        // Parent (TVET) fields
+        id:          p.id,
+        name:        p.name,
+        code:        p.code,
+        programType: p.programType,
+        description: p.description,
+        isActive:    p.isActive,
+        createdAt:   p.createdAt,
+        updatedAt:   p.updatedAt,
+        // HOD is always on the parent
+        departmentHeads: p.departmentHeads,
+        assignedHod: hod ? {
+          id:         hod.user.id,
+          recordId:   hod.id,
+          name:       hod.user.fullName,
+          email:      hod.user.email,
+          phone:      hod.user.phone,
+          employeeId: hod.employeeId,
+          title:      hod.title,
+        } : null,
+        // Aggregate counts across parent + all children
+        programs: p.programs,
+        _count: {
+          studentRecords: p._count.studentRecords + p.children.reduce((s, c) => s + c._count.studentRecords, 0),
+          courses:        p._count.courses        + p.children.reduce((s, c) => s + c._count.courses, 0),
+          instructors:    p._count.instructors    + p.children.reduce((s, c) => s + c._count.instructors, 0),
+          programs:       p._count.programs       + p.children.reduce((s, c) => s + c._count.programs, 0),
+        },
+        // Children branches (SP depts) — academic data stays separate
+        branches: p.children.map(c => ({
+          id:          c.id,
+          name:        c.name,
+          code:        c.code,
+          programType: c.programType,
+          description: c.description,
+          isActive:    c.isActive,
+          programs:    c.programs,
+          _count:      c._count,
+        })),
+      };
+    });
+
+    ok(res, result);
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/departments — create department
+router.post('/departments', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name:        z.string().min(2).max(100),
+      code:        z.string().min(2).max(20),
+      description: z.string().optional(),
+      programType: z.enum(['TVET', 'SHORT_PROGRAM']).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    const dept = await prisma.department.create({
+      data: {
+        name:        parsed.data.name,
+        code:        parsed.data.code.toUpperCase(),
+        description: parsed.data.description,
+      },
+    });
+    ok(res, dept, 201);
+  } catch (e) { fail(res, e); }
+});
+
+// PATCH /api/registrar/departments/:id — update department
+router.patch('/departments/:id', async (req: AuthRequest, res) => {
+  try {
+    const id = req.params.id as string;
+    const schema = z.object({
+      name:        z.string().min(2).max(100).optional(),
+      code:        z.string().min(2).max(20).optional(),
+      description: z.string().optional(),
+      isActive:    z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    const dept = await prisma.department.update({
+      where: { id },
+      data:  {
+        ...(parsed.data.name        && { name: parsed.data.name }),
+        ...(parsed.data.code        && { code: parsed.data.code.toUpperCase() }),
+        ...(parsed.data.description !== undefined && { description: parsed.data.description }),
+        ...(parsed.data.isActive    !== undefined && { isActive: parsed.data.isActive }),
+      },
+    });
+    ok(res, dept);
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/departments/eligible-hods — REMOVED (duplicate, superseded below)
+
+// ── placeholder comment — route registered further down in this file ──────────────────────
+
+// POST /api/registrar/departments/:id/assign-hod — REMOVED (duplicate, superseded below)
+
+// ── placeholder comment — route registered further down in this file ──────────────────────
+
+// DELETE /api/registrar/departments/:id/remove-hod — REMOVED (duplicate, superseded below)
+
+// ── placeholder comment — route registered further down in this file ──────────────────────
+
+// ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════════
-router.get('/dashboard', async (_req, res) => {
-  try { ok(res, await dashboard.getDashboardStats()); } catch (e) { fail(res, e); }
+router.get('/dashboard', async (req: AuthRequest, res) => {
+  try {
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await dashboard.getDashboardStats(programType));
+  } catch (e) { fail(res, e); }
 });
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // STUDENTS
@@ -61,11 +220,13 @@ router.get('/students', async (req: AuthRequest, res) => {
     ok(res, await students.listStudents({
       page, limit,
       search:       qp.search,
+      programType:  qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
       programId:    qp.programId,
       departmentId: qp.departmentId,
       status:       qp.status as StudentStatus | undefined,
       sortBy:       qp.sortBy,
       sortOrder:    qp.sortOrder as 'asc' | 'desc' | undefined,
+      profileIncomplete: qp.profileIncomplete === 'true',
     }));
   } catch (e) { fail(res, e); }
 });
@@ -83,6 +244,12 @@ router.patch('/students/:id/status', async (req: AuthRequest, res) => {
     const parsed = z.object({ status: z.nativeEnum(StudentStatus) }).safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Invalid status' }); return; }
     ok(res, await students.updateStudentStatus(pid(req), parsed.data.status, req.user!.userId));
+  } catch (e) { fail(res, e, 400); }
+});
+
+router.post('/students/:id/remind-profile', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await students.sendProfileReminder(pid(req)));
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -114,7 +281,13 @@ router.patch('/admissions/:id/approve', async (req: AuthRequest, res) => {
   try {
     const { comment } = req.body as { comment?: string };
     ok(res, await admissions.approveApplication(pid(req), req.user!.userId, comment));
-  } catch (e) { fail(res, e, 400); }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[Approve Admission] Error:', msg);
+    // If it's a known business-logic error return 400; unhandled → 500
+    const status = (e instanceof Error) ? 400 : 500;
+    res.status(status).json({ error: msg });
+  }
 });
 
 router.patch('/admissions/:id/reject', async (req: AuthRequest, res) => {
@@ -176,6 +349,7 @@ router.post('/courses', async (req: AuthRequest, res) => {
     const schema = z.object({
       code: z.string().min(2).max(20), name: z.string().min(3).max(200),
       description: z.string().optional(), creditHours: z.number().int().min(1).max(10),
+      ects: z.number().int().min(1).max(20).optional(),
       departmentId: z.string().uuid(), prerequisiteIds: z.array(z.string().uuid()).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -189,6 +363,7 @@ router.patch('/courses/:id', async (req: AuthRequest, res) => {
     const schema = z.object({
       name: z.string().min(3).optional(), description: z.string().optional(),
       creditHours: z.number().int().min(1).max(10).optional(),
+      ects: z.number().int().min(1).max(20).optional(),
       departmentId: z.string().uuid().optional(),
       prerequisiteIds: z.array(z.string().uuid()).optional(),
     });
@@ -207,6 +382,605 @@ router.patch('/courses/:id/status', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// DEPARTMENTS & ASSIGN INSTRUCTOR ACADEMIC STRUCTURE
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/registrar/departments — list departments with complete card information
+// NOTE: The canonical GET /departments handler is registered above (grouped parent+children).
+// This previous flat-list version has been replaced.
+
+// GET /api/registrar/departments/eligible-hods — list instructors/employees who can be assigned as HOD
+// Excludes anyone who already has an active DepartmentHeadRecord (they are already an HOD)
+router.get('/departments/eligible-hods', async (req: AuthRequest, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        role: { in: [Role.INSTRUCTOR, Role.DEPARTMENT_HEAD, Role.ADMIN] },
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        role: true,
+        instructorRecord: {
+          select: {
+            id: true,
+            employeeId: true,
+            title: true,
+            department: { select: { id: true, name: true, code: true } },
+          },
+        },
+        departmentHeadRecord: {
+          select: {
+            id: true,
+            employeeId: true,
+            title: true,
+            isActive: true,
+            department: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
+      orderBy: { fullName: 'asc' },
+    });
+
+    const formatted = users
+      // Filter out anyone who is already an active HOD somewhere
+      .filter((u) => !(u.departmentHeadRecord?.isActive))
+      .map((u) => ({
+        // Use instructorRecord id as primary id for backward-compat; fall back to userId
+        id:                    u.instructorRecord?.id ?? u.id,
+        userId:                u.id,
+        name:                  u.fullName,
+        email:                 u.email,
+        phone:                 u.phone,
+        systemRole:            u.role,
+        employeeId:            u.instructorRecord?.employeeId || u.departmentHeadRecord?.employeeId || `EMP-${u.id.slice(0, 6).toUpperCase()}`,
+        title:                 u.instructorRecord?.title || 'Faculty Member',
+        currentHodDept:        null,   // always null here — active HODs are filtered out above
+        primaryInstructorDept: u.instructorRecord?.department || null,
+        // Keep _count for any frontend code that still reads it
+        _count: { departmentHeadRecords: 0 },
+        user: { id: u.id, fullName: u.fullName, email: u.email, role: u.role },
+        department: u.instructorRecord?.department || null,
+        specialization: null,
+        departmentId: u.instructorRecord?.id ? undefined : undefined,
+      }));
+
+    ok(res, formatted);
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/departments — create a new department scoped to programType
+router.post('/departments', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      name: z.string().min(2).max(100),
+      code: z.string().min(2).max(15),
+      description: z.string().optional(),
+      programType: z.enum(['TVET', 'SHORT_PROGRAM']).default('TVET'),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    const codeUpper = parsed.data.code.trim().toUpperCase();
+    const nameTrim = parsed.data.name.trim();
+    const programType = parsed.data.programType as any;
+
+    const existing = await prisma.department.findFirst({
+      where: { name: nameTrim, programType },
+    });
+    if (existing) { res.status(400).json({ error: `A ${programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} department with this name already exists.` }); return; }
+
+    const existingCode = await prisma.department.findFirst({
+      where: { code: codeUpper, programType },
+    });
+    if (existingCode) { res.status(400).json({ error: `A ${programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} department with this code already exists.` }); return; }
+
+    const dept = await prisma.department.create({
+      data: {
+        name: nameTrim,
+        code: codeUpper,
+        programType,
+        description: parsed.data.description?.trim() ?? null,
+        isActive: true,
+      },
+    });
+
+    ok(res, dept, 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/registrar/departments/:id — update a department
+router.patch('/departments/:id', async (req: AuthRequest, res) => {
+  try {
+    const id = pid(req);
+    const existing = await prisma.department.findUnique({ where: { id } });
+    if (!existing) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    const schema = z.object({
+      name: z.string().min(2).max(100).optional(),
+      code: z.string().min(2).max(15).optional(),
+      description: z.string().optional().nullable(),
+      isActive: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    if (parsed.data.name && parsed.data.name.trim() !== existing.name) {
+      const conflict = await prisma.department.findFirst({
+        where: {
+          name: parsed.data.name.trim(),
+          programType: existing.programType,
+          id: { not: id },
+        },
+      });
+      if (conflict) { res.status(400).json({ error: 'Another department with this name already exists in this academic context.' }); return; }
+    }
+
+    if (parsed.data.code && parsed.data.code.trim().toUpperCase() !== existing.code) {
+      const conflictCode = await prisma.department.findFirst({
+        where: {
+          code: parsed.data.code.trim().toUpperCase(),
+          programType: existing.programType,
+          id: { not: id },
+        },
+      });
+      if (conflictCode) { res.status(400).json({ error: 'Another department with this code already exists in this academic context.' }); return; }
+    }
+
+    const updated = await prisma.department.update({
+      where: { id },
+      data: {
+        ...(parsed.data.name ? { name: parsed.data.name.trim() } : {}),
+        ...(parsed.data.code ? { code: parsed.data.code.trim().toUpperCase() } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description?.trim() ?? null } : {}),
+        ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),
+      },
+    });
+
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// POST /api/registrar/departments/:id/assign-hod — assign or replace Head of Department
+// HOD is always assigned to the parent (TVET) department.
+// If a child (SP) department id is passed, we resolve the parent automatically.
+router.post('/departments/:id/assign-hod', async (req: AuthRequest, res) => {
+  try {
+    let deptId = pid(req);
+
+    // Resolve to parent dept if a child (SP) dept id was passed
+    const deptRaw = await prisma.department.findUnique({
+      where: { id: deptId },
+      select: { id: true, name: true, programType: true, parentId: true },
+    });
+    if (!deptRaw) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    // If the selected dept is a child (has parentId), use the parent for HOD assignment
+    if (deptRaw.parentId) {
+      deptId = deptRaw.parentId;
+    }
+
+    const dept = await prisma.department.findUnique({ where: { id: deptId } });
+    if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    const schema = z.object({
+      userId: z.string().uuid(),
+      title: z.string().min(1).max(100).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    const { userId, title } = parsed.data;
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        instructorRecord: true,
+        departmentHeadRecord: true,
+      },
+    });
+
+    if (!targetUser) {
+      res.status(404).json({ error: 'Selected user was not found.' });
+      return;
+    }
+
+    // ── Guard 1: the employee is already an active HOD somewhere ──────────
+    if (targetUser.departmentHeadRecord?.isActive) {
+      const existingDept = await prisma.department.findUnique({
+        where: { id: targetUser.departmentHeadRecord.departmentId },
+        select: { name: true },
+      });
+      res.status(409).json({
+        error: `${targetUser.fullName} is already the Head of Department for ${existingDept?.name ?? 'another department'}. Remove that assignment first.`,
+      });
+      return;
+    }
+
+    // ── Guard 2: the target department already has a different active HOD ─
+    const existingHod = await prisma.departmentHeadRecord.findFirst({
+      where: { departmentId: deptId, isActive: true },
+      include: { user: { select: { fullName: true } } },
+    });
+    if (existingHod && existingHod.userId !== userId) {
+      res.status(409).json({
+        error: `${dept.name} already has an active HOD (${existingHod.user.fullName}). Remove that assignment before assigning a new one.`,
+      });
+      return;
+    }
+
+    // Atomic transaction: deactivate any stale HOD record and assign new HOD
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Deactivate any existing active HOD for this department (safety net)
+      await tx.departmentHeadRecord.updateMany({
+        where: { departmentId: deptId, isActive: true },
+        data:  { isActive: false },
+      });
+
+      // 2. Determine employee ID to use
+      const empId = targetUser.departmentHeadRecord?.employeeId ||
+                    targetUser.instructorRecord?.employeeId ||
+                    `HOD-${targetUser.id.slice(0, 6).toUpperCase()}`;
+
+      // 3. Upsert DepartmentHeadRecord for the selected user
+      let hodRec;
+      if (targetUser.departmentHeadRecord) {
+        hodRec = await tx.departmentHeadRecord.update({
+          where: { userId },
+          data: {
+            departmentId: deptId,
+            isActive:     true,
+            title:        title || `Head of ${dept.name}`,
+          },
+        });
+      } else {
+        hodRec = await tx.departmentHeadRecord.create({
+          data: {
+            userId,
+            departmentId: deptId,
+            employeeId:   empId,
+            title:        title || `Head of ${dept.name}`,
+            isActive:     true,
+          },
+        });
+      }
+
+      // 4. Upgrade user role to DEPARTMENT_HEAD
+      await tx.user.update({
+        where: { id: userId },
+        data:  { role: Role.DEPARTMENT_HEAD },
+      });
+
+      return hodRec;
+    });
+
+    ok(res, {
+      success: true,
+      message: `Successfully assigned ${targetUser.fullName} as Head of Department for ${dept.name}.`,
+      departmentHeadRecord: result,
+    });
+  } catch (e) { fail(res, e, 400); }
+});
+
+// DELETE /api/registrar/departments/:id/remove-hod — remove/deactivate HOD assignment
+router.delete('/departments/:id/remove-hod', async (req: AuthRequest, res) => {
+  try {
+    const deptId = pid(req);
+    const dept = await prisma.department.findUnique({ where: { id: deptId } });
+    if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    // Find the active HOD record to get the userId for role downgrade
+    const activeHod = await prisma.departmentHeadRecord.findFirst({
+      where: { departmentId: deptId, isActive: true },
+      include: { user: { include: { instructorRecord: true } } },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.departmentHeadRecord.updateMany({
+        where: { departmentId: deptId, isActive: true },
+        data:  { isActive: false },
+      });
+
+      // Downgrade role: if they have an InstructorRecord, revert to INSTRUCTOR
+      if (activeHod?.user) {
+        const downgradedRole = activeHod.user.instructorRecord
+          ? Role.INSTRUCTOR
+          : Role.ADMIN; // fallback — leave as-is by keeping current if no instructor record
+        if (activeHod.user.instructorRecord) {
+          await tx.user.update({
+            where: { id: activeHod.userId },
+            data:  { role: downgradedRole },
+          });
+        }
+      }
+    });
+
+    ok(res, { success: true, message: `Head of Department removed from ${dept.name}.` });
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/registrar/departments/:id/toggle-status — hide/show department
+router.patch('/departments/:id/toggle-status', async (req: AuthRequest, res) => {
+  try {
+    const id = pid(req);
+    const existing = await prisma.department.findUnique({ where: { id } });
+    if (!existing) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    const updated = await prisma.department.update({
+      where: { id },
+      data: { isActive: !existing.isActive },
+    });
+
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// GET /api/registrar/departments/:id/structure — academic structure for department (programType-scoped)
+router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
+  try {
+    const deptId = pid(req);
+    const qp = q(req);
+
+    const dept = await prisma.department.findUnique({
+      where: { id: deptId },
+    });
+    if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    // List active semesters scoped to this department's programType
+    const semesters = await prisma.semester.findMany({
+      where: { isActive: true, programType: dept.programType },
+      include: { academicYear: { select: { name: true } } },
+      orderBy: [{ startDate: 'desc' }],
+    });
+
+    // Determine target semester
+    let targetSemesterId = qp.semesterId as string | undefined;
+    if (!targetSemesterId || targetSemesterId === 'current') {
+      const current = semesters.find(s => s.isCurrent) ?? semesters[0];
+      targetSemesterId = current?.id;
+    }
+
+    // Courses belonging to this department (always scoped by dept → programType is implicit)
+    const coursesList = await prisma.course.findMany({
+      where: { departmentId: deptId, status: CourseStatus.ACTIVE },
+      orderBy: { code: 'asc' },
+      include: {
+        offerings: {
+          where: {
+            programType: dept.programType,
+            ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
+          },
+          include: {
+            instructor: {
+              include: {
+                user: { select: { id: true, fullName: true, email: true } },
+              },
+            },
+            timetables: true,
+          },
+        },
+      },
+    });
+
+    // Auto-ensure InstructorRecord exists for all active users with role INSTRUCTOR
+    const activeInstructorUsers = await prisma.user.findMany({
+      where: { role: Role.INSTRUCTOR, status: AccountStatus.ACTIVE },
+      include: { instructorRecord: true },
+    });
+    for (const u of activeInstructorUsers) {
+      if (!u.instructorRecord) {
+        const defaultDept = await prisma.department.findFirst({ where: { isActive: true } });
+        if (defaultDept) {
+          await prisma.instructorRecord.create({
+            data: {
+              userId: u.id,
+              employeeId: `INS-${u.id.slice(0, 6).toUpperCase()}`,
+              title: 'Instructor',
+              departmentId: defaultDept.id,
+              isActive: true,
+            },
+          }).catch(() => {});
+        }
+      }
+    }
+
+    // Real registered instructors ONLY
+    const instructors = await prisma.instructorRecord.findMany({
+      where: { isActive: true },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        department: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { user: { fullName: 'asc' } },
+    });
+
+    ok(res, {
+      department: dept,
+      semesters,
+      selectedSemesterId: targetSemesterId,
+      courses: coursesList.map(c => {
+        const offering = c.offerings[0] ?? null;
+        return {
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          creditHours: c.creditHours,
+          description: c.description,
+          offeringId: offering?.id ?? null,
+          instructorId: offering?.instructorId ?? null,
+          instructor: offering?.instructor ?? null,
+          shortProgramDuration: offering?.shortProgramDuration ?? null,
+          capacity: offering?.capacity ?? 40,
+          section: offering?.section ?? 'A',
+          status: offering?.status ?? 'UNASSIGNED',
+        };
+      }),
+      instructors,
+    });
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/departments/:id/courses — add course (inherits dept programType)
+router.post('/departments/:id/courses', async (req: AuthRequest, res) => {
+  try {
+    const departmentId = pid(req);
+    const schema = z.object({
+      code: z.string().min(2).max(20),
+      name: z.string().min(3).max(200),
+      description: z.string().optional(),
+      creditHours: z.number().int().min(1).max(10).default(3),
+      semesterId: z.string().uuid().optional(),
+      instructorId: z.string().uuid().nullable().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+
+    const dept = await prisma.department.findUnique({ where: { id: departmentId }, select: { id: true, programType: true } });
+    if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    const codeUpper = parsed.data.code.trim().toUpperCase();
+
+    const existing = await prisma.course.findFirst({ where: { code: codeUpper, programType: dept.programType } });
+    if (existing) { res.status(400).json({ error: `Course code ${codeUpper} already exists in ${dept.programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'}.` }); return; }
+
+    const course = await prisma.course.create({
+      data: {
+        code: codeUpper,
+        name: parsed.data.name.trim(),
+        description: parsed.data.description?.trim() ?? null,
+        creditHours: parsed.data.creditHours,
+        departmentId,
+        programType: dept.programType,
+        status: CourseStatus.ACTIVE,
+      },
+    });
+
+    // If semesterId provided, create initial offering with same programType as department
+    if (parsed.data.semesterId) {
+      const initialOffering = await prisma.courseOffering.create({
+        data: {
+          courseId: course.id,
+          semesterId: parsed.data.semesterId,
+          instructorId: parsed.data.instructorId ?? null,
+          programType: dept.programType,
+          capacity: 40,
+          section: 'A',
+          status: parsed.data.instructorId ? OfferingStatus.INSTRUCTOR_ASSIGNED : OfferingStatus.DRAFT,
+        },
+      });
+      await syncCourseOfferingEnrollments(initialOffering.id).catch(() => {});
+    }
+
+    ok(res, course, 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/registrar/courses/:id — edit course details
+router.patch('/courses/:id', async (req: AuthRequest, res) => {
+  try {
+    const courseId = pid(req);
+    const schema = z.object({
+      code: z.string().min(2).max(20).optional(),
+      name: z.string().min(3).max(200).optional(),
+      description: z.string().nullable().optional(),
+      creditHours: z.number().int().min(1).max(10).optional(),
+      status: z.nativeEnum(CourseStatus).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    const course = await prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) {
+      res.status(404).json({ error: 'Course not found' });
+      return;
+    }
+
+    if (parsed.data.code) {
+      const newCode = parsed.data.code.trim().toUpperCase();
+      if (newCode !== course.code) {
+        const conflict = await prisma.course.findFirst({
+          where: { code: newCode, programType: course.programType, id: { not: courseId } },
+        });
+        if (conflict) {
+          res.status(400).json({
+            error: `Course code ${newCode} already exists in ${course.programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'}.`,
+          });
+          return;
+        }
+      }
+    }
+
+    const updated = await prisma.course.update({
+      where: { id: courseId },
+      data: {
+        ...(parsed.data.code ? { code: parsed.data.code.trim().toUpperCase() } : {}),
+        ...(parsed.data.name ? { name: parsed.data.name.trim() } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description?.trim() ?? null } : {}),
+        ...(parsed.data.creditHours ? { creditHours: parsed.data.creditHours } : {}),
+        ...(parsed.data.status ? { status: parsed.data.status } : {}),
+      },
+    });
+
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// DELETE /api/registrar/courses/:id — delete a course (allows deleting test courses)
+router.delete('/courses/:id', async (req: AuthRequest, res) => {
+  try {
+    const courseId = pid(req);
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        offerings: {
+          include: {
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      res.status(404).json({ error: 'Course not found' });
+      return;
+    }
+
+    const totalEnrollments = course.offerings.reduce((sum, o) => sum + o.enrollments.length, 0);
+    if (totalEnrollments > 0) {
+      res.status(400).json({
+        error: `Cannot delete course "${course.name}" (${course.code}): it has ${totalEnrollments} student enrollment(s). Drop enrollments first.`,
+      });
+      return;
+    }
+
+    const offeringIds = course.offerings.map(o => o.id);
+    if (offeringIds.length > 0) {
+      await prisma.timetableSlot.deleteMany({ where: { courseOfferingId: { in: offeringIds } } });
+      await prisma.assignment.deleteMany({ where: { courseOfferingId: { in: offeringIds } } });
+      await prisma.quiz.deleteMany({ where: { courseOfferingId: { in: offeringIds } } });
+      await prisma.classSession.deleteMany({ where: { courseOfferingId: { in: offeringIds } } });
+      await prisma.courseOffering.deleteMany({ where: { id: { in: offeringIds } } });
+    }
+
+    await prisma.coursePrerequisite.deleteMany({
+      where: { OR: [{ courseId }, { prerequisiteId: courseId }] },
+    });
+    await prisma.programCourse.deleteMany({
+      where: { courseId },
+    });
+
+    await prisma.course.delete({ where: { id: courseId } });
+
+    ok(res, { success: true, message: `Course "${course.name}" (${course.code}) deleted successfully.` });
+  } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // COURSE OFFERINGS
 // ══════════════════════════════════════════════════════════════════════════════
 router.get('/offerings', async (req: AuthRequest, res) => {
@@ -214,10 +988,11 @@ router.get('/offerings', async (req: AuthRequest, res) => {
     const qp = q(req); const { page, limit } = pageParams(qp);
     ok(res, await offerings.listOfferings({
       page, limit,
-      search:     qp.search,
-      semesterId: qp.semesterId,
-      status:     qp.status as OfferingStatus | undefined,
-      courseId:   qp.courseId,
+      search:      qp.search,
+      semesterId:  qp.semesterId,
+      status:      qp.status as OfferingStatus | undefined,
+      courseId:    qp.courseId,
+      programType: qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
@@ -353,6 +1128,71 @@ router.get('/audit-logs', async (req: AuthRequest, res) => {
       }),
     ]);
     ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), logs });
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STAFF INVITATIONS (read-only for Registrar — for Admissions overview)
+// ══════════════════════════════════════════════════════════════════════════════
+router.get('/staff-invitations', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req); const { page, limit } = pageParams(qp);
+    const skip = (page - 1) * limit;
+    const now = new Date();
+    const where: any = {};
+
+    if (qp.search) {
+      const s = qp.search.trim();
+      where.OR = [
+        { fullName: { contains: s, mode: 'insensitive' } },
+        { email:    { contains: s, mode: 'insensitive' } },
+      ];
+    }
+    if (qp.role)   where.role = qp.role;
+    if (qp.status === 'ACCEPTED') {
+      where.acceptedAt = { not: null };
+    } else if (qp.status === 'REVOKED') {
+      where.acceptedAt = null; where.revokedAt = { not: null };
+    } else if (qp.status === 'EXPIRED') {
+      where.acceptedAt = null; where.revokedAt = null; where.expiresAt = { lte: now };
+    } else if (qp.status === 'PENDING') {
+      where.acceptedAt = null; where.revokedAt = null; where.expiresAt = { gt: now };
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.staffInvitation.count({ where }),
+      prisma.staffInvitation.findMany({
+        where, skip, take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          department:     { select: { id: true, name: true, code: true } },
+          invitedByUser:  { select: { id: true, fullName: true } },
+          acceptedByUser: { select: { id: true, fullName: true } },
+        },
+      }),
+    ]);
+
+    const invitations = items.map(inv => ({
+      id:             inv.id,
+      fullName:       inv.fullName,
+      email:          inv.email,
+      role:           inv.role,
+      positionTitle:  inv.positionTitle,
+      employeeId:     inv.employeeId,
+      department:     inv.department,
+      invitedByUser:  inv.invitedByUser,
+      acceptedByUser: inv.acceptedByUser,
+      createdAt:      inv.createdAt,
+      expiresAt:      inv.expiresAt,
+      acceptedAt:     inv.acceptedAt,
+      revokedAt:      inv.revokedAt,
+      status: inv.acceptedAt ? 'ACCEPTED'
+        : inv.revokedAt      ? 'REVOKED'
+        : inv.expiresAt < now ? 'EXPIRED'
+        : 'PENDING',
+    }));
+
+    ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), invitations });
   } catch (e) { fail(res, e); }
 });
 
@@ -1410,13 +2250,360 @@ router.get('/admissions-ready', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PUBLIC: Certificate verification (no auth required)
+// GRADE PORTAL & GRADE PUBLICATION AUTHORITY
 // ══════════════════════════════════════════════════════════════════════════════
-export { router as registrarRouter };
 
-export default router;
+// GET /api/registrar/grade-portal
+router.get('/grade-portal', async (_req, res) => {
+  try {
+    const portal = await prisma.gradePortalSetting.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', isOpen: false },
+      update: {},
+    });
+    ok(res, portal);
+  } catch (e) { fail(res, e); }
+});
 
+// POST /api/registrar/grade-portal/toggle
+router.post('/grade-portal/toggle', async (req: AuthRequest, res) => {
+  try {
+    const current = await prisma.gradePortalSetting.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', isOpen: false },
+      update: {},
+    });
 
+    const targetOpen = req.body?.isOpen !== undefined ? Boolean(req.body.isOpen) : !current.isOpen;
+    const now = new Date();
+    const userId = req.user!.userId;
+
+    const updated = await prisma.$transaction(async tx => {
+      const setting = await tx.gradePortalSetting.update({
+        where: { id: 'default' },
+        data: targetOpen
+          ? { isOpen: true, openedAt: now, openedBy: userId }
+          : { isOpen: false, closedAt: now, closedBy: userId },
+      });
+
+      // When opening Grade Portal, officially publish all SUBMITTED grades
+      if (targetOpen) {
+        await tx.courseGrade.updateMany({
+          where: { status: 'SUBMITTED' },
+          data: { status: 'PUBLISHED', publishedAt: now },
+        });
+      }
+
+      await tx.registrarAuditLog.create({
+        data: {
+          userId,
+          action: targetOpen ? 'ANNOUNCEMENT_PUBLISHED' : 'ANNOUNCEMENT_ARCHIVED',
+          entityType: 'GradePortal',
+          entityId: 'default',
+          description: targetOpen
+            ? 'Grade Portal opened. All submitted course grades are officially published to students.'
+            : 'Grade Portal closed.',
+        },
+      });
+
+      return setting;
+    });
+
+    ok(res, {
+      success: true,
+      isOpen: updated.isOpen,
+      message: updated.isOpen
+        ? 'Grade Portal is now OPEN. Submitted grades are published to students.'
+        : 'Grade Portal is now CLOSED.',
+      setting: updated,
+    });
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-portal/open
+router.post('/grade-portal/open', async (req: AuthRequest, res) => {
+  req.body = { isOpen: true };
+  try {
+    const current = await prisma.gradePortalSetting.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', isOpen: false },
+      update: {},
+    });
+    const now = new Date();
+    const userId = req.user!.userId;
+
+    const updated = await prisma.$transaction(async tx => {
+      const setting = await tx.gradePortalSetting.update({
+        where: { id: 'default' },
+        data: { isOpen: true, openedAt: now, openedBy: userId },
+      });
+
+      await tx.courseGrade.updateMany({
+        where: { status: 'SUBMITTED' },
+        data: { status: 'PUBLISHED', publishedAt: now },
+      });
+
+      await tx.registrarAuditLog.create({
+        data: {
+          userId,
+          action: 'ANNOUNCEMENT_PUBLISHED',
+          entityType: 'GradePortal',
+          entityId: 'default',
+          description: 'Grade Portal opened. All submitted course grades are officially published to students.',
+        },
+      });
+
+      return setting;
+    });
+
+    ok(res, { success: true, isOpen: true, setting: updated });
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-portal/close
+router.post('/grade-portal/close', async (req: AuthRequest, res) => {
+  try {
+    const now = new Date();
+    const userId = req.user!.userId;
+
+    const updated = await prisma.$transaction(async tx => {
+      const setting = await tx.gradePortalSetting.update({
+        where: { id: 'default' },
+        data: { isOpen: false, closedAt: now, closedBy: userId },
+      });
+
+      await tx.registrarAuditLog.create({
+        data: {
+          userId,
+          action: 'ANNOUNCEMENT_ARCHIVED',
+          entityType: 'GradePortal',
+          entityId: 'default',
+          description: 'Grade Portal closed.',
+        },
+      });
+
+      return setting;
+    });
+
+    ok(res, { success: true, isOpen: false, setting: updated });
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/students/:id/academic-record
+router.get('/students/:id/academic-record', async (req: AuthRequest, res) => {
+  try {
+    const studentId = pid(req);
+    const data = await getGradeHistory(studentId, true);
+    ok(res, data);
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/submitted-grades
+router.get('/submitted-grades', async (_req: AuthRequest, res) => {
+  try {
+    const offeringsWithGrades = await prisma.courseOffering.findMany({
+      where: {
+        enrollments: {
+          some: {
+            grade: { isNot: null },
+          },
+        },
+      },
+      include: {
+        course: { select: { id: true, code: true, name: true, creditHours: true, ects: true } },
+        semester: { include: { academicYear: true } },
+        instructor: { include: { user: { select: { fullName: true } } } },
+        enrollments: {
+          where: { status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] } },
+          include: {
+            grade: true,
+            studentRecord: { include: { user: { select: { fullName: true } } } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const result = offeringsWithGrades.map(o => {
+      const grades = o.enrollments.map(e => e.grade).filter(Boolean);
+      const totalStudents = o.enrollments.length;
+      const gradedCount = grades.length;
+      const submittedCount = grades.filter(g => g?.status === 'SUBMITTED' || g?.status === 'PUBLISHED').length;
+      const publishedCount = grades.filter(g => g?.status === 'PUBLISHED').length;
+
+      let status = 'DRAFT';
+      if (publishedCount > 0 && publishedCount === gradedCount) status = 'PUBLISHED';
+      else if (submittedCount > 0) status = 'SUBMITTED';
+
+      return {
+        offeringId: o.id,
+        courseCode: o.course.code,
+        courseName: o.course.name,
+        creditHours: o.course.creditHours,
+        ects: o.course.ects,
+        section: o.section,
+        semester: `${o.semester.name} (${o.semester.academicYear.name})`,
+        instructorName: o.instructor?.user.fullName ?? 'TBA',
+        totalStudents,
+        gradedCount,
+        submittedCount,
+        publishedCount,
+        status,
+        students: o.enrollments.map(e => ({
+          enrollmentId: e.id,
+          studentRecordId: e.studentRecordId,
+          studentName: e.studentRecord.user.fullName,
+          studentId: e.studentRecord.studentId,
+          grade: e.grade ? {
+            id: e.grade.id,
+            creditHours: e.grade.creditHours,
+            ects: e.grade.ects,
+            finalMark: e.grade.finalMark,
+            letterGrade: e.grade.letterGrade,
+            gradePoints: e.grade.gradePoints,
+            qualityPoints: e.grade.qualityPoints,
+            status: e.grade.status,
+            submittedAt: e.grade.submittedAt,
+          } : null,
+        })),
+      };
+    });
+
+    ok(res, result);
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/offerings/:offeringId/publish-grades
+router.post('/offerings/:offeringId/publish-grades', async (req: AuthRequest, res) => {
+  try {
+    const offeringId = pid(req, 'offeringId');
+    const now = new Date();
+
+    const updated = await prisma.courseGrade.updateMany({
+      where: {
+        enrollment: { courseOfferingId: offeringId },
+        status: { in: ['SUBMITTED', 'DRAFT'] },
+      },
+      data: {
+        status: 'PUBLISHED',
+        publishedAt: now,
+      },
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'TRANSCRIPT_GENERATED',
+        entityType: 'CourseOffering',
+        entityId: offeringId,
+        description: `Officially published ${updated.count} grades for offering ${offeringId}`,
+      },
+    });
+
+    ok(res, { success: true, publishedCount: updated.count, publishedAt: now });
+  } catch (e) { fail(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GRADE MANAGEMENT (Registrar Department-based Student Grades & Independent Toggles)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/registrar/grade-management/departments?programType=
+router.get('/grade-management/departments', async (req: AuthRequest, res) => {
+  try {
+    const { getDepartmentGradeCards } = await import('../services/registrar/gradeManagementService');
+    const programType = req.query.programType as ('TVET' | 'SHORT_PROGRAM') | undefined;
+    ok(res, await getDepartmentGradeCards(programType));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/grade-management/departments/:deptId/grades?programType=
+router.get('/grade-management/departments/:deptId/grades', async (req: AuthRequest, res) => {
+  try {
+    const { getDepartmentGrades } = await import('../services/registrar/gradeManagementService');
+    const deptId = pid(req, 'deptId');
+    const programType = req.query.programType as ('TVET' | 'SHORT_PROGRAM') | undefined;
+    ok(res, await getDepartmentGrades(deptId, programType));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/grade-management/students/:studentRecordId
+router.get('/grade-management/students/:studentRecordId', async (req: AuthRequest, res) => {
+  try {
+    const { getStudentGradeDetail } = await import('../services/registrar/gradeManagementService');
+    const studentRecordId = pid(req, 'studentRecordId');
+    ok(res, await getStudentGradeDetail(studentRecordId));
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/grade-management/departments/:deptId/submission-status?programType=
+router.get('/grade-management/departments/:deptId/submission-status', async (req: AuthRequest, res) => {
+  try {
+    const { getCourseSubmissionStatus } = await import('../services/registrar/gradeManagementService');
+    const deptId = pid(req, 'deptId');
+    const programType = req.query.programType as ('TVET' | 'SHORT_PROGRAM') | undefined;
+    ok(res, await getCourseSubmissionStatus(deptId, programType));
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-management/offerings/:offeringId/publish
+router.post('/grade-management/offerings/:offeringId/publish', async (req: AuthRequest, res) => {
+  try {
+    const { publishOfferingGrades } = await import('../services/registrar/gradeManagementService');
+    const offeringId = pid(req, 'offeringId');
+    ok(res, await publishOfferingGrades(offeringId, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// ── Grade Editing Setting (Controls teacher editing) ──────────────────────────
+// GET /api/registrar/grade-editing
+router.get('/grade-editing', async (req: AuthRequest, res) => {
+  try {
+    const { getGradeEditingStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await getGradeEditingStatus());
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-editing/open
+router.post('/grade-editing/open', async (req: AuthRequest, res) => {
+  try {
+    const { setGradeEditingStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await setGradeEditingStatus(true, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-editing/close
+router.post('/grade-editing/close', async (req: AuthRequest, res) => {
+  try {
+    const { setGradeEditingStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await setGradeEditingStatus(false, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// ── Grade Portal Setting (Controls student grade visibility) ─────────────────
+// GET /api/registrar/grade-portal
+router.get('/grade-portal', async (req: AuthRequest, res) => {
+  try {
+    const { getGradePortalStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await getGradePortalStatus());
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-portal/open
+router.post('/grade-portal/open', async (req: AuthRequest, res) => {
+  try {
+    const { setGradePortalStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await setGradePortalStatus(true, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/grade-portal/close
+router.post('/grade-portal/close', async (req: AuthRequest, res) => {
+  try {
+    const { setGradePortalStatus } = await import('../services/registrar/gradeManagementService');
+    ok(res, await setGradePortalStatus(false, req.user!.userId));
+  } catch (e) { fail(res, e); }
+});
 
 // ══════════════════════════════════════════════════════════════════════════════
 // NOTIFICATIONS  (Registrar inbox — generic Notification table, userId-scoped)
@@ -1451,3 +2638,7 @@ router.post('/notifications/read-all', async (req: AuthRequest, res) => {
     ok(res, await markAllRead(req.user!.userId));
   } catch (e) { fail(res, e); }
 });
+
+export { router as registrarRouter };
+export default router;
+

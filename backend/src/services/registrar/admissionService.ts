@@ -1,6 +1,7 @@
-﻿import { prisma }              from '../../lib/prisma';
+import { prisma }              from '../../lib/prisma';
 import { createNotification } from '../notificationService';
 import { ApplicationStatus, StudentStatus } from '@prisma/client';
+import { syncStudentEnrollments } from './enrollmentSyncService';
 
 export interface AdmissionListQuery {
   page: number; limit: number;
@@ -35,17 +36,78 @@ export async function listApplications(q: AdmissionListQuery) {
     }),
   ]);
 
-  return { total, page, limit, totalPages: Math.ceil(total / limit), applications };
+  // Batch-fetch StudentProfile finance fields for all returned applications
+  const userIds = applications.map(a => a.userId);
+  const profiles = userIds.length > 0
+    ? await prisma.studentProfile.findMany({
+        where:  { userId: { in: userIds } },
+        select: {
+          userId:                  true,
+          paymentVerifiedByFinance: true,
+          paymentVerifiedAt:        true,
+          paymentVerifiedByUserId:  true,
+        },
+      })
+    : [];
+
+  // Resolve finance officer names
+  const financeUserIds = profiles
+    .map(p => p.paymentVerifiedByUserId)
+    .filter(Boolean) as string[];
+  const financeUsers = financeUserIds.length > 0
+    ? await prisma.user.findMany({
+        where:  { id: { in: financeUserIds } },
+        select: { id: true, fullName: true },
+      })
+    : [];
+  const financeUserMap = new Map(financeUsers.map(u => [u.id, u.fullName]));
+  const profileMap     = new Map(profiles.map(p => [p.userId, p]));
+
+  const enriched = applications.map(app => {
+    const prof = profileMap.get(app.userId);
+    return {
+      ...app,
+      financeVerified:     prof?.paymentVerifiedByFinance   ?? false,
+      financeVerifiedAt:   prof?.paymentVerifiedAt?.toISOString() ?? null,
+      financeVerifiedByName: prof?.paymentVerifiedByUserId
+        ? (financeUserMap.get(prof.paymentVerifiedByUserId) ?? null)
+        : null,
+    };
+  });
+
+  return { total, page, limit, totalPages: Math.ceil(total / limit), applications: enriched };
 }
 
 export async function getApplicationById(id: string) {
-  return prisma.application.findUnique({
+  const app = await prisma.application.findUnique({
     where: { id },
     include: {
       user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
       documents: true,
     },
   });
+  if (!app) return null;
+
+  const prof = await prisma.studentProfile.findUnique({
+    where:  { userId: app.userId },
+    select: { paymentVerifiedByFinance: true, paymentVerifiedAt: true, paymentVerifiedByUserId: true },
+  });
+
+  let financeVerifiedByName: string | null = null;
+  if (prof?.paymentVerifiedByUserId) {
+    const fu = await prisma.user.findUnique({
+      where: { id: prof.paymentVerifiedByUserId },
+      select: { fullName: true },
+    });
+    financeVerifiedByName = fu?.fullName ?? null;
+  }
+
+  return {
+    ...app,
+    financeVerified:       prof?.paymentVerifiedByFinance   ?? false,
+    financeVerifiedAt:     prof?.paymentVerifiedAt?.toISOString() ?? null,
+    financeVerifiedByName,
+  };
 }
 
 export async function approveApplication(id: string, registrarUserId: string, comment?: string) {
@@ -57,17 +119,38 @@ export async function approveApplication(id: string, registrarUserId: string, co
   if (app.status === ApplicationStatus.ACCEPTED) throw new Error('Application is already accepted');
   if (app.status === ApplicationStatus.REJECTED) throw new Error('Cannot approve a rejected application');
 
-  // Find matching program
-  const program = await prisma.program.findFirst({
-    where: { name: { contains: app.program.split('(')[0].trim(), mode: 'insensitive' } },
+  // Get student's onboarding data (department, programType, duration)
+  const studentProfile = await prisma.studentProfile.findUnique({
+    where:  { userId: app.userId },
+    select: { 
+      selectedDepartmentId: true, 
+      programType: true, 
+      shortProgramDuration: true,
+      paymentVerifiedByFinance: true 
+    },
+  });
+
+  if (!studentProfile?.selectedDepartmentId) {
+    throw new Error('Student has not completed department selection during onboarding');
+  }
+
+  if (!studentProfile?.programType) {
+    throw new Error('Student has not selected a program type (TVET or Short Program) during onboarding');
+  }
+
+  // Find matching program from the selected department
+  const programName = app.program.split('(')[0].trim();
+  let program = await prisma.program.findFirst({
+    where: { 
+      OR: [
+        { name: { contains: programName, mode: 'insensitive' } },
+        { departmentId: studentProfile.selectedDepartmentId }
+      ]
+    },
     include: { department: true },
   });
 
   // Check if Finance Officer has already verified the registration fee payment.
-  const studentProfile = await prisma.studentProfile.findUnique({
-    where:  { userId: app.userId },
-    select: { paymentVerifiedByFinance: true },
-  });
   const financeApproved = studentProfile?.paymentVerifiedByFinance ?? false;
 
   // ── GATE: Finance Officer must approve before Registrar can approve ────────
@@ -77,7 +160,7 @@ export async function approveApplication(id: string, registrarUserId: string, co
     );
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Update application status
     const updatedApp = await tx.application.update({
       where: { id },
@@ -95,25 +178,39 @@ export async function approveApplication(id: string, registrarUserId: string, co
       data: { status: 'ACTIVE', emailVerified: true, phoneVerified: true },
     });
 
-    // 3. Create or update student record if program found
+    let studentRecordId: string | null = null;
     if (program) {
       const existingSR = await tx.studentRecord.findUnique({ where: { userId: app.userId } });
       if (!existingSR) {
         const year = new Date().getFullYear();
-        const count = await tx.studentRecord.count();
-        const studentId = `HC-${year}-${String(count + 1).padStart(4, '0')}`;
-        await tx.studentRecord.create({
+        // Generate a collision-free studentId by checking the DB for conflicts
+        let studentId: string;
+        let attempt = 0;
+        while (true) {
+          const count = await tx.studentRecord.count();
+          studentId = `HC-${year}-${String(count + 1 + attempt).padStart(4, '0')}`;
+          const existing = await tx.studentRecord.findUnique({ where: { studentId } });
+          if (!existing) break;
+          attempt++;
+        }
+        
+        // Use programType and duration from StudentProfile (set during onboarding)
+        const createdSR = await tx.studentRecord.create({
           data: {
-            userId: app.userId,
+            userId:               app.userId,
             studentId,
-            programId: program.id,
-            departmentId: program.departmentId,
-            status: StudentStatus.ACTIVE,
-            yearLevel: 1,
+            programId:            program.id,
+            departmentId:         program.departmentId,
+            status:               StudentStatus.ACTIVE,
+            yearLevel:            1,
+            programType:          studentProfile.programType as any,
+            shortProgramDuration: studentProfile.programType === 'SHORT_PROGRAM' ? studentProfile.shortProgramDuration : null,
           },
         });
+        studentRecordId = createdSR.id;
       } else {
         await tx.studentRecord.update({ where: { id: existingSR.id }, data: { status: StudentStatus.ACTIVE } });
+        studentRecordId = existingSR.id;
       }
     }
 
@@ -151,8 +248,14 @@ export async function approveApplication(id: string, registrarUserId: string, co
       actionTab:  'dashboard',
     }).catch(() => {});
 
-    return updatedApp;
+    return { updatedApp, studentRecordId };
   });
+
+  if (result.studentRecordId) {
+    await syncStudentEnrollments(result.studentRecordId).catch(() => {});
+  }
+
+  return result.updatedApp;
 }
 
 export async function rejectApplication(id: string, registrarUserId: string, reason: string) {

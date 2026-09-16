@@ -4,8 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, X, BookOpen, Users, GraduationCap, BarChart3, CheckSquare } from 'lucide-react';
 import { DHNavTab } from '../../types/department';
-import { courses, faculty, students } from '../../data/departmentData';
-
 interface Result { id: string; label: string; sub: string; tab: DHNavTab; icon: React.ReactNode }
 
 interface DHSearchModalProps {
@@ -16,11 +14,29 @@ interface DHSearchModalProps {
 
 export const DHSearchModal: React.FC<DHSearchModalProps> = ({ isOpen, onClose, onNavigate }) => {
   const [query, setQuery] = useState('');
+  const [coursesList, setCoursesList] = useState<any[]>([]);
+  const [facultyList, setFacultyList] = useState<any[]>([]);
+  const [studentsList, setStudentsList] = useState<any[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) { setTimeout(() => inputRef.current?.focus(), 80); }
-    else setQuery('');
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 80);
+      fetch('/api/department-head/courses', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setCoursesList(Array.isArray(data) ? data : data.courses || []))
+        .catch(() => {});
+      fetch('/api/department-head/faculty', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setFacultyList(Array.isArray(data) ? data : data.faculty || []))
+        .catch(() => {});
+      fetch('/api/department-head/students', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setStudentsList(Array.isArray(data) ? data : data.students || []))
+        .catch(() => {});
+    } else {
+      setQuery('');
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -33,9 +49,9 @@ export const DHSearchModal: React.FC<DHSearchModalProps> = ({ isOpen, onClose, o
   }, [isOpen, onClose]);
 
   const allResults: Result[] = [
-    ...courses.map((c) => ({ id: c.id, label: `${c.code} — ${c.title}`, sub: `${c.semester} · ${c.credits} credits`, tab: 'courses' as DHNavTab, icon: <BookOpen className="w-4 h-4" /> })),
-    ...faculty.map((f) => ({ id: f.id, label: f.name, sub: `${f.rank} · ${f.specialization}`, tab: 'faculty' as DHNavTab, icon: <Users className="w-4 h-4" /> })),
-    ...students.map((s) => ({ id: s.id, label: s.name, sub: `${s.studentId} · ${s.program}`, tab: 'students' as DHNavTab, icon: <GraduationCap className="w-4 h-4" /> })),
+    ...coursesList.map((c) => ({ id: c.id, label: `${c.code || ''} — ${c.name || c.title || ''}`, sub: `${c.credits || c.creditHours || 3} credits`, tab: 'courses' as DHNavTab, icon: <BookOpen className="w-4 h-4" /> })),
+    ...facultyList.map((f) => ({ id: f.id, label: f.fullName || f.name, sub: `${f.title || f.specialization || 'Faculty'}`, tab: 'faculty' as DHNavTab, icon: <Users className="w-4 h-4" /> })),
+    ...studentsList.map((s) => ({ id: s.id, label: s.user?.fullName || s.name, sub: `${s.studentId || ''}`, tab: 'students' as DHNavTab, icon: <GraduationCap className="w-4 h-4" /> })),
   ];
 
   const q = query.toLowerCase().trim();

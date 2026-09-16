@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { HRNavTab, HROfficerProfile, HRNotification } from '../../types/hr';
+import { HRNavTab, HROfficerProfile } from '../../types/hr';
+import { HRNotificationApi }          from '../../lib/hrApi';
 import { Search, Bell, ChevronRight, Command, X, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
@@ -11,7 +12,7 @@ interface HRHeaderProps {
   activeTab: HRNavTab;
   setActiveTab: (tab: HRNavTab) => void;
   profile: HROfficerProfile;
-  notifications: HRNotification[];
+  notifications: HRNotificationApi[];
   unreadCount: number;
   onMarkRead: (id: string) => void;
   onOpenSearch: () => void;
@@ -116,14 +117,14 @@ export const HRHeader: React.FC<HRHeaderProps> = ({
                     <div className="max-h-96 overflow-y-auto divide-y ds-notif-item">
                       {notifications.slice(0, 7).map(n => (
                         <button key={n.id}
-                          onClick={() => { onMarkRead(n.id); setNotifOpen(false); setActiveTab(n.tab); }}
+                          onClick={() => { onMarkRead(n.id); setNotifOpen(false); setActiveTab(n.tab as HRNavTab); }}
                           className="w-full text-left px-4 py-3.5 ds-notif-item transition-colors flex gap-3"
-                          style={{ backgroundColor: !n.read ? 'var(--hover-overlay)' : 'transparent' }}>
-                          <div className="mt-1 w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: n.read ? 'var(--text-faint)' : NOTIF_DOT[n.type] ?? 'var(--brand-gold)' }} />
+                          style={{ backgroundColor: !n.isRead ? 'var(--hover-overlay)' : 'transparent' }}>
+                          <div className="mt-1 w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: n.isRead ? 'var(--text-faint)' : NOTIF_DOT[n.type] ?? 'var(--brand-gold)' }} />
                           <div className="min-w-0">
-                            <p className="font-sans text-xs font-semibold ds-notif-title" style={{ opacity: n.read ? 0.6 : 1 }}>{n.title}</p>
+                            <p className="font-sans text-xs font-semibold ds-notif-title" style={{ opacity: n.isRead ? 0.6 : 1 }}>{n.title}</p>
                             <p className="font-sans text-xs ds-notif-meta leading-relaxed mt-0.5 line-clamp-2">{n.message}</p>
-                            <p className="font-mono text-[10px] ds-notif-meta mt-1 opacity-50">{n.timestamp}</p>
+                            <p className="font-mono text-[10px] ds-notif-meta mt-1 opacity-50">{new Date(n.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                           </div>
                         </button>
                       ))}

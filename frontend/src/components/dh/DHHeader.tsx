@@ -21,10 +21,20 @@ interface DHHeaderProps {
 }
 
 const tabLabels: Record<DHNavTab, string> = {
-  overview: 'Dashboard Overview', courses: 'Course Offerings', faculty: 'Faculty Management',
-  students: 'Student Performance', reports: 'Department Reports', attendance: 'Attendance Tracking',
-  approvals: 'Approval Center', leave_requests: 'Faculty Leave Requests',
-  notifications: 'Notification Center', audit_log: 'Audit Log', settings: 'Settings', messages: 'Messages',
+  overview:             'Dashboard Overview',
+  programs:             'Programs',
+  courses:              'Courses',
+  instructors:          'Instructors',
+  students:             'Student Performance',
+  classes:              'Classes & Sections',
+  course_assignments:   'Course Assignments',
+  academic_monitoring:  'Academic Monitoring',
+  academic_performance: 'Academic Performance',
+  reports:              'Department Reports',
+  notifications:        'Notification Center',
+  audit_log:            'Audit Log',
+  settings:             'Settings',
+  messages:             'Messages',
 };
 
 export const DHHeader: React.FC<DHHeaderProps> = ({
@@ -63,6 +73,15 @@ export const DHHeader: React.FC<DHHeaderProps> = ({
         {/* Right controls */}
         <div className="flex items-center gap-2 sm:gap-3">
           <Badge variant="gold" className="hidden sm:inline-flex">{semesterLabel}</Badge>
+          {/* HOD identity badge */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border"
+            style={{ backgroundColor: 'var(--accent-gold-subtle)', borderColor: 'var(--accent-gold-border)' }}>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--brand-gold)' }}>HOD</span>
+            <span className="w-px h-3" style={{ backgroundColor: 'var(--accent-gold-border)' }} />
+            <span className="font-sans text-[11px] font-semibold truncate max-w-[120px]" style={{ color: 'var(--text-primary)' }}>
+              {profile.department}
+            </span>
+          </div>
 
           <button onClick={onOpenSearch}
             className="hidden md:flex items-center justify-between gap-3 px-3.5 py-1.5 ds-search border rounded-full text-xs w-48 lg:w-56 transition-all"

@@ -20,6 +20,8 @@ import {
   getPendingRegistrationPayments, getVerifiedRegistrationPayments,
   verifyRegistrationPayment, unverifyRegistrationPayment
 } from '../../../lib/foApi';
+import { Transaction, PaymentMethod } from '../../../types/finance';
+
 
 function fmtETB(amount: number) {
   const abs = Math.abs(amount).toLocaleString('en-US', {
@@ -55,8 +57,6 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
       .finally(() => setLoadingStudents(false));
   }, []);
 
-  const selected = students.find((s) => s.studentRecordId === form.studentId || s.id === form.studentId);
-
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.studentId) e.studentId = 'Please select a student';
@@ -70,7 +70,7 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
     setSubmitting(true);
     try {
       await recordStudentPayment({
-        studentRecordId: selected?.studentRecordId || form.studentId,
+        studentRecordId: selectedAccount?.studentRecordId || form.studentId,
         amount: Number(form.amount),
         paymentMethod: form.method as any,
         referenceNumber: form.reference.trim() || undefined,
@@ -84,6 +84,15 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
       setSubmitting(false);
     }
   };
+
+  const [studentAccounts, setStudentAccounts] = useState<any[]>([]);
+  useEffect(() => {
+    getStudentAccounts({ limit: 100 })
+      .then((d: any) => { if (d?.accounts) setStudentAccounts(d.accounts); })
+      .catch(() => {});
+  }, []);
+
+  const selectedAccount = studentAccounts.find((s: any) => s.id === form.studentId || s.studentRecordId === form.studentId);
 
   return (
     <SlidePanel isOpen onClose={onClose} title={<span>Record Student Payment</span>} subtitle="Finance Officer — Payments" width="max-w-xl">
@@ -107,16 +116,17 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
           {errors.studentId && <p className="font-sans text-[11px] text-(--status-danger) mt-1">{errors.studentId}</p>}
         </div>
 
-        {selected && (
-          <div className="p-3.5 bg-(--accent-gold-subtle) border border-(--accent-gold-border) rounded-xl flex items-center justify-between font-mono">
+        {/* Balance hint */}
+        {selectedAccount && (
+          <div className="p-3 bg-[#E9C349]/5 border border-(--accent-gold-border) rounded-xl flex items-center justify-between">
             <div>
-              <p className="text-[10px] text-(--text-muted) uppercase">Current Balance</p>
-              <p className={`text-base font-bold ${selected.balance > 0 ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>
-                {fmtETB(selected.balance ?? 0)}
+              <p className="font-sans text-xs text-(--text-secondary)">Current Outstanding Balance</p>
+              <p className={`font-mono text-lg font-bold ${selectedAccount.balance > 0 ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>
+                {fmtETB(selectedAccount.balance ?? 0)}
               </p>
             </div>
-            <Badge variant={selected.clearedForTerm ? 'emerald' : 'rose'}>
-              {selected.clearedForTerm ? `Cleared (${selected.clearedForTerm})` : 'Uncleared'}
+            <Badge variant={selectedAccount.balance > 0 ? 'rose' : 'emerald'}>
+              {selectedAccount.isCleared ? 'Cleared' : 'Uncleared'}
             </Badge>
           </div>
         )}

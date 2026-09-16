@@ -108,6 +108,11 @@ export interface DashboardNotification {
 
 export interface DashboardData {
   instructor:          InstructorProfileData & { department: { id: string; name: string; code: string } };
+  academicContext?: {
+    activeProgramType: 'TVET' | 'SHORT_PROGRAM';
+    hasTVET: boolean;
+    hasShortProgram: boolean;
+  };
   kpis:                DashboardKPIs;
   todaySessions:       TodaySession[];
   attendanceTrend:     number[];
@@ -138,6 +143,11 @@ export interface ClassOffering {
   status:   string;
   capacity: number;
   enrolled: number;
+  submissionStatus?: 'PUBLISHED' | 'SUBMITTED' | 'IN_PROGRESS' | 'PENDING';
+  submittedCount?: number;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+  shortProgramDuration?: string | null;
+  department?: { id: string; name: string };
   course: {
     id:          string;
     code:        string;
@@ -229,15 +239,46 @@ export interface AssignmentSummary {
   totalPoints:     number;
   status:          string;
   allowLateSubmit: boolean;
+  courseId?:       string;
   courseCode:      string;
   courseName:      string;
   courseOfferingId: string;
+  section?:        string;
   createdAt:       string;
   submissionCount: number;
   attachmentCount: number;
 }
 
+export interface ClassSubmissionItem {
+  id: string;
+  assignmentId: string;
+  assignmentTitle: string;
+  totalPoints: number;
+  dueDate: string;
+  studentName: string;
+  studentId: string;
+  studentEmail?: string | null;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  classId: string;
+  section: string;
+  status: string;
+  submittedAt: string;
+  score: number | null;
+  letterGrade: string | null;
+  feedback: string | null;
+  gradedAt: string | null;
+  isLate: boolean;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileSize?: string | null;
+  textContent?: string | null;
+}
+
 export interface AssignmentDetail extends Omit<AssignmentSummary, 'submissionCount' | 'attachmentCount'> {
+  courseId?: string;
+  classId?: string;
   attachments: { id: string; fileName: string; fileUrl: string; fileSize: string; fileType: string }[];
   submissions: {
     id:          string;
@@ -261,6 +302,8 @@ export interface QuizSummary {
   id:              string;
   title:           string;
   description:     string | null;
+  cleanDescription?: string;
+  assessmentType?: 'QUIZ' | 'EXAM';
   durationMinutes: number;
   availableFrom:   string;
   availableUntil:  string;
@@ -268,6 +311,10 @@ export interface QuizSummary {
   maxAttempts:     number;
   totalPoints:     number;
   status:          string;
+  courseId?:       string;
+  courseCode?:     string;
+  courseName?:     string;
+  section?:        string;
   courseOffering:  { course: { code: string; name: string } };
   _count:          { questions: number; attempts: number };
 }
@@ -278,11 +325,26 @@ export interface CourseGradeEntry {
   studentId:       string;
   fullName:        string;
   gpa:             number;
+  creditHours?:    number;
+  ects?:           number;
+  gradeStatus?:    'DRAFT' | 'SUBMITTED' | 'PUBLISHED';
   currentGrade: {
-    letterGrade: string;
-    gradePoints: number;
-    creditHours: number;
-    gradedAt:    string;
+    assignmentMarks?: number | null;
+    quizMarks?:       number | null;
+    midExamMarks?:    number | null;
+    finalExamMarks?:  number | null;
+    attendanceMarks?: number | null;
+    otherMarks?:      number | null;
+    finalMark?:       number | null;
+    letterGrade:      string;
+    gradePoints:      number;
+    creditHours:      number;
+    ects?:            number;
+    qualityPoints?:   number;
+    status?:          'DRAFT' | 'SUBMITTED' | 'PUBLISHED';
+    submittedAt?:     string | null;
+    publishedAt?:     string | null;
+    gradedAt:         string;
   } | null;
 }
 
@@ -376,13 +438,13 @@ export const instructorProfileApi = {
 };
 
 export const instructorDashboardApi = {
-  get: () =>
-    apiFetch<DashboardData>(`${BASE}/dashboard`),
+  get: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<DashboardData>(`${BASE}/dashboard${programType ? `?programType=${programType}` : ''}`),
 };
 
 export const instructorClassesApi = {
-  list: () =>
-    apiFetch<ClassOffering[]>(`${BASE}/classes`),
+  list: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<ClassOffering[]>(`${BASE}/classes${programType ? `?programType=${programType}` : ''}`),
 
   timetable: () =>
     apiFetch<ScheduleSlot[]>(`${BASE}/timetable`),
@@ -401,6 +463,48 @@ export const instructorClassesApi = {
       method: 'POST', body: JSON.stringify(data),
     }),
 
+  saveAssessmentGrade: (
+    offeringId: string,
+    enrollmentId: string,
+    marks: {
+      assignment?: number | null;
+      quiz?: number | null;
+      midExam?: number | null;
+      finalExam?: number | null;
+      attendance?: number | null;
+    }
+  ) =>
+    apiFetch<CourseGradeEntry>(`${BASE}/classes/${offeringId}/grades/${enrollmentId}/assessments`, {
+      method: 'POST',
+      body: JSON.stringify(marks),
+    }),
+
+  saveBatchAssessments: (
+    offeringId: string,
+    entries: Array<{
+      enrollmentId: string;
+      breakdown: {
+        assignment?: number | null;
+        quiz?: number | null;
+        midExam?: number | null;
+        finalExam?: number | null;
+        attendance?: number | null;
+      };
+    }>
+  ) =>
+    apiFetch<{ count: number }>(`${BASE}/classes/${offeringId}/grades/batch-assessments`, {
+      method: 'POST',
+      body: JSON.stringify({ entries }),
+    }),
+
+  submitGradesToRegistrar: (offeringId: string) =>
+    apiFetch<{ count: number; message: string }>(`${BASE}/classes/${offeringId}/grades/submit-to-registrar`, {
+      method: 'POST',
+    }),
+
+  getGradeEditingStatus: () =>
+    apiFetch<{ isOpen: boolean }>(`${BASE}/grade-editing-status`),
+
   getAttendanceReport: (offeringId: string, params: Record<string, unknown> = {}) =>
     apiFetch<AttendanceReportResponse>(`${BASE}/classes/${offeringId}/attendance/report${qs(params)}`),
 
@@ -411,14 +515,25 @@ export const instructorClassesApi = {
 };
 
 export const instructorAssignmentsApi = {
-  list: (courseOfferingId?: string) =>
-    apiFetch<AssignmentSummary[]>(`${BASE}/assignments${courseOfferingId ? `?courseOfferingId=${courseOfferingId}` : ''}`),
+  list: (courseOfferingId?: string, courseId?: string) => {
+    const params = new URLSearchParams();
+    if (courseOfferingId) params.append('courseOfferingId', courseOfferingId);
+    if (courseId) params.append('courseId', courseId);
+    const qs = params.toString();
+    return apiFetch<AssignmentSummary[]>(`${BASE}/assignments${qs ? `?${qs}` : ''}`);
+  },
 
   get: (id: string) =>
     apiFetch<AssignmentDetail>(`${BASE}/assignments/${id}`),
 
+  getSubmissions: (offeringId: string, assignmentId?: string) =>
+    apiFetch<ClassSubmissionItem[]>(
+      `${BASE}/classes/${offeringId}/submissions${assignmentId ? `?assignmentId=${assignmentId}` : ''}`
+    ),
+
   create: (data: {
     courseOfferingId: string;
+    courseId?: string;
     title: string;
     description: string;
     instructions: string;
@@ -442,14 +557,21 @@ export const instructorAssignmentsApi = {
 };
 
 export const instructorQuizzesApi = {
-  list: (courseOfferingId?: string) =>
-    apiFetch<QuizSummary[]>(`${BASE}/quizzes${courseOfferingId ? `?courseOfferingId=${courseOfferingId}` : ''}`),
+  list: (courseOfferingId?: string, courseId?: string) => {
+    const params = new URLSearchParams();
+    if (courseOfferingId) params.append('courseOfferingId', courseOfferingId);
+    if (courseId) params.append('courseId', courseId);
+    const qs = params.toString();
+    return apiFetch<QuizSummary[]>(`${BASE}/quizzes${qs ? `?${qs}` : ''}`);
+  },
 
   get: (id: string) =>
     apiFetch<unknown>(`${BASE}/quizzes/${id}`),
 
   create: (data: {
     courseOfferingId: string;
+    courseId?: string;
+    assessmentType?: 'QUIZ' | 'EXAM';
     title: string;
     description?: string;
     instructions?: string;
@@ -472,6 +594,15 @@ export const instructorQuizzesApi = {
 
   update: (id: string, data: Record<string, unknown>) =>
     apiFetch<QuizSummary>(`${BASE}/quizzes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (id: string) =>
+    apiFetch<{ id: string }>(`${BASE}/quizzes/${id}`, { method: 'DELETE' }),
+
+  addQuestion: (quizId: string, data: { questionText: string; type: string; points?: number; options?: Array<{ text: string; isCorrect?: boolean }> }) =>
+    apiFetch<unknown>(`${BASE}/quizzes/${quizId}/questions`, { method: 'POST', body: JSON.stringify(data) }),
+
+  deleteQuestion: (quizId: string, questionId: string) =>
+    apiFetch<{ id: string }>(`${BASE}/quizzes/${quizId}/questions/${questionId}`, { method: 'DELETE' }),
 };
 
 export const instructorNotificationsApi = {

@@ -189,12 +189,16 @@ function AcceptInvitationContent() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md space-y-6">
         
         {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E9C349]/10 border border-[#E9C349]/20 text-[#E9C349] text-xs font-semibold">
-            <GraduationCap className="w-4 h-4" /> Harmony College
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 mx-auto rounded-full overflow-hidden border-2 border-[#E9C349]/80 p-0.5 bg-black shadow-xl">
+            <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover rounded-full" />
           </div>
-          <h1 className="font-serif text-2xl font-bold">Accept Staff Invitation</h1>
-          <p className="text-zinc-400 text-xs">Set up your password to activate your account</p>
+          <div>
+            <h1 className="font-serif text-2xl font-bold text-white tracking-wide">Harmony College</h1>
+            <p className="text-xs uppercase font-mono tracking-widest text-[#E9C349] font-semibold mt-0.5">
+              Faculty &amp; Staff Account Activation
+            </p>
+          </div>
         </div>
 
         {/* Invited Info Box */}

@@ -14,23 +14,28 @@ import { SkeletonPage, ErrorState } from '../ui/States';
 import {
   settingsApi,
   gradeScaleApi,
+  gradePortalApi,
+  registrarGradesApi,
   type RegistrarProfile,
   type SessionItem,
   type RegistrationSettings,
   type GradeScaleEntry,
+  type GradePortalStatus,
+  type SubmittedGradeItem,
 } from '@/src/lib/registrarApi';
 
 // ─────────────────────────────────────────────────────────────────────────────
-type SettingsTab = 'profile' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration' | 'grade_scale';
+type SettingsTab = 'profile' | 'password' | 'appearance' | 'security' | 'sessions' | 'registration' | 'grade_scale' | 'grade_portal';
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'profile',      label: 'Personal Profile',    icon: <User          className="w-4 h-4" /> },
+  { id: 'grade_portal', label: 'Grade Portal & Publishing', icon: <GraduationCap className="w-4 h-4" /> },
+  { id: 'grade_scale',  label: 'Grade Scale',         icon: <Sliders       className="w-4 h-4" /> },
+  { id: 'registration', label: 'Registration Engine', icon: <Settings      className="w-4 h-4" /> },
   { id: 'password',     label: 'Password',            icon: <Key           className="w-4 h-4" /> },
   { id: 'appearance',   label: 'Appearance & Theme',  icon: <Palette       className="w-4 h-4" /> },
   { id: 'security',     label: 'Security',            icon: <Shield        className="w-4 h-4" /> },
   { id: 'sessions',     label: 'Active Sessions',     icon: <Clock         className="w-4 h-4" /> },
-  { id: 'registration', label: 'Registration Engine', icon: <Sliders       className="w-4 h-4" /> },
-  { id: 'grade_scale',  label: 'Grade Scale',         icon: <GraduationCap className="w-4 h-4" /> },
 ];
 
 const labelCls = 'text-[11px] font-mono text-white/40 uppercase tracking-wider';
@@ -103,6 +108,7 @@ export const RegistrarSettings: React.FC<{ initialTab?: string }> = ({ initialTa
           {activeTab === 'security'     && <SecurityTab />}
           {activeTab === 'sessions'     && <SessionsTab />}
           {activeTab === 'registration' && <RegistrationTab />}
+          {activeTab === 'grade_portal' && <GradePortalTab />}
           {activeTab === 'grade_scale'  && <GradeScaleTab />}
         </div>
       </div>
@@ -932,6 +938,220 @@ function GradeScaleTab() {
       <div className="p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl flex gap-2 text-[10px] text-yellow-300">
         <Info className="w-3.5 h-3.5 shrink-0 text-[#D4AF37] mt-0.5" />
         <span>Grade points are used in GPA calculations across all academic records. Changes take effect on the next GPA recalculation.</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRADE PORTAL TAB — Master OPEN/CLOSE switch & Grade Publication Authority
+// ─────────────────────────────────────────────────────────────────────────────
+function GradePortalTab() {
+  const [status, setStatus] = useState<GradePortalStatus | null>(null);
+  const [submittedList, setSubmittedList] = useState<SubmittedGradeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const [st, sub] = await Promise.all([
+        gradePortalApi.getStatus(),
+        registrarGradesApi.getSubmitted(),
+      ]);
+      setStatus(st);
+      setSubmittedList(sub);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Failed to load grade portal status');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleToggle = async () => {
+    setToggling(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const updated = await gradePortalApi.toggle();
+      setStatus(updated);
+      setMsg(updated.isOpen ? 'Grade Portal is now OPEN for students.' : 'Grade Portal is now CLOSED.');
+      setTimeout(() => setMsg(null), 4000);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Failed to toggle portal');
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handlePublish = async (offeringId: string) => {
+    setPublishingId(offeringId);
+    setErr(null);
+    setMsg(null);
+    try {
+      const res = await registrarGradesApi.publishOfferingGrades(offeringId);
+      setMsg(res.message);
+      setTimeout(() => setMsg(null), 4000);
+      await loadData();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Failed to publish grades');
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
+  if (loading) return <div className={cardCls}><SkeletonPage /></div>;
+
+  const isOpen = status?.isOpen ?? false;
+
+  return (
+    <div className="space-y-6 font-sans">
+      {/* Master Toggle Card */}
+      <div className={`${cardCls} border ${isOpen ? 'border-emerald-500/30' : 'border-amber-500/30'}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div>
+            <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-[#D4AF37]" /> Student Grade Portal Master Control
+            </h3>
+            <p className="text-xs text-white/50 mt-0.5">
+              The Registrar holds institutional authority over whether students can access and view grades.
+            </p>
+          </div>
+          <div>
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs font-bold border ${
+                isOpen
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                  : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+              }`}
+            >
+              <Power className="w-3.5 h-3.5" />
+              {isOpen ? 'PORTAL OPEN' : 'PORTAL CLOSED'}
+            </span>
+          </div>
+        </div>
+
+        <ErrMsg msg={err ?? ''} />
+        {msg && (
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+            <CheckCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{msg}</span>
+          </div>
+        )}
+
+        <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+          <p className="text-xs text-zinc-300 leading-relaxed">
+            {isOpen ? (
+              <span className="text-emerald-300">
+                The Grade Portal is currently <strong>OPEN</strong>. Students who log in can view all published grades, semester GPA, and cumulative CGPA.
+              </span>
+            ) : (
+              <span className="text-amber-200">
+                The Grade Portal is currently <strong>CLOSED</strong>. Students cannot see any grades. When visiting their Grades page, they see: <em>&quot;The Grade Portal is currently closed. Please contact the Registrar Office for assistance.&quot;</em>
+              </span>
+            )}
+          </p>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/5 text-[11px] font-mono text-white/40">
+            <div>
+              {isOpen ? (
+                <span>Opened At: {status?.openedAt ? new Date(status.openedAt).toLocaleString() : 'System default'}</span>
+              ) : (
+                <span>Closed At: {status?.closedAt ? new Date(status.closedAt).toLocaleString() : 'System default'}</span>
+              )}
+            </div>
+            <Button
+              variant={isOpen ? 'secondary' : 'gold'}
+              size="sm"
+              onClick={handleToggle}
+              disabled={toggling}
+              icon={<Power className="w-3.5 h-3.5" />}
+            >
+              {toggling ? 'Updating...' : isOpen ? 'Close Grade Portal' : 'Open Grade Portal'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Submitted Grades Awaiting Publication Card */}
+      <div className={cardCls}>
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div>
+            <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
+              <CheckCheck className="w-5 h-5 text-[#D4AF37]" /> Submitted Grades Awaiting Publication
+            </h3>
+            <p className="text-xs text-white/50 mt-0.5">
+              Course offerings where instructors have finalized and submitted assessment marks to the Registrar.
+            </p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={loadData} icon={<RefreshCw className="w-3.5 h-3.5" />}>
+            Refresh
+          </Button>
+        </div>
+
+        {submittedList.length === 0 ? (
+          <div className="p-8 text-center rounded-xl bg-black/20 border border-white/5 text-xs text-zinc-400">
+            No course grades are currently awaiting Registrar publication. All submitted courses have been processed or teachers have not yet submitted.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs font-sans">
+              <thead className="bg-black/30 border-b border-white/10 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                <tr>
+                  <th className="px-3.5 py-2.5 text-left">Course</th>
+                  <th className="px-2 py-2.5 text-center">Section</th>
+                  <th className="px-2 py-2.5 text-center">Semester</th>
+                  <th className="px-3 py-2.5 text-left">Instructor</th>
+                  <th className="px-2 py-2.5 text-center">ECTS</th>
+                  <th className="px-2 py-2.5 text-center">Submitted / Total</th>
+                  <th className="px-3 py-2.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {submittedList.map((item) => (
+                  <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                    <td className="px-3.5 py-3 font-semibold text-white">
+                      <div>{item.course.code}</div>
+                      <div className="text-[11px] text-zinc-400 font-normal truncate max-w-xs">{item.course.name}</div>
+                    </td>
+                    <td className="px-2 py-3 text-center font-mono text-zinc-300">{item.section}</td>
+                    <td className="px-2 py-3 text-center text-xs text-zinc-300">
+                      <div>{item.semester.name}</div>
+                      <div className="text-[10px] font-mono text-zinc-500">{item.semester.academicYear}</div>
+                    </td>
+                    <td className="px-3 py-3 text-xs text-zinc-300">
+                      {item.instructor ? `${item.instructor.title} ${item.instructor.user.fullName}` : '—'}
+                    </td>
+                    <td className="px-2 py-3 text-center font-mono text-zinc-300 font-semibold">{item.course.ects}</td>
+                    <td className="px-2 py-3 text-center font-mono">
+                      <span className="text-amber-300 font-bold">{item.submittedCount}</span>
+                      <span className="text-zinc-500"> / {item.totalGrades}</span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <Button
+                        variant="gold"
+                        size="sm"
+                        disabled={publishingId === item.id}
+                        onClick={() => handlePublish(item.id)}
+                        icon={<CheckCheck className="w-3.5 h-3.5" />}
+                      >
+                        {publishingId === item.id ? 'Publishing...' : 'Publish to Students'}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

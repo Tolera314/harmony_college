@@ -209,12 +209,23 @@ router.post('/notifications', async (req: AuthRequest, res) => {
       title:      z.string().min(3).max(200),
       message:    z.string().min(1).max(2000),
       type:       z.enum(['INFO', 'SUCCESS', 'WARNING', 'ERROR']).optional(),
-      entityType: z.string().optional(),
-      entityId:   z.string().optional(),
+      entityType: z.string().max(100).optional(),
+      entityId:   z.string().uuid().optional(),
+      actionTab:  z.string().max(50).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
-    ok(res, await svc.createNotification(parsed.data), 201);
+    // Verify the target user exists and is active before creating the notification
+    const targetUser = await prisma.user.findUnique({
+      where:  { id: parsed.data.userId },
+      select: { id: true, status: true },
+    });
+    if (!targetUser) { res.status(404).json({ error: 'Target user not found.' }); return; }
+    if (targetUser.status === 'DEACTIVATED') {
+      res.status(400).json({ error: 'Cannot send notification to a deactivated user.' }); return;
+    }
+    // module is always ADMIN for admin-created single notifications
+    ok(res, await svc.createNotification({ ...parsed.data, module: 'ADMIN' }), 201);
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -224,14 +235,17 @@ router.post('/notifications/broadcast', async (req: AuthRequest, res) => {
     const schema = z.object({
       title:      z.string().min(3).max(200),
       message:    z.string().min(1).max(2000),
+      // type is restricted to display variants — never trust caller for module
       type:       z.enum(['INFO', 'SUCCESS', 'WARNING', 'ERROR']).optional(),
       role:       z.nativeEnum(Role).optional(),
-      entityType: z.string().optional(),
-      entityId:   z.string().optional(),
+      entityType: z.string().max(100).optional(),
+      entityId:   z.string().uuid().optional(),
+      actionTab:  z.string().max(50).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
-    ok(res, await svc.broadcastNotification(parsed.data), 201);
+    // module is derived server-side — ADMIN broadcasts always use 'ADMIN' module
+    ok(res, await svc.broadcastNotification({ ...parsed.data, module: 'ADMIN' }), 201);
   } catch (e) { fail(res, e, 400); }
 });
 

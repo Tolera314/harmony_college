@@ -56,13 +56,19 @@ function pctChange(now: number, prev: number): number | null {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN
 // ─────────────────────────────────────────────────────────────────────────────
-export async function getOverviewData() {
+export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
   const now          = new Date();
   const todayStart   = startOfToday();
   const yesterdayStart = startOfYesterday();
   const last30Start  = new Date(now);  last30Start.setDate(last30Start.getDate() - 30);
   const last7Start   = new Date(now);  last7Start.setDate(last7Start.getDate() - 7);
   const yearStart    = new Date(now.getFullYear(), 0, 1);
+
+  // Build programType filter for different models
+  const accountProgramTypeFilter = programType ? { studentRecord: { programType } } : {};
+  const transactionProgramTypeFilter = programType 
+    ? { financialAccount: { studentRecord: { programType } } } 
+    : {};
 
   // ── Parallel DB queries ───────────────────────────────────────────────────
   const [
@@ -80,11 +86,13 @@ export async function getOverviewData() {
   ] = await Promise.all([
     // All accounts (for outstanding balance sum + overdue count)
     prisma.financialAccount.findMany({
+      where: accountProgramTypeFilter,
       select: {
         balance:      true,
         lastUpdatedAt: true,
         studentRecord: {
           select: {
+            programType: true,
             department: { select: { name: true, code: true } },
           },
         },
@@ -97,6 +105,7 @@ export async function getOverviewData() {
         type:            'PAYMENT',
         status:          'POSTED',
         transactionDate: { gte: todayStart },
+        ...transactionProgramTypeFilter,
       },
       _sum: { amount: true },
     }),
@@ -107,6 +116,7 @@ export async function getOverviewData() {
         type:            'PAYMENT',
         status:          'POSTED',
         transactionDate: { gte: yesterdayStart, lt: todayStart },
+        ...transactionProgramTypeFilter,
       },
       _sum: { amount: true },
     }),
@@ -117,6 +127,7 @@ export async function getOverviewData() {
         type:            'PAYMENT',
         status:          'POSTED',
         transactionDate: { gte: last30Start },
+        ...transactionProgramTypeFilter,
       },
       _sum: { amount: true },
     }),
@@ -126,6 +137,7 @@ export async function getOverviewData() {
       where: {
         status:          { not: 'REVERSED' },
         transactionDate: { gte: last7Start },
+        ...transactionProgramTypeFilter,
       },
     }),
 
@@ -134,6 +146,7 @@ export async function getOverviewData() {
       where: {
         transactionDate: { gte: yearStart },
         status:          { not: 'REVERSED' },
+        ...transactionProgramTypeFilter,
       },
       select: {
         type:            true,
@@ -150,7 +163,10 @@ export async function getOverviewData() {
 
     // Pending reconciliation = PENDING status transactions
     prisma.financialTransaction.count({
-      where: { status: 'PENDING' },
+      where: { 
+        status: 'PENDING',
+        ...transactionProgramTypeFilter,
+      },
     }),
 
     // Receipts issued = transactions with a receiptId and POSTED status
@@ -158,12 +174,16 @@ export async function getOverviewData() {
       where: {
         receiptId: { not: null },
         status:    'POSTED',
+        ...transactionProgramTypeFilter,
       },
     }),
 
     // Recent 10 transactions (with student names via join)
     prisma.financialTransaction.findMany({
-      where:   { status: { not: 'REVERSED' } },
+      where:   { 
+        status: { not: 'REVERSED' },
+        ...transactionProgramTypeFilter,
+      },
       orderBy: { transactionDate: 'desc' },
       take:    10,
       include: {
@@ -182,7 +202,10 @@ export async function getOverviewData() {
 
     // High-risk accounts: positive balance > 5000, ordered by balance desc
     prisma.financialAccount.findMany({
-      where:   { balance: { gt: 5000 } },
+      where:   { 
+        balance: { gt: 5000 },
+        ...accountProgramTypeFilter,
+      },
       orderBy: { balance: 'desc' },
       take:    10,
       include: {
@@ -356,6 +379,7 @@ export async function getOverviewData() {
 
   return {
     kpis: {
+      totalRevenue:              totalRevenueSemester,
       totalRevenueSemester,
       totalCollections:          totalRevenueSemester,
       totalOutstanding,

@@ -41,7 +41,7 @@ function MiniKPI({ label, value, color = 'text-(--brand-gold)' }: { label: strin
 // AdminRegistrarView — admissions + offerings overview
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AdminRegistrarView: React.FC = () => {
+export const AdminRegistrarView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [admissions, setAdmissions] = useState<ApiAdmission[]>([]);
   const [adTotal, setAdTotal]       = useState(0);
   const [adPage, setAdPage]         = useState(1);
