@@ -18,7 +18,7 @@ import {
   outstandingTrend as defaultOutstandingTrend, departments as defaultDepartments, financeStudents,
   foNotifications, transactions as defaultTxns, foProfile,
 } from '../../../data/financeData';
-
+import {
   getOverviewData,
   getNotifications,
   getSettings,

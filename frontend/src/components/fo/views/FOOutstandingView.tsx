@@ -366,7 +366,7 @@ export function FOOutstandingView() {
             <p className="font-sans text-xs text-(--text-faint) mt-0.5">students</p>
           </motion.div>
         )}
-      </AnimatePresence>
+      </div>
 
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl backdrop-blur-xl border border-(--border-default) bg-gradient-to-r from-(--hover-overlay) via-transparent to-(--accent-gold-subtle)">
@@ -631,7 +631,7 @@ export function FOOutstandingView() {
             onSuccess={(msg) => showToast(msg, 'success')}
           />
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -361,15 +361,16 @@ router.get('/reconciliation', async (req: AuthRequest, res: Response): Promise<v
   }
 });
 
-router.post('/reconciliation/auto-match', async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const result = await foReconciliationService.runAutoMatchReconciliation(req.user!.userId);
-    ok(res, result);
-  } catch (err) {
-    console.error('[FO/reconciliation/auto-match]', err);
-    fail(res, err, 400);
-  }
-});
+// Auto-match reconciliation endpoint removed - function doesn't exist
+// router.post('/reconciliation/auto-match', async (req: AuthRequest, res: Response): Promise<void> => {
+//   try {
+//     const result = await foReconciliationService.matchReconciliation(req.user!.userId);
+//     ok(res, result);
+//   } catch (err) {
+//     console.error('[FO/reconciliation/auto-match]', err);
+//     fail(res, err, 400);
+//   }
+// });
 
 router.post('/reconciliation/:id/match', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -454,7 +455,6 @@ router.get('/audit-logs', async (req: AuthRequest, res: Response): Promise<void>
     const query = req.query as Record<string, string | undefined>;
     const data = await foAuditService.getAuditLogs({
       search: query.search,
-      module: query.module,
       status: query.status,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 20,
