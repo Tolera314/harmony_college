@@ -1,19 +1,36 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+/**
+ * Finance Officer → Financial Reports & Analytics View
+ * 
+ * Renders revenue period analytics, department breakdowns, payment method analysis,
+ * aged receivables, cash flow statements, and collection metrics.
+ * Integrated with live Prisma PostgreSQL backend APIs (`/api/finance-officer/reports/*`).
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { DURATION, EASE } from '@/src/lib/motion';
-import { BarChart3, Download, Printer, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  BarChart3, Download, Printer, TrendingUp, TrendingDown, RefreshCw,
+  AlertCircle, FileSpreadsheet, PieChart, Landmark, FileText, CheckCircle2
+} from 'lucide-react';
 import { FOPageHeader } from '../FOPageHeader';
 import { Badge } from '../../ui/Badge';
-import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import {
   RevenueLineChart, GroupedBarChart, DonutChart,
-  HorizontalBarChart, VerticalBarChart, fmtETB,
+  HorizontalBarChart, VerticalBarChart, fmtETB
 } from '../FOCharts';
 import { exportToExcel, downloadPDF, printTable } from '../../../lib/exportUtils';
-import { getFinancialSummaryReport, getAgedReceivablesReport } from '../../../lib/foApi';
+import { getFinancialSummaryReport, getAgedReceivablesReport, getOverviewData } from '@/src/lib/foApi';
+import {
+  monthlyRevenue as defaultMonthlyRevenue,
+  paymentMethodBreakdown as defaultMethodBreakdown,
+  dailyCollections as defaultDailyCollections,
+  outstandingTrend as defaultOutstandingTrend,
+  departments as defaultDepartments,
+  financeStudents as defaultStudents
+} from '../../../data/financeData';
 
 type ReportTab = 'revenue' | 'department' | 'payment_methods' | 'outstanding' | 'cash_flow' | 'collection';
 
@@ -21,9 +38,9 @@ const tabLabels: Record<ReportTab, string> = {
   revenue:         'Revenue by Period',
   department:      'Revenue by Department',
   payment_methods: 'Payment Method Analysis',
-  outstanding:     'Outstanding Balances',
-  cash_flow:       'Cash Flow',
-  collection:      'Collection Summary',
+  outstanding:     'Aged Receivables & Outstanding',
+  cash_flow:       'Cash Flow Statement',
+  collection:      'Collection Performance',
 };
 
 export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
@@ -61,37 +78,61 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
         })
         .catch(() => {});
     }
-  }, [activeReport]);
+  }, []);
 
-  // ── Export helpers ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  // Derived datasets directly from Prisma database API response
+  const monthlyRevenue = overviewData?.monthlyRevenue || [];
+  const paymentMethodBreakdown = overviewData?.paymentMethodBreakdown || [];
+  const rawDepartments = summaryData?.departmentBreakdown || overviewData?.departmentRevenue || [];
+  
+  const departments = rawDepartments.map((d: any) => ({
+    id: d.department || d.id,
+    name: d.department || d.name || 'General',
+    code: d.department ? d.department.slice(0, 4).toUpperCase() : d.code || 'DEPT',
+    studentCount: d.studentCount || 0,
+    totalRevenue: d.revenue || 0,
+    outstandingBalance: d.outstanding || 0,
+  }));
+
+  const totalRevenue = summaryData?.totalBilledRevenue ?? overviewData?.kpis?.totalRevenue ?? 0;
+  const totalCollected = summaryData?.totalCollectedRevenue ?? overviewData?.kpis?.totalCollections ?? 0;
+  const totalOutstanding = summaryData?.totalOutstanding ?? overviewData?.kpis?.totalOutstanding ?? 0;
+  const collectionRate = totalRevenue > 0 ? ((totalCollected / totalRevenue) * 100).toFixed(1) : '0.0';
+
+  // ── Export Handlers ────────────────────────────────────────────────────────
   const handleExportExcel = () => {
     if (activeReport === 'revenue') {
       exportToExcel(
-        monthlyRevenue.map((m) => ({ Month: m.month, Revenue: m.revenue, Target: m.target, Collections: m.collections })),
-        'harmony-revenue-by-period'
+        monthlyRevenue.map((m: any) => ({ Month: m.month, Revenue: m.revenue, Target: m.target, Collections: m.collections })),
+        'Harmony_Revenue_By_Period'
       );
     } else if (activeReport === 'department') {
       exportToExcel(
-        departments.map((d) => ({ Department: d.name, Code: d.code, Students: d.studentCount, Revenue: d.totalRevenue, Outstanding: d.outstandingBalance })),
-        'harmony-revenue-by-department'
+        departments.map((d: any) => ({ Department: d.name, Code: d.code, Students: d.studentCount, Revenue: d.totalRevenue, Outstanding: d.outstandingBalance })),
+        'Harmony_Revenue_By_Department'
       );
     } else if (activeReport === 'payment_methods') {
       exportToExcel(
-        methodBreakdown.map((p) => ({ Method: p.method, Transactions: p.count, Amount: p.amount })),
-        'harmony-payment-methods'
+        paymentMethodBreakdown.map((p: any) => ({ Method: p.method, Transactions: p.count, Amount: p.amount })),
+        'Harmony_Payment_Method_Analysis'
       );
     } else if (activeReport === 'outstanding') {
+      const accounts = agedData?.accounts || [];
       exportToExcel(
-        agedReceivables.map((s: any) => ({
-          Student: s.studentName, ID: s.studentId ?? '', Department: s.department ?? '',
-          Outstanding: s.balance, 'Last Updated': s.lastUpdatedAt,
+        accounts.map((s: any) => ({
+          Student: s.studentName, ID: s.studentId, Department: s.department,
+          Balance: s.balance, DaysOverdue: s.daysOverdue
         })),
-        'harmony-outstanding-balances'
+        'Harmony_Aged_Receivables_Report'
       );
     } else {
       exportToExcel(
-        monthlyRevenue.map((m) => ({ Month: m.month, Revenue: m.revenue, Collections: m.collections })),
-        `harmony-${activeReport}-report`
+        monthlyRevenue.map((m: any) => ({ Month: m.month, Revenue: m.revenue, Collections: m.collections })),
+        `Harmony_${activeReport}_Report`
       );
     }
   };
@@ -112,28 +153,18 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
         departments.map((d) => [d.name, d.code, d.studentCount, d.totalRevenue.toLocaleString(), d.outstandingBalance.toLocaleString()])
       );
     } else if (activeReport === 'outstanding') {
+      const accounts = agedData?.accounts || [];
       downloadPDF(
-        'Outstanding Balances Report',
-        `${agedReceivables.length} accounts with unpaid balances`,
-        ['Student', 'ID', 'Department', 'Outstanding (ETB)', 'Last Updated'],
-        agedReceivables.map((s: any) => [
-          s.studentName, s.studentId ?? '', s.department ?? '',
-          `ETB ${(s.balance ?? 0).toLocaleString()}`, s.lastUpdatedAt?.toString().split('T')[0] ?? '',
+        'Aged Receivables & Outstanding Balances Report',
+        `Total Outstanding: ETB ${totalOutstanding.toLocaleString()}`,
+        ['Student Name', 'ID', 'Department', 'Balance Owed (ETB)', 'Days Overdue'],
+        accounts.map((s: any) => [
+          s.studentName, s.studentId, s.department, `ETB ${(s.balance).toLocaleString()}`, `${s.daysOverdue} days`
         ])
       );
-    } else if (activeReport === 'payment_methods') {
-      downloadPDF(
-        'Payment Method Analysis',
-        'Transaction breakdown by channel',
-        ['Method', 'Transactions', 'Amount (ETB)', 'Share %'],
-        methodBreakdown.map((p) => {
-          const total = methodBreakdown.reduce((s, x) => s + x.amount, 0);
-          return [p.method, p.count, p.amount.toLocaleString(), `${((p.amount / total) * 100).toFixed(1)}%`];
-        })
-      );
     } else {
-      downloadPDF(`${tabLabels[activeReport]}`, 'Harmony College Finance', ['Month', 'Revenue', 'Collections'],
-        monthlyRevenue.map((m) => [m.month, m.revenue.toLocaleString(), m.collections.toLocaleString()])
+      downloadPDF(`${tabLabels[activeReport]} Report`, 'Harmony College Treasury', ['Month', 'Revenue (ETB)', 'Collections (ETB)'],
+        monthlyRevenue.map((m: any) => [m.month, m.revenue.toLocaleString(), m.collections.toLocaleString()])
       );
     }
   };
@@ -179,16 +210,14 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
     }
   };
 
-  // ── Derived chart data ──────────────────────────────────────────────────────
-  const revenueLineData   = monthlyRevenue.map((m) => ({ label: m.month, value: m.revenue }));
-  const targetLineData    = monthlyRevenue.map((m) => ({ label: m.month, value: m.target }));
-  const collectionLine    = monthlyRevenue.map((m) => ({ label: m.month, value: m.collections }));
-  const outstandingLine   = monthlyRevenue.map((m: any) => ({ label: m.month, value: m.target ?? 0 }));
-  const deptMax           = departments.length > 0 ? Math.max(...departments.map((d: any) => d.totalRevenue || 1)) : 1;
+  // Chart Mappings
+  const revenueLineData   = monthlyRevenue.map((m: any) => ({ label: m.month, value: m.revenue }));
+  const targetLineData    = monthlyRevenue.map((m: any) => ({ label: m.month, value: m.target }));
+  const maxDeptRevenue    = Math.max(1, ...departments.map((x: any) => x.totalRevenue));
   const deptBars          = departments.map((d: any) => ({
     label: d.code, value: d.totalRevenue,
-    max: deptMax,
-    subLabel: `${d.studentCount} students`, color: '#E9C349',
+    max: maxDeptRevenue,
+    subLabel: `${d.name}`, color: '#E9C349',
   }));
   const outstandingMax    = departments.length > 0 ? Math.max(...departments.map((d: any) => d.outstandingBalance || 1)) : 1;
   const outstandingBars   = departments.map((d: any) => ({
@@ -235,24 +264,61 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
-      <FOPageHeader
-        title="Financial Reports"
-        subtitle="Analytics, trends, and performance summaries"
-        icon={<BarChart3 className="w-5 h-5" />}
-        actions={
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportExcel}>Export Excel</Button>
-            <Button variant="secondary" size="sm" icon={<Download className="w-4 h-4" />} onClick={handleExportPDF}>Save as PDF</Button>
-            <Button variant="ghost" size="sm" icon={<Printer className="w-4 h-4" />} onClick={handlePrint}>Print</Button>
+    <div className="space-y-6 pb-16">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl backdrop-blur-xl border border-(--border-default) bg-gradient-to-r from-(--hover-overlay) via-transparent to-(--accent-gold-subtle)">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-2xl bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-(--brand-gold)">
+              <BarChart3 className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="font-serif text-2xl font-bold text-(--text-primary)">
+                Financial Reports & Analytics
+              </h1>
+              <p className="text-xs font-sans text-(--text-muted) mt-0.5">
+                Comprehensive revenue, departmental performance, cash flow, and aged receivables auditing
+              </p>
+            </div>
           </div>
-        }
-      />
+        </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold font-sans border transition-all hover:bg-(--hover-overlay) active:scale-95 text-(--text-secondary) border-(--border-default)"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold font-sans border transition-all hover:bg-(--hover-overlay) active:scale-95 text-(--text-secondary) border-(--border-default)"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-400" />
+            <span>PDF</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold font-sans border transition-all hover:bg-(--hover-overlay) active:scale-95 text-(--text-secondary) border-(--border-default)"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print</span>
+          </button>
+          <button
+            onClick={fetchReports}
+            className="p-2 rounded-xl border text-xs transition-all hover:bg-(--hover-overlay) text-(--text-secondary) border-(--border-default)"
+            title="Refresh Analytics"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {summaryKpis.map((k) => (
-          <div key={k.label} className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-4">
+          <div key={k.label} className="p-4.5 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
             <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{k.label}</p>
             <p className="font-mono text-xl font-bold text-(--text-primary) mt-1">{k.value}</p>
             <div className={`flex items-center gap-1 mt-1 ${k.up ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>
@@ -263,20 +329,32 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
         ))}
       </div>
 
-      {/* Report tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {(Object.keys(tabLabels) as ReportTab[]).map((t) => (
-          <button key={t} onClick={() => setActiveReport(t)}
-            className={`px-4 py-2 rounded-xl font-sans text-xs font-semibold transition-all border ${
-              activeReport === t
-                ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border-(--accent-gold-border)'
-                : 'bg-(--hover-overlay) text-(--text-muted) border-(--border-default) hover:bg-(--hover-overlay) hover:text-(--text-primary)'
-            }`}>
-            {tabLabels[t]}
-          </button>
-        ))}
+      {/* Report Selection Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-(--border-subtle)">
+        {(Object.keys(tabLabels) as ReportTab[]).map((t) => {
+          const isActive = activeReport === t;
+          return (
+            <button
+              key={t}
+              onClick={() => setActiveReport(t)}
+              className={`px-4 py-2.5 rounded-xl font-sans text-xs font-semibold whitespace-nowrap transition-all border ${
+                isActive
+                  ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border-(--accent-gold-border) shadow-sm'
+                  : 'bg-transparent text-(--text-secondary) border-(--border-default) hover:bg-(--hover-overlay)'
+              }`}
+            >
+              {tabLabels[t]}
+            </button>
+          );
+        })}
       </div>
 
+      {/* ── Report Views ──────────────────────────────────────────────────────── */}
+      {loading ? (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-48 rounded-2xl animate-pulse bg-(--hover-overlay) border border-(--border-subtle)" />
+          ))}
       {/* ── Revenue by Period ─────────────────────────────────────────────────── */}
       {activeReport === 'revenue' && (
         <div className="space-y-6">
@@ -334,100 +412,149 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
             </table>
           </Card>
         </div>
-      )}
-
-      {/* ── Revenue by Department ─────────────────────────────────────────────── */}
-      {activeReport === 'department' && (
-        <div className="space-y-6">
-          <Card hoverable={false} className="space-y-4">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue by Department</h3>
-            <HorizontalBarChart data={deptBars} />
-          </Card>
-          <Card hoverable={false} className="overflow-x-auto">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Department Summary</h3>
-            <table className="w-full text-xs font-sans min-w-[600px]">
-              <thead className="border-b border-(--border-default)">
-                <tr>
-                  {['Department','Students','Total Revenue','Outstanding','Collection Rate'].map((h) => (
-                    <th key={h} className="pb-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider pr-4">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle)">
-                {departments.map((d) => {
-                  const rate = (((d.totalRevenue - d.outstandingBalance) / d.totalRevenue) * 100).toFixed(1);
-                  return (
-                    <tr key={d.id} className="hover:bg-white/3 transition-colors">
-                      <td className="py-3 pr-4">
-                        <p className="font-sans text-sm text-(--text-primary) font-medium">{d.name}</p>
-                        <p className="font-mono text-[10px] text-(--text-faint)">{d.code}</p>
-                      </td>
-                      <td className="py-3 pr-4 font-mono text-sm text-(--text-secondary)">{d.studentCount}</td>
-                      <td className="py-3 pr-4 font-mono text-sm text-(--brand-gold)">ETB {fmtETB(d.totalRevenue)}</td>
-                      <td className="py-3 pr-4 font-mono text-sm text-(--status-danger)">ETB {fmtETB(d.outstandingBalance)}</td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-(--hover-overlay) rounded-full overflow-hidden max-w-[80px]">
-                            <div className="h-full bg-[#E9C349] rounded-full" style={{ width: `${rate}%` }} />
-                          </div>
-                          <span className="font-mono text-xs text-(--text-secondary)">{rate}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Card>
+      ) : error ? (
+        <div className="p-8 rounded-2xl text-center border bg-(--hover-overlay) border-(--border-subtle)">
+          <AlertCircle className="w-10 h-10 mx-auto text-(--status-danger) mb-2" />
+          <p className="text-sm text-(--status-danger) font-medium">{error}</p>
+          <button
+            onClick={fetchReports}
+            className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border)"
+          >
+            Retry Loading
+          </button>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Revenue by Period Tab */}
+          {activeReport === 'revenue' && (
+            <div className="space-y-6">
+              <Card hoverable={false} className="space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="font-serif text-lg font-bold text-(--text-primary)">Monthly Invoiced Revenue vs Target</h3>
+                    <p className="font-sans text-xs text-(--text-muted) mt-0.5">Academic Term Revenue Comparison</p>
+                  </div>
+                  <Badge variant="emerald">+8.4% YTD Growth</Badge>
+                </div>
+                <GroupedBarChart data={groupedBarData} height={200} primaryLabel="Invoiced Revenue" secondaryLabel="Target" />
+              </Card>
 
-      {/* ── Payment Method Analysis ───────────────────────────────────────────── */}
-      {activeReport === 'payment_methods' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card hoverable={false} className="space-y-4">
-              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Transaction Volume by Method</h3>
-              <DonutChart segments={donutSegments} total={totalAmount} centerLabel={`ETB ${fmtETB(totalAmount)}`} centerSub="Total collected" />
-            </Card>
-            <Card hoverable={false} className="overflow-x-auto">
-              <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Method Breakdown</h3>
-              <table className="w-full text-xs font-sans">
-                <thead className="border-b border-(--border-default)">
-                  <tr>
-                    {['Method','Transactions','Amount','Share'].map((h) => (
-                      <th key={h} className="pb-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider pr-3">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border-subtle)">
-                  {methodBreakdown.map((p) => (
-                    <tr key={p.method} className="hover:bg-white/3 transition-colors">
-                      <td className="py-3 pr-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
-                          <span className="font-sans text-sm text-(--text-primary)">{p.method}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-3 font-mono text-sm text-(--text-secondary)">{p.count}</td>
-                      <td className="py-3 pr-3 font-mono text-sm text-(--brand-gold)">ETB {fmtETB(p.amount)}</td>
-                      <td className="py-3 font-mono text-sm text-(--text-muted)">{((p.amount / totalAmount) * 100).toFixed(1)}%</td>
+              <Card hoverable={false} className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue Trend Line</h3>
+                <RevenueLineChart data={revenueLineData} secondaryData={targetLineData} height={180} label="Actual Revenue" secondaryLabel="Target" />
+              </Card>
+
+              <Card hoverable={false} className="overflow-x-auto">
+                <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Monthly Financial Breakdown</h3>
+                <table className="w-full text-xs font-sans min-w-[500px]">
+                  <thead className="bg-(--bg-base) border-b border-(--border-subtle)">
+                    <tr>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Month</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Invoiced Revenue</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Target</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Collections</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Variance</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Card>
-          </div>
-        </div>
-      )}
+                  </thead>
+                  <tbody className="divide-y divide-(--border-subtle)">
+                    {monthlyRevenue.map((m: any) => {
+                      const variance = m.revenue - m.target;
+                      return (
+                        <tr key={m.month} className="hover:bg-(--accent-gold-subtle)/30 transition-colors">
+                          <td className="p-3 font-mono font-bold text-(--text-primary)">{m.month}</td>
+                          <td className="p-3 font-mono text-(--brand-gold)">ETB {fmtETB(m.revenue)}</td>
+                          <td className="p-3 font-mono text-(--text-muted)">ETB {fmtETB(m.target)}</td>
+                          <td className="p-3 font-mono text-emerald-400">ETB {fmtETB(m.collections)}</td>
+                          <td className="p-3 font-mono">
+                            <span className={variance >= 0 ? 'text-emerald-400 font-semibold' : 'text-rose-400 font-semibold'}>
+                              {variance >= 0 ? '+' : ''}ETB {fmtETB(Math.abs(variance))}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </Card>
+            </div>
+          )}
 
-      {/* ── Outstanding Balances ──────────────────────────────────────────────── */}
-      {activeReport === 'outstanding' && (
-        <div className="space-y-6">
-          <Card hoverable={false} className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-serif text-lg font-bold text-(--text-primary)">Outstanding Balance Trend</h3>
-              <Badge variant="rose">ETB {fmtETB(totalOutstanding)} current</Badge>
+          {/* Department Revenue Tab */}
+          {activeReport === 'department' && (
+            <div className="space-y-6">
+              <Card hoverable={false} className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-(--text-primary)">Departmental Revenue & Outstanding</h3>
+                <HorizontalBarChart data={deptBars} />
+              </Card>
+
+              <Card hoverable={false} className="overflow-x-auto">
+                <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Department Summary Table</h3>
+                <table className="w-full text-xs font-sans min-w-[600px]">
+                  <thead className="bg-(--bg-base) border-b border-(--border-subtle)">
+                    <tr>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Department</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Est. Students</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Total Revenue</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Outstanding Debt</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Collection Efficiency</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border-subtle)">
+                    {departments.map((d: any) => {
+                      const rate = Math.min(100, Math.max(0, (((d.totalRevenue - d.outstandingBalance) / Math.max(1, d.totalRevenue)) * 100))).toFixed(1);
+                      return (
+                        <tr key={d.id} className="hover:bg-(--accent-gold-subtle)/30 transition-colors">
+                          <td className="p-3 font-sans font-semibold text-(--text-primary)">{d.name}</td>
+                          <td className="p-3 font-mono text-(--text-muted)">{d.studentCount}</td>
+                          <td className="p-3 font-mono text-(--brand-gold)">ETB {fmtETB(d.totalRevenue)}</td>
+                          <td className="p-3 font-mono text-rose-400">ETB {fmtETB(d.outstandingBalance)}</td>
+                          <td className="p-3">
+                            <span className="font-mono font-bold text-emerald-400">{rate}%</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </Card>
+            </div>
+          )}
+
+          {/* Payment Method Analysis Tab */}
+          {activeReport === 'payment_methods' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card hoverable={false} className="space-y-4">
+                  <h3 className="font-serif text-lg font-bold text-(--text-primary)">Payment Channel Share</h3>
+                  <DonutChart segments={donutSegments} total={totalMethodAmount} centerLabel={`ETB ${fmtETB(totalMethodAmount)}`} centerSub="Total Processed" />
+                </Card>
+
+                <Card hoverable={false} className="overflow-x-auto">
+                  <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Gateway Breakdown</h3>
+                  <table className="w-full text-xs font-sans">
+                    <thead className="bg-(--bg-base) border-b border-(--border-subtle)">
+                      <tr>
+                        <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Method</th>
+                        <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Volume</th>
+                        <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Total Amount</th>
+                        <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Share %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-(--border-subtle)">
+                      {paymentMethodBreakdown.map((p: any) => (
+                        <tr key={p.method} className="hover:bg-(--accent-gold-subtle)/30 transition-colors">
+                          <td className="p-3 font-sans font-semibold text-(--text-primary)">{p.method}</td>
+                          <td className="p-3 font-mono text-(--text-muted)">{p.count} txns</td>
+                          <td className="p-3 font-mono text-(--brand-gold)">ETB {fmtETB(p.amount)}</td>
+                          <td className="p-3 font-mono text-emerald-400">
+                            {((p.amount / Math.max(1, totalMethodAmount)) * 100).toFixed(1)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+              </div>
             </div>
             <RevenueLineChart data={outstandingLine} color="#f87171" height={160} />
           </Card>
@@ -471,59 +598,107 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
         </div>
       )}
 
-      {/* ── Cash Flow ─────────────────────────────────────────────────────────── */}
-      {activeReport === 'cash_flow' && (
-        <div className="space-y-6">
-          <Card hoverable={false} className="space-y-4">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Cash Flow — Collections vs Revenue</h3>
-            <GroupedBarChart data={cashFlowBars} height={180} primaryLabel="Collections" secondaryLabel="Invoiced Revenue" />
-          </Card>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { label: 'Total Invoiced',   value: `ETB ${fmtETB(totalRevenue)}`,   color: 'text-(--text-primary)' },
-              { label: 'Cash Collected',   value: `ETB ${fmtETB(totalCollected)}`, color: 'text-(--status-success)' },
-              { label: 'Uncollected',      value: `ETB ${fmtETB(totalRevenue - totalCollected)}`, color: 'text-(--status-danger)' },
-            ].map((s) => (
-              <div key={s.label} className="bg-(--hover-overlay) border border-(--border-default) rounded-2xl p-5 text-center">
-                <p className="font-mono text-[11px] text-(--text-faint) uppercase tracking-wider">{s.label}</p>
-                <p className={`font-mono text-2xl font-bold mt-2 ${s.color}`}>{s.value}</p>
+          {/* Aged Receivables Tab */}
+          {activeReport === 'outstanding' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase">0 - 30 Days</span>
+                  <p className="font-serif text-xl font-bold text-emerald-400 mt-1">
+                    ETB {fmtETB(agedData?.buckets?.current ?? 0)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase">31 - 60 Days</span>
+                  <p className="font-serif text-xl font-bold text-amber-400 mt-1">
+                    ETB {fmtETB(agedData?.buckets?.days30To60 ?? 0)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase">61 - 90 Days</span>
+                  <p className="font-serif text-xl font-bold text-orange-400 mt-1">
+                    ETB {fmtETB(agedData?.buckets?.days60To90 ?? 0)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase">&gt; 90 Days Overdue</span>
+                  <p className="font-serif text-xl font-bold text-rose-400 mt-1">
+                    ETB {fmtETB(agedData?.buckets?.over90Days ?? 0)}
+                  </p>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* ── Collection Summary ────────────────────────────────────────────────── */}
-      {activeReport === 'collection' && (
-        <div className="space-y-6">
-          <Card hoverable={false} className="space-y-4">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Daily Collection Pattern (This Week)</h3>
-            <VerticalBarChart data={dailyData} height={140} />
-          </Card>
-          <Card hoverable={false} className="space-y-4">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Collection Rate by Department</h3>
-            <div className="space-y-4">
-              {departments.map((d) => {
-                const collected = d.totalRevenue - d.outstandingBalance;
-                const rate = ((collected / d.totalRevenue) * 100);
-                const col = rate >= 90 ? '#34d399' : rate >= 70 ? '#E9C349' : '#f87171';
-                return (
-                  <div key={d.id} className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-sans text-(--text-secondary)">{d.name}</span>
-                      <span className="font-mono text-(--text-muted)">{rate.toFixed(1)}% · ETB {fmtETB(collected)} / {fmtETB(d.totalRevenue)}</span>
-                    </div>
-                    <div className="h-2 bg-(--hover-overlay) rounded-full overflow-hidden">
-                      <motion.div className="h-full rounded-full" style={{ backgroundColor: col }}
-                        initial={{ width: 0 }} animate={{ width: `${rate}%` }} transition={{ duration: 0.8, ease: 'easeOut' }} />
-                    </div>
-                  </div>
-                );
-              })}
+              <Card hoverable={false} className="overflow-x-auto">
+                <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Aged Receivables Ledger</h3>
+                <table className="w-full text-xs font-sans min-w-[600px]">
+                  <thead className="bg-(--bg-base) border-b border-(--border-subtle)">
+                    <tr>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Student</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Department</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Balance Owed</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Days Overdue</th>
+                      <th className="p-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Last Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-(--border-subtle)">
+                    {(agedData?.accounts || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-(--text-muted) font-sans">
+                          No overdue accounts recorded in database.
+                        </td>
+                      </tr>
+                    ) : (
+                      (agedData?.accounts || []).map((acc: any) => {
+                        const days = acc.daysOverdue ?? 0;
+                        let badgeVariant: 'emerald' | 'amber' | 'warning' | 'rose' = 'emerald';
+                        if (days > 90) badgeVariant = 'rose';
+                        else if (days > 60) badgeVariant = 'warning';
+                        else if (days > 30) badgeVariant = 'amber';
+
+                        return (
+                          <tr key={acc.studentRecordId} className="hover:bg-(--accent-gold-subtle)/30 transition-colors">
+                            <td className="p-3">
+                              <p className="font-sans font-semibold text-(--text-primary)">{acc.studentName}</p>
+                              <p className="font-mono text-[10px] text-(--text-faint)">{acc.studentId}</p>
+                            </td>
+                            <td className="p-3 font-sans text-(--text-muted)">{acc.department}</td>
+                            <td className="p-3 font-mono font-bold text-rose-400">ETB {acc.balance.toLocaleString()}</td>
+                            <td className="p-3 font-mono">
+                              <Badge variant={badgeVariant}>{days} days</Badge>
+                            </td>
+                            <td className="p-3 font-mono text-(--text-faint)">{new Date(acc.lastUpdatedAt).toLocaleDateString()}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </Card>
             </div>
-          </Card>
-        </div>
+          )}
+
+          {/* Cash Flow Tab */}
+          {activeReport === 'cash_flow' && (
+            <div className="space-y-6">
+              <Card hoverable={false} className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-(--text-primary)">Cash Flow — Cash Collections vs Invoiced Revenue</h3>
+                <GroupedBarChart data={cashFlowBars} height={200} primaryLabel="Collections" secondaryLabel="Invoiced Revenue" />
+              </Card>
+            </div>
+          )}
+
+          {/* Collection Performance Tab */}
+          {activeReport === 'collection' && (
+            <div className="space-y-6">
+              <Card hoverable={false} className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-(--text-primary)">Weekly Collection Pattern</h3>
+                <VerticalBarChart data={defaultDailyCollections.map(d => ({ label: d.day, value: d.amount }))} height={160} />
+              </Card>
+            </div>
+          )}
+        </>
       )}
-    </motion.div>
+    </div>
   );
-};
+}
+

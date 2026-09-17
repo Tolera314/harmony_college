@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { FONavTab, FONotification, FOProfile } from '@/src/types/finance';
+import { FONavTab, FONotification } from '@/src/types/finance';
+import { foProfile, foNotifications as initialNotifs, reconciliationEntries, financeStudents } from '@/src/data/financeData';
 import { FOSidebar }           from '@/src/components/fo/FOSidebar';
 import { FOHeader }            from '@/src/components/fo/FOHeader';
 import { FOMobileNav }         from '@/src/components/fo/FOMobileNav';
@@ -23,8 +24,8 @@ import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView'
 import { MessagingView }               from '@/src/components/messaging/MessagingView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
-import { getReconciliationEntries, getOutstandingAccounts, getNotifications as foGetNotifications, markNotificationRead as foMarkNotifRead, markAllNotificationsRead as foMarkAllNotifRead } from '@/src/lib/foApi';
-import { useNotifications } from '@/src/hooks/useNotifications';
+
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/src/lib/foApi';
 
 const DEFAULT_FO_PROFILE: FOProfile = {
   name: 'Finance Officer',
@@ -82,21 +83,60 @@ export default function FinanceOfficerPage() {
     markAllReadFn: () => foMarkAllNotifRead(),
   });
 
-  // Load live badge counts on mount
+  // Fetch logged in user profile from auth API
   useEffect(() => {
-    getReconciliationEntries({ status: 'Unmatched' })
-      .then((d: any) => setPendingRecon((d?.entries ?? d ?? []).length))
-      .catch(() => {});
-    getOutstandingAccounts({ limit: 1 })
-      .then((d: any) => setOverdueCount(d?.total ?? 0))
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.authenticated && data.user) {
+          setProfile((prev) => ({
+            ...prev,
+            name: data.user.fullName || prev.name,
+            email: data.user.email || prev.email,
+            phone: data.user.phone || prev.phone,
+            avatar: data.user.avatarUrl || prev.avatar,
+            employeeId: data.user.id ? `EMP-FO-${data.user.id.slice(-4).toUpperCase()}` : prev.employeeId,
+          }));
+        }
+      })
       .catch(() => {});
   }, []);
+
+  // Fetch real notifications from database API
+  const fetchNotifs = useCallback(async () => {
+    try {
+      const data = await getNotifications();
+      if (data && Array.isArray(data.notifications)) {
+        setNotifications(data.notifications);
+      }
+    } catch {
+      // Keep current state fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifs();
+  }, [fetchNotifs, activeTab]);
+
+  // Fetch real overdue accounts count from database API
+  useEffect(() => {
+    fetch('/api/finance-officer/outstanding?limit=100', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && Array.isArray(data.accounts)) {
+          const realOverdue = data.accounts.filter((a: any) => a.outstanding > 0).length;
+          setOverdueCount(realOverdue);
+        }
+      })
+      .catch(() => {});
+  }, [activeTab]);
 
   const setActiveTab = (tab: FONavTab) => {
     if (tab === (activeTab as string)) return;
     setTabLoading(true);
     setTimeout(() => { setRawTab(tab as FONavTab); setTabLoading(false); }, 120);
   };
+
 
   // Ctrl+K global search shortcut
   useEffect(() => {
@@ -108,6 +148,16 @@ export default function FinanceOfficerPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const handleMarkRead = useCallback((id: string) => {
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    markNotificationRead(id).catch(() => {});
+  }, []);
+
+  const handleMarkAllRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    markAllNotificationsRead().catch(() => {});
   }, []);
 
   const handleLogout = async () => {
@@ -130,6 +180,9 @@ export default function FinanceOfficerPage() {
       case 'reconciliation':   return <FOReconciliationView programType={programType} />;
       case 'notifications':    return (
         <FONotificationsView
+          notifications={notifications}
+          onMarkRead={handleMarkRead}
+          onMarkAllRead={handleMarkAllRead}
           setActiveTab={setActiveTab}
         />
       );
@@ -167,7 +220,7 @@ export default function FinanceOfficerPage() {
             profile={profile}
             notifications={notifications}
             unreadCount={unreadCount}
-            onMarkRead={() => {}}
+            onMarkRead={handleMarkRead}
             onOpenSearch={() => setSearchOpen(true)}
             semesterLabel={profile.currentSemester}
             academicYear={profile.academicYear}

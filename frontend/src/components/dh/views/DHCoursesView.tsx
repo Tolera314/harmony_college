@@ -11,7 +11,7 @@ import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { Input } from '../../ui/Input';
-import { ErrorState, SkeletonTable } from '../../ui/States';
+import { ErrorState, SkeletonTable, ToastContainer, useToast } from '../../ui/States';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -41,21 +41,24 @@ const capacityBar = (enrolled: number, cap: number) => {
   );
 };
 
-export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
-  const [offerings, setOfferings] = useState<CourseOfferingSummary[]>([]);
-  const [semesters, setSemesters] = useState<Semester[]>([]);
-  const [total,     setTotal]     = useState(0);
-  const [page,      setPage]      = useState(1);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
-  const [search,    setSearch]    = useState('');
+export const DHCoursesView: React.FC = () => {
+  const [offerings,    setOfferings]    = useState<CourseOfferingSummary[]>([]);
+  const [semesters,    setSemesters]    = useState<Semester[]>([]);
+  const [total,        setTotal]        = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [page,         setPage]         = useState(1);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [semFilter, setSemFilter] = useState('');
-  const [selected,  setSelected]  = useState<CourseOfferingSummary | null>(null);
+  const [semFilter,    setSemFilter]    = useState('');
+  const [selected,     setSelected]     = useState<CourseOfferingSummary | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ offering: CourseOfferingSummary; action: 'Approve' | 'Reject' } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError,   setActionError]   = useState('');
+
+  const { toast, show: showToast, hide: hideToast } = useToast();
   const LIMIT = 12;
 
   const load = useCallback(async (p = 1) => {
@@ -74,6 +77,7 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
       ]);
       setOfferings(offData.offerings);
       setTotal(offData.total);
+      setPendingCount(offData.pendingCount ?? offData.offerings.filter(o => o.status === 'DRAFT').length);
       if (semesters.length === 0) setSemesters(semData as Semester[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load course offerings');
@@ -95,27 +99,32 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
     try {
       if (confirmModal.action === 'Approve') {
         await hodOfferingsApi.approve(confirmModal.offering.id);
+        showToast(`Approved course section ${confirmModal.offering.course.code}.`, 'success');
       } else {
         await hodOfferingsApi.reject(confirmModal.offering.id, rejectReason.trim());
+        showToast(`Rejected course section ${confirmModal.offering.course.code}.`, 'info');
       }
       setConfirmModal(null);
       setRejectReason('');
       setSelected(null);
       await load(page);
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Action failed.');
+      const msg = e instanceof Error ? e.message : 'Action failed.';
+      setActionError(msg);
+      showToast(msg, 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
   const totalPages = Math.ceil(total / LIMIT);
-  const pendingCount = offerings.filter(o => o.status === 'DRAFT').length;
 
   if (error) return <ErrorState variant="generic" description={error} onRetry={() => load(page)} />;
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
+      <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
+
       <DHPageHeader
         title="Course Offerings"
         subtitle={loading ? 'Loading…' : `${total} offerings · ${pendingCount} pending approval`}

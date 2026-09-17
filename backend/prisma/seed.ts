@@ -10,6 +10,7 @@
  * Run: npm run db:seed
  */
 
+import process from 'process';
 import {
   PrismaClient,
   Role,

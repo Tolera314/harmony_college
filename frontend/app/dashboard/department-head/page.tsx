@@ -86,10 +86,11 @@ export default function DepartmentHeadPage() {
   };
 
   // Real data
-  const [profile,        setProfile]        = useState<HoDProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [notifications,  setNotifications]  = useState<ApiNotification[]>([]);
-  const [pendingCount,   setPendingCount]   = useState(0);
+  const [profile,              setProfile]              = useState<HoDProfile | null>(null);
+  const [profileLoading,       setProfileLoading]       = useState(true);
+  const [notifications,        setNotifications]        = useState<ApiNotification[]>([]);
+  const [pendingCount,         setPendingCount]         = useState(0);
+  const [currentSemesterLabel, setCurrentSemesterLabel] = useState('');
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -111,6 +112,7 @@ export default function DepartmentHeadPage() {
       setProfile(prof);
       setNotifications(dash.notifications.map(n => ({ ...n, userId: '' })));
       setPendingCount(dash.kpis.pendingOfferings + dash.kpis.pendingLeaves);
+      if (dash.currentSemester) setCurrentSemesterLabel(dash.currentSemester);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Failed to load profile', 'error');
     } finally {
@@ -176,7 +178,7 @@ export default function DepartmentHeadPage() {
     avatar:          '/logo2.jpg',
     employeeId:      dhr?.employeeId ?? '…',
     academicYear:    '',
-    currentSemester: '',
+    currentSemester: currentSemesterLabel || 'Active Term',
   };
 
   const headerNotifications = notifications.map(toHeaderNotif);
@@ -203,10 +205,13 @@ export default function DepartmentHeadPage() {
             setActiveTab={setActiveTab}
           />
         );
-      case 'audit_log':  return <DHAuditLogView />;
-      case 'settings':   return <DHSettingsView profile={profile} />;
+      case 'audit_log':
+        return <DHAuditLogView />;
+      case 'settings':
+        return <DHSettingsView profile={profile} onLogout={() => setLogoutOpen(true)} />;
       case 'messages':   return <MessagingView />;
-      default:           return null;
+      default:
+        return null;
     }
   };
 
@@ -229,6 +234,7 @@ export default function DepartmentHeadPage() {
             onMarkRead={handleMarkRead} onOpenSearch={() => setSearchOpen(true)}
             semesterLabel={uiProfile.currentSemester || ''}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
+            onLogout={() => setLogoutOpen(true)}
           />
           
           {/* TVET / Short Program Toggle Switch */}
