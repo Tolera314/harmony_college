@@ -207,57 +207,7 @@ export const FOAuditLogView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
     fetchLogs();
   }, [fetchLogs]);
 
-  // Export CSV function
-  const handleExportCSV = () => {
-    if (logs.length === 0) {
-      alert('No audit logs available to export.');
-      return;
-    }
-
-    const headers = [
-      'ID',
-      'Date',
-      'Time',
-      'Officer',
-      'Officer ID',
-      'Student Name',
-      'Student ID',
-      'Action',
-      'Module',
-      'Amount (ETB)',
-      'Previous Value',
-      'New Value',
-      'Status',
-      'IP Address',
-    ];
-
-    const rows = logs.map((l) => [
-      `"${l.id}"`,
-      `"${l.date}"`,
-      `"${l.time}"`,
-      `"${l.officerName}"`,
-      `"${l.officerId}"`,
-      `"${l.studentName || ''}"`,
-      `"${l.studentId || ''}"`,
-      `"${l.action.replace(/"/g, '""')}"`,
-      `"${l.module}"`,
-      l.amount != null ? l.amount : '',
-      `"${(l.previousValue || '').replace(/"/g, '""')}"`,
-      `"${(l.newValue || '').replace(/"/g, '""')}"`,
-      `"${l.status}"`,
-      `"${l.ipAddress || '127.0.0.1'}"`,
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `finance_audit_logs_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  // Already have handleExportCSV defined above (line 125), removed duplicate
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">

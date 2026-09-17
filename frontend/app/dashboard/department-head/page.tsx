@@ -72,17 +72,23 @@ export default function DepartmentHeadPage() {
   const [logoutOpen,     setLogoutOpen]     = useState(false);
 
   // ── TVET / Short Program switch — persisted across page navigation ─────────
-  const [dhProgramType, setDHProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('dh_program_type');
-      if (saved === 'TVET' || saved === 'SHORT_PROGRAM') return saved;
+  const [dhProgramType, setDHProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
+  const [isClient, setIsClient] = useState(false);
+
+  // Load saved program type from localStorage after mount (client-only)
+  useEffect(() => {
+    setIsClient(true);
+    const saved = localStorage.getItem('dh_program_type');
+    if (saved === 'TVET' || saved === 'SHORT_PROGRAM') {
+      setDHProgramType(saved);
     }
-    return 'TVET';
-  });
+  }, []);
 
   const setProgramType = (pt: 'TVET' | 'SHORT_PROGRAM') => {
     setDHProgramType(pt);
-    localStorage.setItem('dh_program_type', pt);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dh_program_type', pt);
+    }
   };
 
   // Real data

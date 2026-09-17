@@ -206,6 +206,7 @@ export async function getDashboard(userId: string, programType?: 'TVET' | 'SHORT
     prisma.semester.findFirst({
       where: { isCurrent: true },
       select: { name: true, academicYear: { select: { name: true } } },
+    }),
     // Department details (show the parent/canonical dept record)
     prisma.department.findUnique({
       where:  { id: deptId },
@@ -404,7 +405,7 @@ export async function getCourseOfferings(
     }),
     prisma.courseOffering.count({
       where: {
-        course: { departmentId: deptId },
+        course: { departmentId: { in: deptIds } },
         status: OfferingStatus.DRAFT,
         ...(where.semesterId ? { semesterId: where.semesterId } : {}),
       },
