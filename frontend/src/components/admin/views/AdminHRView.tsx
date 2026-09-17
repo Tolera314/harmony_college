@@ -136,7 +136,7 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
     try {
       const [hrDepts, acadDepts] = await Promise.all([
         hrDepartmentsApi.list(),
-        adminDepartmentsApi.list(),
+        adminDepartmentsApi.listAcademic(), // Parent departments only for instructor/HOD
       ]);
       setHrDepartments(hrDepts);
       setAcadDepartments(acadDepts.filter(d => d.isActive));
@@ -811,8 +811,8 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
           </div>
 
           <div>
-            <label className="block text-xs font-sans text-(--text-muted) mb-1">Email Address</label>
-            <Input type="email" placeholder="almaz@harmony.edu.et" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+            <label className="block text-xs font-sans text-(--text-muted) mb-1">Personal Email Address *</label>
+            <Input type="email" placeholder="staff@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
           </div>
 
           <div className={`grid grid-cols-1 ${inviteRole === 'INSTRUCTOR' || inviteRole === 'DEPARTMENT_HEAD' ? 'sm:grid-cols-2' : ''} gap-3`}>

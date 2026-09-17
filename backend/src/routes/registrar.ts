@@ -56,9 +56,50 @@ function pageParams(query: Q) {
 // and its Short Program child as a nested branch. Academic data stays separate.
 router.get('/departments', async (req: AuthRequest, res) => {
   try {
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+
+    if (programType === 'SHORT_PROGRAM') {
+      // Return only Short Program departments (children with parentId != null)
+      const spDepts = await prisma.department.findMany({
+        where: { parentId: { not: null }, isActive: true, programType: 'SHORT_PROGRAM' },
+        orderBy: { name: 'asc' },
+        include: {
+          programs: { select: { id: true, name: true, code: true, isActive: true }, orderBy: { name: 'asc' } },
+          _count: {
+            select: {
+              studentRecords: true,
+              courses: true,
+              instructors: { where: { isActive: true } },
+              programs: true,
+            },
+          },
+        },
+      });
+
+      const result = spDepts.map(d => ({
+        id:          d.id,
+        name:        d.name,
+        code:        d.code,
+        programType: d.programType,
+        description: d.description,
+        isActive:    d.isActive,
+        createdAt:   d.createdAt,
+        updatedAt:   d.updatedAt,
+        programs:    d.programs,
+        _count:      d._count,
+        departmentHeads: [],
+        assignedHod: null,
+        branches: [],
+      }));
+
+      ok(res, result);
+      return;
+    }
+
+    // Return TVET departments (default or explicit programType=TVET)
     // Fetch all active parent (TVET) departments with their children, HOD, counts
     const parents = await prisma.department.findMany({
-      where: { parentId: null, isActive: true }, // TVET = no parent
+      where: { parentId: null, isActive: true, programType: 'TVET' }, // TVET = no parent
       orderBy: { name: 'asc' },
       include: {
         programs: { select: { id: true, name: true, code: true, isActive: true }, orderBy: { name: 'asc' } },
@@ -725,8 +766,13 @@ router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
 
     const dept = await prisma.department.findUnique({
       where: { id: deptId },
+      select: { id: true, name: true, programType: true, parentId: true },
     });
     if (!dept) { res.status(404).json({ error: 'Department not found' }); return; }
+
+    // Resolve parent department for instructor filtering
+    // Instructors belong to parent dept, can teach both TVET and Short Program courses
+    const parentDeptId = dept.parentId ?? dept.id;
 
     // List active semesters scoped to this department's programType
     const semesters = await prisma.semester.findMany({
@@ -786,15 +832,63 @@ router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
       }
     }
 
-    // Real registered instructors ONLY
+    // Instructors from parent department (includes regular instructors)
     const instructors = await prisma.instructorRecord.findMany({
-      where: { isActive: true },
+      where: { 
+        isActive: true,
+        departmentId: parentDeptId, // Filter by parent department
+      },
       include: {
-        user: { select: { id: true, fullName: true, email: true } },
+        user: { select: { id: true, fullName: true, email: true, role: true } },
         department: { select: { id: true, name: true, code: true } },
       },
       orderBy: { user: { fullName: 'asc' } },
     });
+
+    // HODs from parent department (who can also teach)
+    const hods = await prisma.departmentHeadRecord.findMany({
+      where: {
+        isActive: true,
+        departmentId: parentDeptId, // Filter by parent department
+      },
+      include: {
+        user: { select: { id: true, fullName: true, email: true, role: true } },
+        department: { select: { id: true, name: true, code: true } },
+      },
+    });
+
+    // Merge instructors and HODs into a unified list
+    // HODs who don't have InstructorRecord should still appear as eligible instructors
+    const hodUserIds = new Set(hods.map(h => h.user.id));
+    const instructorUserIds = new Set(instructors.map(i => i.user.id));
+    
+    // Add HODs who aren't already in instructors list
+    const hodAsInstructors = hods
+      .filter(h => !instructorUserIds.has(h.user.id))
+      .map(h => ({
+        id: h.id, // Use HOD record ID
+        userId: h.user.id,
+        user: h.user,
+        department: h.department,
+        employeeId: h.employeeId,
+        title: h.title,
+        isActive: h.isActive,
+        isHOD: true, // Flag to indicate this is HOD
+      }));
+
+    const allEligibleInstructors = [
+      ...instructors.map(i => ({
+        id: i.id,
+        userId: i.user.id,
+        user: i.user,
+        department: i.department,
+        employeeId: i.employeeId,
+        title: i.title,
+        isActive: i.isActive,
+        isHOD: hodUserIds.has(i.user.id), // Mark if this instructor is also HOD
+      })),
+      ...hodAsInstructors,
+    ];
 
     ok(res, {
       department: dept,
@@ -817,7 +911,7 @@ router.get('/departments/:id/structure', async (req: AuthRequest, res) => {
           status: offering?.status ?? 'UNASSIGNED',
         };
       }),
-      instructors,
+      instructors: allEligibleInstructors,
     });
   } catch (e) { fail(res, e); }
 });

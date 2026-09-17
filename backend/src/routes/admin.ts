@@ -409,6 +409,33 @@ router.get('/departments', async (_req, res) => {
   try { ok(res, await svc.listDepartments()); } catch (e) { fail(res, e); }
 });
 
+// GET /api/admin/departments/academic — parent departments only for instructor/HOD assignment
+router.get('/departments/academic', async (_req, res) => {
+  try {
+    const depts = await prisma.department.findMany({
+      where: { isActive: true, parentId: null }, // Parent departments only
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        description: true,
+        isActive: true,
+        programType: true,
+      },
+    });
+    
+    // Clean department names and codes: remove " - TVET", " - Short Program", "-T", "-SP" suffixes
+    const cleaned = depts.map(d => ({
+      ...d,
+      name: d.name.replace(/\s*-\s*(TVET|Short Program|T|SP)\s*$/i, '').trim(),
+      code: d.code.replace(/-(T|SP)$/i, '').trim(),
+    }));
+    
+    ok(res, cleaned);
+  } catch (e) { fail(res, e); }
+});
+
 router.get('/departments/:id', async (req: AuthRequest, res) => {
   try { ok(res, await svc.getDepartmentById(pid(req))); } catch (e) { fail(res, e); }
 });

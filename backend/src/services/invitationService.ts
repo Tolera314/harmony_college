@@ -121,18 +121,25 @@ export async function createStaffInvitation(
     }
     const dept = await prisma.department.findUnique({
       where: { id: input.departmentId },
-      select: { id: true, name: true, isActive: true },
+      select: { id: true, name: true, isActive: true, parentId: true },
     });
     if (!dept) throw new Error('Department not found.');
     if (!dept.isActive) throw new Error('Cannot send invitation for an inactive department.');
+    
+    // BUSINESS RULE: Instructors and Department Heads must be assigned to PARENT departments only
+    if (dept.parentId !== null) {
+      throw new Error('Instructors and Department Heads must be assigned to parent academic departments only, not TVET/Short Program subdivisions.');
+    }
+    
     resolvedDeptId = dept.id;
     resolvedDeptName = dept.name;
   } else if (input.departmentId) {
     const dept = await prisma.department.findUnique({
       where: { id: input.departmentId },
-      select: { id: true, name: true, isActive: true },
+      select: { id: true, name: true, isActive: true, parentId: true },
     });
     if (dept && dept.isActive) {
+      // For non-academic roles, allow any department
       resolvedDeptId = dept.id;
       resolvedDeptName = dept.name;
     }
@@ -640,10 +647,17 @@ export async function updateStaffInvitation(
     if (input.departmentId) {
       const dept = await prisma.department.findUnique({
         where: { id: input.departmentId },
-        select: { id: true, name: true, isActive: true },
+        select: { id: true, name: true, isActive: true, parentId: true },
       });
       if (!dept) throw new Error('Department not found.');
       if (!dept.isActive) throw new Error('Cannot assign an inactive department.');
+      
+      // BUSINESS RULE: For academic roles, department must be a parent (parentId = null)
+      const isAcademicRole = targetRole === Role.INSTRUCTOR || targetRole === Role.DEPARTMENT_HEAD;
+      if (isAcademicRole && dept.parentId !== null) {
+        throw new Error('Instructors and Department Heads must be assigned to parent academic departments only, not TVET/Short Program subdivisions.');
+      }
+      
       deptId = dept.id;
       deptName = dept.name;
     } else {

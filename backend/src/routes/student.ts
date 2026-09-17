@@ -121,7 +121,7 @@ router.get('/profile', async (req: AuthRequest, res: Response): Promise<void> =>
           city:                 profile.city                 ?? application?.city                 ?? null,
           address:              profile.address              ?? application?.address              ?? null,
           nationalId:           profile.nationalId           ?? null,
-          program:              profile.program              ?? studentRecord?.program?.name      ?? profile.selectedDepartment?.name ?? application?.program ?? null,
+          program:              profile.program              ?? profile.selectedDepartment?.name  ?? studentRecord?.department?.name ?? application?.program ?? null,
           programType:          profile.programType          ?? application?.programType          ?? null,
           shortProgramDuration: profile.shortProgramDuration ?? application?.shortProgramDuration ?? null,
           academicYear:         profile.academicYear         ?? application?.academicYear         ?? '2026/2027',
