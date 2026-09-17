@@ -111,15 +111,28 @@ router.get('/departments', async (_req, res) => {
 });
 
 // ── Academic Departments (for Instructor / Department Head staff invitations) ──
+// Returns PARENT departments only (parentId = null) — instructors/HODs belong to parent dept,
+// not separated by TVET/Short Program
 router.get('/academic-departments', async (_req, res) => {
   try {
     const { prisma } = await import('../lib/prisma');
     const depts = await prisma.department.findMany({
-      where: { isActive: true },
+      where: { 
+        isActive: true,
+        parentId: null, // Parent departments only
+      },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, code: true, description: true, isActive: true },
     });
-    ok(res, depts);
+    
+    // Clean department names and codes: remove " - TVET", " - Short Program", "-T", "-SP" suffixes
+    const cleaned = depts.map(d => ({
+      ...d,
+      name: d.name.replace(/\s*-\s*(TVET|Short Program|T|SP)\s*$/i, '').trim(),
+      code: d.code.replace(/-(T|SP)$/i, '').trim(),
+    }));
+    
+    ok(res, cleaned);
   } catch (e) { fail(res, e); }
 });
 

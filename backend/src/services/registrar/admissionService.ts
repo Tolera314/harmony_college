@@ -142,13 +142,16 @@ export async function approveApplication(id: string, registrarUserId: string, co
   const programName = app.program.split('(')[0].trim();
   let program = await prisma.program.findFirst({
     where: { 
-      OR: [
-        { name: { contains: programName, mode: 'insensitive' } },
-        { departmentId: studentProfile.selectedDepartmentId }
-      ]
+      departmentId: studentProfile.selectedDepartmentId,
+      isActive: true,
     },
     include: { department: true },
   });
+
+  // If no program found in department, throw error
+  if (!program) {
+    throw new Error(`No active program found in the selected department. Please contact administration.`);
+  }
 
   // Check if Finance Officer has already verified the registration fee payment.
   const financeApproved = studentProfile?.paymentVerifiedByFinance ?? false;
@@ -179,39 +182,51 @@ export async function approveApplication(id: string, registrarUserId: string, co
     });
 
     let studentRecordId: string | null = null;
-    if (program) {
-      const existingSR = await tx.studentRecord.findUnique({ where: { userId: app.userId } });
-      if (!existingSR) {
-        const year = new Date().getFullYear();
-        // Generate a collision-free studentId by checking the DB for conflicts
-        let studentId: string;
-        let attempt = 0;
-        while (true) {
-          const count = await tx.studentRecord.count();
-          studentId = `HC-${year}-${String(count + 1 + attempt).padStart(4, '0')}`;
-          const existing = await tx.studentRecord.findUnique({ where: { studentId } });
-          if (!existing) break;
-          attempt++;
-        }
-        
-        // Use programType and duration from StudentProfile (set during onboarding)
-        const createdSR = await tx.studentRecord.create({
-          data: {
-            userId:               app.userId,
-            studentId,
-            programId:            program.id,
-            departmentId:         program.departmentId,
-            status:               StudentStatus.ACTIVE,
-            yearLevel:            1,
-            programType:          studentProfile.programType as any,
-            shortProgramDuration: studentProfile.programType === 'SHORT_PROGRAM' ? studentProfile.shortProgramDuration : null,
-          },
-        });
-        studentRecordId = createdSR.id;
-      } else {
-        await tx.studentRecord.update({ where: { id: existingSR.id }, data: { status: StudentStatus.ACTIVE } });
-        studentRecordId = existingSR.id;
+    const existingSR = await tx.studentRecord.findUnique({ where: { userId: app.userId } });
+    if (!existingSR) {
+      const year = new Date().getFullYear();
+      // Generate a collision-free studentId by checking the DB for conflicts
+      let studentId: string;
+      let attempt = 0;
+      while (true) {
+        const count = await tx.studentRecord.count();
+        studentId = `HC-${year}-${String(count + 1 + attempt).padStart(4, '0')}`;
+        const existing = await tx.studentRecord.findUnique({ where: { studentId } });
+        if (!existing) break;
+        attempt++;
       }
+      
+      // Use programType and duration from StudentProfile (set during onboarding)
+      const createdSR = await tx.studentRecord.create({
+        data: {
+          userId:               app.userId,
+          studentId,
+          programId:            program.id,
+          departmentId:         studentProfile.selectedDepartmentId!, // Use onboarding department (already validated above)
+          status:               StudentStatus.ACTIVE,
+          yearLevel:            1,
+          programType:          studentProfile.programType as any,
+          ...(studentProfile.programType === 'SHORT_PROGRAM' && studentProfile.shortProgramDuration 
+            ? { shortProgramDuration: studentProfile.shortProgramDuration }
+            : {}
+          ),
+        },
+      });
+      studentRecordId = createdSR.id;
+    } else {
+      await tx.studentRecord.update({ 
+        where: { id: existingSR.id }, 
+        data: { 
+          status: StudentStatus.ACTIVE,
+          departmentId: studentProfile.selectedDepartmentId!, // Update to onboarding department (already validated above)
+          programType: studentProfile.programType as any,
+          ...(studentProfile.programType === 'SHORT_PROGRAM' && studentProfile.shortProgramDuration 
+            ? { shortProgramDuration: studentProfile.shortProgramDuration }
+            : {}
+          ),
+        } 
+      });
+      studentRecordId = existingSR.id;
     }
 
     // 4. Dual-approval gate — unlock Student Dashboard if Finance has also verified

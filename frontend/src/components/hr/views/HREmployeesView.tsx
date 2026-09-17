@@ -569,7 +569,7 @@ export const HREmployeesView: React.FC = () => {
               placeholder="e.g. Dr. Almaz Worku"
             />
             <Input
-              label="Official Email *"
+              label="Personal Email *"
               type="email"
               required
               value={invForm.email}

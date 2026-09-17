@@ -294,9 +294,42 @@ export async function updateOffering(id: string, data: {
 }, registrarUserId: string) {
   const offering = await prisma.courseOffering.findUnique({
     where: { id },
-    include: { timetables: true, semester: { select: { id: true } } },
+    include: { timetables: true, semester: { select: { id: true } }, course: { select: { departmentId: true } } },
   });
   if (!offering) throw new Error('Offering not found');
+
+  // If instructorId is provided, verify it exists or auto-create for HOD
+  if (data.instructorId) {
+    const instructorRecord = await prisma.instructorRecord.findUnique({
+      where: { id: data.instructorId },
+      include: { user: { select: { id: true, role: true } } },
+    });
+
+    if (!instructorRecord) {
+      // Check if this ID belongs to a HOD who doesn't have InstructorRecord yet
+      const hodRecord = await prisma.departmentHeadRecord.findUnique({
+        where: { id: data.instructorId },
+        include: { user: { select: { id: true, role: true } } },
+      });
+
+      if (hodRecord && hodRecord.isActive) {
+        // Auto-create InstructorRecord for HOD
+        const newInstructorRecord = await prisma.instructorRecord.create({
+          data: {
+            userId: hodRecord.user.id,
+            employeeId: hodRecord.employeeId,
+            title: hodRecord.title,
+            departmentId: hodRecord.departmentId,
+            isActive: true,
+          },
+        });
+        // Update data.instructorId to use the newly created InstructorRecord
+        data.instructorId = newInstructorRecord.id;
+      } else {
+        throw new Error('Instructor not found');
+      }
+    }
+  }
 
   // Conflict check for new timetables — includes student conflict
   if (data.timetables?.length) {

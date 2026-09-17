@@ -132,7 +132,7 @@ export const AdminUsersView: React.FC<{ callerRole?: string; programType?: 'TVET
 
   // ── fetch departments
   const fetchDepartments = useCallback(() => {
-    adminDepartmentsApi.list()
+    adminDepartmentsApi.listAcademic() // Parent departments only for instructor/HOD
       .then(depts => {
         const active = depts.filter(d => d.isActive);
         setDepartments(active);
@@ -687,7 +687,7 @@ export const AdminUsersView: React.FC<{ callerRole?: string; programType?: 'TVET
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Full Name *" required value={invForm.fullName} onChange={e => setInvForm({ ...invForm, fullName: e.target.value })} placeholder="e.g. Dr. Abebe Bikila" />
-            <Input label="Official Email *" type="email" required value={invForm.email} onChange={e => setInvForm({ ...invForm, email: e.target.value })} placeholder="staff@harmony.edu.et" />
+            <Input label="Personal Email *" type="email" required value={invForm.email} onChange={e => setInvForm({ ...invForm, email: e.target.value })} placeholder="staff@example.com" />
           </div>
 
           <div className={`grid grid-cols-1 ${invForm.role === 'INSTRUCTOR' || invForm.role === 'DEPARTMENT_HEAD' ? 'sm:grid-cols-2' : ''} gap-3`}>
@@ -765,7 +765,7 @@ export const AdminUsersView: React.FC<{ callerRole?: string; programType?: 'TVET
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Full Name *" required value={eif.fullName} onChange={e => setEif({ ...eif, fullName: e.target.value })} />
-            <Input label="Official Email *" type="email" required value={eif.email} onChange={e => setEif({ ...eif, email: e.target.value })} />
+            <Input label="Personal Email *" type="email" required value={eif.email} onChange={e => setEif({ ...eif, email: e.target.value })} />
           </div>
 
           <div className={`grid grid-cols-1 ${eif.role === 'INSTRUCTOR' || eif.role === 'DEPARTMENT_HEAD' ? 'sm:grid-cols-2' : ''} gap-3`}>

@@ -131,17 +131,23 @@ export default function RegistrarDashboardPage() {
   const [auditLogs,     setAuditLogs] = useState<RegistrarNotification[]>([]);
 
   // ── TVET / Short Program switch — persisted across page navigation ─────────
-  const [registrarProgramType, setRegistrarProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('registrar_program_type');
-      if (saved === 'TVET' || saved === 'SHORT_PROGRAM') return saved;
+  const [registrarProgramType, setRegistrarProgramType] = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
+  const [isClient, setIsClient] = useState(false);
+
+  // Hydrate from localStorage after mount (client-side only)
+  useEffect(() => {
+    setIsClient(true);
+    const saved = localStorage.getItem('registrar_program_type');
+    if (saved === 'TVET' || saved === 'SHORT_PROGRAM') {
+      setRegistrarProgramType(saved);
     }
-    return 'TVET';
-  });
+  }, []);
 
   const setProgramType = (pt: 'TVET' | 'SHORT_PROGRAM') => {
     setRegistrarProgramType(pt);
-    localStorage.setItem('registrar_program_type', pt);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('registrar_program_type', pt);
+    }
   };
 
   // ── Real-time notification badge ────────────────────────────────────────────
