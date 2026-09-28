@@ -11,8 +11,6 @@ import { HROverviewView }      from '@/src/components/hr/views/HROverviewView';
 import { HREmployeesView }     from '@/src/components/hr/views/HREmployeesView';
 import { HROnboardingView }    from '@/src/components/hr/views/HROnboardingView';
 import { HROffboardingView }   from '@/src/components/hr/views/HROffboardingView';
-import { HRLeaveView }         from '@/src/components/hr/views/HRLeaveView';
-import { HRPayrollView }       from '@/src/components/hr/views/HRPayrollView';
 import { HRPerformanceView }   from '@/src/components/hr/views/HRPerformanceView';
 import { HRDocumentsView }     from '@/src/components/hr/views/HRDocumentsView';
 import { HRReportsView }       from '@/src/components/hr/views/HRReportsView';
@@ -113,8 +111,6 @@ export default function HRDashboardPage() {
       case 'employees':     return <HREmployeesView />;
       case 'onboarding':    return <HROnboardingView />;
       case 'offboarding':   return <HROffboardingView />;
-      case 'leave':         return <HRLeaveView />;
-      case 'payroll':       return <HRPayrollView />;
       case 'performance':   return <HRPerformanceView />;
       case 'documents':     return <HRDocumentsView />;
       case 'salary_history': return <HRSalaryHistoryView />;

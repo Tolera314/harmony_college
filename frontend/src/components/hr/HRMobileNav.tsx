@@ -17,8 +17,6 @@ export const HRMobileNav: React.FC<HRMobileNavProps> = ({ activeTab, setActiveTa
   const items: { id: HRNavTab; label: string; icon: React.ReactNode; dot?: boolean }[] = [
     { id: 'overview',     label: 'Dash',    icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'employees',    label: 'Staff',   icon: <Users className="w-5 h-5" /> },
-    { id: 'leave',        label: 'Leave',   icon: <CalendarCheck className="w-5 h-5" />, dot: pendingLeave > 0 },
-    { id: 'payroll',      label: 'Payroll', icon: <Banknote className="w-5 h-5" /> },
     { id: 'performance',  label: 'Perf.',   icon: <TrendingUp className="w-5 h-5" /> },
     { id: 'notifications',label: 'Alerts',  icon: <Bell className="w-5 h-5" />, dot: unreadCount > 0 },
   ];

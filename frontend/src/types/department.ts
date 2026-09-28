@@ -10,7 +10,6 @@ export type DHNavTab =
   | 'students'
   | 'classes'
   | 'course_assignments'
-  | 'academic_monitoring'
   | 'academic_performance'
   | 'reports'
   | 'notifications'

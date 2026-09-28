@@ -194,27 +194,12 @@ export class BrevoEmailProvider implements EmailProvider {
       'If you did not expect this invitation, please contact administrator support immediately.',
     ].join('\n');
 
-    const html = buildEmail({
-      preheader: `You have been invited to join Harmony College as ${params.role}`,
-      heading: "You're Invited to Join Harmony College",
-      body: `
-        <p style="font-size:15px;color:#D4D4D8;line-height:1.7;margin:0 0 20px 0;">
-          Hello <strong style="color:#FFFFFF;">${params.fullName}</strong>,
-        </p>
-        <p style="font-size:14px;color:#A1A1AA;line-height:1.7;margin:0 0 24px 0;">
-          You have been invited to join the Harmony College institutional platform as a staff member.
-        </p>
-        ${infoCard([
-          { label: 'Assigned Role',  value: params.role,           gold: true },
-          { label: 'Department',     value: params.departmentName, gold: false },
-        ])}
-        <p style="font-size:14px;color:#A1A1AA;line-height:1.7;margin:24px 0 0 0;">
-          Click the secure button below to set your password and activate your account.
-        </p>
-      `,
-      ctaLabel: 'Accept Invitation',
-      ctaLink: params.invitationLink,
-      footerNote: `This invitation link expires in <strong>${params.expiresInHours} hours</strong>. If you did not expect this invitation, please disregard this email or contact the system administrator.`,
+    const html = buildStaffInvitationEmail({
+      fullName: params.fullName,
+      role: params.role,
+      departmentName: params.departmentName,
+      invitationLink: params.invitationLink,
+      expiresInHours: params.expiresInHours,
     });
 
     return this.send(to, subject, html, text);
@@ -425,6 +410,302 @@ function buildEmail(opts: BuildEmailOptions): string {
     </tr>
 
   </table>
+</body>
+</html>`;
+}
+
+// ── Beautiful Staff Invitation Email Template ────────────────────────────────
+
+interface StaffInvitationParams {
+  fullName: string;
+  role: string;
+  departmentName: string;
+  invitationLink: string;
+  expiresInHours: number;
+}
+
+function buildStaffInvitationEmail(params: StaffInvitationParams): string {
+  const year = new Date().getFullYear();
+  const expiryDate = new Date();
+  expiryDate.setHours(expiryDate.getHours() + params.expiresInHours);
+  const formattedExpiry = expiryDate.toLocaleDateString('en-US', { 
+    month: 'long', 
+    day: 'numeric', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Welcome to Harmony College</title>
+  <!--[if mso]>
+  <style type="text/css">
+    table { border-collapse: collapse; }
+    .button { padding: 14px 36px !important; }
+  </style>
+  <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#0B0B0C;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  
+  <!-- Preheader text (hidden, shows in email preview) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">
+    You've been invited to join Harmony College as ${params.role} - Activate your account now
+  </div>
+
+  <!-- Main Container -->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#0B0B0C;">
+    <tr>
+      <td align="center" style="padding:40px 20px;">
+        
+        <!-- Email Content Wrapper -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background-color:#0B0B0C;">
+          
+          <!-- Header with Logo -->
+          <tr>
+            <td align="center" style="padding:0 0 32px 0;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="background:linear-gradient(135deg, #E9C349 0%, #D4AF37 100%);width:80px;height:80px;border-radius:50%;padding:0;">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="80" height="80">
+                      <tr>
+                        <td align="center" valign="middle" style="font-family:Georgia,serif;font-size:36px;font-weight:bold;color:#0F0F10;line-height:80px;">
+                          H
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top:16px;">
+                    <div style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:#FFFFFF;letter-spacing:0.5px;line-height:1.2;">
+                      Harmony College
+                    </div>
+                    <div style="font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#E9C349;letter-spacing:2.5px;text-transform:uppercase;margin-top:6px;">
+                      Office of Human Resources
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Main Card -->
+          <tr>
+            <td style="background:linear-gradient(180deg, #1A1A1E 0%, #141416 100%);border:2px solid #27272A;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,0.6);padding:0;">
+              
+              <!-- Golden Top Border Accent -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="background:linear-gradient(90deg, #E9C349 0%, #D4AF37 50%, #E9C349 100%);height:4px;border-radius:18px 18px 0 0;"></td>
+                </tr>
+              </table>
+
+              <!-- Content Area -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="padding:44px 36px 40px 36px;">
+                    
+                    <!-- Welcome Badge -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td align="center" style="padding-bottom:24px;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="background-color:#1F2937;border:1px solid #374151;border-radius:24px;padding:8px 20px;">
+                                <span style="font-size:12px;font-weight:600;color:#E9C349;letter-spacing:1px;text-transform:uppercase;">
+                                  🎉 Official Invitation
+                                </span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Main Heading -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td align="center" style="padding-bottom:20px;">
+                          <h1 style="margin:0;font-family:Georgia,serif;font-size:32px;font-weight:700;color:#FFFFFF;line-height:1.3;">
+                            Welcome to<br/>Harmony College!
+                          </h1>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Greeting -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding-bottom:28px;">
+                          <p style="margin:0;font-size:16px;line-height:1.7;color:#D4D4D8;text-align:center;">
+                            Hello <strong style="color:#FFFFFF;font-weight:600;">${params.fullName}</strong>,
+                          </p>
+                          <p style="margin:16px 0 0 0;font-size:15px;line-height:1.7;color:#A1A1AA;text-align:center;">
+                            We're excited to invite you to join our academic community. You've been selected to be part of Harmony College's distinguished faculty and staff.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Role Information Card -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1B1B1F;border:1px solid #2E2E35;border-left:4px solid #E9C349;border-radius:12px;margin-bottom:32px;">
+                      <tr>
+                        <td style="padding:24px 26px;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="padding-bottom:4px;">
+                                <div style="font-size:11px;font-weight:700;color:#71717A;letter-spacing:1.5px;text-transform:uppercase;font-family:'Courier New',monospace;">
+                                  Your Position
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:8px 0 20px 0;">
+                                <div style="font-size:22px;font-weight:700;color:#E9C349;line-height:1.3;">
+                                  ${params.role}
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                  <tr>
+                                    <td style="padding:6px 0;border-top:1px solid #27272A;">
+                                      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                        <tr>
+                                          <td width="110" style="font-size:11px;font-weight:700;color:#71717A;letter-spacing:1px;text-transform:uppercase;font-family:'Courier New',monospace;padding-right:16px;vertical-align:top;">
+                                            Department
+                                          </td>
+                                          <td style="font-size:14px;font-weight:600;color:#FFFFFF;">
+                                            ${params.departmentName}
+                                          </td>
+                                        </tr>
+                                      </table>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Call to Action -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td align="center" style="padding:12px 0 32px 0;">
+                          <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#D4D4D8;text-align:center;">
+                            Click the button below to activate your account and<br/>set your secure password.
+                          </p>
+                          <!--[if mso]>
+                          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${params.invitationLink}" style="height:52px;v-text-anchor:middle;width:280px;" arcsize="23%" strokecolor="#E9C349" fillcolor="#E9C349">
+                            <w:anchorlock/>
+                            <center style="color:#0F0F10;font-family:sans-serif;font-size:15px;font-weight:bold;">Activate Your Account</center>
+                          </v:roundrect>
+                          <![endif]-->
+                          <!--[if !mso]><!-->
+                          <a href="${params.invitationLink}" target="_blank" style="display:inline-block;background:linear-gradient(135deg, #E9C349 0%, #D4AF37 100%);color:#0F0F10;font-size:15px;font-weight:700;text-decoration:none;padding:16px 40px;border-radius:12px;box-shadow:0 6px 20px rgba(233,195,73,0.4);letter-spacing:0.3px;border:2px solid #E9C349;text-align:center;min-width:240px;">
+                            🚀 Activate Your Account
+                          </a>
+                          <!--<![endif]-->
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Direct Link (for clients where button doesn't work) -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding-bottom:28px;">
+                          <p style="margin:0 0 12px 0;font-size:12px;line-height:1.5;color:#71717A;text-align:center;">
+                            Or copy and paste this link into your browser:
+                          </p>
+                          <div style="background-color:#0E0E10;border:1px solid #27272A;border-radius:8px;padding:14px 16px;word-break:break-all;">
+                            <a href="${params.invitationLink}" style="font-size:12px;line-height:1.6;color:#A1A1AA;text-decoration:none;font-family:'Courier New',monospace;">
+                              ${params.invitationLink}
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Security Notice -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1F2937;border:1px solid #374151;border-radius:10px;">
+                      <tr>
+                        <td style="padding:20px 24px;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td valign="top" style="width:32px;padding-right:12px;">
+                                <div style="font-size:20px;line-height:1;">🔒</div>
+                              </td>
+                              <td>
+                                <p style="margin:0 0 8px 0;font-size:13px;font-weight:600;color:#E9C349;line-height:1.4;">
+                                  Security Notice
+                                </p>
+                                <p style="margin:0;font-size:12px;line-height:1.6;color:#9CA3AF;">
+                                  This invitation link is secure and time-limited for your protection. It expires on <strong style="color:#D1D5DB;">${formattedExpiry}</strong> (${params.expiresInHours} hours from now). 
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Important Note -->
+          <tr>
+            <td style="padding:28px 24px 0 24px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #27272A;padding-top:20px;">
+                <tr>
+                  <td>
+                    <p style="margin:0;font-size:12px;line-height:1.6;color:#71717A;text-align:center;">
+                      <strong style="color:#A1A1AA;">Important:</strong> If you did not expect this invitation or have any questions, please contact the Harmony College HR Office immediately. Do not share this invitation link with anyone.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:32px 24px 0 24px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <p style="margin:0 0 8px 0;font-size:12px;color:#52525B;line-height:1.5;">
+                      &copy; ${year} Harmony College. All rights reserved.
+                    </p>
+                    <p style="margin:0 0 4px 0;font-size:11px;color:#3F3F46;line-height:1.5;">
+                      Office of Human Resources &bull; Addis Ababa, Ethiopia
+                    </p>
+                    <p style="margin:0;font-size:10px;color:#3F3F46;line-height:1.5;">
+                      This is an official institutional communication
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+        
+      </td>
+    </tr>
+  </table>
+
 </body>
 </html>`;
 }

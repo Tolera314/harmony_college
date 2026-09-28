@@ -430,6 +430,12 @@ router.patch('/courses/:id/toggle-status', async (req: AuthRequest, res) => {
   catch (e) { fail(res, e); }
 });
 
+router.post('/courses/publish', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await svc.publishAllCourses(req.user!.userId), 201);
+  } catch (e) { fail(res, e); }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // INSTRUCTORS MANAGEMENT
 // ══════════════════════════════════════════════════════════════════════════════

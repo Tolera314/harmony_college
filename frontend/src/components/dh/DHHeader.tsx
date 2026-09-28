@@ -28,7 +28,6 @@ const tabLabels: Record<DHNavTab, string> = {
   students:             'Student Performance',
   classes:              'Classes & Sections',
   course_assignments:   'Course Assignments',
-  academic_monitoring:  'Academic Monitoring',
   academic_performance: 'Academic Performance',
   reports:              'Department Reports',
   notifications:        'Notification Center',

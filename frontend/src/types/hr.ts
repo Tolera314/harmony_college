@@ -7,8 +7,6 @@ export type HRNavTab =
   | 'employees'
   | 'onboarding'
   | 'offboarding'
-  | 'leave'
-  | 'payroll'
   | 'performance'
   | 'documents'
   | 'salary_history'

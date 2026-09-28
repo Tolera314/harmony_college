@@ -381,11 +381,37 @@ export async function acceptStaffInvitation(
       });
     }
 
-    // Connect HREmployee record if registered via HR
-    await tx.hREmployee.updateMany({
+    // Connect HREmployee record if registered via HR, or create one if it doesn't exist
+    const existingHREmployee = await tx.hREmployee.findFirst({
       where: { email: inv.email },
-      data: { userId: user.id },
     });
+
+    if (existingHREmployee) {
+      // Link existing HR record to the new user
+      await tx.hREmployee.update({
+        where: { id: existingHREmployee.id },
+        data: { userId: user.id },
+      });
+    } else if (inv.departmentId) {
+      // Create new HR Employee record for this staff member (only if department is assigned)
+      await tx.hREmployee.create({
+        data: {
+          userId:         user.id,
+          employeeCode:   generatedEmpId,
+          fullName:       inv.fullName,
+          email:          inv.email,
+          phone:          inv.phone ?? null,
+          position:       inv.positionTitle?.trim() ?? 'Staff Member',
+          departmentId:   inv.departmentId,
+          systemRole:     inv.role,
+          employmentType: 'FULL_TIME',
+          contractStatus: 'PROBATION',
+          status:         'ACTIVE',
+          hireDate:       new Date(),
+          gender:         'MALE', // Default, can be updated later by HR
+        },
+      });
+    }
 
     // 6. Update invitation to accepted state
     await tx.staffInvitation.update({
