@@ -333,7 +333,11 @@ async function main(): Promise<void> {
   console.log('   ✓ Department head record & sample leave requests');
 
   // ── 7. Courses (Harmony College official programs) ────────────────────────
-  console.log('📖  Seeding courses...');
+  // COMMENTED OUT: HOD will create courses via the UI
+  console.log('📖  Skipping course seeding (HOD creates courses via UI)...');
+  const courseMap: Record<string, string> = {};
+  
+  /* COMMENTED OUT - Courses should be created by HOD via UI
   const courseData = [
     // Photography & Videography
     { code: 'PV101',  name: 'Introduction to Photography',           creditHours: 4, deptId: deptPHOTO.id,  desc: 'Camera fundamentals, composition, lighting basics.' },
@@ -368,7 +372,6 @@ async function main(): Promise<void> {
     { code: 'PH301',  name: 'Clinical Pharmacy Practice',            creditHours: 3, deptId: deptPHARM.id,  desc: 'Hospital and community pharmacy practicum.' },
   ];
 
-  const courseMap: Record<string, string> = {};
   for (const c of courseData) {
     const course = await prisma.course.upsert({
       where:  { code: c.code },
@@ -395,9 +398,15 @@ async function main(): Promise<void> {
     }).catch(() => {});
   }
   console.log(`   ✓ ${courseData.length} courses, ${prereqs.length} prerequisites`);
+  */
+
 
   // ── 8. Course Offerings (current semester) ───────────────────────────────
-  console.log('🗓️   Seeding course offerings...');
+  // COMMENTED OUT: No courses to create offerings for (HOD creates and publishes them)
+  console.log('🗓️   Skipping course offerings seeding...');
+  const offeringMap: Record<string, string> = {};
+  
+  /* COMMENTED OUT - Course offerings created when HOD publishes courses
   const offeringsData = [
     { code: 'PV101', instrId: instr1.id, roomId: rA101.id, capacity: 40, section: 'A', status: OfferingStatus.SCHEDULED },
     { code: 'PV201', instrId: instr1.id, roomId: rC204.id, capacity: 35, section: 'A', status: OfferingStatus.SCHEDULED },
@@ -412,7 +421,6 @@ async function main(): Promise<void> {
     { code: 'PH101', instrId: instr2.id, roomId: rC204.id, capacity: 30, section: 'A', status: OfferingStatus.SCHEDULED },
   ];
 
-  const offeringMap: Record<string, string> = {};
   for (const o of offeringsData) {
     const key = `${o.code}-${o.section}`;
     const existing = await prisma.courseOffering.findFirst({
@@ -428,9 +436,14 @@ async function main(): Promise<void> {
     offeringMap[key] = off.id;
   }
   console.log(`   ✓ ${offeringsData.length} course offerings`);
+  */
+
 
   // ── 9. Timetable slots ───────────────────────────────────────────────────
-  console.log('⏰  Seeding timetable slots...');
+  // COMMENTED OUT: No course offerings to create timetables for
+  console.log('⏰  Skipping timetable slots seeding...');
+  
+  /* COMMENTED OUT - Timetables depend on course offerings
   const timetableData = [
     { key: 'PV101-A', slots: [{ day: 0, start: '09:00', end: '10:30' }, { day: 2, start: '09:00', end: '10:30' }] },
     { key: 'PV201-A', slots: [{ day: 1, start: '10:00', end: '11:30' }, { day: 3, start: '10:00', end: '11:30' }] },
@@ -455,6 +468,7 @@ async function main(): Promise<void> {
     }
   }
   console.log('   ✓ timetable slots');
+  */
 
   // ── 10. Student Records & Profiles ───────────────────────────────────────
   console.log('🎓  Seeding student records...');
@@ -496,7 +510,10 @@ async function main(): Promise<void> {
   console.log(`   ✓ ${studentDefs.length} student records`);
 
   // ── 11. Enrollments & Grades (active students) ───────────────────────────
-  console.log('📝  Seeding enrollments...');
+  // COMMENTED OUT: No course offerings to enroll in
+  console.log('📝  Skipping enrollments seeding...');
+  
+  /* COMMENTED OUT - Enrollments depend on course offerings
   // Past semester grades (completed)
   const pastGrades: Record<string, { grade: string; pts: number }> = {
     'A': { grade: 'A', pts: 4.0 }, 'B+': { grade: 'B+', pts: 3.5 },
@@ -531,6 +548,7 @@ async function main(): Promise<void> {
     }
   }
   console.log(`   ✓ ${enrollmentSeeds.length} enrollments`);
+  */
 
   // ── 12. Admission Applications ───────────────────────────────────────────
   console.log('📋  Seeding admission applications...');

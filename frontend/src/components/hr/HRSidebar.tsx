@@ -30,11 +30,6 @@ export const HRSidebar: React.FC<HRSidebarProps> = ({
     { id: 'employees',   label: 'Employees',         icon: <Users className="w-5 h-5" /> },
     { id: 'onboarding',     label: 'Onboarding',         icon: <UserPlus className="w-5 h-5" /> },
     { id: 'offboarding',    label: 'Offboarding',         icon: <UserMinus className="w-5 h-5" /> },
-    {
-      id: 'leave',       label: 'Leave Management',  icon: <CalendarCheck className="w-5 h-5" />,
-      badge: pendingLeave > 0 ? String(pendingLeave) : undefined, badgeVariant: 'amber',
-    },
-    { id: 'payroll',     label: 'Payroll',           icon: <Banknote className="w-5 h-5" /> },
     { id: 'performance', label: 'Performance',       icon: <TrendingUp className="w-5 h-5" /> },
     { id: 'documents',      label: 'Documents',         icon: <FolderOpen className="w-5 h-5" /> },
     { id: 'salary_history', label: 'Salary & Contracts', icon: <History className="w-5 h-5" /> },

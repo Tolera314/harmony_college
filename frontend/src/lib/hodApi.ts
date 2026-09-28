@@ -396,6 +396,11 @@ export const hodCoursesApi = {
     apiFetch<DHCourse>(`${BASE}/courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   toggleStatus: (id: string) =>
     apiFetch<{ id: string; status: string }>(`${BASE}/courses/${id}/toggle-status`, { method: 'PATCH' }),
+  publish: () =>
+    apiFetch<{ semesterName: string; publishedCount: number; publishedCourses: { code: string; name: string }[] }>(
+      `${BASE}/courses/publish`,
+      { method: 'POST' }
+    ),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

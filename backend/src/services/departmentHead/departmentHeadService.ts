@@ -1437,6 +1437,18 @@ export async function updateCourse(
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
+  // Check if course has any offerings with assigned instructors (locked)
+  const offeringWithInstructor = await prisma.courseOffering.findFirst({
+    where: {
+      courseId,
+      instructorId: { not: null },
+    },
+  });
+
+  if (offeringWithInstructor) {
+    throw new Error('This course cannot be edited because a teacher has been assigned to it.');
+  }
+
   if (data.code && data.code.trim().toUpperCase() !== course.code) {
     const conflict = await prisma.course.findFirst({
       where: { code: data.code.trim().toUpperCase(), departmentId: { in: deptIds }, id: { not: courseId } },
@@ -1471,6 +1483,82 @@ export async function toggleCourseStatus(userId: string, courseId: string) {
     where: { id: courseId },
     data:  { status: nextStatus as any },
   });
+}
+
+/**
+ * Publish all ACTIVE courses to the current semester as course offerings.
+ * Creates CourseOffering records with status=DRAFT for each course that
+ * doesn't already have an offering in the current semester.
+ */
+export async function publishAllCourses(userId: string) {
+  const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
+
+  // Get current semester
+  const currentSemester = await prisma.semester.findFirst({
+    where: { isCurrent: true },
+    select: { id: true, name: true },
+  });
+
+  if (!currentSemester) {
+    throw new Error('No active semester found. Please contact the registrar to set up the current semester.');
+  }
+
+  // Get all ACTIVE courses from HOD's departments
+  const activeCourses = await prisma.course.findMany({
+    where: {
+      departmentId: { in: deptIds },
+      status: 'ACTIVE',
+    },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      programType: true,
+    },
+  });
+
+  if (activeCourses.length === 0) {
+    throw new Error('No active courses to publish.');
+  }
+
+  // Check which courses already have offerings in the current semester
+  const existingOfferings = await prisma.courseOffering.findMany({
+    where: {
+      courseId: { in: activeCourses.map(c => c.id) },
+      semesterId: currentSemester.id,
+    },
+    select: { courseId: true },
+  });
+
+  const existingCourseIds = new Set(existingOfferings.map(o => o.courseId));
+  const coursesToPublish = activeCourses.filter(c => !existingCourseIds.has(c.id));
+
+  if (coursesToPublish.length === 0) {
+    throw new Error('All courses are already published to the current semester.');
+  }
+
+  // Create CourseOffering records for all unpublished courses
+  const offerings = await prisma.$transaction(
+    coursesToPublish.map(course =>
+      prisma.courseOffering.create({
+        data: {
+          courseId: course.id,
+          semesterId: currentSemester.id,
+          section: 'A', // Default section
+          capacity: 40, // Default capacity
+          status: 'DRAFT',
+          programType: course.programType,
+        },
+      })
+    )
+  );
+
+  return {
+    semesterName: currentSemester.name,
+    publishedCount: offerings.length,
+    publishedCourses: coursesToPublish.map(c => ({ code: c.code, name: c.name })),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@ interface HRHeaderProps {
 
 const TAB_LABELS: Record<HRNavTab, string> = {
   overview: 'Dashboard', employees: 'Employees', onboarding: 'Onboarding', offboarding: 'Offboarding',
-  leave: 'Leave Management', payroll: 'Payroll', performance: 'Performance',
+  performance: 'Performance',
   documents: 'Documents', salary_history: 'Salary & Contracts', reports: 'Reports',
   notifications: 'Notifications', audit_log: 'Audit Logs', settings: 'Settings', messages: 'Messages',
 };
