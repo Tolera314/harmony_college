@@ -190,7 +190,7 @@ router.post('/employees', async (req: AuthRequest, res) => {
       fullName:       z.string().min(2).max(100),
       gender:         z.enum(['MALE', 'FEMALE']),
       email:          z.string().email(),
-      phone:          z.string().nullable().optional(),
+      phone:          z.string().min(10, 'Phone number must be at least 10 characters'),
       dateOfBirth:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
       address:        z.string().max(500).nullable().optional(),
       position:       z.string().max(100).nullable().optional(),

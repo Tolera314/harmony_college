@@ -32,8 +32,8 @@ const HR_INVITE_ROLES = [
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 function statusBadge(s: HREmployeeApi['status']) {
-  const m: Record<string, 'emerald' | 'amber' | 'glass' | 'rose'> = {
-    ACTIVE: 'emerald', ON_LEAVE: 'amber', INACTIVE: 'glass', TERMINATED: 'rose',
+  const m: Record<string, 'emerald' | 'amber' | 'glass' | 'rose' | 'gold'> = {
+    ACTIVE: 'emerald', PENDING: 'gold', ON_LEAVE: 'amber', INACTIVE: 'glass', TERMINATED: 'rose',
   };
   return <Badge variant={m[s] ?? 'glass'}>{(EMPLOYEE_STATUS_LABEL as Record<string, string>)[s] ?? s}</Badge>;
 }
@@ -195,6 +195,8 @@ export const HREmployeesView: React.FC = () => {
       if (!res.ok) throw new Error(data.error ?? data.message ?? 'Failed to send invitation');
       setInvitePanelOpen(false);
       setInviteMessage({ type: 'success', text: data.message ?? `Invitation sent to ${invForm.email}` });
+      setInvForm({ fullName: '', email: '', role: 'INSTRUCTOR', departmentId: '', positionTitle: '', employeeId: '', phone: '', specialization: '' });
+      await load();
     } catch (err: any) {
       setInvError(err.message ?? 'Failed to send invitation');
     } finally {
@@ -319,7 +321,7 @@ export const HREmployeesView: React.FC = () => {
             {depts.map(d => <option key={d.id} value={d.id}>{d.name.split(' ')[0]}</option>)}
           </select>
           <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className={filterSel}>
-            {['All','ACTIVE','ON_LEAVE','INACTIVE','TERMINATED'].map(s => (
+            {['All','ACTIVE','PENDING','ON_LEAVE','INACTIVE','TERMINATED'].map(s => (
               <option key={s} value={s}>{s === 'All' ? 'All Status' : (EMPLOYEE_STATUS_LABEL as Record<string,string>)[s] ?? s}</option>
             ))}
           </select>

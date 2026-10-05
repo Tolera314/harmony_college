@@ -1325,7 +1325,7 @@ model HREmployee {
   position            String
   employmentType      HREmploymentType      @default(FULL_TIME)
   contractStatus      HRContractStatus      @default(ACTIVE)
-  status              HREmployeeStatus      @default(ACTIVE)
+  status              HREmployeeStatus      @default(PENDING)
   hireDate            DateTime
   contractEndDate     DateTime?
   managerId           String?
@@ -2004,6 +2004,7 @@ enum HRContractStatus {
 }
 
 enum HREmployeeStatus {
+  PENDING
   ACTIVE
   INACTIVE
   ON_LEAVE

@@ -164,11 +164,16 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
 
       const res = await createStaffInvitation(
         {
+          employeeCode:   'HC-FAC-TEST-001',
           fullName:       'New Instructor Test',
           email:          targetEmail,
+          phone:          '+251911234567',
           role:           Role.INSTRUCTOR,
           departmentId:   testDepartment.id,
           positionTitle:  'Assistant Professor',
+          gender:         'MALE',
+          employmentType: 'FULL_TIME',
+          basicSalary:    25000,
           specialization: 'Artificial Intelligence',
         },
         superAdminUser.id,
@@ -192,10 +197,16 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
       await expect(
         createStaffInvitation(
           {
-            fullName:     'Super Admin Duplicate',
-            email:        superAdminUser.email,
-            role:         Role.INSTRUCTOR,
-            departmentId: testDepartment.id,
+            employeeCode:   'HC-FAC-DUP-001',
+            fullName:       'Super Admin Duplicate',
+            email:          superAdminUser.email,
+            phone:          '+251911234567',
+            role:           Role.INSTRUCTOR,
+            departmentId:   testDepartment.id,
+            positionTitle:  'Professor',
+            gender:         'MALE',
+            employmentType: 'FULL_TIME',
+            basicSalary:    30000,
           },
           superAdminUser.id,
           Role.SUPER_ADMIN
@@ -214,11 +225,17 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
 
       const res = await createStaffInvitation(
         {
-          fullName:     'Acceptance Test Faculty',
-          email:        targetEmail,
-          role:         Role.INSTRUCTOR,
-          departmentId: testDepartment.id,
-          employeeId:   'EMP-ACC-99',
+          employeeCode:   'HC-FAC-ACC-001',
+          fullName:       'Acceptance Test Faculty',
+          email:          targetEmail,
+          phone:          '+251911234567',
+          role:           Role.INSTRUCTOR,
+          departmentId:   testDepartment.id,
+          positionTitle:  'Lecturer',
+          gender:         'FEMALE',
+          employmentType: 'FULL_TIME',
+          basicSalary:    22000,
+          employeeId:     'EMP-ACC-99',
         },
         superAdminUser.id,
         Role.SUPER_ADMIN
@@ -279,10 +296,16 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
 
       const res = await createStaffInvitation(
         {
-          fullName:     'Resend Revoke Test',
+          employeeCode:   'HC-DH-RSV-001',
+          fullName:       'Resend Revoke Test',
           email,
-          role:         Role.DEPARTMENT_HEAD,
-          departmentId: testDepartment.id,
+          phone:          '+251911234567',
+          role:           Role.DEPARTMENT_HEAD,
+          departmentId:   testDepartment.id,
+          positionTitle:  'Department Head',
+          gender:         'MALE',
+          employmentType: 'FULL_TIME',
+          basicSalary:    35000,
         },
         superAdminUser.id,
         Role.SUPER_ADMIN
@@ -351,10 +374,16 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
 
       const res = await createStaffInvitation(
         {
-          fullName:     'Audit Test User',
-          email:        auditEmail,
-          role:         Role.REGISTRAR,
-          departmentId: testDepartment.id,
+          employeeCode:   'HC-REG-AUD-001',
+          fullName:       'Audit Test User',
+          email:          auditEmail,
+          phone:          '+251911234567',
+          role:           Role.REGISTRAR,
+          departmentId:   testDepartment.id,
+          positionTitle:  'Registrar',
+          gender:         'FEMALE',
+          employmentType: 'FULL_TIME',
+          basicSalary:    28000,
         },
         superAdminUser.id,
         Role.SUPER_ADMIN

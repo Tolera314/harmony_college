@@ -19,7 +19,7 @@ export class BrevoEmailProvider implements EmailProvider {
 
   constructor() {
     const host  = process.env.BREVO_SMTP_HOST  ?? 'smtp-relay.brevo.com';
-    const port  = parseInt(process.env.BREVO_SMTP_PORT ?? '587', 10);
+    const port  = parseInt(process.env.BREVO_SMTP_PORT ?? '465', 10);
     const user  = process.env.BREVO_SMTP_USER  ?? '';
     const pass  = process.env.BREVO_SMTP_KEY   ?? '';
     const email = process.env.BREVO_SENDER_EMAIL ?? '';
@@ -31,18 +31,21 @@ export class BrevoEmailProvider implements EmailProvider {
 
     this.from = name ? `"${name}" <${email}>` : email;
 
+    // Use secure:true (SSL) for port 465, STARTTLS for port 587/2525
+    const isSSL = port === 465;
+
     this.transporter = nodemailer.createTransport({
       host,
       port,
-      secure: false,          // STARTTLS on port 587
+      secure: isSSL,           // true = SSL on 465; false = STARTTLS on 587/2525
       auth: { user, pass },
-      tls: { rejectUnauthorized: true },
-      pool: true,             // reuse connections
-      maxConnections: 3,
-      socketTimeout: 15_000,
-      greetingTimeout: 10_000,
-      connectionTimeout: 10_000,
+      tls: { rejectUnauthorized: false },
+      socketTimeout:     30_000,
+      greetingTimeout:   20_000,
+      connectionTimeout: 20_000,
     });
+
+    console.log(`[BrevoEmailProvider] Configured: ${host}:${port} (${isSSL ? 'SSL' : 'STARTTLS'}) sender=${this.from}`);
   }
 
   // ── Internal send helper ──────────────────────────────────────────────────
@@ -304,6 +307,8 @@ interface BuildEmailOptions {
 
 function buildEmail(opts: BuildEmailOptions): string {
   const year = new Date().getFullYear();
+  const logoUrl = process.env.HARMONY_COLLEGE_LOGO_URL
+    || 'https://res.cloudinary.com/de2nemo0f/image/upload/v1791176479/harmony_college/harmony_college_logo.jpg';
 
   const ctaBlock = opts.ctaLabel && opts.ctaLink ? `
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:32px 0 24px 0;">
@@ -360,22 +365,13 @@ function buildEmail(opts: BuildEmailOptions): string {
     <!-- ── Logo Header ── -->
     <tr>
       <td style="text-align:center;padding-bottom:28px;">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-          <tr>
-            <td style="vertical-align:middle;padding-right:12px;">
-              <div style="width:48px;height:48px;border-radius:50%;background-color:#E9C349;
-                          display:flex;align-items:center;justify-content:center;
-                          font-family:Georgia,serif;font-size:20px;font-weight:bold;color:#0F0F10;">
-                H
-              </div>
-            </td>
-            <td style="vertical-align:middle;text-align:left;">
-              <span style="font-family:Georgia,serif;font-size:22px;font-weight:bold;
-                           color:#FFFFFF;letter-spacing:0.5px;display:block;">Harmony College</span>
-              ${subheadingBlock}
-            </td>
-          </tr>
-        </table>
+        <!-- Harmony College Official Logo -->
+        <img src="${logoUrl}"
+             alt="Harmony College — Number 1 Choice for Knowledge"
+             width="160"
+             style="display:block;margin:0 auto;border:0;height:auto;max-width:160px;"
+        />
+        ${subheadingBlock}
       </td>
     </tr>
 
@@ -426,6 +422,8 @@ interface StaffInvitationParams {
 
 function buildStaffInvitationEmail(params: StaffInvitationParams): string {
   const year = new Date().getFullYear();
+  const logoUrl = process.env.HARMONY_COLLEGE_LOGO_URL
+    || 'https://res.cloudinary.com/de2nemo0f/image/upload/v1791176479/harmony_college/harmony_college_logo.jpg';
   const expiryDate = new Date();
   expiryDate.setHours(expiryDate.getHours() + params.expiresInHours);
   const formattedExpiry = expiryDate.toLocaleDateString('en-US', { 
@@ -465,32 +463,19 @@ function buildStaffInvitationEmail(params: StaffInvitationParams): string {
         <!-- Email Content Wrapper -->
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background-color:#0B0B0C;">
           
-          <!-- Header with Logo -->
+          <!-- Header with Official Logo -->
           <tr>
             <td align="center" style="padding:0 0 32px 0;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center" style="background:linear-gradient(135deg, #E9C349 0%, #D4AF37 100%);width:80px;height:80px;border-radius:50%;padding:0;">
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="80" height="80">
-                      <tr>
-                        <td align="center" valign="middle" style="font-family:Georgia,serif;font-size:36px;font-weight:bold;color:#0F0F10;line-height:80px;">
-                          H
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center" style="padding-top:16px;">
-                    <div style="font-family:Georgia,serif;font-size:28px;font-weight:700;color:#FFFFFF;letter-spacing:0.5px;line-height:1.2;">
-                      Harmony College
-                    </div>
-                    <div style="font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#E9C349;letter-spacing:2.5px;text-transform:uppercase;margin-top:6px;">
-                      Office of Human Resources
-                    </div>
-                  </td>
-                </tr>
-              </table>
+              <!-- Harmony College Official Logo (hosted on Cloudinary CDN) -->
+              <img
+                src="${logoUrl}"
+                alt="Harmony College — Number 1 Choice for Knowledge"
+                width="200"
+                style="display:block;margin:0 auto 16px auto;border:0;height:auto;max-width:200px;"
+              />
+              <div style="font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#E9C349;letter-spacing:2.5px;text-transform:uppercase;">
+                Office of Human Resources
+              </div>
             </td>
           </tr>
 
