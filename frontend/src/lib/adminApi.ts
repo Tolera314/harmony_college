@@ -215,16 +215,16 @@ export const adminInvitationsApi = {
     apiFetch<InvitationsListResponse>(`/api/admin/invitations${qs(params)}`),
 
   create: (data: {
-    employeeCode: string;
     fullName: string;
     email: string;
-    phone: string;
     role: string;
-    departmentId: string;
-    positionTitle: string;
-    gender: 'MALE' | 'FEMALE';
-    employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN';
-    basicSalary: number;
+    employeeCode?: string;
+    phone?: string;
+    departmentId?: string;
+    positionTitle?: string;
+    gender?: 'MALE' | 'FEMALE';
+    employmentType?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN';
+    basicSalary?: number;
     hireDate?: string;
     education?: string;
     experienceYears?: number;

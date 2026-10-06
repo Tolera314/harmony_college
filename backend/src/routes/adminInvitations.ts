@@ -23,13 +23,13 @@ function ip(req: AuthRequest): string | null {
 }
 
 const createInvitationSchema = z.object({
-  employeeCode:      z.string().min(1, 'Employee code is required').max(50),
+  employeeCode:      z.string().min(1).max(50).optional(),
   fullName:          z.string().min(2, 'Full name must be at least 2 characters long').max(100),
   email:             z.string().email('Valid official email address is required'),
   phone:             z.string().min(10, 'Phone number must be at least 10 characters').max(20),
   role:              z.nativeEnum(Role),
   departmentId:      z.string().uuid('Valid department ID is required'),
-  positionTitle:     z.string().min(1, 'Position title is required').max(100),
+  positionTitle:     z.string().min(1).max(100).optional(),
   gender:            z.enum(['MALE', 'FEMALE']),
   employmentType:    z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']),
   basicSalary:       z.number().min(0, 'Salary must be non-negative'),

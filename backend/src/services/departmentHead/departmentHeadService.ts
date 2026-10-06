@@ -7,6 +7,7 @@
  */
 
 import { prisma }              from '../../lib/prisma';
+import { resolveDepartmentFamilyIds } from '../../lib/departmentHierarchy';
 import { createNotification } from '../notificationService';
 import {
   Role,
@@ -702,7 +703,9 @@ export async function getStudents(
   const where: any = { departmentId: { in: deptIds } };
   if (params.status && params.status !== 'ALL') where.status = params.status;
   if (params.yearLevel) where.yearLevel = params.yearLevel;
-  if (params.programType) where.programType = params.programType;
+  // NOTE: programType is intentionally NOT filtered here — students are already
+  // scoped to the HOD's department via departmentId. The TVET/SHORT toggle applies
+  // to courses and programs, not to the student directory.
   if (params.search) {
     where.OR = [
       { user:    { fullName: { contains: params.search, mode: 'insensitive' } } },
@@ -762,8 +765,54 @@ export async function getStudents(
       gpa:             s.gpa,
       totalCredits:    s.totalCredits,
       status:          s.status,
+      admittedAt:      s.admittedAt,
       attendanceRate:  attMap.get(s.id) ?? null,
       activeEnrollments: s._count.enrollments,
+    })),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW ADMISSIONS — students admitted to the HoD's dept in the last N days
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getNewAdmissions(userId: string, days = 60) {
+  const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const records = await prisma.studentRecord.findMany({
+    where: {
+      departmentId: { in: deptIds },
+      status:       StudentStatus.ACTIVE,
+      admittedAt:   { gte: since },
+    },
+    orderBy: { admittedAt: 'desc' },
+    take: 20,
+    select: {
+      id:         true,
+      studentId:  true,
+      admittedAt: true,
+      programType: true,
+      user:       { select: { fullName: true, email: true } },
+      program:    { select: { id: true, name: true, code: true } },
+      department: { select: { id: true, name: true, code: true } },
+    },
+  });
+
+  return {
+    total: records.length,
+    days,
+    admissions: records.map(r => ({
+      id:          r.id,
+      studentId:   r.studentId,
+      fullName:    r.user.fullName,
+      email:       r.user.email,
+      program:     r.program,
+      department:  r.department,
+      programType: r.programType,
+      admittedAt:  r.admittedAt,
     })),
   };
 }
@@ -1391,23 +1440,133 @@ export async function getCourses(
   }));
 }
 
+export async function enrollApprovedStudentsForCourse(courseId: string): Promise<number> {
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    include: { department: true },
+  });
+  if (!course || course.status !== 'ACTIVE') return 0;
+
+  // 1. Resolve current semester matching programType, or fallback to current semester
+  const currentSemester = await prisma.semester.findFirst({
+    where: {
+      isCurrent: true,
+      programType: course.programType,
+    },
+  }) || await prisma.semester.findFirst({
+    where: { isCurrent: true },
+  });
+
+  if (!currentSemester) return 0;
+
+  // 2. Find or create CourseOffering for this course in the current semester with status ACTIVE
+  let offering = await prisma.courseOffering.findFirst({
+    where: {
+      courseId: course.id,
+      semesterId: currentSemester.id,
+    },
+  });
+
+  if (!offering) {
+    offering = await prisma.courseOffering.create({
+      data: {
+        courseId: course.id,
+        semesterId: currentSemester.id,
+        section: 'A',
+        capacity: 40,
+        status: 'ACTIVE',
+        programType: course.programType,
+      },
+    });
+  } else if (offering.status !== 'ACTIVE') {
+    offering = await prisma.courseOffering.update({
+      where: { id: offering.id },
+      data: { status: 'ACTIVE' },
+    });
+  }
+
+  // 3. Find department family IDs (parent + child branches)
+  const deptIds = await resolveDepartmentFamilyIds(course.departmentId);
+
+  // 4. Find all eligible students:
+  // - in this department family
+  // - status is ACTIVE
+  // - programType matches the course's programType
+  // - Finance Officer verified: studentProfile.paymentVerifiedByFinance === true
+  // - Registrar approved: application.status === 'ACCEPTED'
+  const eligibleStudents = await prisma.studentRecord.findMany({
+    where: {
+      departmentId: { in: deptIds },
+      status: 'ACTIVE',
+      programType: course.programType,
+      user: {
+        studentProfile: {
+          paymentVerifiedByFinance: true,
+        },
+        application: {
+          status: 'ACCEPTED',
+        },
+      },
+    },
+    select: { id: true, userId: true },
+  });
+
+  let enrolledCount = 0;
+  for (const st of eligibleStudents) {
+    await prisma.enrollment.upsert({
+      where: {
+        studentRecordId_courseOfferingId: {
+          studentRecordId: st.id,
+          courseOfferingId: offering.id,
+        },
+      },
+      update: {
+        status: 'ACTIVE',
+        droppedAt: null,
+        dropReason: null,
+      },
+      create: {
+        studentRecordId: st.id,
+        courseOfferingId: offering.id,
+        status: 'ACTIVE',
+        enrolledAt: new Date(),
+      },
+    });
+    enrolledCount++;
+  }
+
+  return enrolledCount;
+}
+
 export async function createCourse(
   userId: string,
   data: { code: string; name: string; description?: string; creditHours?: number; ects?: number; programType?: string },
 ) {
   const hod = await resolveHoD(userId);
-  const deptId = hod.departmentId; // new courses go to the parent (TVET) dept by default
+  let deptId = hod.departmentId;
+
+  // If this is a Short Program course, assign to child department if one exists
+  if (data.programType === 'SHORT_PROGRAM') {
+    const childDept = await prisma.department.findFirst({
+      where: { parentId: hod.departmentId, isActive: true },
+      select: { id: true },
+    });
+    if (childDept) deptId = childDept.id;
+  }
 
   const codeUpper = data.code.trim().toUpperCase();
   const nameTrim  = data.name.trim();
 
+  const deptIds = await resolveDeptIds(hod);
   const existing = await prisma.course.findFirst({
-    where: { code: codeUpper, departmentId: deptId },
+    where: { code: codeUpper, departmentId: { in: deptIds } },
   });
   if (existing) {
     throw new Error('A course with this code already exists in your department.');
   }
 
+  // Newly created course starts as INACTIVE (DRAFT / UNPUBLISHED)
+  // It will NOT appear in student's "My Courses" until HOD clicks "Publish Course"
   const course = await prisma.course.create({
     data: {
       code:         codeUpper,
@@ -1417,7 +1576,7 @@ export async function createCourse(
       ects:         data.ects ?? 4,
       programType:  (data.programType as any) || 'TVET',
       departmentId: deptId,
-      status:       'ACTIVE',
+      status:       'INACTIVE',
     },
   });
 
@@ -1469,6 +1628,105 @@ export async function updateCourse(
   });
 }
 
+/**
+ * Publish a single course to the current semester and auto-enroll approved students.
+ */
+export async function publishCourse(userId: string, courseId: string) {
+  const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
+  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  if (!course) throw new Error('Course not found.');
+  if (!deptIds.includes(course.departmentId)) {
+    throw new Error('Not authorized: course does not belong to your department.');
+  }
+
+  // Update course status to ACTIVE (PUBLISHED)
+  const updatedCourse = await prisma.course.update({
+    where: { id: courseId },
+    data: { status: 'ACTIVE' },
+  });
+
+  // Automatically activate offering and enroll approved students
+  const enrolledStudentsCount = await enrollApprovedStudentsForCourse(courseId);
+
+  // Department Head audit log
+  await prisma.departmentHeadAuditLog.create({
+    data: {
+      userId,
+      action: DepartmentHeadAction.OFFERING_APPROVED,
+      entityType: 'Course',
+      entityId: courseId,
+      description: `Course ${course.code} published by Department Head. ${enrolledStudentsCount} approved students enrolled.`,
+      metadata: { code: course.code, name: course.name, enrolledStudentsCount },
+    },
+  }).catch(() => {});
+
+  return {
+    success: true,
+    course: updatedCourse,
+    enrolledStudentsCount,
+  };
+}
+
+/**
+ * Unpublish/deactivate a course: status becomes INACTIVE, offerings become DRAFT,
+ * and enrollments are dropped so it no longer appears in student's My Courses.
+ */
+export async function unpublishCourse(userId: string, courseId: string) {
+  const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
+  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  if (!course) throw new Error('Course not found.');
+  if (!deptIds.includes(course.departmentId)) {
+    throw new Error('Not authorized: course does not belong to your department.');
+  }
+
+  // Set course status to INACTIVE (DRAFT / UNPUBLISHED)
+  const updatedCourse = await prisma.course.update({
+    where: { id: courseId },
+    data: { status: 'INACTIVE' },
+  });
+
+  // Update offerings for this course to DRAFT
+  await prisma.courseOffering.updateMany({
+    where: { courseId },
+    data: { status: 'DRAFT' },
+  });
+
+  // Drop active enrollments for this course
+  const offerings = await prisma.courseOffering.findMany({
+    where: { courseId },
+    select: { id: true },
+  });
+  if (offerings.length > 0) {
+    await prisma.enrollment.updateMany({
+      where: {
+        courseOfferingId: { in: offerings.map(o => o.id) },
+        status: 'ACTIVE',
+      },
+      data: {
+        status: 'DROPPED',
+        droppedAt: new Date(),
+        dropReason: 'Course unpublished by Department Head',
+      },
+    });
+  }
+
+  // Audit log
+  await prisma.departmentHeadAuditLog.create({
+    data: {
+      userId,
+      action: DepartmentHeadAction.OFFERING_REJECTED,
+      entityType: 'Course',
+      entityId: courseId,
+      description: `Course ${course.code} unpublished by Department Head.`,
+      metadata: { code: course.code, name: course.name },
+    },
+  }).catch(() => {});
+
+  return updatedCourse;
+}
+
 export async function toggleCourseStatus(userId: string, courseId: string) {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
@@ -1478,17 +1736,17 @@ export async function toggleCourseStatus(userId: string, courseId: string) {
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
-  const nextStatus = course.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-  return prisma.course.update({
-    where: { id: courseId },
-    data:  { status: nextStatus as any },
-  });
+  if (course.status === 'ACTIVE') {
+    return unpublishCourse(userId, courseId);
+  } else {
+    const res = await publishCourse(userId, courseId);
+    return res.course;
+  }
 }
 
 /**
- * Publish all ACTIVE courses to the current semester as course offerings.
- * Creates CourseOffering records with status=DRAFT for each course that
- * doesn't already have an offering in the current semester.
+ * Publish all courses in HOD's department to the current semester.
+ * Sets status=ACTIVE, activates course offerings, and auto-enrolls approved students.
  */
 export async function publishAllCourses(userId: string) {
   const hod = await resolveHoD(userId);
@@ -1504,60 +1762,46 @@ export async function publishAllCourses(userId: string) {
     throw new Error('No active semester found. Please contact the registrar to set up the current semester.');
   }
 
-  // Get all ACTIVE courses from HOD's departments
-  const activeCourses = await prisma.course.findMany({
+  // Get all courses from HOD's departments
+  const allCourses = await prisma.course.findMany({
     where: {
       departmentId: { in: deptIds },
-      status: 'ACTIVE',
     },
     select: {
       id: true,
       code: true,
       name: true,
       programType: true,
+      status: true,
     },
   });
 
-  if (activeCourses.length === 0) {
-    throw new Error('No active courses to publish.');
+  if (allCourses.length === 0) {
+    throw new Error('No courses found in your department to publish.');
   }
 
-  // Check which courses already have offerings in the current semester
-  const existingOfferings = await prisma.courseOffering.findMany({
+  // Activate all courses to ACTIVE (PUBLISHED)
+  await prisma.course.updateMany({
     where: {
-      courseId: { in: activeCourses.map(c => c.id) },
-      semesterId: currentSemester.id,
+      id: { in: allCourses.map(c => c.id) },
     },
-    select: { courseId: true },
+    data: { status: 'ACTIVE' },
   });
 
-  const existingCourseIds = new Set(existingOfferings.map(o => o.courseId));
-  const coursesToPublish = activeCourses.filter(c => !existingCourseIds.has(c.id));
+  let totalEnrolledCount = 0;
+  const publishedCoursesList: { code: string; name: string }[] = [];
 
-  if (coursesToPublish.length === 0) {
-    throw new Error('All courses are already published to the current semester.');
+  for (const c of allCourses) {
+    const enrolled = await enrollApprovedStudentsForCourse(c.id);
+    totalEnrolledCount += enrolled;
+    publishedCoursesList.push({ code: c.code, name: c.name });
   }
-
-  // Create CourseOffering records for all unpublished courses
-  const offerings = await prisma.$transaction(
-    coursesToPublish.map(course =>
-      prisma.courseOffering.create({
-        data: {
-          courseId: course.id,
-          semesterId: currentSemester.id,
-          section: 'A', // Default section
-          capacity: 40, // Default capacity
-          status: 'DRAFT',
-          programType: course.programType,
-        },
-      })
-    )
-  );
 
   return {
     semesterName: currentSemester.name,
-    publishedCount: offerings.length,
-    publishedCourses: coursesToPublish.map(c => ({ code: c.code, name: c.name })),
+    publishedCount: allCourses.length,
+    enrolledStudentsCount: totalEnrolledCount,
+    publishedCourses: publishedCoursesList,
   };
 }
 

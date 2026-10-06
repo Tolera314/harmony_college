@@ -835,6 +835,58 @@ export async function deactivateEmployee(id: string, actorName: string, actorUse
   return updated;
 }
 
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+export async function deleteEmployee(id: string, actorName: string, actorUserId?: string) {
+  const employee = await prisma.hREmployee.findUnique({
+    where:  { id },
+    select: { fullName: true, userId: true, email: true },
+  });
+  if (!employee) throw new Error('Employee not found');
+
+  // Revoke any open StaffInvitation for this email BEFORE deleting the
+  // HREmployee row. syncPendingInvitationsToHREmployees() runs on every
+  // listEmployees call and will recreate the row from the invitation if
+  // we don't revoke it first — making the delete appear to have no effect.
+  if (employee.email) {
+    await prisma.staffInvitation.updateMany({
+      where: {
+        email:      { equals: employee.email, mode: 'insensitive' },
+        revokedAt:  null,
+        acceptedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    }).catch(() => { /* non-critical */ });
+  }
+
+  // Delete the HREmployee record (cascading will handle related records)
+  await prisma.hREmployee.delete({
+    where: { id },
+  });
+
+  // If there's an associated User account, optionally deactivate it
+  if (employee.userId) {
+    await prisma.user.update({
+      where: { id: employee.userId },
+      data:  { status: 'DEACTIVATED' },
+    }).catch(() => {
+      // Ignore if user doesn't exist
+    });
+  }
+
+  await writeHRAudit({
+    actorUserId,
+    actorName,
+    action:       'Employee Deleted',
+    employeeName: employee.fullName,
+    module:       'Employees',
+    description:  `Employee ${employee.fullName} permanently deleted from system.`,
+    status:       'SUCCESS',
+  });
+
+  return { success: true, message: 'Employee deleted successfully' };
+}
+
 // ── Departments ───────────────────────────────────────────────────────────────
 
 export async function getDepartments() {

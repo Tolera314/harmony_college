@@ -4,12 +4,177 @@
  * per-course assignments, quizzes, attendance, and grades.
  */
 import { prisma } from '../../lib/prisma';
+import { resolveDepartmentFamilyIds } from '../../lib/departmentHierarchy';
+
+/**
+ * Ensures that all currently PUBLISHED courses for a student's department family
+ * and programType are automatically enrolled for the student, provided the student
+ * is fully approved by both Finance Officer and Registrar.
+ * If any course was unpublished by the HOD, its active enrollment is dropped.
+ */
+export async function syncStudentPublishedCourses(studentRecordId: string): Promise<boolean> {
+  const student = await prisma.studentRecord.findUnique({
+    where: { id: studentRecordId },
+    include: {
+      user: {
+        include: {
+          studentProfile: { select: { paymentVerifiedByFinance: true } },
+          application: { select: { status: true } },
+        },
+      },
+    },
+  });
+
+  if (!student || student.status !== 'ACTIVE') return false;
+
+  const isFinanceApproved = student.user?.studentProfile?.paymentVerifiedByFinance === true;
+  const isRegistrarApproved = student.user?.application?.status === 'ACCEPTED';
+
+  // Gate: Only students who completed Finance Officer and Registrar approvals can be enrolled
+  if (!isFinanceApproved || !isRegistrarApproved) {
+    return false;
+  }
+
+  const deptIds = await resolveDepartmentFamilyIds(student.departmentId);
+
+  // Find current semester matching programType, or fallback to current semester
+  const currentSemester = await prisma.semester.findFirst({
+    where: {
+      isCurrent: true,
+      programType: student.programType,
+    },
+  }) || await prisma.semester.findFirst({
+    where: { isCurrent: true },
+  });
+
+  if (!currentSemester) return false;
+
+  // 1. Find all ACTIVE (PUBLISHED) courses in student's department family matching programType
+  const publishedCourses = await prisma.course.findMany({
+    where: {
+      departmentId: { in: deptIds },
+      status: 'ACTIVE',
+      programType: student.programType,
+    },
+    include: {
+      offerings: {
+        where: {
+          semesterId: currentSemester.id,
+        },
+      },
+    },
+  });
+
+  for (const course of publishedCourses) {
+    let offering = course.offerings[0];
+    if (!offering) {
+      offering = await prisma.courseOffering.create({
+        data: {
+          courseId: course.id,
+          semesterId: currentSemester.id,
+          section: 'A',
+          capacity: 40,
+          status: 'ACTIVE',
+          programType: course.programType,
+        },
+      });
+    } else if (offering.status !== 'ACTIVE') {
+      offering = await prisma.courseOffering.update({
+        where: { id: offering.id },
+        data: { status: 'ACTIVE' },
+      });
+    }
+
+    await prisma.enrollment.upsert({
+      where: {
+        studentRecordId_courseOfferingId: {
+          studentRecordId: student.id,
+          courseOfferingId: offering.id,
+        },
+      },
+      update: {
+        status: 'ACTIVE',
+        droppedAt: null,
+        dropReason: null,
+      },
+      create: {
+        studentRecordId: student.id,
+        courseOfferingId: offering.id,
+        status: 'ACTIVE',
+        enrolledAt: new Date(),
+      },
+    });
+  }
+
+  // 2. Drop active enrollments for any course that has been unpublished/deactivated (status != ACTIVE)
+  const unpublishedOfferings = await prisma.courseOffering.findMany({
+    where: {
+      course: {
+        departmentId: { in: deptIds },
+        status: { not: 'ACTIVE' },
+      },
+    },
+    select: { id: true },
+  });
+
+  if (unpublishedOfferings.length > 0) {
+    await prisma.enrollment.updateMany({
+      where: {
+        studentRecordId: student.id,
+        courseOfferingId: { in: unpublishedOfferings.map(o => o.id) },
+        status: 'ACTIVE',
+      },
+      data: {
+        status: 'DROPPED',
+        droppedAt: new Date(),
+        dropReason: 'Course unpublished by Department Head',
+      },
+    });
+  }
+
+  return true;
+}
 
 export async function getEnrolledCourses(studentRecordId: string) {
+  // Sync published courses first
+  await syncStudentPublishedCourses(studentRecordId);
+
+  // Fetch student verification info
+  const student = await prisma.studentRecord.findUnique({
+    where: { id: studentRecordId },
+    include: {
+      user: {
+        include: {
+          studentProfile: { select: { paymentVerifiedByFinance: true } },
+          application: { select: { status: true } },
+        },
+      },
+    },
+  });
+
+  if (!student || student.status !== 'ACTIVE') return [];
+
+  // Gate: Only students who completed Finance Officer and Registrar approval can see courses
+  const isFinanceApproved = student.user?.studentProfile?.paymentVerifiedByFinance === true;
+  const isRegistrarApproved = student.user?.application?.status === 'ACCEPTED';
+  if (!isFinanceApproved || !isRegistrarApproved) {
+    return [];
+  }
+
+  const deptIds = await resolveDepartmentFamilyIds(student.departmentId);
+
   const enrollments = await prisma.enrollment.findMany({
     where: {
       studentRecordId,
       status: { in: ['ACTIVE', 'FORCE_ADDED', 'COMPLETED'] },
+      courseOffering: {
+        status: 'ACTIVE',
+        course: {
+          status: 'ACTIVE',
+          departmentId: { in: deptIds },
+          programType: student.programType,
+        },
+      },
     },
     include: {
       courseOffering: {

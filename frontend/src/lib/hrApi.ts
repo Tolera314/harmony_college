@@ -293,6 +293,9 @@ export const hrEmployeesApi = {
   update: (id: string, data: Record<string, unknown>) =>
     apiFetch<HREmployeeApi>(`/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
+  delete: (id: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/employees/${id}`, { method: 'DELETE' }),
+
   deactivate: (id: string) =>
     apiFetch<HREmployeeApi>(`/employees/${id}/deactivate`, { method: 'PATCH' }),
 

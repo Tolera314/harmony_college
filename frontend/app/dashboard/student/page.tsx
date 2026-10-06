@@ -366,6 +366,16 @@ export default function StudentDashboardPage() {
 
   const isProfileIncomplete = onboardingCompletion < 100;
 
+  const loadCourses = useCallback(async () => {
+    try {
+      const [courses, assignments] = await Promise.all([
+        studentDashApi.getCourses(),
+        studentDashApi.getAssignments().catch(() => []),
+      ]);
+      setEnrolledCourses(courses.map(c => mapApiCourse(c as any, assignments)));
+    } catch { }
+  }, []);
+
   const handleTabChange = (tab: NavTab) => {
     if (tab === activeTab) return;
     if (isProfileIncomplete && LOCKED_TABS.includes(tab)) {
@@ -373,6 +383,7 @@ export default function StudentDashboardPage() {
       return;
     }
     setTabLoading(true);
+    if (tab === 'my_courses' || tab === 'registration') loadCourses();
     if (tab === 'grades' || tab === 'gpa_simulator') loadGrades();
     if (tab === 'financials') loadFinancials();
     if (tab === 'degree_audit') loadDegreeAudit();

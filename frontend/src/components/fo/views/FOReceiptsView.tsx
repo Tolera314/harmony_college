@@ -8,7 +8,7 @@
  * Backed by live Prisma PostgreSQL `FinancialTransaction` records.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Receipt, Search, X, Download, Printer, Share2, Eye, QrCode, CheckCircle2,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { FOPageHeader } from '../FOPageHeader';
 import { SlidePanel } from '../../ui/SlidePanel';
+import { Button } from '../../ui/Button';
 import type { Receipt as ReceiptType } from '../../../types/finance';
 import { shareContent, downloadPDF, exportToExcel } from '../../../lib/exportUtils';
 import { fmtETB } from '../FOCharts';
@@ -47,8 +48,8 @@ interface ReceiptRecord {
 }
 
 // ── Print Helper Function ────────────────────────────────────────────────────
-function printReceiptDocument(r: ReceiptRecord): void {
-  const itemRows = r.items.map(item =>
+function printReceiptDocument(r: ReceiptRecord | ReceiptType): void {
+  const itemRows = (r.items || []).map(item =>
     `<tr>
       <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:11px">${item.label}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;font-weight:bold;font-size:11px">ETB ${item.amount.toLocaleString()}</td>
@@ -119,193 +120,50 @@ function printReceiptDocument(r: ReceiptRecord): void {
   }, 150);
 }
 
-export function FOReceiptsView() {
-  const [receipts, setReceipts]       = useState<ReceiptRecord[]>([]);
-  const [total, setTotal]             = useState(0);
-  const [totalPages, setTotalPages]   = useState(1);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [page, setPage]               = useState(1);
-  const [search, setSearch]           = useState('');
-  const [methodFilter, setMethodFilter] = useState('All');
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState('');
-  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptRecord | null>(null);
-  const [shareMsg, setShareMsg]       = useState('');
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  const fetchReceiptsData = useCallback(async (p: number, s: string, method: string) => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await getReceipts({
-        page: p,
-        limit: 15,
-        search: s.trim() || undefined,
-      });
-
-      let fetchedList: ReceiptRecord[] = data.receipts || [];
-      if (method !== 'All') {
-        fetchedList = fetchedList.filter(r => r.paymentMethod.toLowerCase() === method.toLowerCase());
-      }
-
-      setReceipts(fetchedList);
-      setTotal(data.total || fetchedList.length);
-      setTotalPages(data.totalPages || 1);
-      setTotalRevenue(data.totalAmount || fetchedList.reduce((sum, r) => sum + r.amount, 0));
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load official receipts');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      fetchReceiptsData(page, search, methodFilter);
-    }, 300);
-  }, [page, search, methodFilter, fetchReceiptsData]);
-
-  const handleExportCSV = () => {
-    if (receipts.length === 0) return;
-    const headers = ['Receipt Number', 'Student Name', 'Student ID', 'Amount (ETB)', 'Payment Method', 'Reference', 'Date', 'Time'];
-    const rows = receipts.map(r => [
-      `"${r.receiptNumber}"`,
-      `"${r.studentName}"`,
-      `"${r.studentId}"`,
-      r.amount,
-      `"${r.paymentMethod}"`,
-      `"${r.referenceNumber}"`,
-      `"${r.date}"`,
-      `"${r.time}"`
-    ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Harmony_Receipts_Ledger_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const methodColor: Record<string, string> = {
-    Cash: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    'Bank Transfer': 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-    Telebirr: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-    Chapa: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
-  };
-
-  return (
-    <div className="space-y-6 pb-16">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl backdrop-blur-xl border border-(--border-default) bg-gradient-to-r from-(--hover-overlay) via-transparent to-(--accent-gold-subtle)">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-2xl bg-(--accent-gold-subtle) border border-(--accent-gold-border) text-(--brand-gold)">
-              <Receipt className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="font-serif text-2xl font-bold text-(--text-primary)">
-                Receipts Ledger
-              </h1>
-              <p className="text-xs font-sans text-(--text-muted) mt-0.5">
-                Official payment receipt verification, PDF printing, and transaction audit trails
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold font-sans border transition-all hover:bg-(--hover-overlay) active:scale-95 text-(--text-secondary) border-(--border-default)"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Export CSV</span>
-          </button>
-
-          <button
-            onClick={() => fetchReceiptsData(page, search, methodFilter)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold font-sans border transition-all hover:bg-(--hover-overlay) active:scale-95 text-(--text-secondary) border-(--border-default)"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-sans font-semibold text-(--text-muted)">Total Receipts Issued</span>
-            <Receipt className="w-4 h-4 text-(--brand-gold)" />
-          </div>
-          <p className="font-serif text-2xl font-bold mt-2 text-(--text-primary)">{total}</p>
-          <p className="text-[11px] text-(--text-faint) mt-1">Verified financial vouchers</p>
-        </div>
-
-        <div className="p-5 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle)">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-sans font-semibold text-(--text-muted)">Total Collections</span>
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-          </div>
-          <p className="font-serif text-2xl font-bold mt-2 text-emerald-400">
-            ETB {totalRevenue.toLocaleString()}
-          </p>
-        </div>{/* end printable region */}
-
-        {/* Share feedback */}
-        {shareMsg && <p className="font-sans text-xs text-emerald-400 text-center">{shareMsg}</p>}
-
-        {/* Actions */}
-        <div className="flex gap-2 pt-2 no-print">
-          <Button variant="secondary" size="sm" className="flex-1" icon={<Printer className="w-4 h-4" />}
-            onClick={() => printTranscriptReceipt(receipt)}>Print</Button>
-          <Button variant="secondary" size="sm" className="flex-1" icon={<Download className="w-4 h-4" />}
-            onClick={() => printTranscriptReceipt(receipt)}>PDF</Button>
-          <Button variant="outline" size="sm" className="flex-1" icon={<Share2 className="w-4 h-4" />}
-            onClick={handleShare}>Share</Button>
-        </div>
-      </div>
-    </SlidePanel>
-  );
-}
-
 // ── Main View ──────────────────────────────────────────────────────────────────
 export const FOReceiptsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [receiptList, setReceiptList] = useState<ReceiptType[]>([]);
   const [stats, setStats]             = useState({ totalReceipts: 0, totalAmount: 0, printedCount: 0, digitalCount: 0 });
   const [search, setSearch]           = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('All');
-  const [selected, setSelected]       = useState<ReceiptType | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptType | null>(null);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [shareMsg, setShareMsg]       = useState('');
   const [page, setPage]               = useState(1);
   const PAGE_SIZE = 10;
 
-  useEffect(() => {
-    getReceipts({ search: search || undefined, limit: 100 })
-      .then((data: any) => {
-        if (data && Array.isArray(data.receipts)) {
-          setReceiptList(data.receipts);
-          if (data.stats) {
-            setStats(data.stats);
-          } else {
-            const sum = data.totalAmount ?? data.receipts.reduce((s: number, r: any) => s + (r.amount || 0), 0);
-            const printed = data.printedCount ?? data.receipts.filter((r: any) => r.printed).length;
-            const digital = data.digitalCount ?? data.receipts.filter((r: any) => r.shared).length;
-            setStats({
-              totalReceipts: data.total ?? data.receipts.length,
-              totalAmount: sum,
-              printedCount: printed,
-              digitalCount: digital,
-            });
-          }
+  const fetchReceiptsData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data: any = await getReceipts({ search: search || undefined, limit: 100 });
+      if (data && Array.isArray(data.receipts)) {
+        setReceiptList(data.receipts);
+        if (data.stats) {
+          setStats(data.stats);
+        } else {
+          const sum = data.totalAmount ?? data.receipts.reduce((s: number, r: any) => s + (r.amount || 0), 0);
+          const printed = data.printedCount ?? data.receipts.filter((r: any) => r.printed).length;
+          const digital = data.digitalCount ?? data.receipts.filter((r: any) => r.shared).length;
+          setStats({
+            totalReceipts: data.total ?? data.receipts.length,
+            totalAmount: sum,
+            printedCount: printed,
+            digitalCount: digital,
+          });
         }
-      })
-      .catch(() => {});
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load receipts.');
+    } finally {
+      setLoading(false);
+    }
   }, [search]);
+
+  useEffect(() => {
+    fetchReceiptsData();
+  }, [fetchReceiptsData]);
 
   const filtered = useMemo(() => {
     let list = [...receiptList];
@@ -322,9 +180,11 @@ export const FOReceiptsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
   }, [search, methodFilter, receiptList]);
 
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const totalAmount = stats.totalAmount > 0 ? stats.totalAmount : filtered.reduce((s, r) => s + r.amount, 0);
   const totalCount  = stats.totalReceipts > 0 ? stats.totalReceipts : filtered.length;
+  const receipts = paginated;
+  const total = totalCount;
 
   const handleExportAll = () => {
     exportToExcel(
@@ -372,11 +232,7 @@ export const FOReceiptsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
             <p className="font-mono text-[10px] text-white/40 uppercase tracking-wider">{s.label}</p>
             <p className={`font-mono text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
           </div>
-          <p className="font-serif text-2xl font-bold mt-2 text-(--brand-gold)">{methodFilter}</p>
-          <p className="text-[11px] text-(--text-faint) mt-1">
-            {methodFilter === 'All' ? 'Showing all payment channels' : `Filtered by ${methodFilter}`}
-          </p>
-        </div>
+        ))}
       </div>
 
       {/* Filters & Search Controls */}
@@ -434,7 +290,7 @@ export const FOReceiptsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
           <AlertCircle className="w-10 h-10 mx-auto text-(--status-danger) mb-2" />
           <p className="text-sm text-(--status-danger) font-medium">{error}</p>
           <button
-            onClick={() => fetchReceiptsData(page, search, methodFilter)}
+            onClick={() => fetchReceiptsData()}
             className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border)"
           >
             Retry Loading
@@ -584,7 +440,7 @@ export const FOReceiptsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
 
               {/* Line Items */}
               <div className="border-t border-b border-dashed border-(--border-subtle) py-3 space-y-2">
-                {selectedReceipt.items.map((item, i) => (
+                {(selectedReceipt.items || []).map((item: any, i: number) => (
                   <div key={i} className="flex justify-between text-xs font-sans">
                     <span className="text-(--text-muted)">{item.label}</span>
                     <span className="font-mono font-bold text-(--text-primary)">ETB {item.amount.toLocaleString()}</span>
@@ -641,7 +497,7 @@ export const FOReceiptsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
           </SlidePanel>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 

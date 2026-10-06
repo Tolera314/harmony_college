@@ -16,9 +16,10 @@ import {
   FileSpreadsheet, CheckCircle2, AlertCircle, ShieldAlert, Sparkles, Send
 } from 'lucide-react';
 import { SlidePanel } from '../../ui/SlidePanel';
-import { getOutstandingAccounts, sendPaymentReminder } from '@/src/lib/foApi';
-import { FinanceStudent, FinanceRiskLevel } from '../../../types/finance';
+import { Button } from '../../ui/Button';
+import { FOPageHeader } from '../FOPageHeader';
 import { sendPaymentReminder, getOutstandingAccounts } from '../../../lib/foApi';
+import { FinanceStudent, FinanceRiskLevel } from '../../../types/finance';
 import { fmtETB } from '../FOCharts';
 
 interface OutstandingStudent {
@@ -44,6 +45,13 @@ const riskBadgeConfig: Record<string, { label: string; textClass: string; bgClas
   Medium: { label: 'Medium Risk', textClass: 'text-amber-400', bgClass: 'bg-amber-500/10', borderClass: 'border-amber-500/20' },
   High: { label: 'High Risk', textClass: 'text-orange-400', bgClass: 'bg-orange-500/10', borderClass: 'border-orange-500/20' },
   Critical: { label: 'Critical Risk', textClass: 'text-rose-400', bgClass: 'bg-rose-500/10', borderClass: 'border-rose-500/20' },
+};
+
+const riskConfig: Record<string, { bg: string; bar: string }> = {
+  Low: { bg: 'bg-emerald-500/10 border-emerald-500/20', bar: '#10b981' },
+  Medium: { bg: 'bg-amber-500/10 border-amber-500/20', bar: '#f59e0b' },
+  High: { bg: 'bg-orange-500/10 border-orange-500/20', bar: '#f97316' },
+  Critical: { bg: 'bg-rose-500/10 border-rose-500/20', bar: '#ef4444' },
 };
 
 // ── Payment Reminder Modal Component ─────────────────────────────────────────
@@ -183,7 +191,7 @@ function PaymentReminderModal({
 }
 
 // ── Main View Component ───────────────────────────────────────────────────────
-export function FOOutstandingView() {
+export function FOOutstandingView({ programType }: { programType?: 'TVET' | 'SHORT_PROGRAM' } = {}) {
   const [students, setStudents]         = useState<OutstandingStudent[]>([]);
   const [total, setTotal]               = useState(0);
   const [totalPages, setTotalPages]     = useState(1);
@@ -244,6 +252,8 @@ export function FOOutstandingView() {
     Medium:   students.filter(s => s.riskLevel === 'Medium').length,
     Low:      students.filter(s => s.riskLevel === 'Low').length,
   };
+  const counts = riskCounts;
+  const outstanding = students;
 
   const totalOwed = students.reduce((sum, s) => sum + s.outstanding, 0);
 
@@ -295,30 +305,8 @@ export function FOOutstandingView() {
     document.body.removeChild(link);
   };
 
-  const handleSendAllReminders = async () => {
-    if (outstanding.length === 0) return;
-    setSendingAll(true);
-    try {
-      let sent = 0;
-      for (const st of outstanding.slice(0, 20)) {
-        await sendPaymentReminder(
-          st.id,
-          `Dear ${st.name}, this is an official reminder that you have an outstanding balance of ETB ${st.outstanding.toLocaleString()} at Harmony College. Please settle this balance at the Finance Office.`
-        ).catch(() => {});
-        sent++;
-      }
-      setBulkStatus(`Successfully sent reminders to ${sent} student${sent !== 1 ? 's' : ''}.`);
-      setTimeout(() => setBulkStatus(null), 4000);
-    } catch {
-      setBulkStatus('Error dispatching reminders.');
-      setTimeout(() => setBulkStatus(null), 4000);
-    } finally {
-      setSendingAll(false);
-    }
-  };
-
   return (
-    <div className="space-y-6 pb-16">
+    <>
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
@@ -335,37 +323,38 @@ export function FOOutstandingView() {
           >
             {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
             <span>{toast.message}</span>
-    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-6 pb-16">
       <FOPageHeader
         title="Outstanding Accounts"
         subtitle={`${outstanding.length} students with unpaid balances · ETB ${fmtETB(totalOwed)} total outstanding`}
         icon={<AlertTriangle className="w-5 h-5" />}
         actions={
           <Button variant="danger" size="sm" icon={<Mail className="w-4 h-4" />}
-            disabled={sendingAll || outstanding.length === 0}
+            disabled={sendingBulk || outstanding.length === 0}
             onClick={handleSendAllReminders}>
-            {sendingAll ? 'Sending Reminders…' : 'Send All Reminders'}
+            {sendingBulk ? 'Sending Reminders…' : 'Send All Reminders'}
           </Button>
         }
       />
 
-      {bulkStatus && (
-        <div className="p-3 bg-(--status-success-bg) border border-(--status-success-border) text-(--status-success) rounded-xl font-sans text-xs flex items-center justify-between">
-          <span>{bulkStatus}</span>
-          <button onClick={() => setBulkStatus(null)} className="opacity-60 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
-        </div>
-      )}
-
       {/* Risk summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {(['Critical','High','Medium','Low'] as FinanceRiskLevel[]).map((level) => (
-          <motion.div key={level} whileHover={{ y: -3 }} onClick={() => { setRiskFilter(level); setPage(1); }}
-            className={`cursor-pointer border rounded-2xl p-4 transition-all ${riskFilter === level ? 'ring-2 ring-[#E9C349]/40' : ''} ${riskConfig[level].bg}`}>
+          <motion.div 
+            key={level} 
+            whileHover={{ y: -3 }} 
+            onClick={() => { setRiskFilter(level); setPage(1); }}
+            className={`cursor-pointer border rounded-2xl p-4 transition-all ${riskFilter === level ? 'ring-2 ring-[#E9C349]/40' : ''} ${riskConfig[level].bg}`}
+          >
             <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{level} Risk</p>
             <p className="font-mono text-3xl font-bold mt-1" style={{ color: riskConfig[level].bar }}>{counts[level]}</p>
             <p className="font-sans text-xs text-(--text-faint) mt-0.5">students</p>
           </motion.div>
-        )}
+        ))}
       </div>
 
       {/* Header Banner */}
@@ -631,8 +620,9 @@ export function FOOutstandingView() {
             onSuccess={(msg) => showToast(msg, 'success')}
           />
         )}
-      </div>
-    </div>
+      </AnimatePresence>
+      </motion.div>
+    </>
   );
 }
 

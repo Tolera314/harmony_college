@@ -10,6 +10,8 @@ export type HRNavTab =
   | 'performance'
   | 'documents'
   | 'salary_history'
+  | 'leave'
+  | 'payroll'
   | 'reports'
   | 'notifications'
   | 'audit_log'

@@ -18,20 +18,24 @@ interface DHSidebarProps {
   profile: DHProfile;
   pendingCount: number;
   unreadCount: number;
+  newAdmissionsCount?: number;
   onLogout: () => void;
 }
 
 type NavItem = { id: DHNavTab; label: string; icon: React.ReactNode; badge?: string; badgeVariant?: 'gold' | 'rose' | 'amber' };
 
 export const DHSidebar: React.FC<DHSidebarProps> = ({
-  activeTab, setActiveTab, profile, pendingCount, unreadCount, onLogout,
+  activeTab, setActiveTab, profile, pendingCount, unreadCount, newAdmissionsCount = 0, onLogout,
 }) => {
   const navItems: NavItem[] = [
     { id: 'overview',             label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'programs',             label: 'Programs',             icon: <Layers className="w-5 h-5" /> },
     { id: 'courses',              label: 'Courses',              icon: <BookOpen className="w-5 h-5" /> },
     { id: 'instructors',          label: 'Instructors',          icon: <UserCog className="w-5 h-5" /> },
-    { id: 'students',             label: 'Students',             icon: <GraduationCap className="w-5 h-5" /> },
+    {
+      id: 'students', label: 'Students', icon: <GraduationCap className="w-5 h-5" />,
+      badge: newAdmissionsCount > 0 ? `${newAdmissionsCount} New` : undefined, badgeVariant: 'gold',
+    },
     { id: 'classes',              label: 'Classes & Sections',   icon: <CalendarDays className="w-5 h-5" /> },
     { id: 'course_assignments',   label: 'Course Assignments',   icon: <GitBranch className="w-5 h-5" /> },
     { id: 'academic_performance', label: 'Academic Performance', icon: <TrendingUp className="w-5 h-5" /> },
@@ -106,6 +110,10 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
               )}
               <span className={`relative z-10 ${isActive ? 'ds-nav-item-active' : 'ds-nav-item group-hover:text-[--text-primary] transition-colors'}`}>
                 {item.icon}
+                {/* Pulsing dot — visible in icon-only (collapsed) mode */}
+                {item.badge && (
+                  <span className="xl:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#E9C349] border border-(--bg-primary) animate-pulse" />
+                )}
               </span>
               <span className="relative z-10 hidden xl:inline truncate flex-1">{item.label}</span>
               {item.badge && (

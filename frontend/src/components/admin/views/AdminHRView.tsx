@@ -6,7 +6,7 @@ import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Users2, Search, RefreshCw, ChevronLeft, ChevronRight, Eye,
   Send, CheckCircle2, XCircle, AlertTriangle, FileText,
-  User, Calendar, Mail, UserCheck, Check, Clock, Undo2, Lock, Edit
+  User, Calendar, Mail, UserCheck, Check, Clock, Undo2, Lock, Edit, Trash2
 } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
@@ -433,6 +433,22 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
     }
   };
 
+  // ── Handle Delete Employee
+  const handleDeleteEmployee = async (empId: string, empName: string) => {
+    if (!confirm(`Are you sure you want to delete employee "${empName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await hrEmployeesApi.delete(empId);
+      showToast(`Employee "${empName}" has been deleted`, 'success');
+      setSelectedEmployeeId(null);
+      fetchEmployees();
+    } catch (err: any) {
+      showToast(err.message ?? 'Failed to delete employee', 'error');
+    }
+  };
+
   // ── Open Employee Detail Drawer
   const openEmployeeDetail = async (empId: string) => {
     setSelectedEmployeeId(empId); setEmpDetailLoading(true); setEmployeeDetail(null); setIsEditingEmployee(false);
@@ -615,9 +631,14 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
                           {formatDate(emp.hireDate)}
                         </td>
                         <td className="px-4 py-3">
-                          <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />} onClick={() => openEmployeeDetail(emp.id)}>
-                            View Profile
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />} onClick={() => openEmployeeDetail(emp.id)}>
+                              View
+                            </Button>
+                            <Button variant="ghost" size="sm" icon={<Trash2 className="w-3.5 h-3.5 text-(--status-danger)" />} onClick={() => handleDeleteEmployee(emp.id, emp.fullName)}>
+                              Delete
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}

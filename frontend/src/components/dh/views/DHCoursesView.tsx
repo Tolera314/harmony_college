@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { BookOpen, Search, Eye, CheckCircle2, XCircle, RefreshCw, Loader2, Plus, Edit, Trash2, Send } from 'lucide-react';
-import { hodOfferingsApi, hodSemestersApi, hodCoursesApi, type CourseOfferingSummary, type Semester } from '../../../lib/hodApi';
+import { hodOfferingsApi, hodSemestersApi, hodCoursesApi, type CourseOfferingSummary, type Semester, type DHCourse } from '../../../lib/hodApi';
 import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
@@ -41,7 +41,7 @@ const capacityBar = (enrolled: number, cap: number) => {
   );
 };
 
-export const DHCoursesView: React.FC = () => {
+export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [offerings,    setOfferings]    = useState<CourseOfferingSummary[]>([]);
   const [courses,      setCourses]      = useState<any[]>([]);
   const [semesters,    setSemesters]    = useState<Semester[]>([]);
@@ -235,6 +235,37 @@ export const DHCoursesView: React.FC = () => {
     }
   };
 
+  const handlePublishSingleCourse = async (c: DHCourse) => {
+    setCourseLoading(true);
+    try {
+      const res = await hodCoursesApi.publishCourse(c.id);
+      showToast(
+        `Published course ${c.code}! ${res.enrolledStudentsCount} eligible students enrolled.`,
+        'success'
+      );
+      await load(page);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to publish course';
+      showToast(msg, 'error');
+    } finally {
+      setCourseLoading(false);
+    }
+  };
+
+  const handleUnpublishSingleCourse = async (c: DHCourse) => {
+    setCourseLoading(true);
+    try {
+      await hodCoursesApi.unpublishCourse(c.id);
+      showToast(`Course ${c.code} unpublished. Students will no longer see it.`, 'info');
+      await load(page);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to unpublish course';
+      showToast(msg, 'error');
+    } finally {
+      setCourseLoading(false);
+    }
+  };
+
   const handlePublishCourses = async () => {
     if (courses.length === 0) {
       showToast('No courses to publish', 'error');
@@ -244,7 +275,7 @@ export const DHCoursesView: React.FC = () => {
     try {
       const result = await hodCoursesApi.publish();
       showToast(
-        `Published ${result.publishedCount} course${result.publishedCount !== 1 ? 's' : ''} to ${result.semesterName}!`,
+        `Published ${result.publishedCount} course${result.publishedCount !== 1 ? 's' : ''} to ${result.semesterName}! (${result.enrolledStudentsCount ?? 0} students enrolled)`,
         'success'
       );
       setPublishConfirm(false);
@@ -363,12 +394,35 @@ export const DHCoursesView: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="px-4 py-3.5">
-                      <Badge variant={c.status === 'ACTIVE' ? 'emerald' : 'glass'}>
-                        {c.status}
+                      <Badge variant={c.status === 'ACTIVE' ? 'emerald' : 'amber'}>
+                        {c.status === 'ACTIVE' ? 'PUBLISHED' : 'DRAFT'}
                       </Badge>
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
+                        {c.status !== 'ACTIVE' ? (
+                          <Button
+                            variant="primary"
+                            size="xs"
+                            icon={<Send className="w-3.5 h-3.5" />}
+                            onClick={() => handlePublishSingleCourse(c)}
+                            disabled={courseLoading}
+                            title="Publish Course to Department Students"
+                          >
+                            Publish
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => handleUnpublishSingleCourse(c)}
+                            disabled={courseLoading}
+                            className="text-(--text-muted) hover:text-(--status-warning)"
+                            title="Unpublish course from students"
+                          >
+                            Unpublish
+                          </Button>
+                        )}
                         <button 
                           onClick={() => handleEditCourse(c)} 
                           className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold) transition-colors" 
@@ -725,10 +779,10 @@ export const DHCoursesView: React.FC = () => {
       </Modal>
 
       {/* Publish Confirmation Modal */}
-      <Modal isOpen={publishConfirm} onClose={() => !publishLoading && setPublishConfirm(false)} title="Publish All Courses to Students" maxWidth="max-w-md">
+      <Modal isOpen={publishConfirm} onClose={() => !publishLoading && setPublishConfirm(false)} title="Publish Courses to Students" maxWidth="max-w-md">
         <div className="space-y-5">
           <p className="font-sans text-sm text-(--text-secondary) leading-relaxed">
-            You are about to publish <strong className="text-(--brand-gold)">all active courses</strong> to the current semester as course offerings that students can view.
+            You are about to publish courses to the current semester.
           </p>
           <div className="p-4 bg-(--accent-gold-subtle) border border-(--accent-gold-border) rounded-xl">
             <div className="flex items-start gap-3">
@@ -736,18 +790,13 @@ export const DHCoursesView: React.FC = () => {
               <div>
                 <p className="font-semibold text-sm text-(--text-primary) mb-2">What happens next?</p>
                 <ul className="text-xs text-(--text-secondary) space-y-1.5">
-                  <li>✓ Course offerings will be created for all active courses</li>
-                  <li>✓ Students can view published courses</li>
-                  <li>✓ Courses remain editable until a teacher is assigned</li>
-                  <li>✓ Once a teacher is assigned, the course is locked</li>
+                  <li>✓ Course offerings will be activated in the current semester</li>
+                  <li>✓ Finance- and Registrar-approved students in your department will be automatically enrolled</li>
+                  <li>✓ Courses will immediately appear in students&apos; &quot;My Courses&quot;</li>
+                  <li>✓ Students from other departments cannot see these courses</li>
                 </ul>
               </div>
             </div>
-          </div>
-          <div className="p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-lg">
-            <p className="text-xs text-(--text-faint)">
-              <strong className="text-(--text-secondary)">Note:</strong> Courses already published to the current semester will be skipped. You can create additional courses after publishing.
-            </p>
           </div>
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={() => setPublishConfirm(false)} disabled={publishLoading}>Cancel</Button>
@@ -758,7 +807,7 @@ export const DHCoursesView: React.FC = () => {
               disabled={publishLoading}
               icon={publishLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             >
-              {publishLoading ? 'Publishing…' : 'Publish All'}
+              {publishLoading ? 'Publishing…' : 'Publish Courses'}
             </Button>
           </div>
         </div>

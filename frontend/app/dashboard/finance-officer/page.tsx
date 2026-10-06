@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { FONavTab, FONotification } from '@/src/types/finance';
+import { FONavTab, FONotification, FOProfile } from '@/src/types/finance';
 import { foProfile, foNotifications as initialNotifs, reconciliationEntries, financeStudents } from '@/src/data/financeData';
 import { FOSidebar }           from '@/src/components/fo/FOSidebar';
 import { FOHeader }            from '@/src/components/fo/FOHeader';
@@ -24,6 +24,7 @@ import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView'
 import { MessagingView }               from '@/src/components/messaging/MessagingView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
+import { useNotifications } from '@/src/hooks/useNotifications';
 
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/src/lib/foApi';
 
@@ -78,9 +79,9 @@ export default function FinanceOfficerPage() {
   }, []);
 
   const { unreadCount } = useNotifications({
-    fetchFn:       () => foGetNotifications(),
-    markReadFn:    (id) => foMarkNotifRead(id),
-    markAllReadFn: () => foMarkAllNotifRead(),
+    fetchFn:       () => getNotifications(),
+    markReadFn:    (id) => markNotificationRead(id),
+    markAllReadFn: () => markAllNotificationsRead(),
   });
 
   // Fetch logged in user profile from auth API
@@ -168,7 +169,7 @@ export default function FinanceOfficerPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'overview':            return <FOOverviewView setActiveTab={setActiveTab} programType={programType} />;
+      case 'overview':            return <FOOverviewView setActiveTab={setActiveTab} programType={programType} profile={profile} />;
       case 'tuition_setup':       return <FOTuitionSetupView programType={programType} />;
       case 'payment_submissions': return <FOPaymentSubmissionsView programType={programType} />;
       case 'student_accounts':    return <FOStudentAccountsView programType={programType} />;

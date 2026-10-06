@@ -9,13 +9,13 @@ const PASSWORD_BCRYPT_ROUNDS = 12;
 export const INVITATION_LIFETIME_HOURS = 48;
 
 export interface CreateInvitationInput {
-  employeeCode:      string;
+  employeeCode?:     string;
   fullName:          string;
   email:             string;
   phone:             string;
   role:              Role;
   departmentId:      string;
-  positionTitle:     string;
+  positionTitle?:    string;
   gender:            'MALE' | 'FEMALE';
   employmentType:    'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN';
   basicSalary:       number;
@@ -179,8 +179,8 @@ export async function createStaffInvitation(
       fullName:        input.fullName.trim(),
       role:            input.role,
       departmentId:    resolvedDeptId,
-      positionTitle:   input.positionTitle.trim(),
-      employeeId:      input.employeeCode.trim(),  // Store the new employeeCode in the legacy employeeId field
+      positionTitle:   input.positionTitle?.trim() || 'Staff Member',
+      employeeId:      input.employeeCode?.trim() || null,  // Store the employee code if provided
       phone:           input.phone.trim(),
       specialization:  input.specialization?.trim() ?? null,
       tokenHash,
@@ -265,8 +265,15 @@ export async function createStaffInvitation(
     const defaultPosition = roleTitles[input.role] ?? 'Staff Member';
 
     if (!existingHREmployee && hrDeptId) {
-      // Use the provided employee code directly
-      let empCode = input.employeeCode.trim();
+      // Auto-generate employee code if not provided
+      let empCode = input.employeeCode?.trim() || '';
+      
+      // If no code provided or empty, generate one
+      if (!empCode) {
+        empCode = `HC-${Math.floor(10000 + Math.random() * 90000)}`;
+      }
+      
+      // Check for conflicts and regenerate if needed
       let codeConflict = await prisma.hREmployee.findUnique({ where: { employeeCode: empCode }, select: { id: true } });
       while (codeConflict) {
         empCode = `HC-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -280,7 +287,7 @@ export async function createStaffInvitation(
           email:            normalizedEmail,
           phone:            input.phone.trim(),
           departmentId:     hrDeptId,
-          position:         input.positionTitle.trim(),
+          position:         input.positionTitle?.trim() || 'Staff Member',
           systemRole:       input.role,
           employmentType:   input.employmentType,
           contractStatus:   'PROBATION',
@@ -302,8 +309,8 @@ export async function createStaffInvitation(
         where: { id: existingHREmployee.id },
         data: {
           systemRole:        input.role,
-          employeeCode:      input.employeeCode.trim(),
-          position:          input.positionTitle.trim(),
+          ...(input.employeeCode?.trim() && { employeeCode: input.employeeCode.trim() }),
+          position:          input.positionTitle?.trim() || 'Staff Member',
           phone:             input.phone.trim(),
           gender:            input.gender,
           employmentType:    input.employmentType,

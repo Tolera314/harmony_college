@@ -186,11 +186,29 @@ export interface StudentSummary {
   program: { id: string; name: string; code: string; totalCredits: number } | null;
   yearLevel: number; gpa: number; totalCredits: number; status: string;
   attendanceRate: number | null; activeEnrollments: number;
+  admittedAt: string | null;
 }
 
 export interface StudentsResponse {
   total: number; page: number; limit: number; totalPages: number;
   students: StudentSummary[];
+}
+
+export interface NewAdmission {
+  id:          string;
+  studentId:   string;
+  fullName:    string;
+  email:       string | null;
+  program:     { id: string; name: string; code: string } | null;
+  department:  { id: string; name: string; code: string } | null;
+  programType: string | null;
+  admittedAt:  string | null;
+}
+
+export interface NewAdmissionsResponse {
+  total:      number;
+  days:       number;
+  admissions: NewAdmission[];
 }
 
 export interface StudentDetail {
@@ -321,6 +339,11 @@ export const hodStudentsApi = {
     apiFetch<StudentDetail>(`${BASE}/students/${id}`),
 };
 
+export const hodNewAdmissionsApi = {
+  list: (days?: number) =>
+    apiFetch<NewAdmissionsResponse>(`${BASE}/students/new-admissions${qs({ days: days ?? 60 })}`),
+};
+
 export const hodReportsApi = {
   enrollment:  () => apiFetch<EnrollmentReport>(`${BASE}/reports/enrollment`),
   attendance:  () => apiFetch<AttendanceReport>(`${BASE}/reports/attendance`),
@@ -396,8 +419,18 @@ export const hodCoursesApi = {
     apiFetch<DHCourse>(`${BASE}/courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   toggleStatus: (id: string) =>
     apiFetch<{ id: string; status: string }>(`${BASE}/courses/${id}/toggle-status`, { method: 'PATCH' }),
+  publishCourse: (id: string) =>
+    apiFetch<{ success: boolean; course: DHCourse; enrolledStudentsCount: number }>(
+      `${BASE}/courses/${id}/publish`,
+      { method: 'POST' }
+    ),
+  unpublishCourse: (id: string) =>
+    apiFetch<DHCourse>(
+      `${BASE}/courses/${id}/unpublish`,
+      { method: 'POST' }
+    ),
   publish: () =>
-    apiFetch<{ semesterName: string; publishedCount: number; publishedCourses: { code: string; name: string }[] }>(
+    apiFetch<{ semesterName: string; publishedCount: number; enrolledStudentsCount?: number; publishedCourses: { code: string; name: string }[] }>(
       `${BASE}/courses/publish`,
       { method: 'POST' }
     ),

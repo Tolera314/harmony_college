@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { GraduationCap, Search, RefreshCw, ChevronDown } from 'lucide-react';
+import { GraduationCap, Search, RefreshCw, ChevronDown, Sparkles } from 'lucide-react';
 import { hodStudentsApi, type StudentSummary, type StudentDetail } from '../../../lib/hodApi';
 import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
@@ -17,6 +17,12 @@ const standingConfig = (gpa: number): { variant: 'emerald' | 'gold' | 'amber' | 
   if (gpa >= 3.0) return { variant: 'gold',    label: 'Good',      color: 'text-(--brand-gold)' };
   if (gpa >= 2.0) return { variant: 'amber',   label: 'Warning',   color: 'text-(--status-warning)' };
   return          { variant: 'rose',    label: 'Probation', color: 'text-(--status-danger)' };
+};
+
+const isNew = (admittedAt: string | null | undefined, daysThreshold = 30): boolean => {
+  if (!admittedAt) return false;
+  const diff = Date.now() - new Date(admittedAt).getTime();
+  return diff < daysThreshold * 24 * 60 * 60 * 1000;
 };
 
 const attColor = (rate: number | null) =>
@@ -47,7 +53,7 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
         search:    search || undefined,
         yearLevel: yearFilter ? parseInt(yearFilter) : undefined,
         status:    statusFilter || undefined,
-        programType,
+        // programType intentionally omitted — students are scoped by departmentId
       });
       setStudents(res.students);
       setTotal(res.total);
@@ -56,7 +62,7 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
     } finally {
       setLoading(false);
     }
-  }, [search, yearFilter, statusFilter, programType]);
+  }, [search, yearFilter, statusFilter]);
 
   useEffect(() => { load(page); }, [page, load]);
 
@@ -155,9 +161,17 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
                       </span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <Badge variant={s.status === 'ACTIVE' ? 'emerald' : s.status === 'SUSPENDED' ? 'rose' : 'amber'}>
-                        {s.status}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant={s.status === 'ACTIVE' ? 'emerald' : s.status === 'SUSPENDED' ? 'rose' : 'amber'}>
+                          {s.status}
+                        </Badge>
+                        {isNew(s.admittedAt) && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#E9C349]/20 border border-[#E9C349]/40 text-[10px] font-mono font-bold text-(--brand-gold) uppercase tracking-wider">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            New
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

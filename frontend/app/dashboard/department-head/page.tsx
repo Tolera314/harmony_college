@@ -24,7 +24,7 @@ import { MessagingView }           from '@/src/components/messaging/MessagingVie
 import { AnimatePresence, motion } from 'motion/react';
 import { ToggleLeft, ToggleRight } from 'lucide-react';
 import {
-  hodProfileApi, hodDashboardApi, hodNotificationsApi,
+  hodProfileApi, hodDashboardApi, hodNotificationsApi, hodNewAdmissionsApi,
   type HoDProfile, type ApiNotification,
 } from '@/src/lib/hodApi';
 import { useNotifications } from '@/src/hooks/useNotifications';
@@ -95,6 +95,7 @@ export default function DepartmentHeadPage() {
   const [notifications,        setNotifications]        = useState<ApiNotification[]>([]);
   const [pendingCount,         setPendingCount]         = useState(0);
   const [currentSemesterLabel, setCurrentSemesterLabel] = useState('');
+  const [newAdmissionsCount,   setNewAdmissionsCount]   = useState(0);
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -124,7 +125,16 @@ export default function DepartmentHeadPage() {
     }
   }, [dhProgramType]);
 
+  // Load new admissions count (last 30 days) for sidebar badge
+  const loadNewAdmissions = useCallback(async () => {
+    try {
+      const res = await hodNewAdmissionsApi.list(30);
+      setNewAdmissionsCount(res.total);
+    } catch { /* non-critical */ }
+  }, []);
+
   useEffect(() => { loadProfile(); }, [loadProfile]);
+  useEffect(() => { loadNewAdmissions(); }, [loadNewAdmissions]);
 
   // ── Load full notifications when tab opens ───────────────────────────────
   const loadNotifications = useCallback(async () => {
@@ -228,7 +238,9 @@ export default function DepartmentHeadPage() {
       <div className="dashboard-content">
         <DHSidebar
           activeTab={activeTab} setActiveTab={setActiveTab} profile={uiProfile}
-          pendingCount={pendingCount} unreadCount={unreadCount} onLogout={() => setLogoutOpen(true)}
+          pendingCount={pendingCount} unreadCount={unreadCount}
+          newAdmissionsCount={newAdmissionsCount}
+          onLogout={() => setLogoutOpen(true)}
         />
         <div className="flex-1 md:pl-20 xl:pl-64 flex flex-col min-h-screen overflow-y-auto max-w-full transition-all duration-300">
           <DHHeader

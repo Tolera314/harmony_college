@@ -257,25 +257,38 @@ router.patch('/screenshot', async (req: AuthRequest, res: Response): Promise<voi
       },
     });
 
-    // Notify registrar (best-effort)
+    // Also mark registrationFeePaid = true on StudentProfile so FO sees the record immediately
+    await prisma.studentProfile.upsert({
+      where:  { userId },
+      create: {
+        userId,
+        registrationFeePaid:   true,
+        registrationFeePaidAt: new Date(),
+      },
+      update: {
+        registrationFeePaid:   true,
+        registrationFeePaidAt: new Date(),
+      },
+    });
+
+    // Notify Finance Officer and Registrar (best-effort)
     try {
-      const registrars = await prisma.user.findMany({
-        where:  { role: { in: ['REGISTRAR', 'ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' },
-        select: { id: true },
-        take:   10,
+      const reviewers = await prisma.user.findMany({
+        where:  { role: { in: ['FINANCE_OFFICER', 'REGISTRAR', 'ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' },
+        select: { id: true, role: true },
+        take:   20,
       });
-      if (registrars.length > 0) {
+      if (reviewers.length > 0) {
         const student = await prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
-        // Fan-out: createNotification per registrar so each gets a socket push
-        await Promise.all(registrars.map(r =>
+        await Promise.all(reviewers.map(r =>
           createNotification({
             userId:     r.id,
-            title:      'New Registration Screenshot',
-            message:    `${student?.fullName ?? 'A student'} has submitted their registration screenshot for review.`,
+            title:      'New Registration Fee Receipt',
+            message:    `${student?.fullName ?? 'A student'} has submitted a registration fee receipt screenshot for review.`,
             type:       'INFO',
             entityType: 'Application',
             entityId:   app!.id,
-            actionTab:  'admissions',
+            actionTab:  r.role === 'FINANCE_OFFICER' ? 'registration_payments' : 'admissions',
           })
         ));
       }
