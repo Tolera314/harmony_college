@@ -23,14 +23,26 @@ function ip(req: AuthRequest): string | null {
 }
 
 const createInvitationSchema = z.object({
-  fullName:       z.string().min(2, 'Full name must be at least 2 characters long').max(100),
-  email:          z.string().email('Valid official email address is required'),
-  role:           z.nativeEnum(Role),
-  departmentId:   z.string().uuid('Valid department ID is required').optional().nullable(),
-  positionTitle:  z.string().max(100).optional(),
-  employeeId:     z.string().max(50).optional(),
-  phone:          z.string().max(20).optional(),
-  specialization: z.string().max(200).optional(),
+  employeeCode:      z.string().min(1).max(50).optional(),
+  fullName:          z.string().min(2, 'Full name must be at least 2 characters long').max(100),
+  email:             z.string().email('Valid official email address is required'),
+  phone:             z.string().min(10, 'Phone number must be at least 10 characters').max(20),
+  role:              z.nativeEnum(Role),
+  departmentId:      z.string().uuid('Valid department ID is required'),
+  positionTitle:     z.string().min(1).max(100).optional(),
+  gender:            z.enum(['MALE', 'FEMALE']),
+  employmentType:    z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']),
+  basicSalary:       z.number().min(0, 'Salary must be non-negative'),
+  hireDate:          z.string().optional(),
+  education:         z.string().max(500).optional(),
+  experienceYears:   z.number().int().min(0).max(50).optional(),
+  bankAccount:       z.string().max(50).optional(),
+  emergencyName:     z.string().max(100).optional(),
+  emergencyPhone:    z.string().max(20).optional(),
+  emergencyRelation: z.string().max(50).optional(),
+  // Optional legacy fields
+  employeeId:        z.string().max(50).optional(),
+  specialization:    z.string().max(200).optional(),
 });
 
 // POST /api/admin/invitations
@@ -43,12 +55,6 @@ adminInvitationsRouter.post('/', async (req: AuthRequest, res) => {
       const msg = firstIssue?.message ?? 'Validation failed';
       const error = field ? `${field}: ${msg}` : msg;
       res.status(400).json({ error, details: parsed.error.flatten() });
-      return;
-    }
-
-    const { role, departmentId } = parsed.data;
-    if ((role === Role.INSTRUCTOR || role === Role.DEPARTMENT_HEAD) && !departmentId) {
-      res.status(400).json({ error: 'Academic Department is required for Instructor and Department Head roles.' });
       return;
     }
 
@@ -132,14 +138,26 @@ adminInvitationsRouter.patch('/:id', async (req: AuthRequest, res) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const updateSchema = z.object({
-      fullName:       z.string().min(2, 'Full name must be at least 2 characters long').max(100).optional(),
-      email:          z.string().email('Valid official email address is required').optional(),
-      role:           z.nativeEnum(Role).optional(),
-      departmentId:   z.string().uuid('Valid department ID is required').optional().nullable(),
-      positionTitle:  z.string().max(100).optional(),
-      employeeId:     z.string().max(50).optional(),
-      phone:          z.string().max(20).optional(),
-      specialization: z.string().max(200).optional(),
+      employeeCode:      z.string().min(1).max(50).optional(),
+      fullName:          z.string().min(2, 'Full name must be at least 2 characters long').max(100).optional(),
+      email:             z.string().email('Valid official email address is required').optional(),
+      phone:             z.string().min(10).max(20).optional(),
+      role:              z.nativeEnum(Role).optional(),
+      departmentId:      z.string().uuid('Valid department ID is required').optional(),
+      positionTitle:     z.string().max(100).optional(),
+      gender:            z.enum(['MALE', 'FEMALE']).optional(),
+      employmentType:    z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']).optional(),
+      basicSalary:       z.number().min(0).optional(),
+      hireDate:          z.string().optional(),
+      education:         z.string().max(500).optional(),
+      experienceYears:   z.number().int().min(0).max(50).optional(),
+      bankAccount:       z.string().max(50).optional(),
+      emergencyName:     z.string().max(100).optional(),
+      emergencyPhone:    z.string().max(20).optional(),
+      emergencyRelation: z.string().max(50).optional(),
+      // Optional legacy fields
+      employeeId:        z.string().max(50).optional(),
+      specialization:    z.string().max(200).optional(),
     });
 
     const parsed = updateSchema.safeParse(req.body);

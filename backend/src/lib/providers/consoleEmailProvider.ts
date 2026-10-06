@@ -65,7 +65,14 @@ export class ConsoleEmailProvider implements EmailProvider {
     console.log(`   🔗 Invitation Link: ${params.invitationLink}`);
     console.log(`   ⏰ Expires:         ${params.expiresInHours} hours`);
     console.log(`   ✨ Template:        Beautiful Branded Email with Harmony College Logo`);
+    console.log(`   📝 Note:            HTML template is prepared (switch to EMAIL_PROVIDER=brevo to send)`);
     console.log(`────────────────────────────────────────────────────────────────────\n`);
+    
+    // Optionally show a preview link (if you want to see the actual HTML)
+    if (process.env.SHOW_EMAIL_HTML === 'true') {
+      console.log(`   📄 HTML Preview available in Brevo mode`);
+    }
+    
     return { success: true };
   }
 

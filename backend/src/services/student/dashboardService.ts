@@ -5,6 +5,8 @@
  * All queries are selective — no over-fetching.
  */
 import { prisma } from '../../lib/prisma';
+import { resolveDepartmentFamilyIds } from '../../lib/departmentHierarchy';
+import { syncStudentPublishedCourses } from './courseService';
 
 export async function getStudentDashboard(userId: string) {
   // 1. Resolve the student record from userId
@@ -18,6 +20,8 @@ export async function getStudentDashboard(userId: string) {
       totalCredits: true,
       status: true,
       admittedAt: true,
+      programType: true,
+      departmentId: true,
       program: {
         select: {
           id: true,
@@ -33,6 +37,8 @@ export async function getStudentDashboard(userId: string) {
           fullName: true,
           email: true,
           phone: true,
+          studentProfile: { select: { paymentVerifiedByFinance: true } },
+          application: { select: { status: true } },
         },
       },
       financialAccount: {
@@ -99,34 +105,51 @@ export async function getStudentDashboard(userId: string) {
   }
 
   // 2. Active enrollments with course + instructor + timetable
-  const enrollments = await prisma.enrollment.findMany({
-    where: {
-      studentRecordId: studentRecord.id,
-      status: { in: ['ACTIVE', 'FORCE_ADDED'] },
-    },
-    include: {
-      courseOffering: {
-        include: {
-          course: { select: { id: true, code: true, name: true, creditHours: true, description: true } },
-          semester: { include: { academicYear: { select: { name: true } } } },
-          instructor: {
-            include: {
-              user: { select: { fullName: true, email: true } },
-            },
-          },
-          room: { select: { name: true, building: true } },
-          timetables: { select: { dayOfWeek: true, startTime: true, endTime: true } },
-          _count: {
-            select: {
-              assignments: { where: { status: 'PUBLISHED' } },
-            },
+  const isFinanceApproved = studentRecord.user?.studentProfile?.paymentVerifiedByFinance === true;
+  const isRegistrarApproved = studentRecord.user?.application?.status === 'ACCEPTED';
+
+  let enrollments: any[] = [];
+  if (isFinanceApproved && isRegistrarApproved && studentRecord.status === 'ACTIVE') {
+    await syncStudentPublishedCourses(studentRecord.id);
+    const deptIds = await resolveDepartmentFamilyIds(studentRecord.departmentId);
+
+    enrollments = await prisma.enrollment.findMany({
+      where: {
+        studentRecordId: studentRecord.id,
+        status: { in: ['ACTIVE', 'FORCE_ADDED'] },
+        courseOffering: {
+          status: 'ACTIVE',
+          course: {
+            status: 'ACTIVE',
+            departmentId: { in: deptIds },
+            programType: studentRecord.programType,
           },
         },
       },
-      grade: { select: { letterGrade: true, gradePoints: true } },
-    },
-    orderBy: { enrolledAt: 'asc' },
-  });
+      include: {
+        courseOffering: {
+          include: {
+            course: { select: { id: true, code: true, name: true, creditHours: true, description: true } },
+            semester: { include: { academicYear: { select: { name: true } } } },
+            instructor: {
+              include: {
+                user: { select: { fullName: true, email: true } },
+              },
+            },
+            room: { select: { name: true, building: true } },
+            timetables: { select: { dayOfWeek: true, startTime: true, endTime: true } },
+            _count: {
+              select: {
+                assignments: { where: { status: 'PUBLISHED' } },
+              },
+            },
+          },
+        },
+        grade: { select: { letterGrade: true, gradePoints: true } },
+      },
+      orderBy: { enrolledAt: 'asc' },
+    });
+  }
 
   // 3. Today's timetable — find slots for today's day-of-week
   const todayDow = new Date().getDay(); // 0=Sun, 1=Mon, ...

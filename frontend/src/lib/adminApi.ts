@@ -218,10 +218,22 @@ export const adminInvitationsApi = {
     fullName: string;
     email: string;
     role: string;
-    departmentId?: string | null;
-    positionTitle?: string;
-    employeeId?: string;
+    employeeCode?: string;
     phone?: string;
+    departmentId?: string;
+    positionTitle?: string;
+    gender?: 'MALE' | 'FEMALE';
+    employmentType?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN';
+    basicSalary?: number;
+    hireDate?: string;
+    education?: string;
+    experienceYears?: number;
+    bankAccount?: string;
+    emergencyName?: string;
+    emergencyPhone?: string;
+    emergencyRelation?: string;
+    // Optional legacy fields
+    employeeId?: string;
     specialization?: string;
   }) => apiFetch<{ success: boolean; message: string; invitation: ApiStaffInvitation; emailWarning?: string; invitationLink?: string }>('/api/admin/invitations', {
     method: 'POST',
@@ -229,13 +241,18 @@ export const adminInvitationsApi = {
   }),
 
   update: (id: string, data: {
+    employeeCode?: string;
     fullName?: string;
     email?: string;
-    role?: string;
-    departmentId?: string | null;
-    positionTitle?: string;
-    employeeId?: string;
     phone?: string;
+    role?: string;
+    departmentId?: string;
+    positionTitle?: string;
+    gender?: 'MALE' | 'FEMALE';
+    employmentType?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN';
+    basicSalary?: number;
+    // Optional legacy fields
+    employeeId?: string;
     specialization?: string;
   }) => apiFetch<{ success: boolean; message: string; invitation: ApiStaffInvitation; emailWarning?: string; invitationLink?: string }>(`/api/admin/invitations/${id}`, {
     method: 'PATCH',

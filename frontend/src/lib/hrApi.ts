@@ -33,7 +33,7 @@ function qs(params: Record<string, unknown>): string {
 
 export type HREmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN';
 export type HRContractStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED' | 'PROBATION';
-export type HREmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE' | 'TERMINATED';
+export type HREmployeeStatus = 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE' | 'TERMINATED';
 export type HRGender         = 'MALE' | 'FEMALE';
 export type HRLeaveType      = 'ANNUAL' | 'SICK' | 'MATERNITY' | 'PATERNITY' | 'EMERGENCY' | 'STUDY';
 export type HRLeaveStatus    = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FORWARDED' | 'CANCELLED';
@@ -53,7 +53,7 @@ export const CONTRACT_STATUS_LABEL: Record<HRContractStatus, string> = {
   ACTIVE: 'Active', EXPIRING_SOON: 'Expiring Soon', EXPIRED: 'Expired', PROBATION: 'Probation',
 };
 export const EMPLOYEE_STATUS_LABEL: Record<HREmployeeStatus, string> = {
-  ACTIVE: 'Active', INACTIVE: 'Inactive', ON_LEAVE: 'On Leave', TERMINATED: 'Terminated',
+  PENDING: 'Pending', ACTIVE: 'Active', INACTIVE: 'Inactive', ON_LEAVE: 'On Leave', TERMINATED: 'Terminated',
 };
 export const LEAVE_TYPE_LABEL: Record<HRLeaveType, string> = {
   ANNUAL: 'Annual', SICK: 'Sick', MATERNITY: 'Maternity', PATERNITY: 'Paternity',
@@ -292,6 +292,9 @@ export const hrEmployeesApi = {
 
   update: (id: string, data: Record<string, unknown>) =>
     apiFetch<HREmployeeApi>(`/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/employees/${id}`, { method: 'DELETE' }),
 
   deactivate: (id: string) =>
     apiFetch<HREmployeeApi>(`/employees/${id}/deactivate`, { method: 'PATCH' }),

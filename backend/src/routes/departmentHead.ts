@@ -152,6 +152,14 @@ router.get('/students', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
+router.get('/students/new-admissions', async (req: AuthRequest, res) => {
+  try {
+    const q = qp(req);
+    const days = q.days ? parseInt(q.days, 10) : 60;
+    ok(res, await svc.getNewAdmissions(req.user!.userId, days));
+  } catch (e) { fail(res, e); }
+});
+
 router.get('/students/:id', async (req: AuthRequest, res) => {
   try { ok(res, await svc.getStudentDetail(req.user!.userId, pid(req))); }
   catch (e) { fail(res, e); }
@@ -427,6 +435,16 @@ router.patch('/courses/:id', async (req: AuthRequest, res) => {
 
 router.patch('/courses/:id/toggle-status', async (req: AuthRequest, res) => {
   try { ok(res, await svc.toggleCourseStatus(req.user!.userId, pid(req))); }
+  catch (e) { fail(res, e); }
+});
+
+router.post('/courses/:id/publish', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.publishCourse(req.user!.userId, pid(req))); }
+  catch (e) { fail(res, e); }
+});
+
+router.post('/courses/:id/unpublish', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.unpublishCourse(req.user!.userId, pid(req))); }
   catch (e) { fail(res, e); }
 });
 

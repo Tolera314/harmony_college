@@ -54,53 +54,63 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const [revenueYoYPct,    setRevenueYoYPct]    = useState<number | null>(null);
   const [collectionsYoYPct,setCollectionsYoYPct]= useState<number | null>(null);
   const [kpis,             setKpis]             = useState<any>({});
+  const [summaryData,      setSummaryData]      = useState<any>(null);
+  const [overviewData,     setOverviewData]     = useState<any>(null);
+  const [agedData,         setAgedData]         = useState<any>(null);
+  const [loading,          setLoading]          = useState(false);
+  const [error,            setError]            = useState<string | null>(null);
 
-  // Load summary on tab change
-  useEffect(() => {
-    getFinancialSummaryReport(activeReport)
-      .then((data: any) => {
-        if (!data) return;
-        if (data.monthlyRevenue    && Array.isArray(data.monthlyRevenue))    setMonthlyRevenue(data.monthlyRevenue);
-        if (data.methodBreakdown   && Array.isArray(data.methodBreakdown))   setMethodBreakdown(data.methodBreakdown);
-        if (data.departments       && Array.isArray(data.departments))       setDepartments(data.departments);
-        if (data.dailyCollections  && Array.isArray(data.dailyCollections))  setDailyData(data.dailyCollections);
-        if (data.academicYearLabel)                                          setAcademicYear(data.academicYearLabel);
-        if (data.revenueYoYPct !== undefined)                                setRevenueYoYPct(data.revenueYoYPct);
-        if (data.collectionsYoYPct !== undefined)                            setCollectionsYoYPct(data.collectionsYoYPct);
-        if (data.kpis)                                                        setKpis((p: any) => ({ ...p, ...data.kpis }));
-      })
-      .catch(() => { /* keep defaults */ });
+  const fetchReports = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [summaryRes, agedRes, overviewRes] = await Promise.allSettled([
+        getFinancialSummaryReport(activeReport),
+        getAgedReceivablesReport(),
+        getOverviewData(programType),
+      ]);
 
-    if (activeReport === 'outstanding') {
-      getAgedReceivablesReport()
-        .then((data: any) => {
-          if (data && Array.isArray(data.accounts)) setAgedReceivables(data.accounts);
-        })
-        .catch(() => {});
+      if (summaryRes.status === 'fulfilled' && summaryRes.value) {
+        const data = summaryRes.value as any;
+        setSummaryData(data);
+        if (data.monthlyRevenue && Array.isArray(data.monthlyRevenue)) setMonthlyRevenue(data.monthlyRevenue);
+        if (data.methodBreakdown && Array.isArray(data.methodBreakdown)) setMethodBreakdown(data.methodBreakdown);
+        if (data.departments && Array.isArray(data.departments)) setDepartments(data.departments);
+        if (data.dailyCollections && Array.isArray(data.dailyCollections)) setDailyData(data.dailyCollections);
+        if (data.academicYearLabel) setAcademicYear(data.academicYearLabel);
+        if (data.revenueYoYPct !== undefined) setRevenueYoYPct(data.revenueYoYPct);
+        if (data.collectionsYoYPct !== undefined) setCollectionsYoYPct(data.collectionsYoYPct);
+        if (data.kpis) setKpis((p: any) => ({ ...p, ...data.kpis }));
+      }
+
+      if (agedRes.status === 'fulfilled' && agedRes.value) {
+        const data = agedRes.value as any;
+        setAgedData(data);
+        if (Array.isArray(data.accounts)) setAgedReceivables(data.accounts);
+      }
+
+      if (overviewRes.status === 'fulfilled' && overviewRes.value) {
+        setOverviewData(overviewRes.value);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load report data.');
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [activeReport, programType]);
 
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
 
   // Derived datasets directly from Prisma database API response
-  const monthlyRevenue = overviewData?.monthlyRevenue || [];
-  const paymentMethodBreakdown = overviewData?.paymentMethodBreakdown || [];
   const rawDepartments = summaryData?.departmentBreakdown || overviewData?.departmentRevenue || [];
-  
-  const departments = rawDepartments.map((d: any) => ({
-    id: d.department || d.id,
-    name: d.department || d.name || 'General',
-    code: d.department ? d.department.slice(0, 4).toUpperCase() : d.code || 'DEPT',
-    studentCount: d.studentCount || 0,
-    totalRevenue: d.revenue || 0,
-    outstandingBalance: d.outstanding || 0,
-  }));
+  const paymentMethodBreakdown = methodBreakdown;
+  const totalMethodAmount = paymentMethodBreakdown.reduce((s: number, p: any) => s + (p.amount || 0), 0);
 
-  const totalRevenue = summaryData?.totalBilledRevenue ?? overviewData?.kpis?.totalRevenue ?? 0;
-  const totalCollected = summaryData?.totalCollectedRevenue ?? overviewData?.kpis?.totalCollections ?? 0;
-  const totalOutstanding = summaryData?.totalOutstanding ?? overviewData?.kpis?.totalOutstanding ?? 0;
+  const totalRevenue = summaryData?.totalBilledRevenue ?? overviewData?.kpis?.totalRevenue ?? kpis?.totalRevenue ?? 0;
+  const totalCollected = summaryData?.totalCollectedRevenue ?? overviewData?.kpis?.totalCollections ?? kpis?.totalCollections ?? 0;
+  const totalOutstanding = summaryData?.totalOutstanding ?? overviewData?.kpis?.totalOutstanding ?? kpis?.totalOutstanding ?? 0;
   const collectionRate = totalRevenue > 0 ? ((totalCollected / totalRevenue) * 100).toFixed(1) : '0.0';
 
   // ── Export Handlers ────────────────────────────────────────────────────────
@@ -230,10 +240,7 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const groupedBarData    = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.revenue ?? 0, secondary: m.target ?? 0 }));
   const cashFlowBars      = monthlyRevenue.map((m: any) => ({ label: m.month, primary: m.collections ?? 0, secondary: m.revenue ?? 0 }));
 
-  const totalRevenue    = monthlyRevenue.reduce((s, m) => s + m.revenue, 0);
-  const totalCollected  = monthlyRevenue.reduce((s, m) => s + m.collections, 0);
-  const totalOutstanding = departments.reduce((s, d) => s + d.outstandingBalance, 0);
-  const collectionRate  = totalRevenue > 0 ? ((totalCollected / totalRevenue) * 100).toFixed(1) : '0.0';
+  // totalRevenue, totalCollected, totalOutstanding, collectionRate are defined above
 
   // ── Summary KPI strip ───────────────────────────────────────────────────────
   const summaryKpis = [
@@ -355,62 +362,6 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
           {[...Array(3)].map((_, i) => (
             <div key={i} className="h-48 rounded-2xl animate-pulse bg-(--hover-overlay) border border-(--border-subtle)" />
           ))}
-      {/* ── Revenue by Period ─────────────────────────────────────────────────── */}
-      {activeReport === 'revenue' && (
-        <div className="space-y-6">
-          <Card hoverable={false} className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <h3 className="font-serif text-lg font-bold text-(--text-primary)">Monthly Revenue vs Target</h3>
-                <p className="font-sans text-xs text-(--text-faint) mt-0.5">Academic Year {academicYear}</p>
-              </div>
-              {revenueYoYPct !== null ? (
-                <Badge variant={revenueYoYPct >= 0 ? "emerald" : "rose"}>
-                  {revenueYoYPct >= 0 ? '+' : ''}{revenueYoYPct}% YoY
-                </Badge>
-              ) : (
-                <Badge variant="emerald">{academicYear} Active</Badge>
-              )}
-            </div>
-            <GroupedBarChart data={groupedBarData} height={180} primaryLabel="Revenue" secondaryLabel="Target" />
-          </Card>
-          <Card hoverable={false} className="space-y-4">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Revenue Trend Line</h3>
-            <RevenueLineChart data={revenueLineData} secondaryData={targetLineData} height={160} label="Revenue" secondaryLabel="Target" />
-          </Card>
-          {/* Monthly table */}
-          <Card hoverable={false} className="overflow-x-auto">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Monthly Breakdown</h3>
-            <table className="w-full text-xs font-sans min-w-[500px]">
-              <thead className="border-b border-(--border-default)">
-                <tr>
-                  {['Month','Revenue','Target','Collections','Variance','Rate'].map((h) => (
-                    <th key={h} className="pb-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider pr-4">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle)">
-                {monthlyRevenue.map((m) => {
-                  const variance = m.revenue - m.target;
-                  const rate = ((m.collections / m.revenue) * 100).toFixed(1);
-                  return (
-                    <tr key={m.month} className="hover:bg-white/3 transition-colors">
-                      <td className="py-3 pr-4 font-mono text-sm text-(--text-primary) font-bold">{m.month}</td>
-                      <td className="py-3 pr-4 font-mono text-sm text-(--brand-gold)">ETB {fmtETB(m.revenue)}</td>
-                      <td className="py-3 pr-4 font-mono text-sm text-(--text-muted)">ETB {fmtETB(m.target)}</td>
-                      <td className="py-3 pr-4 font-mono text-sm text-(--status-success)">ETB {fmtETB(m.collections)}</td>
-                      <td className="py-3 pr-4">
-                        <span className={`font-mono text-xs ${variance >= 0 ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>
-                          {variance >= 0 ? '+' : ''}ETB {fmtETB(Math.abs(variance))}
-                        </span>
-                      </td>
-                      <td className="py-3 font-mono text-sm text-(--text-secondary)">{rate}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Card>
         </div>
       ) : error ? (
         <div className="p-8 rounded-2xl text-center border bg-(--hover-overlay) border-(--border-subtle)">
@@ -556,49 +507,9 @@ export const FOReportsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                 </Card>
               </div>
             </div>
-            <RevenueLineChart data={outstandingLine} color="#f87171" height={160} />
-          </Card>
-          <Card hoverable={false} className="space-y-4">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary)">Outstanding by Department</h3>
-            <HorizontalBarChart data={outstandingBars} />
-          </Card>
-          <Card hoverable={false} className="overflow-x-auto">
-            <h3 className="font-serif text-lg font-bold text-(--text-primary) mb-4">Student Outstanding Summary</h3>
-            <table className="w-full text-xs font-sans min-w-[600px]">
-              <thead className="border-b border-(--border-default)">
-                <tr>
-                  {['Student','Program','Total Charged','Paid','Outstanding','Risk'].map((h) => (
-                    <th key={h} className="pb-3 text-left font-mono text-[10px] text-(--text-faint) uppercase tracking-wider pr-4">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle)">
-                {agedReceivables.filter((s: any) => (s.balance ?? s.outstanding ?? 0) > 0).sort((a: any, b: any) => (b.balance ?? 0) - (a.balance ?? 0)).map((s: any) => (
-                  <tr key={s.id ?? s.studentId} className="hover:bg-white/3 transition-colors">
-                    <td className="py-3 pr-4">
-                      <p className="font-sans text-sm text-(--text-primary) font-medium">{s.studentName ?? s.name}</p>
-                      <p className="font-mono text-[10px] text-(--text-faint)">{s.studentId}</p>
-                    </td>
-                    <td className="py-3 pr-4 font-sans text-xs text-(--text-secondary) max-w-[130px]"><span className="truncate block">{s.programName ?? s.department ?? 'N/A'}</span></td>
-                    <td className="py-3 pr-4 font-mono text-sm text-(--text-secondary)">ETB {fmtETB(s.totalCharged ?? s.charged ?? 0)}</td>
-                    <td className="py-3 pr-4 font-mono text-sm text-(--status-success)">ETB {fmtETB(s.totalPaid ?? s.paid ?? 0)}</td>
-                    <td className="py-3 pr-4 font-mono text-sm font-bold text-(--status-danger)">ETB {fmtETB(s.balance ?? s.outstanding ?? 0)}</td>
-                    <td className="py-3">
-                      <span className={`font-mono text-xs font-bold ${
-                        s.riskLevel === 'Critical' ? 'text-(--status-danger)' :
-                        s.riskLevel === 'High'     ? 'text-orange-400' :
-                        s.riskLevel === 'Medium'   ? 'text-(--status-warning)' : 'text-(--status-success)'
-                      }`}>{s.riskLevel}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        </div>
-      )}
+          )}
 
-          {/* Aged Receivables Tab */}
+          {/* Aged Receivables / Outstanding Tab */}
           {activeReport === 'outstanding' && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

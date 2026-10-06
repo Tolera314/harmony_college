@@ -6,7 +6,7 @@ import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Users2, Search, RefreshCw, ChevronLeft, ChevronRight, Eye,
   Send, CheckCircle2, XCircle, AlertTriangle, FileText,
-  User, Calendar, Mail, UserCheck, Check, Clock, Undo2, Lock
+  User, Calendar, Mail, UserCheck, Check, Clock, Undo2, Lock, Edit, Trash2
 } from 'lucide-react';
 import { DHPageHeader } from '../../dh/DHPageHeader';
 import { Card } from '../../ui/Card';
@@ -82,11 +82,23 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
   const [invLoading, setInvLoading]       = useState(false);
   const [invError, setInvError]           = useState('');
   const [inviteOpen, setInviteOpen]       = useState(false);
+  const [inviteEmpCode, setInviteEmpCode] = useState('');
   const [inviteName, setInviteName]       = useState('');
   const [inviteEmail, setInviteEmail]     = useState('');
+  const [invitePhone, setInvitePhone]     = useState('');
   const [inviteRole, setInviteRole]       = useState('INSTRUCTOR');
   const [inviteDeptId, setInviteDeptId]   = useState('');
   const [inviteTitle, setInviteTitle]     = useState('');
+  const [inviteGender, setInviteGender]   = useState<any>('MALE');
+  const [inviteEmpType, setInviteEmpType] = useState<any>('FULL_TIME');
+  const [inviteSalary, setInviteSalary]   = useState('15000');
+  const [inviteHireDate, setInviteHireDate] = useState(new Date().toISOString().split('T')[0]);
+  const [inviteEducation, setInviteEducation]     = useState('');
+  const [inviteExperience, setInviteExperience]   = useState('0');
+  const [inviteBankAccount, setInviteBankAccount] = useState('');
+  const [inviteEmergencyName, setInviteEmergencyName]     = useState('');
+  const [inviteEmergencyPhone, setInviteEmergencyPhone]   = useState('');
+  const [inviteEmergencyRelation, setInviteEmergencyRelation] = useState('');
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [inviteError, setInviteError]     = useState('');
 
@@ -112,6 +124,27 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [employeeDetail, setEmployeeDetail]         = useState<HREmployeeApi | null>(null);
   const [empDetailLoading, setEmpDetailLoading]     = useState(false);
+  const [isEditingEmployee, setIsEditingEmployee]   = useState(false);
+
+  // Edit Employee State
+  const [editEmpCode, setEditEmpCode]               = useState('');
+  const [editEmpName, setEditEmpName]               = useState('');
+  const [editEmpEmail, setEditEmpEmail]             = useState('');
+  const [editEmpPhone, setEditEmpPhone]             = useState('');
+  const [editEmpPos, setEditEmpPos]                 = useState('');
+  const [editEmpDept, setEditEmpDept]               = useState('');
+  const [editEmpGender, setEditEmpGender]           = useState<any>('MALE');
+  const [editEmpType, setEditEmpType]               = useState<any>('FULL_TIME');
+  const [editEmpSalary, setEditEmpSalary]           = useState('0');
+  const [editEmpHireDate, setEditEmpHireDate]       = useState('');
+  const [editEmpEducation, setEditEmpEducation]     = useState('');
+  const [editEmpExperience, setEditEmpExperience]   = useState('0');
+  const [editEmpBankAccount, setEditEmpBankAccount] = useState('');
+  const [editEmpEmergencyName, setEditEmpEmergencyName]     = useState('');
+  const [editEmpEmergencyPhone, setEditEmpEmergencyPhone]   = useState('');
+  const [editEmpEmergencyRelation, setEditEmpEmergencyRelation] = useState('');
+  const [editSubmitting, setEditSubmitting]         = useState(false);
+  const [editEmpError, setEditEmpError]             = useState('');
 
   // Create Employee Modal
   const [createEmpOpen, setCreateEmpOpen] = useState(false);
@@ -240,23 +273,51 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
   // ── Submit New Staff Invitation
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isAcademic = inviteRole === 'INSTRUCTOR' || inviteRole === 'DEPARTMENT_HEAD';
-    if (!inviteName || !inviteEmail || (isAcademic && !inviteDeptId)) {
-      setInviteError(`Name, email, and ${isAcademic ? 'academic department ' : ''}are required`);
+    if (!inviteEmpCode || !inviteName || !inviteEmail || !invitePhone || !inviteTitle || !inviteDeptId) {
+      setInviteError('All required fields must be filled');
       return;
     }
 
     setInviteError(''); setInviteSubmitting(true);
     try {
       const res = await adminInvitationsApi.create({
-        fullName: inviteName.trim(),
-        email: inviteEmail.trim(),
-        role: inviteRole,
-        departmentId: isAcademic ? (inviteDeptId || undefined) : undefined,
-        positionTitle: inviteTitle.trim() || undefined,
+        employeeCode:      inviteEmpCode.trim(),
+        fullName:          inviteName.trim(),
+        email:             inviteEmail.trim(),
+        phone:             invitePhone.trim(),
+        role:              inviteRole,
+        departmentId:      inviteDeptId,
+        positionTitle:     inviteTitle.trim(),
+        gender:            inviteGender,
+        employmentType:    inviteEmpType,
+        basicSalary:       parseFloat(inviteSalary) || 15000,
+        hireDate:          inviteHireDate,
+        education:         inviteEducation.trim() || undefined,
+        experienceYears:   parseInt(inviteExperience) || 0,
+        bankAccount:       inviteBankAccount.trim() || undefined,
+        emergencyName:     inviteEmergencyName.trim() || undefined,
+        emergencyPhone:    inviteEmergencyPhone.trim() || undefined,
+        emergencyRelation: inviteEmergencyRelation.trim() || undefined,
       });
       showToast(res.message || `Invitation sent to ${inviteEmail}`, 'success');
-      setInviteOpen(false); setInviteName(''); setInviteEmail(''); setInviteTitle('');
+      setInviteOpen(false); 
+      // Reset all fields
+      setInviteEmpCode(''); 
+      setInviteName(''); 
+      setInviteEmail(''); 
+      setInvitePhone('');
+      setInviteTitle('');
+      setInviteDeptId('');
+      setInviteGender('MALE');
+      setInviteEmpType('FULL_TIME');
+      setInviteSalary('15000');
+      setInviteHireDate(new Date().toISOString().split('T')[0]);
+      setInviteEducation('');
+      setInviteExperience('0');
+      setInviteBankAccount('');
+      setInviteEmergencyName('');
+      setInviteEmergencyPhone('');
+      setInviteEmergencyRelation('');
       fetchInvitations();
     } catch (err: any) {
       setInviteError(err.message ?? 'Failed to send staff invitation');
@@ -333,12 +394,84 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
     }
   };
 
+  // ── Handle Update Employee
+  const handleUpdateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editEmpName || !editEmpEmail || !editEmpPos || !editEmpDept) {
+      setEditEmpError('Name, email, position, and department are required');
+      return;
+    }
+    if (!employeeDetail) return;
+
+    setEditEmpError(''); setEditSubmitting(true);
+    try {
+      await hrEmployeesApi.update(employeeDetail.id, {
+        fullName: editEmpName.trim(),
+        email: editEmpEmail.trim(),
+        phone: editEmpPhone.trim() || undefined,
+        position: editEmpPos.trim(),
+        departmentId: editEmpDept,
+        gender: editEmpGender,
+        employmentType: editEmpType,
+        basicSalary: parseFloat(editEmpSalary) || 0,
+        hireDate: editEmpHireDate,
+        education: editEmpEducation.trim() || undefined,
+        experienceYears: parseInt(editEmpExperience) || 0,
+        bankAccount: editEmpBankAccount.trim() || undefined,
+        emergencyName: editEmpEmergencyName.trim() || undefined,
+        emergencyPhone: editEmpEmergencyPhone.trim() || undefined,
+        emergencyRelation: editEmpEmergencyRelation.trim() || undefined,
+      });
+      showToast(`Employee record updated for ${editEmpName}!`, 'success');
+      setIsEditingEmployee(false);
+      openEmployeeDetail(employeeDetail.id); // Refresh
+      fetchEmployees();
+    } catch (err: any) {
+      setEditEmpError(err.message ?? 'Failed to update employee record');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  // ── Handle Delete Employee
+  const handleDeleteEmployee = async (empId: string, empName: string) => {
+    if (!confirm(`Are you sure you want to delete employee "${empName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await hrEmployeesApi.delete(empId);
+      showToast(`Employee "${empName}" has been deleted`, 'success');
+      setSelectedEmployeeId(null);
+      fetchEmployees();
+    } catch (err: any) {
+      showToast(err.message ?? 'Failed to delete employee', 'error');
+    }
+  };
+
   // ── Open Employee Detail Drawer
   const openEmployeeDetail = async (empId: string) => {
-    setSelectedEmployeeId(empId); setEmpDetailLoading(true); setEmployeeDetail(null);
+    setSelectedEmployeeId(empId); setEmpDetailLoading(true); setEmployeeDetail(null); setIsEditingEmployee(false);
     try {
       const full = await hrEmployeesApi.getFullById(empId);
       setEmployeeDetail(full);
+      // Populate edit fields
+      setEditEmpCode(full.employeeCode);
+      setEditEmpName(full.fullName);
+      setEditEmpEmail(full.email);
+      setEditEmpPhone(full.phone || '');
+      setEditEmpPos(full.position);
+      setEditEmpDept(full.department?.id || '');
+      setEditEmpGender(full.gender || 'MALE');
+      setEditEmpType(full.employmentType);
+      setEditEmpSalary(full.basicSalary.toString());
+      setEditEmpHireDate(full.hireDate?.split('T')[0] || '');
+      setEditEmpEducation(full.education || '');
+      setEditEmpExperience(full.experienceYears?.toString() || '0');
+      setEditEmpBankAccount(full.bankAccount || '');
+      setEditEmpEmergencyName(full.emergencyName || '');
+      setEditEmpEmergencyPhone(full.emergencyPhone || '');
+      setEditEmpEmergencyRelation(full.emergencyRelation || '');
     } catch (e: any) {
       showToast(e.message ?? 'Failed to load employee details', 'error');
       setSelectedEmployeeId(null);
@@ -485,7 +618,12 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
                           <Badge variant="glass">{EMPLOYMENT_TYPE_LABEL[emp.employmentType] ?? emp.employmentType}</Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${emp.status === 'ACTIVE' ? 'bg-(--status-success-bg) text-(--status-success)' : emp.status === 'ON_LEAVE' ? 'bg-(--status-info-bg) text-(--status-info)' : 'bg-(--status-danger-bg) text-(--status-danger)'}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                            emp.status === 'ACTIVE' ? 'bg-(--status-success-bg) text-(--status-success)' : 
+                            emp.status === 'PENDING' ? 'bg-(--status-warning-bg) text-(--status-warning)' :
+                            emp.status === 'ON_LEAVE' ? 'bg-(--status-info-bg) text-(--status-info)' : 
+                            'bg-(--status-danger-bg) text-(--status-danger)'
+                          }`}>
                             {EMPLOYEE_STATUS_LABEL[emp.status] ?? emp.status}
                           </span>
                         </td>
@@ -493,9 +631,14 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
                           {formatDate(emp.hireDate)}
                         </td>
                         <td className="px-4 py-3">
-                          <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />} onClick={() => openEmployeeDetail(emp.id)}>
-                            View Profile
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" />} onClick={() => openEmployeeDetail(emp.id)}>
+                              View
+                            </Button>
+                            <Button variant="ghost" size="sm" icon={<Trash2 className="w-3.5 h-3.5 text-(--status-danger)" />} onClick={() => handleDeleteEmployee(emp.id, emp.fullName)}>
+                              Delete
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -741,8 +884,8 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
               <Input type="email" placeholder="abebe@harmony.edu.et" value={newEmpEmail} onChange={e => setNewEmpEmail(e.target.value)} required />
             </div>
             <div>
-              <label className="block text-xs font-sans text-(--text-muted) mb-1">Phone Number</label>
-              <Input placeholder="+251 91 123 4567" value={newEmpPhone} onChange={e => setNewEmpPhone(e.target.value)} />
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Phone Number *</label>
+              <Input placeholder="+251 91 123 4567" value={newEmpPhone} onChange={e => setNewEmpPhone(e.target.value)} required />
             </div>
           </div>
 
@@ -796,7 +939,7 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
       </SlidePanel>
 
       {/* NEW STAFF INVITATION SLIDE PANEL */}
-      <SlidePanel isOpen={inviteOpen} onClose={() => setInviteOpen(false)} title="Issue Staff Invitation" subtitle="Send a secure email invitation to onboard new staff" width="max-w-xl">
+      <SlidePanel isOpen={inviteOpen} onClose={() => setInviteOpen(false)} title="Issue Staff Invitation" subtitle="Send a secure email invitation to onboard new staff" width="max-w-2xl">
         <form onSubmit={handleSendInvite} className="px-6 py-5 space-y-4">
           {inviteError && <InlineError message={inviteError} />}
 
@@ -805,31 +948,40 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
             <span>The staff member will receive a secure email link to set their own password and activate their account.</span>
           </div>
 
-          <div>
-            <label className="block text-xs font-sans text-(--text-muted) mb-1">Full Name</label>
-            <Input placeholder="e.g. Dr. Almaz Worku" value={inviteName} onChange={e => setInviteName(e.target.value)} required />
-          </div>
-
-          <div>
-            <label className="block text-xs font-sans text-(--text-muted) mb-1">Personal Email Address *</label>
-            <Input type="email" placeholder="staff@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
-          </div>
-
-          <div className={`grid grid-cols-1 ${inviteRole === 'INSTRUCTOR' || inviteRole === 'DEPARTMENT_HEAD' ? 'sm:grid-cols-2' : ''} gap-3`}>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans text-(--text-muted) mb-1">Staff Role</label>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Employee Code</label>
+              <Input placeholder="e.g. HC-FAC-0089" value={inviteEmpCode} onChange={e => setInviteEmpCode(e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Full Name</label>
+              <Input placeholder="e.g. Dr. Almaz Worku" value={inviteName} onChange={e => setInviteName(e.target.value)} required />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Email Address</label>
+              <Input type="email" placeholder="staff@harmony.edu.et" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Phone Number *</label>
+              <Input placeholder="+251 91 123 4567" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} required />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Position Title</label>
+              <Input placeholder="e.g. Associate Professor" value={inviteTitle} onChange={e => setInviteTitle(e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Staff Role (System Access)</label>
               <select
                 value={inviteRole}
-                onChange={e => {
-                  const r = e.target.value;
-                  setInviteRole(r);
-                  if (r === 'INSTRUCTOR' || r === 'DEPARTMENT_HEAD') {
-                    if (!inviteDeptId && acadDepartments.length > 0) setInviteDeptId(acadDepartments[0].id);
-                  } else {
-                    setInviteDeptId('');
-                  }
-                }}
-                className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)"
+                onChange={e => setInviteRole(e.target.value)}
+                className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+                required
               >
                 <option value="INSTRUCTOR">Instructor / Lecturer</option>
                 <option value="DEPARTMENT_HEAD">Department Head (HoD)</option>
@@ -838,20 +990,82 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
                 <option value="FINANCE_OFFICER">Finance Officer</option>
               </select>
             </div>
-            {(inviteRole === 'INSTRUCTOR' || inviteRole === 'DEPARTMENT_HEAD') && (
-              <div>
-                <label className="block text-xs font-sans text-(--text-muted) mb-1">Academic Department *</label>
-                <select value={inviteDeptId} onChange={e => setInviteDeptId(e.target.value)} className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)" required>
-                  <option value="">-- Choose Department --</option>
-                  {acadDepartments.map(d => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}
-                </select>
-              </div>
-            )}
           </div>
 
           <div>
-            <label className="block text-xs font-sans text-(--text-muted) mb-1">Position Title (Optional)</label>
-            <Input placeholder="e.g. Associate Professor of Computer Science" value={inviteTitle} onChange={e => setInviteTitle(e.target.value)} />
+            <label className="block text-xs font-sans text-(--text-muted) mb-1">HR Department</label>
+            <select
+              value={inviteDeptId}
+              onChange={e => setInviteDeptId(e.target.value)}
+              className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+              required
+            >
+              <option value="">-- Select Department --</option>
+              {hrDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Gender</label>
+              <select value={inviteGender} onChange={e => setInviteGender(e.target.value as any)} className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)">
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Employment Type</label>
+              <select value={inviteEmpType} onChange={e => setInviteEmpType(e.target.value as any)} className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)">
+                <option value="FULL_TIME">Full-Time</option>
+                <option value="PART_TIME">Part-Time</option>
+                <option value="CONTRACT">Contract</option>
+                <option value="INTERN">Intern</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Hire / Start Date</label>
+              <Input type="date" value={inviteHireDate} onChange={e => setInviteHireDate(e.target.value)} required />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Education / Qualifications</label>
+              <Input placeholder="e.g. PhD in Computer Science" value={inviteEducation} onChange={e => setInviteEducation(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Years of Experience</label>
+              <Input type="number" placeholder="0" value={inviteExperience} onChange={e => setInviteExperience(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Basic Salary (ETB)</label>
+              <Input type="number" value={inviteSalary} onChange={e => setInviteSalary(e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-xs font-sans text-(--text-muted) mb-1">Bank Account Number</label>
+              <Input placeholder="e.g. 1000012345678" value={inviteBankAccount} onChange={e => setInviteBankAccount(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="border-t border-(--border-subtle) pt-3">
+            <h4 className="text-xs font-sans font-bold text-(--text-primary) mb-3">Emergency Contact Information</h4>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Contact Name</label>
+                <Input placeholder="e.g. Almaz Bekele" value={inviteEmergencyName} onChange={e => setInviteEmergencyName(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Contact Phone</label>
+                <Input placeholder="+251 91 234 5678" value={inviteEmergencyPhone} onChange={e => setInviteEmergencyPhone(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Relationship</label>
+                <Input placeholder="e.g. Spouse, Sibling" value={inviteEmergencyRelation} onChange={e => setInviteEmergencyRelation(e.target.value)} />
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-(--border-subtle)">
@@ -939,16 +1153,136 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
         )}
       </SlidePanel>
 
-      {/* EMPLOYEE PROFILE DETAIL SLIDE PANEL */}
-      <SlidePanel isOpen={Boolean(selectedEmployeeId)} onClose={() => setSelectedEmployeeId(null)} title="Employee Record Profile">
+      {/* EMPLOYEE PROFILE DETAIL / EDIT SLIDE PANEL */}
+      <SlidePanel isOpen={Boolean(selectedEmployeeId)} onClose={() => { setSelectedEmployeeId(null); setIsEditingEmployee(false); }} title={isEditingEmployee ? "Edit Employee Record" : "Employee Record Profile"}>
         {empDetailLoading || !employeeDetail ? (
           <div className="p-6 space-y-4"><SkeletonCard rows={4} /></div>
+        ) : isEditingEmployee ? (
+          /* EDIT FORM */
+          <form onSubmit={handleUpdateEmployee} className="px-6 py-5 space-y-4">
+            {editEmpError && <InlineError message={editEmpError} />}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Employee Code (Read-only)</label>
+                <Input value={editEmpCode} disabled className="bg-(--hover-overlay)" />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Full Name</label>
+                <Input placeholder="e.g. Dr. Abebe Bikila" value={editEmpName} onChange={e => setEditEmpName(e.target.value)} required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Email Address</label>
+                <Input type="email" placeholder="abebe@harmony.edu.et" value={editEmpEmail} onChange={e => setEditEmpEmail(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Phone Number</label>
+                <Input placeholder="+251 91 123 4567" value={editEmpPhone} onChange={e => setEditEmpPhone(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Position Title</label>
+                <Input placeholder="e.g. Assistant Professor" value={editEmpPos} onChange={e => setEditEmpPos(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">HR Department</label>
+                <select
+                  value={editEmpDept}
+                  onChange={e => setEditEmpDept(e.target.value)}
+                  className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+                  required
+                >
+                  <option value="">-- Select Department --</option>
+                  {hrDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Gender</label>
+                <select value={editEmpGender} onChange={e => setEditEmpGender(e.target.value as any)} className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)">
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Employment Type</label>
+                <select value={editEmpType} onChange={e => setEditEmpType(e.target.value as any)} className="w-full px-3 py-2 bg-(--bg-card-solid) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-primary)">
+                  <option value="FULL_TIME">Full-Time</option>
+                  <option value="PART_TIME">Part-Time</option>
+                  <option value="CONTRACT">Contract</option>
+                  <option value="INTERN">Intern</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Hire / Start Date</label>
+                <Input type="date" value={editEmpHireDate} onChange={e => setEditEmpHireDate(e.target.value)} required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Education / Qualifications</label>
+                <Input placeholder="e.g. PhD in Computer Science" value={editEmpEducation} onChange={e => setEditEmpEducation(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Years of Experience</label>
+                <Input type="number" placeholder="0" value={editEmpExperience} onChange={e => setEditEmpExperience(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Basic Salary (ETB)</label>
+                <Input type="number" value={editEmpSalary} onChange={e => setEditEmpSalary(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-(--text-muted) mb-1">Bank Account Number</label>
+                <Input placeholder="e.g. 1000012345678" value={editEmpBankAccount} onChange={e => setEditEmpBankAccount(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="border-t border-(--border-subtle) pt-3">
+              <h4 className="text-xs font-sans font-bold text-(--text-primary) mb-3">Emergency Contact Information</h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-sans text-(--text-muted) mb-1">Contact Name</label>
+                  <Input placeholder="e.g. Almaz Bekele" value={editEmpEmergencyName} onChange={e => setEditEmpEmergencyName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-sans text-(--text-muted) mb-1">Contact Phone</label>
+                  <Input placeholder="+251 91 234 5678" value={editEmpEmergencyPhone} onChange={e => setEditEmpEmergencyPhone(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-sans text-(--text-muted) mb-1">Relationship</label>
+                  <Input placeholder="e.g. Spouse, Sibling" value={editEmpEmergencyRelation} onChange={e => setEditEmpEmergencyRelation(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-(--border-subtle)">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditingEmployee(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" size="sm" disabled={editSubmitting}>Update Employee</Button>
+            </div>
+          </form>
         ) : (
+          /* VIEW MODE */
           <div className="space-y-6 p-1">
             <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-default) space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="font-serif text-base font-bold text-(--text-primary)">{employeeDetail.fullName}</h3>
-                <Badge variant={employeeDetail.status === 'ACTIVE' ? 'emerald' : 'glass'}>{employeeDetail.status}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={employeeDetail.status === 'ACTIVE' ? 'emerald' : 'glass'}>{employeeDetail.status}</Badge>
+                  <Button variant="ghost" size="sm" icon={<Edit className="w-3.5 h-3.5" />} onClick={() => setIsEditingEmployee(true)}>
+                    Edit
+                  </Button>
+                </div>
               </div>
               <p className="font-mono text-xs text-(--text-secondary)">Code: {employeeDetail.employeeCode} · {employeeDetail.email}</p>
               <p className="text-xs text-(--text-muted)">{employeeDetail.position} — {employeeDetail.department?.name ?? 'General Department'}</p>
@@ -971,7 +1305,45 @@ export const AdminHRView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> =
                 <span className="text-(--text-muted) font-mono text-[10px]">EXPERIENCE</span>
                 <p className="font-semibold text-(--text-primary)">{employeeDetail.experienceYears} Years</p>
               </div>
+              {employeeDetail.education && (
+                <div className="p-3 rounded-xl bg-(--hover-overlay) space-y-1 col-span-2">
+                  <span className="text-(--text-muted) font-mono text-[10px]">EDUCATION</span>
+                  <p className="font-semibold text-(--text-primary)">{employeeDetail.education}</p>
+                </div>
+              )}
+              {employeeDetail.bankAccount && (
+                <div className="p-3 rounded-xl bg-(--hover-overlay) space-y-1 col-span-2">
+                  <span className="text-(--text-muted) font-mono text-[10px]">BANK ACCOUNT</span>
+                  <p className="font-mono text-(--text-primary)">{employeeDetail.bankAccount}</p>
+                </div>
+              )}
             </div>
+
+            {(employeeDetail.emergencyName || employeeDetail.emergencyPhone) && (
+              <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-default) space-y-2">
+                <h4 className="text-xs font-sans font-bold text-(--text-primary)">Emergency Contact</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {employeeDetail.emergencyName && (
+                    <div>
+                      <span className="text-(--text-muted) font-mono text-[10px]">NAME</span>
+                      <p className="font-semibold text-(--text-primary)">{employeeDetail.emergencyName}</p>
+                    </div>
+                  )}
+                  {employeeDetail.emergencyPhone && (
+                    <div>
+                      <span className="text-(--text-muted) font-mono text-[10px]">PHONE</span>
+                      <p className="font-mono text-(--text-primary)">{employeeDetail.emergencyPhone}</p>
+                    </div>
+                  )}
+                  {employeeDetail.emergencyRelation && (
+                    <div>
+                      <span className="text-(--text-muted) font-mono text-[10px]">RELATIONSHIP</span>
+                      <p className="font-semibold text-(--text-primary)">{employeeDetail.emergencyRelation}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {employeeDetail.leaveRequests && employeeDetail.leaveRequests.length > 0 && (
               <div className="space-y-2">

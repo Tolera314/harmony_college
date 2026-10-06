@@ -190,7 +190,7 @@ router.post('/employees', async (req: AuthRequest, res) => {
       fullName:       z.string().min(2).max(100),
       gender:         z.enum(['MALE', 'FEMALE']),
       email:          z.string().email(),
-      phone:          z.string().nullable().optional(),
+      phone:          z.string().min(10, 'Phone number must be at least 10 characters'),
       dateOfBirth:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
       address:        z.string().max(500).nullable().optional(),
       position:       z.string().max(100).nullable().optional(),
@@ -243,6 +243,14 @@ router.patch('/employees/:id/deactivate', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e, 400); }
 });
 
+router.delete('/employees/:id', async (req: AuthRequest, res) => {
+  try {
+    const actor = await resolveActorName(req);
+    await employees.deleteEmployee(pid(req), actor, req.user?.userId);
+    res.json({ success: true, message: 'Employee deleted successfully' });
+  } catch (e) { fail(res, e, 400); }
+});
+
 router.post('/employees/:id/invite', async (req: AuthRequest, res) => {
   try {
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.socket.remoteAddress ?? null;
@@ -287,14 +295,26 @@ router.post('/invitations', async (req: AuthRequest, res) => {
     ];
 
     const schema = z.object({
-      fullName:       z.string().min(2).max(100),
-      email:          z.string().email(),
-      role:           z.string(),
-      departmentId:   z.string().uuid().optional().nullable(),
-      positionTitle:  z.string().max(100).optional(),
-      employeeId:     z.string().max(50).optional(),
-      phone:          z.string().max(20).optional(),
-      specialization: z.string().max(200).optional(),
+      employeeCode:      z.string().min(1).max(50).optional(),
+      fullName:          z.string().min(2).max(100),
+      email:             z.string().email(),
+      phone:             z.string().min(10, 'Phone number must be at least 10 digits').max(20),
+      role:              z.string(),
+      departmentId:      z.string().uuid().optional().nullable(),
+      positionTitle:     z.string().max(100).optional(),
+      gender:            z.enum(['MALE', 'FEMALE']),
+      employmentType:    z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']),
+      basicSalary:       z.number().min(0),
+      hireDate:          z.string().optional(),
+      education:         z.string().max(500).optional(),
+      experienceYears:   z.number().int().min(0).max(50).optional(),
+      bankAccount:       z.string().max(50).optional(),
+      nationalId:        z.string().max(100).optional(),
+      emergencyName:     z.string().max(100).optional(),
+      emergencyPhone:    z.string().max(20).optional(),
+      emergencyRelation: z.string().max(50).optional(),
+      employeeId:        z.string().max(50).optional(),
+      specialization:    z.string().max(200).optional(),
     });
 
     const parsed = schema.safeParse(req.body);
@@ -306,18 +326,10 @@ router.post('/invitations', async (req: AuthRequest, res) => {
       return;
     }
 
-    const { role, departmentId } = parsed.data;
+    const { role } = parsed.data;
     if (!HR_ALLOWED_ROLES.includes(role)) {
       res.status(403).json({
         error: `HR Officers cannot invite users with role "${role}". Allowed roles: ${HR_ALLOWED_ROLES.join(', ')}.`,
-      });
-      return;
-    }
-
-    const isAcademicRole = role === 'INSTRUCTOR' || role === 'DEPARTMENT_HEAD';
-    if (isAcademicRole && !departmentId) {
-      res.status(400).json({
-        error: 'Academic Department is required for Instructor and Department Head roles.',
       });
       return;
     }
@@ -328,7 +340,6 @@ router.post('/invitations', async (req: AuthRequest, res) => {
 
     // HR_OFFICER creating an invitation is treated as if ADMIN for the purpose of
     // validateRolePermission (since HR is an authorised staff manager).
-    // We override callerRole to ADMIN so the existing permission check passes.
     const callerRole = Role.ADMIN;
 
     const result = await createStaffInvitation(

@@ -3,15 +3,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { Users, BookOpen, GraduationCap, GitBranch, TrendingUp, ClipboardList, Loader2 } from 'lucide-react';
+import { Users, BookOpen, GraduationCap, GitBranch, TrendingUp, ClipboardList, Loader2, Sparkles, UserPlus } from 'lucide-react';
 import { KPICard } from '../KPICard';
 import { DHPageHeader } from '../DHPageHeader';
-import { LineChart, BarChart } from '../DHCharts';
+import { LineChart } from '../DHCharts';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { DHNavTab } from '../../../types/department';
-import { hodDashboardApi, type DashboardData, type HoDProfile } from '../../../lib/hodApi';
+import { hodDashboardApi, hodNewAdmissionsApi, type DashboardData, type HoDProfile, type NewAdmission } from '../../../lib/hodApi';
 import { ErrorState, SkeletonKPICard } from '../../ui/States';
 
 interface DHOverviewViewProps {
@@ -24,6 +24,8 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
   const [data,    setData]    = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
+  const [newAdmissions, setNewAdmissions] = useState<NewAdmission[]>([]);
+  const [admissionsLoading, setAdmissionsLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,7 +40,17 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadNewAdmissions = useCallback(async () => {
+    setAdmissionsLoading(true);
+    try {
+      const res = await hodNewAdmissionsApi.list(60);
+      setNewAdmissions(res.admissions);
+    } catch { /* silently fail — non-critical */ } finally {
+      setAdmissionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); loadNewAdmissions(); }, [load, loadNewAdmissions]);
 
   if (error) return <ErrorState variant="generic" title="Dashboard unavailable" description={error} onRetry={load} />;
 
@@ -211,6 +223,66 @@ export const DHOverviewView: React.FC<DHOverviewViewProps> = ({ profile, setActi
           </Card>
         </section>
       )}
+
+      {/* New Admissions */}
+      <section>
+        <Card hoverable={false} className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-(--brand-gold)" />
+              <h3 className="font-serif text-lg font-bold text-(--text-primary)">New Admissions</h3>
+              {newAdmissions.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E9C349]/20 border border-[#E9C349]/40 text-[10px] font-mono font-bold text-(--brand-gold) uppercase tracking-wider">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  {newAdmissions.length} new
+                </span>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setActiveTab('students')}>View all students</Button>
+          </div>
+          {admissionsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-(--text-faint)" />
+            </div>
+          ) : newAdmissions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
+              <GraduationCap className="w-8 h-8 text-(--text-faint) opacity-40" />
+              <p className="font-sans text-sm text-(--text-faint)">No new admissions in the last 60 days.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-(--border-subtle)">
+              {newAdmissions.slice(0, 8).map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveTab('students')}
+                  className="w-full text-left flex items-center gap-3 py-3 hover:bg-(--hover-overlay) transition-colors rounded-xl px-2 group"
+                >
+                  <div className="w-9 h-9 rounded-full bg-(--accent-gold-subtle) border border-(--accent-gold-border) flex items-center justify-center shrink-0">
+                    <span className="font-serif font-bold text-sm text-(--brand-gold)">{s.fullName.charAt(0)}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-sans text-xs font-semibold text-(--text-primary) truncate">{s.fullName}</p>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#E9C349]/20 border border-[#E9C349]/40 text-[10px] font-mono font-bold text-(--brand-gold) uppercase tracking-wider shrink-0">
+                        <Sparkles className="w-2 h-2" />New
+                      </span>
+                    </div>
+                    <p className="font-sans text-[11px] text-(--text-faint) truncate">
+                      {s.program?.name ?? '—'} · {s.studentId}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-mono text-[10px] text-(--text-faint)">
+                      {s.admittedAt ? new Date(s.admittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </p>
+                    <Badge variant="emerald">Admitted</Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+      </section>
 
       {/* Recent notifications */}
       <section>

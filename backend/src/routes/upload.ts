@@ -101,6 +101,7 @@ router.post('/', upload.single('file'), async (req: Request, res: Response): Pro
 
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[Upload] File upload error:', msg);
+    console.error('[Upload] Full error:', err);
     res.status(500).json({ error: 'Failed to upload file. Please try again.' });
   }
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ClipboardList, Search, X, Download, Filter, CheckCircle2, AlertTriangle, XCircle, Eye, ShieldAlert, Laptop } from 'lucide-react';
 import { FOPageHeader } from '../FOPageHeader';
@@ -111,6 +111,7 @@ export const FOAuditLogView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
   const [totalCount, setTotalCount]     = useState(0);
   const [summary, setSummary]           = useState({ total: 0, successCount: 0, warningCount: 0, failedCount: 0 });
   const [detailEntry, setDetailEntry]   = useState<FOAuditEntry | null>(null);
+  const timer = useRef<any>(null);
 
   const PAGE_SIZE = 10;
 

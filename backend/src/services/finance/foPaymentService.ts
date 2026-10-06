@@ -1,4 +1,4 @@
-﻿import { prisma }              from '../../lib/prisma';
+import { prisma }              from '../../lib/prisma';
 import { createNotification } from '../notificationService';
 
 const PROFILE_SELECT = {
@@ -36,11 +36,15 @@ export async function getPendingRegistrationPayments(query: Record<string, strin
   const search = typeof query.search === 'string' ? query.search : undefined;
 
   const where: any = {
-    registrationFeePaid: true,
     paymentVerifiedByFinance: false,
+    OR: [
+      { registrationFeePaid: true },
+      { user: { application: { registrationScreenshotUrl: { not: null } } } },
+    ],
   };
   if (search) {
     where.user = {
+      ...where.user,
       OR: [
         { fullName: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
@@ -55,7 +59,7 @@ export async function getPendingRegistrationPayments(query: Record<string, strin
       where,
       skip,
       take: limit,
-      orderBy: { registrationFeePaidAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       select: PROFILE_SELECT,
     }),
   ]);
@@ -95,14 +99,24 @@ export async function getVerifiedRegistrationPayments(query: Record<string, stri
 }
 
 export async function verifyRegistrationPayment(userId: string, verifierUserId: string) {
-  const profile = await prisma.studentProfile.findUnique({ where: { userId } });
-  if (!profile) throw new Error('Student profile not found. Student has not completed onboarding.');
-  if (!profile.registrationFeePaid) throw new Error('Student has not submitted their registration fee payment yet.');
+  let profile = await prisma.studentProfile.findUnique({ where: { userId } });
+  if (!profile) {
+    profile = await prisma.studentProfile.create({
+      data: {
+        userId,
+        registrationFeePaid: true,
+        registrationFeePaidAt: new Date(),
+        paymentVerifiedByFinance: false,
+      },
+    });
+  }
   if (profile.paymentVerifiedByFinance) throw new Error('Payment is already verified.');
 
   const updated = await prisma.studentProfile.update({
     where: { userId },
     data: {
+      registrationFeePaid: true,
+      registrationFeePaidAt: profile.registrationFeePaidAt ?? new Date(),
       paymentVerifiedByFinance: true,
       paymentVerifiedAt: new Date(),
       paymentVerifiedByUserId: verifierUserId,
@@ -125,6 +139,39 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
       where: { id: userId },
       data:  { profileCompleted: true },
     });
+
+    // ── Notify the Department Head when FO is the last approval ──────────────
+    try {
+      const sp = await prisma.studentProfile.findUnique({
+        where:  { userId },
+        select: { selectedDepartmentId: true },
+      });
+      const studentUser = await prisma.user.findUnique({
+        where:  { id: userId },
+        select: { fullName: true },
+      });
+      if (sp?.selectedDepartmentId && studentUser) {
+        const app = await prisma.application.findUnique({
+          where:  { userId },
+          select: { program: true },
+        });
+        const hodRecord = await prisma.departmentHeadRecord.findFirst({
+          where:  { departmentId: sp.selectedDepartmentId, isActive: true },
+          select: { userId: true },
+        });
+        if (hodRecord) {
+          await createNotification({
+            userId:     hodRecord.userId,
+            title:      'New Student Admitted',
+            message:    `${studentUser.fullName} has been fully approved and admitted to your department${app ? ` (${app.program})` : ''}. They can now access the Student Dashboard.`,
+            type:       'SUCCESS',
+            entityType: 'StudentProfile',
+            entityId:   userId,
+            actionTab:  'students',
+          });
+        }
+      }
+    } catch { /* notification failure must not block the FO verify flow */ }
   }
 
   // ── Notify student ────────────────────────────────────────────────────────

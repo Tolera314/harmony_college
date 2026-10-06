@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, CreditCard, CheckCircle2, Clock, ChevronLeft, ChevronRight,
   Filter, UserCheck, AlertCircle, RefreshCw, X, Eye, ArrowUpRight, Building2,
-  ShieldCheck, FileText, UserX, Sparkles
+  ShieldCheck, FileText, UserX, Sparkles, User, Calendar, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { getPendingRegistrationPayments, getVerifiedRegistrationPayments } from '../../../lib/foApi';
 
@@ -34,6 +34,11 @@ interface PaymentRecord {
     email: string | null;
     phone: string | null;
     createdAt: string;
+    application?: {
+      registrationScreenshotUrl?: string | null;
+      screenshotUploadedAt?: string | null;
+      [key: string]: any;
+    } | null;
   };
   selectedDepartment: {
     id: string;
@@ -466,6 +471,7 @@ export function FORegistrationPaymentsView({ programType }: { programType?: 'TVE
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [unverifyingId, setUnverifyingId] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<PaymentRecord | null>(null);
+  const [enlargedScreenshot, setEnlargedScreenshot] = useState<string | null>(null);
   const [toast, setToast]           = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -647,6 +653,7 @@ export function FORegistrationPaymentsView({ programType }: { programType?: 'TVE
           </p>
           <p className="text-[11px] text-(--text-faint) mt-1">Total processing efficiency</p>
         </div>
+      </div>
       {/* Registration Fee Summary */}
       <RegistrationFeeSummaryCard />
 
@@ -801,6 +808,51 @@ export function FORegistrationPaymentsView({ programType }: { programType?: 'TVE
                   )}
                 </div>
 
+                {/* Screenshot Quick Preview Thumbnail */}
+                <div className="shrink-0 flex items-center">
+                  {r.user.application?.registrationScreenshotUrl ? (
+                    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-(--border-subtle) bg-(--bg-base)/60">
+                      <div
+                        onClick={() => setSelectedRecord(r)}
+                        className="relative w-11 h-11 rounded-lg overflow-hidden border border-(--accent-gold-border) cursor-pointer group bg-black/20 shrink-0"
+                        title="Click to view & enlarge receipt screenshot"
+                      >
+                        {r.user.application.registrationScreenshotUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                          <img
+                            src={r.user.application.registrationScreenshotUrl}
+                            alt="Receipt"
+                            className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-(--brand-gold)">
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      </div>
+                      <div className="text-left">
+                        <span className="text-[10px] font-mono font-semibold text-(--brand-gold) flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Receipt
+                        </span>
+                        <button
+                          onClick={() => setSelectedRecord(r)}
+                          className="text-[11px] font-sans text-(--text-secondary) hover:text-(--brand-gold) underline text-left block"
+                        >
+                          View Receipt
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-[11px] font-mono">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>No Receipt</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-(--border-subtle)">
                   <button
@@ -934,6 +986,79 @@ export function FORegistrationPaymentsView({ programType }: { programType?: 'TVE
                     </div>
                   </div>
 
+                  {/* Payment Receipt / Screenshot Section */}
+                  <div className="p-4 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle) space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold font-mono uppercase tracking-wider text-(--brand-gold) flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5" />
+                        Registration Fee Receipt
+                      </h4>
+                      {selectedRecord.user.application?.screenshotUploadedAt && (
+                        <span className="text-[10px] font-mono text-(--text-faint)">
+                          Uploaded {new Date(selectedRecord.user.application.screenshotUploadedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+
+                    {selectedRecord.user.application?.registrationScreenshotUrl ? (
+                      <div className="space-y-3">
+                        <div
+                          onClick={() => setEnlargedScreenshot(selectedRecord.user.application!.registrationScreenshotUrl!)}
+                          className="relative rounded-2xl overflow-hidden border border-(--border-default) bg-black/40 cursor-zoom-in group max-h-80 flex items-center justify-center p-2"
+                          title="Click to view full image"
+                        >
+                          {selectedRecord.user.application.registrationScreenshotUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                            <img
+                              src={selectedRecord.user.application.registrationScreenshotUrl}
+                              alt="Payment receipt screenshot"
+                              className="w-full h-auto max-h-72 object-contain rounded-xl transition-transform group-hover:scale-[1.02]"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-10 gap-3">
+                              <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-(--accent-gold-subtle) border border-(--accent-gold-border)">
+                                <CreditCard className="w-6 h-6 text-(--brand-gold)" />
+                              </div>
+                              <p className="text-sm font-semibold font-sans text-(--text-primary)">Payment Receipt Document</p>
+                              <p className="text-xs font-sans text-(--text-faint)">Click to preview document</p>
+                            </div>
+                          )}
+
+                          {/* Hover zoom overlay badge */}
+                          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-medium bg-black/75 text-white backdrop-blur-xs border border-white/10 group-hover:bg-(--brand-gold) group-hover:text-black transition-colors">
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Click to enlarge</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <a
+                            href={selectedRecord.user.application.registrationScreenshotUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-(--brand-gold) hover:underline"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Open full file in new tab
+                          </a>
+
+                          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                            Valid Proof Attached
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 space-y-1">
+                        <div className="flex items-center gap-2 font-semibold text-xs">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <span>No Screenshot Uploaded</span>
+                        </div>
+                        <p className="text-[11px] font-sans text-(--text-secondary) pl-6">
+                          The applicant marked payment as completed but has not attached a receipt screenshot.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Academic Department */}
                   <div className="p-4 rounded-2xl border bg-(--hover-overlay) border-(--border-subtle) space-y-3">
                     <h4 className="text-xs font-semibold font-mono uppercase tracking-wider text-(--brand-gold)">
@@ -1012,6 +1137,47 @@ export function FORegistrationPaymentsView({ programType }: { programType?: 'TVE
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox / Enlarged Screenshot Modal */}
+      <AnimatePresence>
+        {enlargedScreenshot && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md cursor-zoom-out"
+            onClick={() => setEnlargedScreenshot(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-4xl max-h-[90vh] flex flex-col items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setEnlargedScreenshot(null)}
+                className="absolute -top-12 right-0 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                title="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <img
+                src={enlargedScreenshot}
+                alt="Enlarged Payment Receipt"
+                className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+              />
+              <div className="mt-3 flex items-center gap-4">
+                <a
+                  href={enlargedScreenshot}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-(--accent-gold-subtle) text-(--brand-gold) border border-(--accent-gold-border) hover:opacity-90"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Open original image in new tab
+                </a>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -99,7 +99,7 @@ function EntryDetailModal({
 }
 
 // ── Main View ──────────────────────────────────────────────────────────────────
-export const FOReconciliationView: React.FC = () => {
+export const FOReconciliationView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [entriesList, setEntriesList]   = useState<ReconciliationEntry[]>([]);
   const [loading, setLoading]           = useState(true);
   const [autoMatching, setAutoMatching] = useState(false);

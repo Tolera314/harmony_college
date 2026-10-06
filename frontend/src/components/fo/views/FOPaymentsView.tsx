@@ -196,7 +196,7 @@ function RecordPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSuc
 }
 
 // ── Main View ──────────────────────────────────────────────────────────────────
-export const FOPaymentsView: React.FC = () => {
+export const FOPaymentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [activeTab, setActiveTab]       = useState<'ledger' | 'pending' | 'verified'>('ledger');
 
   // Ledger state

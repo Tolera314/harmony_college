@@ -270,6 +270,28 @@ export async function approveApplication(id: string, registrarUserId: string, co
     await syncStudentEnrollments(result.studentRecordId).catch(() => {});
   }
 
+  // ── Notify the Department Head of the student's selected department ──────────
+  // Only fire when fully approved (Finance + Registrar) so the HoD sees real admits
+  if (financeApproved && studentProfile.selectedDepartmentId) {
+    try {
+      const hodRecord = await prisma.departmentHeadRecord.findFirst({
+        where:  { departmentId: studentProfile.selectedDepartmentId, isActive: true },
+        select: { userId: true },
+      });
+      if (hodRecord) {
+        await createNotification({
+          userId:     hodRecord.userId,
+          title:      'New Student Admitted',
+          message:    `${app.fullName} has been fully approved and admitted to your department (${app.program}). They can now access the Student Dashboard.`,
+          type:       'SUCCESS',
+          entityType: 'Application',
+          entityId:   id,
+          actionTab:  'students',
+        });
+      }
+    } catch { /* notification failure must not block the admit flow */ }
+  }
+
   return result.updatedApp;
 }
 

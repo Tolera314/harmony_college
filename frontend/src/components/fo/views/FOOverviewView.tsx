@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import {
@@ -62,7 +62,18 @@ function PctLabel({ pct }: { pct: number | null }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, programType }) => {
+const ZERO_KPIS = {
+  totalRevenueSemester: 0,
+  totalOutstanding: 0,
+  overdueAccounts: 0,
+  todaysCollections: 0,
+  averageDailyRevenue: 0,
+  pendingReconciliation: 0,
+  receiptsIssued: 0,
+  recentTransactionsCount: 0,
+};
+
+export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, programType, profile }) => {
   const [kpis,            setKpis]            = useState(ZERO_KPIS);
   const [recentTxns,      setRecentTxns]      = useState<any[]>([]);
   const [monthlyRev,      setMonthlyRev]      = useState<any[]>([]);
@@ -120,23 +131,19 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [programType]);
 
-  useEffect(() => { loadData(); }, [loadData, programType]);
-  useEffect(() => {
-    getOverviewData()
-      .then((data) => {
-        if (data) {
-          if (data.kpis) setKpis(data.kpis);
-          if (Array.isArray(data.recentTransactions)) setRecentTxns(data.recentTransactions);
-          if (Array.isArray(data.monthlyRevenue)) setMonthlyRev(data.monthlyRevenue);
-          if (Array.isArray(data.paymentMethodBreakdown)) setMethodBreakdown(data.paymentMethodBreakdown);
-          if (Array.isArray(data.departments)) setDeptList(data.departments);
-        }
-      })
-      .catch(() => {
-        // Keep default preset state on offline or error
-      });
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const currentProfile = {
+    name: foName || profile?.name || foProfile.name,
+    currentSemester: profile?.currentSemester || foProfile.currentSemester || 'Fall 2024',
+    academicYear: academicYear || profile?.academicYear || foProfile.academicYear || '2024–2025',
+    department: profile?.department || foProfile.department || 'Finance & Bursary Office',
+    role: profile?.title || foProfile.title || 'Senior Finance Officer',
+  };
+
+  const overdue = highRisk.length > 0 ? highRisk : financeStudents.filter((s) => s.paymentStatus === 'Overdue' || s.riskLevel === 'Critical');
 
   const lineData = monthlyRev.map((m) => ({ label: m.month, value: m.revenue }));
   const targetData = monthlyRev.map((m) => ({ label: m.month, value: m.target }));
@@ -185,7 +192,9 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
             <div className="flex flex-wrap gap-3 pt-1">
               {overdue.length > 0 && (
                 <Button variant="primary" size="sm" onClick={() => setActiveTab('outstanding')} icon={<AlertTriangle className="w-4 h-4" />}>
-                  {overdue.length} High-Risk Accounts
+                  {overdue.length} High-Risk Account{overdue.length !== 1 ? 's' : ''}
+                </Button>
+              )}
               <Button
                 variant={pendingSubCount > 0 ? 'primary' : 'outline'}
                 size="sm"
@@ -202,11 +211,6 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
               >
                 Tuition Setup
               </Button>
-              {highRisk.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => setActiveTab('outstanding')} icon={<AlertTriangle className="w-4 h-4 text-rose-500" />}>
-                  {highRisk.length} High-Risk Account{highRisk.length !== 1 ? 's' : ''}
-                </Button>
-              )}
               {kpis.pendingReconciliation > 0 && (
                 <Button variant="outline" size="sm" onClick={() => setActiveTab('reconciliation')} icon={<RefreshCw className="w-4 h-4" />}>
                   {kpis.pendingReconciliation} Pending Reconciliations
@@ -474,3 +478,4 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
     </motion.div>
   );
 };
+

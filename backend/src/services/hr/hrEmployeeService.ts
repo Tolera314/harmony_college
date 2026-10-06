@@ -101,7 +101,95 @@ export interface EmployeeListQuery {
   systemRole?: string;
 }
 
+async function syncPendingInvitationsToHREmployees() {
+  try {
+    const pendingInvs = await prisma.staffInvitation.findMany({
+      where: {
+        acceptedAt: null,
+        revokedAt: null,
+      },
+      include: { department: true },
+    });
+
+    for (const inv of pendingInvs) {
+      const normalizedEmail = inv.email.toLowerCase();
+      const existing = await prisma.hREmployee.findFirst({
+        where: { email: normalizedEmail },
+        select: { id: true },
+      });
+      if (!existing) {
+        let hrDeptId: string | null = null;
+        if (inv.departmentId) {
+          const hrDept = await prisma.hRDepartment.findFirst({
+            where: {
+              OR: [
+                { id: inv.departmentId },
+                ...(inv.department?.name ? [{ name: { equals: inv.department.name, mode: 'insensitive' as const } }] : []),
+              ],
+            },
+            select: { id: true },
+          });
+          if (hrDept) hrDeptId = hrDept.id;
+        }
+        if (!hrDeptId) {
+          const fallback = await prisma.hRDepartment.findFirst({
+            where: { isActive: true },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true },
+          });
+          if (fallback) hrDeptId = fallback.id;
+        }
+
+        if (hrDeptId) {
+          const prefix = inv.role === 'INSTRUCTOR' ? 'HC-FAC'
+                       : inv.role === 'DEPARTMENT_HEAD' ? 'HC-DH'
+                       : inv.role === 'REGISTRAR' ? 'HC-REG'
+                       : inv.role === 'FINANCE_OFFICER' ? 'HC-FO'
+                       : 'HC-EMP';
+          let empCode = inv.employeeId?.trim() || `${prefix}-${Math.floor(10000 + Math.random() * 90000)}`;
+          let codeConflict = await prisma.hREmployee.findUnique({ where: { employeeCode: empCode }, select: { id: true } });
+          while (codeConflict) {
+            empCode = `HC-${Math.floor(10000 + Math.random() * 90000)}`;
+            codeConflict = await prisma.hREmployee.findUnique({ where: { employeeCode: empCode }, select: { id: true } });
+          }
+
+          const rolePositions: Record<string, string> = {
+            INSTRUCTOR: 'Instructor',
+            DEPARTMENT_HEAD: 'Department Head',
+            REGISTRAR: 'Registrar',
+            FINANCE_OFFICER: 'Finance Officer',
+            HR_OFFICER: 'HR Officer',
+          };
+
+          await prisma.hREmployee.create({
+            data: {
+              employeeCode:   empCode,
+              fullName:       inv.fullName.trim(),
+              email:          normalizedEmail,
+              phone:          inv.phone?.trim() ?? null,
+              departmentId:   hrDeptId,
+              position:       inv.positionTitle?.trim() || rolePositions[inv.role] || 'Staff Member',
+              systemRole:     inv.role,
+              employmentType: 'FULL_TIME',
+              contractStatus: 'PROBATION',
+              status:         'PENDING',
+              hireDate:       inv.createdAt ?? new Date(),
+              gender:         'MALE',
+              basicSalary:    0,
+              isActive:       true,
+            },
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[HREmployeeService] syncPendingInvitationsToHREmployees warning:', err);
+  }
+}
+
 export async function listEmployees(q: EmployeeListQuery) {
+  await syncPendingInvitationsToHREmployees();
+
   const { page, limit, search, departmentId, status, employmentType, systemRole } = q;
   const skip = (page - 1) * limit;
 
@@ -612,7 +700,9 @@ export async function updateEmployee(
     fullName:        string;
     email:           string;
     phone:           string;
+    gender:          string;
     dateOfBirth:     string;
+    hireDate:        string;
     address:         string;
     education:       string;
     experienceYears: number;
@@ -681,7 +771,9 @@ export async function updateEmployee(
       ...( data.fullName        && { fullName:        data.fullName }),
       ...( data.email           && { email:           data.email }),
       ...( data.phone           !== undefined && { phone:       data.phone }),
+      ...( data.gender          && { gender:          data.gender as any }),
       ...( data.dateOfBirth     !== undefined && { dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null }),
+      ...( data.hireDate        !== undefined && { hireDate: data.hireDate ? new Date(data.hireDate) : undefined }),
       ...( data.address         !== undefined && { address:     data.address }),
       ...( data.education       && { education:       data.education }),
       ...( data.experienceYears !== undefined && { experienceYears: data.experienceYears }),
@@ -741,6 +833,58 @@ export async function deactivateEmployee(id: string, actorName: string, actorUse
   });
 
   return updated;
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+export async function deleteEmployee(id: string, actorName: string, actorUserId?: string) {
+  const employee = await prisma.hREmployee.findUnique({
+    where:  { id },
+    select: { fullName: true, userId: true, email: true },
+  });
+  if (!employee) throw new Error('Employee not found');
+
+  // Revoke any open StaffInvitation for this email BEFORE deleting the
+  // HREmployee row. syncPendingInvitationsToHREmployees() runs on every
+  // listEmployees call and will recreate the row from the invitation if
+  // we don't revoke it first — making the delete appear to have no effect.
+  if (employee.email) {
+    await prisma.staffInvitation.updateMany({
+      where: {
+        email:      { equals: employee.email, mode: 'insensitive' },
+        revokedAt:  null,
+        acceptedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    }).catch(() => { /* non-critical */ });
+  }
+
+  // Delete the HREmployee record (cascading will handle related records)
+  await prisma.hREmployee.delete({
+    where: { id },
+  });
+
+  // If there's an associated User account, optionally deactivate it
+  if (employee.userId) {
+    await prisma.user.update({
+      where: { id: employee.userId },
+      data:  { status: 'DEACTIVATED' },
+    }).catch(() => {
+      // Ignore if user doesn't exist
+    });
+  }
+
+  await writeHRAudit({
+    actorUserId,
+    actorName,
+    action:       'Employee Deleted',
+    employeeName: employee.fullName,
+    module:       'Employees',
+    description:  `Employee ${employee.fullName} permanently deleted from system.`,
+    status:       'SUCCESS',
+  });
+
+  return { success: true, message: 'Employee deleted successfully' };
 }
 
 // ── Departments ───────────────────────────────────────────────────────────────
