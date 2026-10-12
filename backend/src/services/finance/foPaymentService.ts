@@ -130,9 +130,56 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
   // student's next authenticated request routes to /dashboard/student.
   const application = await prisma.application.findUnique({
     where:  { userId },
-    select: { status: true },
+    select: { status: true, id: true },
   });
   const registrarApproved = application?.status === 'ACCEPTED';
+
+  // ── Notify Registrar when FO verifies payment ──────────────────────────────
+  if (!registrarApproved) {
+    try {
+      const studentUser = await prisma.user.findUnique({
+        where:  { userId },
+        select: { fullName: true, email: true },
+      });
+      const registrars = await prisma.user.findMany({
+        where: { role: 'REGISTRAR', status: 'ACTIVE' },
+        select: { id: true },
+        take: 50,
+      });
+      
+      // Check for recent duplicate notifications
+      const recentNotifs = await prisma.notification.findMany({
+        where: {
+          userId: { in: registrars.map(r => r.id) },
+          entityType: 'Application',
+          entityId: application?.id,
+          type: 'PAYMENT_VERIFIED',
+          createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+        },
+        select: { userId: true },
+      });
+      const alreadyNotified = new Set(recentNotifs.map(n => n.userId));
+      
+      // Notify Registrars who haven't been notified recently
+      await Promise.all(
+        registrars
+          .filter(r => !alreadyNotified.has(r.id))
+          .map(r =>
+            createNotification({
+              userId:     r.id,
+              title:      'Payment Verified - Ready for Admission Review',
+              message:    `${studentUser?.fullName ?? 'A student'} (${studentUser?.email ?? ''}) has had their registration fee verified by Finance. Please review their admission application.`,
+              type:       'PAYMENT_VERIFIED',
+              entityType: 'Application',
+              entityId:   application?.id ?? userId,
+              actionTab:  'admissions',
+            })
+          )
+      );
+    } catch (err) {
+      console.error('[FO Payment Verify] Registrar notification error:', err);
+    }
+  }
 
   if (registrarApproved) {
     await prisma.user.update({
@@ -155,23 +202,40 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
           where:  { userId },
           select: { program: true },
         });
-        const hodRecord = await prisma.departmentHeadRecord.findFirst({
-          where:  { departmentId: sp.selectedDepartmentId, isActive: true },
-          select: { userId: true },
-        });
-        if (hodRecord) {
-          await createNotification({
-            userId:     hodRecord.userId,
-            title:      'New Student Admitted',
-            message:    `${studentUser.fullName} has been fully approved and admitted to your department${app ? ` (${app.program})` : ''}. They can now access the Student Dashboard.`,
-            type:       'SUCCESS',
+        
+        // Check for recent duplicate HOD notifications
+        const recentHodNotifs = await prisma.notification.findMany({
+          where: {
             entityType: 'StudentProfile',
-            entityId:   userId,
-            actionTab:  'students',
+            entityId: userId,
+            type: 'SUCCESS',
+            title: 'New Student Admitted',
+            createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+          },
+          select: { id: true },
+        });
+        
+        if (recentHodNotifs.length === 0) {
+          const hodRecord = await prisma.departmentHeadRecord.findFirst({
+            where:  { departmentId: sp.selectedDepartmentId, isActive: true },
+            select: { userId: true },
           });
+          if (hodRecord) {
+            await createNotification({
+              userId:     hodRecord.userId,
+              title:      'New Student Admitted',
+              message:    `${studentUser.fullName} has been fully approved and admitted to your department${app ? ` (${app.program})` : ''}. They can now access the Student Dashboard.`,
+              type:       'SUCCESS',
+              entityType: 'StudentProfile',
+              entityId:   userId,
+              actionTab:  'students',
+            });
+          }
         }
       }
-    } catch { /* notification failure must not block the FO verify flow */ }
+    } catch (err) {
+      console.error('[FO Payment Verify] HOD notification error:', err);
+    }
   }
 
   // ── Notify student ────────────────────────────────────────────────────────

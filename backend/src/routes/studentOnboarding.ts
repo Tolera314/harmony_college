@@ -271,28 +271,52 @@ router.patch('/screenshot', async (req: AuthRequest, res: Response): Promise<voi
       },
     });
 
-    // Notify Finance Officer and Registrar (best-effort)
+    // Notify Finance Officer and Registrar (real-time)
     try {
       const reviewers = await prisma.user.findMany({
-        where:  { role: { in: ['FINANCE_OFFICER', 'REGISTRAR', 'ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' },
+        where:  { role: { in: ['FINANCE_OFFICER', 'REGISTRAR'] }, status: 'ACTIVE' },
         select: { id: true, role: true },
-        take:   20,
+        take:   50,
       });
       if (reviewers.length > 0) {
-        const student = await prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
-        await Promise.all(reviewers.map(r =>
-          createNotification({
-            userId:     r.id,
-            title:      'New Registration Fee Receipt',
-            message:    `${student?.fullName ?? 'A student'} has submitted a registration fee receipt screenshot for review.`,
-            type:       'INFO',
+        const student = await prisma.user.findUnique({ 
+          where: { id: userId }, 
+          select: { fullName: true, email: true } 
+        });
+        
+        // Check for duplicate notifications in the last 5 minutes to prevent spam
+        const recentNotifs = await prisma.notification.findMany({
+          where: {
+            userId: { in: reviewers.map(r => r.id) },
             entityType: 'Application',
-            entityId:   app!.id,
-            actionTab:  r.role === 'FINANCE_OFFICER' ? 'registration_payments' : 'admissions',
-          })
-        ));
+            entityId: app!.id,
+            type: 'STUDENT_REGISTRATION',
+            createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+          },
+          select: { userId: true },
+        });
+        const alreadyNotified = new Set(recentNotifs.map(n => n.userId));
+        
+        // Send notifications only to those who haven't been notified recently
+        await Promise.all(
+          reviewers
+            .filter(r => !alreadyNotified.has(r.id))
+            .map(r =>
+              createNotification({
+                userId:     r.id,
+                title:      'New Student Registration',
+                message:    `${student?.fullName ?? 'A student'} (${student?.email ?? ''}) has submitted their registration. Please review and approve.`,
+                type:       'STUDENT_REGISTRATION',
+                entityType: 'Application',
+                entityId:   app!.id,
+                actionTab:  r.role === 'FINANCE_OFFICER' ? 'registration_payments' : 'admissions',
+              })
+            )
+        );
       }
-    } catch { /* notification failure must not fail the request */ }
+    } catch (err) { 
+      console.error('[onboarding/screenshot] Notification error:', err);
+    }
 
     res.status(200).json(updated);
   } catch (err) {

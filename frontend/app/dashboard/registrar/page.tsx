@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNotifications } from '@/src/hooks/useNotifications';
+import { useRealtimeNotifications } from '@/src/hooks/useRealtimeNotifications';
 import { MessagingView } from '@/src/components/messaging/MessagingView';
 import {
   ClipboardList, BookOpen, GraduationCap, FileText,
@@ -151,14 +151,8 @@ export default function RegistrarDashboardPage() {
   };
 
   // ── Real-time notification badge ────────────────────────────────────────────
-  const fetchNotifs = useCallback(() => registrarNotifApi.list({ limit: 20 }), []);
-  const markNotifRead = useCallback((id: string) => registrarNotifApi.markRead(id), []);
-  const markAllNotifsRead = useCallback(() => registrarNotifApi.markAllRead(), []);
-
-  const { unreadCount } = useNotifications({
-    fetchFn:       fetchNotifs,
-    markReadFn:    markNotifRead,
-    markAllReadFn: markAllNotifsRead,
+  const { unreadCount, playNotificationSound } = useRealtimeNotifications({
+    enabled: true,
   });
 
 

@@ -101,9 +101,9 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
             background: isApproved
               ? 'linear-gradient(135deg, rgba(16,185,129,0.14) 0%, rgba(16,185,129,0.04) 100%)'
               : isUnderReview
-                ? 'linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 100%)'
-                : 'linear-gradient(135deg, var(--accent-gold-subtle) 0%, rgba(233,195,73,0.03) 100%)',
-            border: `1px solid ${isApproved || isUnderReview ? 'rgba(16,185,129,0.35)' : 'var(--accent-gold-border)'}`,
+                ? 'linear-gradient(135deg, rgba(251,191,36,0.12) 0%, rgba(251,191,36,0.04) 100%)'
+                : 'linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.04) 100%)',
+            border: `1px solid ${isApproved ? 'rgba(16,185,129,0.35)' : isUnderReview ? 'rgba(251,191,36,0.40)' : 'rgba(239,68,68,0.40)'}`,
             cursor: isApproved || isUnderReview ? 'default' : 'pointer',
           }}
           role={isApproved || isUnderReview ? undefined : 'button'}
@@ -113,8 +113,8 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
               style={{
-                backgroundColor: isApproved || isUnderReview ? 'rgba(16,185,129,0.20)' : 'var(--brand-gold)',
-                color: isApproved || isUnderReview ? '#10B981' : 'var(--bg-base)',
+                backgroundColor: isApproved ? 'rgba(16,185,129,0.20)' : isUnderReview ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)',
+                color: isApproved ? '#10B981' : isUnderReview ? '#F59E0B' : '#EF4444',
               }}>
               {isApproved
                 ? <GraduationCap className="w-4 h-4" />
@@ -127,7 +127,7 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
               <p className="text-[11px] font-semibold font-sans truncate" style={{ color: 'var(--text-primary)' }}>
                 {isApproved ? 'Approved ✓' : isUnderReview ? 'Under Review' : 'Complete Registration'}
               </p>
-              <p className="text-[10px] font-sans" style={{ color: isApproved || isUnderReview ? '#10B981' : 'var(--text-muted)' }}>
+              <p className="text-[10px] font-sans" style={{ color: isApproved ? '#10B981' : isUnderReview ? '#F59E0B' : '#EF4444' }}>
                 {isApproved ? 'Go to your dashboard' : isUnderReview ? 'Awaiting approval' : 'Pay fee · Select department'}
               </p>
             </div>
@@ -341,10 +341,10 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
           background: isApproved
             ? 'linear-gradient(135deg, #059669, #10B981)'
             : isUnderReview
-              ? 'rgba(16,185,129,0.15)'
-              : 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))',
-          border: isUnderReview && !isApproved ? '1px solid rgba(16,185,129,0.4)' : 'none',
-          boxShadow: isApproved || isUnderReview ? '0 8px 32px rgba(16,185,129,0.25)' : '0 8px 32px rgba(233,195,73,0.35)',
+              ? 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.08))'
+              : 'linear-gradient(135deg, rgba(239,68,68,0.9), rgba(239,68,68,0.7))',
+          border: isUnderReview ? '1px solid rgba(251,191,36,0.4)' : 'none',
+          boxShadow: isApproved ? '0 8px 32px rgba(16,185,129,0.25)' : isUnderReview ? '0 8px 32px rgba(251,191,36,0.25)' : '0 8px 32px rgba(239,68,68,0.35)',
         }}
         onClick={() => isApproved ? (window.location.href = '/dashboard/student') : !isUnderReview && (window.location.href = '/onboarding/about')}
         role="button" tabIndex={0}
@@ -354,20 +354,20 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
         {isApproved
           ? <GraduationCap className="w-4 h-4 text-white" />
           : isUnderReview
-            ? <Clock className="w-4 h-4" style={{ color: '#10B981' }} />
-            : <CreditCard className="w-4 h-4 text-black" />
+            ? <Clock className="w-4 h-4" style={{ color: '#F59E0B' }} />
+            : <CreditCard className="w-4 h-4 text-white" />
         }
         <div>
           <p className="text-xs font-bold leading-none"
-            style={{ color: isUnderReview && !isApproved ? '#10B981' : isApproved ? 'white' : 'black' }}>
+            style={{ color: isUnderReview ? '#F59E0B' : 'white' }}>
             {isApproved ? 'Go to Dashboard ✓' : isUnderReview ? 'Under Review' : 'Complete Registration'}
           </p>
           <p className="text-[10px] mt-0.5"
-            style={{ color: isUnderReview && !isApproved ? 'rgba(16,185,129,0.7)' : isApproved ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }}>
+            style={{ color: isUnderReview ? 'rgba(245,158,11,0.7)' : 'rgba(255,255,255,0.7)' }}>
             {isApproved ? 'Dashboard is ready' : isUnderReview ? 'Awaiting approval' : 'Pay fee · Select department'}
           </p>
         </div>
-        {!isUnderReview && <ChevronRight className="w-4 h-4" style={{ color: isApproved ? 'white' : 'black' }} />}
+        {!isUnderReview && <ChevronRight className="w-4 h-4 text-white" />}
       </motion.div>
 
       {/* ── Mobile sticky CTA ── */}
@@ -380,23 +380,23 @@ export function WelcomePortalLayout({ activeTab, setActiveTab, state, children }
             background: isApproved
               ? 'linear-gradient(135deg, #059669, #10B981)'
               : isUnderReview
-                ? 'rgba(16,185,129,0.15)'
-                : 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))',
-            border: isUnderReview && !isApproved ? '1px solid rgba(16,185,129,0.4)' : 'none',
+                ? 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.08))'
+                : 'linear-gradient(135deg, rgba(239,68,68,0.9), rgba(239,68,68,0.7))',
+            border: isUnderReview ? '1px solid rgba(251,191,36,0.4)' : 'none',
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           }}
         >
           <div>
             <p className="text-xs font-bold"
-              style={{ color: isUnderReview && !isApproved ? '#10B981' : 'white' }}>
+              style={{ color: isUnderReview ? '#F59E0B' : 'white' }}>
               {isApproved ? 'Go to Dashboard ✓' : isUnderReview ? 'Under Review' : 'Complete Registration'}
             </p>
             <p className="text-[10px] mt-0.5"
-              style={{ color: isUnderReview && !isApproved ? 'rgba(16,185,129,0.7)' : 'rgba(255,255,255,0.7)' }}>
+              style={{ color: isUnderReview ? 'rgba(245,158,11,0.7)' : 'rgba(255,255,255,0.7)' }}>
               {isApproved ? 'Dashboard is ready' : isUnderReview ? 'Awaiting approval' : 'Pay fee · Select department'}
             </p>
           </div>
-          <ChevronRight className="w-5 h-5" style={{ color: isUnderReview && !isApproved ? '#10B981' : 'white' }} />
+          <ChevronRight className="w-5 h-5" style={{ color: isUnderReview ? '#F59E0B' : 'white' }} />
         </motion.button>
       </div>
 

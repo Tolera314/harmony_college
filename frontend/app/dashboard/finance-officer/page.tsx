@@ -24,7 +24,7 @@ import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView'
 import { MessagingView }               from '@/src/components/messaging/MessagingView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
-import { useNotifications } from '@/src/hooks/useNotifications';
+import { useRealtimeNotifications } from '@/src/hooks/useRealtimeNotifications';
 
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/src/lib/foApi';
 
@@ -78,10 +78,8 @@ export default function FinanceOfficerPage() {
       .catch(() => {});
   }, []);
 
-  const { unreadCount } = useNotifications({
-    fetchFn:       () => getNotifications(),
-    markReadFn:    (id) => markNotificationRead(id),
-    markAllReadFn: () => markAllNotificationsRead(),
+  const { unreadCount, playNotificationSound } = useRealtimeNotifications({
+    enabled: true,
   });
 
   // Fetch logged in user profile from auth API

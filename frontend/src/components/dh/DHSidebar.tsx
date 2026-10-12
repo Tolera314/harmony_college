@@ -5,7 +5,7 @@ import { DHNavTab, DHProfile } from '../../types/department';
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, BarChart3,
   Bell, ClipboardList, Settings,
-  LogOut, Layers, GitBranch, UserCog, CalendarDays, TrendingUp,
+  LogOut, GitBranch, UserCog, CalendarDays, TrendingUp,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ChatSidebarButton } from '../chat/ChatSidebarButton';
@@ -29,7 +29,6 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
 }) => {
   const navItems: NavItem[] = [
     { id: 'overview',             label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'programs',             label: 'Programs',             icon: <Layers className="w-5 h-5" /> },
     { id: 'courses',              label: 'Courses',              icon: <BookOpen className="w-5 h-5" /> },
     { id: 'instructors',          label: 'Instructors',          icon: <UserCog className="w-5 h-5" /> },
     {
