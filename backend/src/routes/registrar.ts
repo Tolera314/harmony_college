@@ -297,35 +297,112 @@ router.post('/students/:id/remind-profile', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 // ADMISSIONS
 // ══════════════════════════════════════════════════════════════════════════════
+// ADMISSIONS — Students who completed onboarding and have FO payment approval
+// Automatically transitioned from Onboardings when Finance Officer verifies payment
+// ══════════════════════════════════════════════════════════════════════════════
+
 router.get('/admissions', async (req: AuthRequest, res) => {
   try {
-    const qp = q(req); const { page, limit } = pageParams(qp);
-    ok(res, await admissions.listApplications({
-      page, limit,
-      search:       qp.search,
-      status:       qp.status as ApplicationStatus | undefined,
-      program:      qp.program,
-      academicYear: qp.academicYear,
-    }));
+    const qp = q(req);
+    const { page, limit } = pageParams(qp);
+    const skip = (page - 1) * limit;
+
+    // Filter students who have payment verified by Finance Officer
+    const where: any = { paymentVerifiedByFinance: true };
+    
+    if (qp.search) {
+      where.user = {
+        OR: [
+          { fullName: { contains: qp.search, mode: 'insensitive' } },
+          { email:    { contains: qp.search, mode: 'insensitive' } },
+          { phone:    { contains: qp.search, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    // Optional filters
+    if (qp.program) where.program = qp.program;
+    if (qp.programType) where.programType = qp.programType;
+    if (qp.departmentId) where.selectedDepartmentId = qp.departmentId;
+
+    const [total, profiles] = await Promise.all([
+      prisma.studentProfile.count({ where }),
+      prisma.studentProfile.findMany({
+        where, skip, take: limit,
+        orderBy: { paymentVerifiedAt: 'desc' },
+        select: {
+          userId:                   true,
+          registrationFeePaid:      true,
+          registrationFeePaidAt:    true,
+          departmentSelected:       true,
+          paymentVerifiedByFinance:  true,
+          paymentVerifiedAt:        true,
+          paymentVerifiedByUserId:  true,
+          notifiedByRegistrar:      true,
+          notifiedAt:               true,
+          selectedDepartmentId:     true,
+          program:                  true,
+          programType:              true,
+          shortProgramDuration:     true,
+          matricResult:             true,
+          ministryResult:           true,
+          transcriptUrl:            true,
+          profilePictureUrl:        true,
+          nationalId:               true,
+          createdAt:                true,
+          user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
+          selectedDepartment: { select: { id: true, name: true, code: true } },
+        },
+      }),
+    ]);
+
+    ok(res, { 
+      total, 
+      page, 
+      limit, 
+      totalPages: Math.ceil(total / limit), 
+      admissions: profiles 
+    });
   } catch (e) { fail(res, e); }
 });
 
 router.get('/admissions/:id', async (req: AuthRequest, res) => {
   try {
-    const app = await admissions.getApplicationById(pid(req));
-    if (!app) { res.status(404).json({ error: 'Application not found' }); return; }
-    ok(res, app);
+    const userId = pid(req);
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      include: {
+        user: { select: { id: true, fullName: true, email: true, phone: true, role: true, createdAt: true } },
+        selectedDepartment: { select: { id: true, name: true, code: true } },
+      },
+    });
+    
+    if (!profile || !profile.paymentVerifiedByFinance) {
+      res.status(404).json({ error: 'Admission record not found or not yet payment-verified' });
+      return;
+    }
+    
+    ok(res, profile);
   } catch (e) { fail(res, e); }
 });
 
 router.patch('/admissions/:id/approve', async (req: AuthRequest, res) => {
   try {
+    const userId = pid(req);
     const { comment } = req.body as { comment?: string };
-    ok(res, await admissions.approveApplication(pid(req), req.user!.userId, comment));
+    
+    // Check if student is in admissions (payment verified)
+    const profile = await prisma.studentProfile.findUnique({ where: { userId } });
+    if (!profile || !profile.paymentVerifiedByFinance) {
+      res.status(404).json({ error: 'Student not found in admissions or payment not verified' });
+      return;
+    }
+
+    // Use existing approval service which handles HOD notification
+    ok(res, await admissions.approveApplication(userId, req.user!.userId, comment));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[Approve Admission] Error:', msg);
-    // If it's a known business-logic error return 400; unhandled → 500
     const status = (e instanceof Error) ? 400 : 500;
     res.status(status).json({ error: msg });
   }
@@ -333,17 +410,41 @@ router.patch('/admissions/:id/approve', async (req: AuthRequest, res) => {
 
 router.patch('/admissions/:id/reject', async (req: AuthRequest, res) => {
   try {
+    const userId = pid(req);
     const parsed = z.object({ reason: z.string().min(5, 'Reason must be at least 5 characters') }).safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Reason required' }); return; }
-    ok(res, await admissions.rejectApplication(pid(req), req.user!.userId, parsed.data.reason));
+    if (!parsed.success) { 
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Reason required' });
+      return;
+    }
+    
+    // Check if student is in admissions
+    const profile = await prisma.studentProfile.findUnique({ where: { userId } });
+    if (!profile || !profile.paymentVerifiedByFinance) {
+      res.status(404).json({ error: 'Student not found in admissions' });
+      return;
+    }
+
+    ok(res, await admissions.rejectApplication(userId, req.user!.userId, parsed.data.reason));
   } catch (e) { fail(res, e, 400); }
 });
 
 router.patch('/admissions/:id/request-correction', async (req: AuthRequest, res) => {
   try {
+    const userId = pid(req);
     const parsed = z.object({ comment: z.string().min(5) }).safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Comment required' }); return; }
-    ok(res, await admissions.requestCorrection(pid(req), req.user!.userId, parsed.data.comment));
+    if (!parsed.success) { 
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Comment required' });
+      return;
+    }
+    
+    // Check if student is in admissions
+    const profile = await prisma.studentProfile.findUnique({ where: { userId } });
+    if (!profile || !profile.paymentVerifiedByFinance) {
+      res.status(404).json({ error: 'Student not found in admissions' });
+      return;
+    }
+
+    ok(res, await admissions.requestCorrection(userId, req.user!.userId, parsed.data.comment));
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -2209,6 +2310,8 @@ router.delete('/grade-scale/:id', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 // ONBOARDINGS — view-only list of all student onboarding registrations
 // ══════════════════════════════════════════════════════════════════════════════
+// ONBOARDINGS — Students awaiting payment verification (NOT yet in Admissions)
+// ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/onboardings', async (req: AuthRequest, res) => {
   try {
@@ -2216,8 +2319,8 @@ router.get('/onboardings', async (req: AuthRequest, res) => {
     const { page, limit } = pageParams(qp);
     const skip = (page - 1) * limit;
 
-    // Query ALL students (role=STUDENT), including those with no StudentProfile yet.
-    // StudentProfile is a left join — null means the student hasn't started onboarding.
+    // Query students who have NOT been payment-verified by Finance Officer
+    // These are students still in the onboarding stage
     const searchFilter: any = qp.search ? {
       OR: [
         { fullName: { contains: qp.search, mode: 'insensitive' } },
@@ -2226,15 +2329,16 @@ router.get('/onboardings', async (req: AuthRequest, res) => {
       ],
     } : {};
 
-    const where: any = { role: 'STUDENT', ...searchFilter };
-
-    // Optional filter by payment/dept status (filter via profile)
-    if (qp.feePaid !== undefined) {
-      const paid = qp.feePaid === 'true';
-      where.studentProfile = paid
-        ? { registrationFeePaid: true }
-        : { OR: [{ registrationFeePaid: false }, { is: null }] };
-    }
+    const where: any = {
+      role: 'STUDENT',
+      ...searchFilter,
+      // Only show students who haven't been payment-verified yet
+      // OR students with no profile at all (just registered)
+      OR: [
+        { studentProfile: { paymentVerifiedByFinance: false } },
+        { studentProfile: { is: null } },
+      ],
+    };
 
     const [total, users] = await Promise.all([
       prisma.user.count({ where }),
@@ -2254,6 +2358,9 @@ router.get('/onboardings', async (req: AuthRequest, res) => {
               departmentSelected:       true,
               paymentVerifiedByFinance:  true,
               paymentVerifiedAt:        true,
+              notifiedByRegistrar:      true,
+              notifiedAt:               true,
+              notifiedBy:               true,
               selectedDepartmentId:     true,
               program:                  true,
               programType:              true,
@@ -2271,7 +2378,7 @@ router.get('/onboardings', async (req: AuthRequest, res) => {
       }),
     ]);
 
-    // Normalise shape: always return the same fields whether profile exists or not
+    // Normalise shape
     const onboardings = users.map(u => ({
       userId:                   u.id,
       registrationFeePaid:      u.studentProfile?.registrationFeePaid      ?? false,
@@ -2279,6 +2386,9 @@ router.get('/onboardings', async (req: AuthRequest, res) => {
       departmentSelected:       u.studentProfile?.departmentSelected        ?? false,
       paymentVerifiedByFinance:  u.studentProfile?.paymentVerifiedByFinance ?? false,
       paymentVerifiedAt:        u.studentProfile?.paymentVerifiedAt         ?? null,
+      notifiedByRegistrar:      u.studentProfile?.notifiedByRegistrar       ?? false,
+      notifiedAt:               u.studentProfile?.notifiedAt                ?? null,
+      notifiedBy:               u.studentProfile?.notifiedBy                ?? null,
       selectedDepartmentId:     u.studentProfile?.selectedDepartmentId      ?? null,
       program:                  u.studentProfile?.program                   ?? null,
       programType:              u.studentProfile?.programType               ?? null,
@@ -2295,6 +2405,81 @@ router.get('/onboardings', async (req: AuthRequest, res) => {
 
     ok(res, { total, page, limit, totalPages: Math.ceil(total / limit), onboardings });
   } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/onboardings/:userId/notify
+// Notify a student to complete registration payment
+router.post('/onboardings/:userId/notify', async (req: AuthRequest, res) => {
+  try {
+    const userId = pid(req, 'userId');
+    const registrarId = req.user!.userId;
+
+    // Check if student exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { studentProfile: true },
+    });
+
+    if (!user || user.role !== 'STUDENT') {
+      res.status(404).json({ error: 'Student not found' });
+      return;
+    }
+
+    // Check if already payment verified (shouldn't be in onboardings)
+    if (user.studentProfile?.paymentVerifiedByFinance) {
+      res.status(400).json({ error: 'Student already payment verified - moved to Admissions' });
+      return;
+    }
+
+    // Check if recently notified (prevent spam - max once per 24 hours)
+    if (user.studentProfile?.notifiedAt) {
+      const hoursSinceNotified = (Date.now() - new Date(user.studentProfile.notifiedAt).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceNotified < 24) {
+        res.status(400).json({ 
+          error: 'Student was recently notified. Please wait 24 hours before sending another notification.',
+          lastNotifiedAt: user.studentProfile.notifiedAt,
+        });
+        return;
+      }
+    }
+
+    // Update student profile with notification tracking
+    const updated = await prisma.studentProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        notifiedByRegistrar: true,
+        notifiedAt: new Date(),
+        notifiedBy: registrarId,
+      },
+      update: {
+        notifiedByRegistrar: true,
+        notifiedAt: new Date(),
+        notifiedBy: registrarId,
+      },
+    });
+
+    // Create notification for student
+    const { createNotification } = await import('../services/notificationService');
+    await createNotification({
+      userId,
+      title: 'Complete Registration Payment',
+      message: `The Registrar has requested that you complete your registration fee payment. Please visit your onboarding page to submit your payment receipt.`,
+      type: 'REGISTRATION_REMINDER',
+      actionTab: 'onboarding',
+      entityType: 'StudentProfile',
+      entityId: updated.id,
+    });
+
+    ok(res, {
+      success: true,
+      message: 'Student notified successfully',
+      notifiedAt: updated.notifiedAt,
+    });
+  } catch (e) {
+    console.error('[Notify Student] Error:', e);
+    fail(res, e);
+  }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

@@ -159,11 +159,17 @@ model StudentProfile {
   /// Set to true once a Finance Officer verifies the student's registration fee payment.
   paymentVerifiedByFinance Boolean     @default(false)
   paymentVerifiedByUserId  String?
+  /// Registrar notification tracking
+  notifiedByRegistrar      Boolean     @default(false)
+  notifiedAt               DateTime?
+  notifiedBy               String?
   nationalId               String?
   programType              String?
   shortProgramDuration     String?
   selectedDepartment       Department? @relation(fields: [selectedDepartmentId], references: [id])
   user                     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([paymentVerifiedByFinance])
 }
 
 model Application {

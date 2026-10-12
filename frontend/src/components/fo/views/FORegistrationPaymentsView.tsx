@@ -105,6 +105,7 @@ function ReviewModal({
     try {
       await apiFetch(`/api/finance-officer/payments/${record.userId}/verify`, { method: 'POST' });
       onVerified();
+      onClose(); // Close modal after successful verification
     } catch (e: any) {
       setError(e.message ?? 'Verification failed. Please try again.');
     } finally {
@@ -657,24 +658,8 @@ export function FORegistrationPaymentsView({ programType }: { programType?: 'TVE
       {/* Registration Fee Summary */}
       <RegistrationFeeSummaryCard />
 
-      {/* Tab switch */}
-      <div className="flex gap-2">
-        {(['pending', 'verified'] as const).map(t => (
-          <button key={t} onClick={() => { setTab(t); setPage(1); }}
-            className="px-4 py-2 rounded-xl text-xs font-semibold font-sans border capitalize transition-all"
-            style={{
-              backgroundColor: tab === t ? 'var(--accent-gold-subtle)' : 'var(--hover-overlay)',
-              borderColor:     tab === t ? 'var(--accent-gold-border)' : 'var(--border-default)',
-              color:           tab === t ? 'var(--brand-gold)'         : 'var(--text-secondary)',
-            }}>
-            {t === 'pending' ? `Awaiting Review (${tab === 'pending' ? total : '…'})` : `Verified (${tab === 'verified' ? total : '…'})`}
-          </button>
-        ))}
-      </div>
-
       {/* Navigation Tabs & Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-(--hover-overlay) border border-(--border-subtle)">
-        {/* Tab Buttons */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-(--hover-overlay) border border-(--border-subtle)">{/* Tab Buttons */}
         <div className="flex gap-2">
           {(['pending', 'verified'] as const).map(t => {
             const isActive = tab === t;
@@ -811,38 +796,25 @@ export function FORegistrationPaymentsView({ programType }: { programType?: 'TVE
                 {/* Screenshot Quick Preview Thumbnail */}
                 <div className="shrink-0 flex items-center">
                   {r.user.application?.registrationScreenshotUrl ? (
-                    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-(--border-subtle) bg-(--bg-base)/60">
-                      <div
-                        onClick={() => setSelectedRecord(r)}
-                        className="relative w-11 h-11 rounded-lg overflow-hidden border border-(--accent-gold-border) cursor-pointer group bg-black/20 shrink-0"
-                        title="Click to view & enlarge receipt screenshot"
-                      >
-                        {r.user.application.registrationScreenshotUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                          <img
-                            src={r.user.application.registrationScreenshotUrl}
-                            alt="Receipt"
-                            className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-(--brand-gold)">
-                            <CreditCard className="w-5 h-5" />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                          <Eye className="w-3.5 h-3.5 text-white" />
+                    <div
+                      onClick={() => setSelectedRecord(r)}
+                      className="relative w-14 h-14 rounded-xl overflow-hidden border border-(--accent-gold-border) cursor-pointer group bg-black/20 shrink-0"
+                      title="Click to view & verify payment receipt"
+                    >
+                      {r.user.application.registrationScreenshotUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                        <img
+                          src={r.user.application.registrationScreenshotUrl}
+                          alt="Receipt"
+                          className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-(--brand-gold)">
+                          <CreditCard className="w-5 h-5" />
                         </div>
-                      </div>
-                      <div className="text-left">
-                        <span className="text-[10px] font-mono font-semibold text-(--brand-gold) flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Receipt
-                        </span>
-                        <button
-                          onClick={() => setSelectedRecord(r)}
-                          className="text-[11px] font-sans text-(--text-secondary) hover:text-(--brand-gold) underline text-left block"
-                        >
-                          View Receipt
-                        </button>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Eye className="w-4 h-4 text-white" />
                       </div>
                     </div>
                   ) : (
@@ -855,41 +827,37 @@ export function FORegistrationPaymentsView({ programType }: { programType?: 'TVE
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-(--border-subtle)">
-                  <button
-                    onClick={() => setSelectedRecord(r)}
-                    className="p-2 rounded-xl border text-xs font-semibold transition-all hover:bg-(--accent-gold-subtle) text-(--text-secondary) border-(--border-default)"
-                    title="View Profile Details"
-                  >
-                    <Eye className="w-4 h-4 text-(--brand-gold)" />
-                  </button>
-
                   {tab === 'pending' ? (
                     <button
-                      onClick={() => handleVerify(r.userId, r.user.fullName)}
-                      disabled={isVerifying}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold font-sans transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 text-(--bg-base)"
-                      style={{ background: 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))' }}
+                      onClick={() => setSelectedRecord(r)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-semibold transition-all hover:bg-(--accent-gold-subtle) hover:border-(--accent-gold-border) text-(--text-secondary) border-(--border-default)"
+                      title="Review payment details and verify"
                     >
-                      {isVerifying ? (
-                        <span className="w-3.5 h-3.5 border-2 border-(--bg-base)/30 border-t-(--bg-base) rounded-full animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                      )}
-                      <span>{isVerifying ? 'Verifying...' : 'Verify Payment'}</span>
+                      <Eye className="w-4 h-4 text-(--brand-gold)" />
+                      <span>Review & Verify</span>
                     </button>
                   ) : (
-                    <button
-                      onClick={() => handleUnverify(r.userId, r.user.fullName)}
-                      disabled={isUnverifying}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold font-sans border transition-all text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 active:scale-95 disabled:opacity-50"
-                    >
-                      {isUnverifying ? (
-                        <span className="w-3.5 h-3.5 border-2 border-rose-400/30 border-t-rose-400 rounded-full animate-spin" />
-                      ) : (
-                        <UserX className="w-3.5 h-3.5" />
-                      )}
-                      <span>{isUnverifying ? 'Revoking...' : 'Unverify'}</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setSelectedRecord(r)}
+                        className="p-2 rounded-xl border text-xs font-semibold transition-all hover:bg-(--accent-gold-subtle) text-(--text-secondary) border-(--border-default)"
+                        title="View Profile Details"
+                      >
+                        <Eye className="w-4 h-4 text-(--brand-gold)" />
+                      </button>
+                      <button
+                        onClick={() => handleUnverify(r.userId, r.user.fullName)}
+                        disabled={isUnverifying}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold font-sans border transition-all text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 active:scale-95 disabled:opacity-50"
+                      >
+                        {isUnverifying ? (
+                          <span className="w-3.5 h-3.5 border-2 border-rose-400/30 border-t-rose-400 rounded-full animate-spin" />
+                        ) : (
+                          <UserX className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isUnverifying ? 'Revoking...' : 'Unverify'}</span>
+                      </button>
+                    </>
                   )}
                 </div>
               </motion.div>

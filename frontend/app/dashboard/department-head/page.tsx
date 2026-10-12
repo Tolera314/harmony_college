@@ -8,7 +8,6 @@ import { DHMobileNav }             from '@/src/components/dh/DHMobileNav';
 import { DHSearchModal }           from '@/src/components/dh/DHSearchModal';
 import { DHLogoutModal }           from '@/src/components/dh/DHLogoutModal';
 import { DHOverviewView }          from '@/src/components/dh/views/DHOverviewView';
-import { DHProgramsView }          from '@/src/components/dh/views/DHProgramsView';
 import { DHCoursesView }           from '@/src/components/dh/views/DHCoursesView';
 import { DHInstructorsView }       from '@/src/components/dh/views/DHInstructorsView';
 import { DHStudentsView }          from '@/src/components/dh/views/DHStudentsView';
@@ -27,7 +26,7 @@ import {
   hodProfileApi, hodDashboardApi, hodNotificationsApi, hodNewAdmissionsApi,
   type HoDProfile, type ApiNotification,
 } from '@/src/lib/hodApi';
-import { useNotifications } from '@/src/hooks/useNotifications';
+import { useRealtimeNotifications } from '@/src/hooks/useRealtimeNotifications';
 
 // ── Adapter: map ApiNotification → the shape DHHeader / DHNotificationsView expect ──
 function toHeaderNotif(n: ApiNotification) {
@@ -47,7 +46,6 @@ function toHeaderNotif(n: ApiNotification) {
 // ─────────────────────────────────────────────────────────────────────────────
 const MOBILE_NAV_ITEMS: { id: DHNavTab; label: string }[] = [
   { id: 'overview',             label: 'Dashboard' },
-  { id: 'programs',             label: 'Programs' },
   { id: 'courses',              label: 'Courses' },
   { id: 'instructors',          label: 'Instructors' },
   { id: 'students',             label: 'Students' },
@@ -100,10 +98,8 @@ export default function DepartmentHeadPage() {
   const { toast, show: showToast, hide: hideToast } = useToast();
 
   // ── Real-time unread badge ─────────────────────────────────────────────────
-  const { unreadCount } = useNotifications({
-    fetchFn:       () => hodNotificationsApi.list({ limit: 50 }),
-    markReadFn:    (id) => hodNotificationsApi.markRead(id),
-    markAllReadFn: () => hodNotificationsApi.markAllRead(),
+  const { unreadCount, playNotificationSound } = useRealtimeNotifications({
+    enabled: true,
   });
 
   // ── Load profile + notifications ────────────────────────────────────────
@@ -201,7 +197,6 @@ export default function DepartmentHeadPage() {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':             return <DHOverviewView profile={profile} setActiveTab={setActiveTab} programType={dhProgramType} />;
-      case 'programs':             return <DHProgramsView programType={dhProgramType} />;
       case 'courses':              return <DHCoursesView programType={dhProgramType} />;
       case 'instructors':          return <DHInstructorsView programType={dhProgramType} />;
       case 'students':             return <DHStudentsView programType={dhProgramType} />;

@@ -12,7 +12,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { SkeletonTable, EmptyState, ErrorState } from '../ui/States';
 import {
-  admissionsApi, staffInvitationsApi,
+  admissionsApi, staffInvitationsApi, apiFetch, qs,
   type Application, type AdmissionsListResponse, type StaffInvitation, type StaffInvitationsResponse,
 } from '@/src/lib/registrarApi';
 
@@ -182,72 +182,89 @@ const StaffInvitationsTab: React.FC = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STUDENT APPLICATIONS TAB (existing view)
+// STUDENT ADMISSIONS TAB (Payment-Verified Students)
 // ─────────────────────────────────────────────────────────────────────────────
+
+interface AdmissionStudent {
+  userId: string;
+  registrationFeePaid: boolean;
+  registrationFeePaidAt: string | null;
+  departmentSelected: boolean;
+  paymentVerifiedByFinance: boolean;
+  paymentVerifiedAt: string | null;
+  paymentVerifiedByUserId: string | null;
+  notifiedByRegistrar: boolean;
+  notifiedAt: string | null;
+  selectedDepartmentId: string | null;
+  program: string | null;
+  programType: string | null;
+  shortProgramDuration: string | null;
+  matricResult: string | null;
+  ministryResult: string | null;
+  transcriptUrl: string | null;
+  profilePictureUrl: string | null;
+  nationalId: string | null;
+  createdAt: string;
+  user: { id: string; fullName: string; email: string; phone: string; createdAt: string };
+  selectedDepartment: { id: string; name: string; code: string } | null;
+}
+
+interface AdmissionsResponse {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  admissions: AdmissionStudent[];
+}
+
 const StudentApplicationsTab: React.FC = () => {
-  const [data, setData] = useState<AdmissionsListResponse | null>(null);
-  const [selected, setSelected] = useState<Application | null>(null);
+  const [data, setData] = useState<AdmissionsResponse | null>(null);
+  const [selected, setSelected] = useState<AdmissionStudent | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [programFilter, setProgramFilter] = useState('');
   const [page, setPage] = useState(1);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [activeDoc, setActiveDoc] = useState<Application['documents'][0] | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
-  const [showRejectForm, setShowRejectForm] = useState(false);
-
-  const load = useCallback(async (pg = page, q = search, s = statusFilter) => {
+  const load = useCallback(async (pg = page, q = search, pf = programFilter) => {
     setLoading(true); setError(null);
     try {
-      const res = await admissionsApi.list({ page: pg, limit: 15, search: q, status: s || undefined });
+      const res = await apiFetch<AdmissionsResponse>(`/api/registrar/admissions${qs({ page: pg, limit: 15, search: q, program: pf || undefined })}`);
       setData(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load applications');
+      setError(e instanceof Error ? e.message : 'Failed to load admissions');
     } finally { setLoading(false); }
-  }, [page, search, statusFilter]);
+  }, [page, search, programFilter]);
 
   useEffect(() => { load(); }, [page]);
 
   const handleSearch = (val: string) => {
     setSearch(val); setPage(1);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => load(1, val, statusFilter), 350);
+    searchTimer.current = setTimeout(() => load(1, val, programFilter), 350);
   };
 
-  const handleFilter = (val: string) => { setStatusFilter(val); setPage(1); load(1, search, val); };
+  const handleFilter = (val: string) => { setProgramFilter(val); setPage(1); load(1, search, val); };
 
   const doAction = async (action: () => Promise<unknown>) => {
     setActionLoading(true); setActionError(null);
     try {
       await action();
-      await load(page, search, statusFilter);
-      if (selected) { const fresh = await admissionsApi.getById(selected.id); setSelected(fresh); }
+      await load(page, search, programFilter);
+      if (selected) {
+        const fresh = await apiFetch<AdmissionStudent>(`/api/registrar/admissions/${selected.userId}`);
+        setSelected(fresh);
+      }
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Action failed');
     } finally { setActionLoading(false); }
   };
 
-  const handleApprove = () => doAction(() => admissionsApi.approve(selected!.id));
-  const handleReject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rejectReason.trim()) return;
-    doAction(async () => { await admissionsApi.reject(selected!.id, rejectReason); setShowRejectForm(false); setRejectReason(''); });
-  };
-  const handleRequestCorrection = () => doAction(() => admissionsApi.requestCorrection(selected!.id, 'Please review and correct the submitted documents.'));
-  const handleAddComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-    doAction(async () => { await admissionsApi.addComment(selected!.id, commentText); setCommentText(''); });
-  };
+  const handleApprove = () => doAction(() => apiFetch(`/api/registrar/admissions/${selected!.userId}/approve`, { method: 'PATCH' }));
 
   return (
     <>
@@ -256,13 +273,15 @@ const StudentApplicationsTab: React.FC = () => {
         <div className="relative md:col-span-2">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-faint)" />
           <input type="text" value={search} onChange={e => handleSearch(e.target.value)}
-            placeholder="Search by name or application ID..."
+            placeholder="Search by name, email, or phone..."
             className="w-full pl-10 pr-4 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
         </div>
-        <select value={statusFilter} onChange={e => handleFilter(e.target.value)}
+        <select value={programFilter} onChange={e => handleFilter(e.target.value)}
           className="w-full px-3 py-2.5 bg-(--bg-input) border border-(--border-subtle) rounded-xl text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)">
-          <option value="">All Statuses</option>
-          {Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          <option value="">All Programs</option>
+          <option value="HND">HND</option>
+          <option value="ND">ND</option>
+          <option value="Short Program">Short Program</option>
         </select>
       </div>
 
@@ -274,57 +293,62 @@ const StudentApplicationsTab: React.FC = () => {
           <table className="w-full text-left text-xs font-sans">
             <thead className="border-b ds-table-header font-mono text-[10px] uppercase tracking-wider">
               <tr>
-                <th className="px-5 py-4">Applicant</th>
+                <th className="px-5 py-4">Student</th>
                 <th className="px-5 py-4">Program</th>
-                <th className="px-5 py-4">Academic Year</th>
-                <th className="px-5 py-4">Submitted</th>
-                <th className="px-5 py-4">Finance</th>
-                <th className="px-5 py-4">Status</th>
+                <th className="px-5 py-4">Department</th>
+                <th className="px-5 py-4">Registered</th>
+                <th className="px-5 py-4">Payment Verified</th>
                 <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y ds-table-row ds-table-cell">
-              {(data?.applications ?? []).map(app => (
-                <tr key={app.id} onClick={() => { setSelected(app); setActiveDoc(null); setActionError(null); setShowRejectForm(false); }}
+              {(data?.admissions ?? []).map(student => (
+                <tr key={student.userId} onClick={() => { setSelected(student); setActionError(null); }}
                   className="ds-table-row transition-colors cursor-pointer group">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-(--hover-overlay) border border-(--border-strong) flex items-center justify-center font-serif font-bold text-xs text-(--brand-gold)">
-                        {app.fullName[0]}
-                      </div>
+                      {student.profilePictureUrl ? (
+                        <img src={student.profilePictureUrl} alt={student.user.fullName} className="w-8 h-8 rounded-full border border-(--border-strong) object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-(--hover-overlay) border border-(--border-strong) flex items-center justify-center font-serif font-bold text-xs text-(--brand-gold)">
+                          {student.user.fullName[0]}
+                        </div>
+                      )}
                       <div>
-                        <p className="font-semibold text-(--text-primary) group-hover:text-(--brand-gold) transition-colors">{app.fullName}</p>
-                        <p className="text-[10px] text-(--text-faint)">{app.user?.email}</p>
+                        <p className="font-semibold text-(--text-primary) group-hover:text-(--brand-gold) transition-colors">{student.user.fullName}</p>
+                        <p className="text-[10px] text-(--text-faint)">{student.user.email}</p>
+                        {student.user.phone && <p className="text-[10px] text-(--text-faint)">{student.user.phone}</p>}
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-4 text-(--text-secondary) max-w-[160px] truncate">{app.program}</td>
-                  <td className="px-5 py-4 font-mono text-(--text-muted)">{app.academicYear}</td>
-                  <td className="px-5 py-4 font-mono text-(--text-muted)">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '—'}</td>
                   <td className="px-5 py-4">
-                    {app.financeVerified ? (
-                      <div className="flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-(--status-success) shrink-0" />
-                        <span className="text-[10px] font-semibold text-(--status-success)">Approved</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-(--status-warning) shrink-0" />
-                        <span className="text-[10px] font-semibold text-(--status-warning)">Pending</span>
-                      </div>
-                    )}
+                    <p className="text-(--text-secondary)">{student.program ?? '—'}</p>
+                    {student.programType && <Badge variant="glass" className="text-[9px] mt-1">{student.programType}</Badge>}
                   </td>
-                  <td className="px-5 py-4"><Badge variant={STATUS_BADGE[app.status] ?? 'glass'}>{STATUS_LABEL[app.status] ?? app.status}</Badge></td>
+                  <td className="px-5 py-4 text-(--text-secondary)">
+                    {student.selectedDepartment ? (
+                      <span>{student.selectedDepartment.name} <span className="font-mono text-[10px] text-(--text-faint)">({student.selectedDepartment.code})</span></span>
+                    ) : <span className="text-(--text-faint)">—</span>}
+                  </td>
+                  <td className="px-5 py-4 font-mono text-(--text-muted)">{new Date(student.user.createdAt).toLocaleDateString()}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-(--status-success) shrink-0" />
+                      <span className="text-[10px] font-semibold text-(--status-success)">
+                        {student.paymentVerifiedAt ? new Date(student.paymentVerifiedAt).toLocaleDateString() : 'Verified'}
+                      </span>
+                    </div>
+                  </td>
                   <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { setSelected(app); setActiveDoc(null); setActionError(null); setShowRejectForm(false); }}
+                    <button onClick={() => { setSelected(student); setActionError(null); }}
                       className="px-3 py-1.5 rounded-xl border border-(--border-default) bg-(--hover-overlay) text-(--text-secondary) hover:text-(--brand-gold) hover:border-(--brand-gold)/30 text-[10px] font-semibold transition-all">
-                      View Details
+                      Review
                     </button>
                   </td>
                 </tr>
               ))}
-              {(data?.applications ?? []).length === 0 && (
-                <tr><td colSpan={7} className="p-0"><EmptyState variant="search" compact /></td></tr>
+              {(data?.admissions ?? []).length === 0 && (
+                <tr><td colSpan={6} className="p-0"><EmptyState variant="search" compact /></td></tr>
               )}
             </tbody>
           </table>
@@ -349,15 +373,15 @@ const StudentApplicationsTab: React.FC = () => {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} exit={{ opacity: 0 }} onClick={() => setSelected(null)} className="fixed inset-0 bg-black z-40" />
             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed right-0 top-0 bottom-0 w-full md:w-[750px] bg-(--bg-base) border-l border-(--border-default) z-50 overflow-y-auto flex flex-col shadow-2xl font-sans">
+              className="fixed right-0 top-0 bottom-0 w-full md:w-[650px] bg-(--bg-base) border-l border-(--border-default) z-50 overflow-y-auto flex flex-col shadow-2xl font-sans">
 
               {/* Drawer Header */}
               <div className="p-6 border-b border-(--border-default) flex items-center justify-between sticky top-0 bg-(--bg-base) z-10">
                 <div>
-                  <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">Application Review</span>
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">Admission Review</span>
                   <h3 className="text-lg font-serif font-bold text-(--text-primary) flex items-center gap-2">
-                    {selected.fullName}
-                    <Badge variant={STATUS_BADGE[selected.status] ?? 'glass'}>{STATUS_LABEL[selected.status] ?? selected.status}</Badge>
+                    {selected.user.fullName}
+                    <Badge variant="emerald">Payment Verified</Badge>
                   </h3>
                 </div>
                 <button onClick={() => setSelected(null)} className="p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) transition-colors">
@@ -370,23 +394,28 @@ const StudentApplicationsTab: React.FC = () => {
                   <div className="p-3 bg-(--status-danger-bg) border border-(--status-danger-border) rounded-xl text-xs text-(--status-danger)">{actionError}</div>
                 )}
 
-                {/* Personal Info */}
+                {/* Student Info */}
                 <div className="p-5 bg-(--hover-overlay) border border-(--border-default) rounded-2xl space-y-4">
                   <div className="flex items-center gap-4 border-b border-(--border-subtle) pb-4">
-                    <div className="w-12 h-12 rounded-xl bg-(--brand-gold)/20 border border-(--brand-gold)/30 flex items-center justify-center font-serif font-bold text-xl text-(--brand-gold)">{selected.fullName[0]}</div>
-                    <div>
-                      <p className="text-sm font-semibold text-(--text-primary)">{selected.fullName}</p>
-                      <p className="text-xs text-(--text-faint)">{selected.user?.email} · {selected.user?.phone}</p>
+                    {selected.profilePictureUrl ? (
+                      <img src={selected.profilePictureUrl} alt={selected.user.fullName} className="w-14 h-14 rounded-xl border-2 border-(--brand-gold)/30 object-cover" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl bg-(--brand-gold)/20 border-2 border-(--brand-gold)/30 flex items-center justify-center font-serif font-bold text-xl text-(--brand-gold)">{selected.user.fullName[0]}</div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-(--text-primary)">{selected.user.fullName}</p>
+                      <p className="text-xs text-(--text-faint)">{selected.user.email}</p>
+                      {selected.user.phone && <p className="text-xs text-(--text-faint)">{selected.user.phone}</p>}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     {[
-                      { icon: User,       label: 'Gender / Age', val: `${selected.gender} · ${selected.age} yrs` },
-                      { icon: Calendar,   label: 'DOB',          val: selected.dob ? new Date(selected.dob).toLocaleDateString() : '—' },
-                      { icon: FileCheck2, label: 'Study Mode',   val: selected.studyMode },
-                      { icon: Phone,      label: 'Emergency',    val: selected.emergencyContact },
-                      { icon: MapPin,     label: 'Location',     val: `${selected.city}, ${selected.nationality}` },
-                      { icon: FileText,   label: 'Program',      val: selected.program },
+                      { icon: GraduationCap, label: 'Program', val: selected.program ?? '—' },
+                      { icon: FileCheck2, label: 'Program Type', val: selected.programType ?? '—' },
+                      { icon: User, label: 'Department', val: selected.selectedDepartment?.name ?? '—' },
+                      { icon: FileText, label: 'National ID', val: selected.nationalId ?? '—' },
+                      { icon: Calendar, label: 'Registered', val: new Date(selected.createdAt).toLocaleDateString() },
+                      { icon: ShieldCheck, label: 'Payment Verified', val: selected.paymentVerifiedAt ? new Date(selected.paymentVerifiedAt).toLocaleDateString() : '—' },
                     ].map((item, idx) => (
                       <div key={idx} className="space-y-1 p-2.5 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                         <span className="text-[10px] font-mono text-(--text-faint) flex items-center gap-1">
@@ -398,129 +427,47 @@ const StudentApplicationsTab: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Documents */}
-                {selected.documents.length > 0 && (
+                {/* Academic Documents */}
+                {(selected.matricResult || selected.ministryResult || selected.transcriptUrl) && (
                   <div className="space-y-3">
-                    <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Uploaded Documents</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {selected.documents.map(doc => (
-                        <button key={doc.id} onClick={() => { setActiveDoc(doc); setZoom(1); setRotation(0); setFullscreen(false); }}
-                          className={`p-3 border rounded-xl flex flex-col items-center gap-2 text-center text-[10px] font-semibold transition-all ${activeDoc?.id === doc.id ? 'bg-(--accent-gold-subtle) border-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) hover:border-(--border-strong)'}`}>
-                          {doc.type === 'MATRIC' || doc.type?.includes('TRANSCRIPT') ? <FileText className="w-5 h-5 text-(--status-danger)" /> : <ImageIcon className="w-5 h-5 text-blue-400" />}
-                          <span className="truncate w-full">{doc.type.replace(/_/g, ' ')}</span>
-                        </button>
-                      ))}
-                    </div>
-                    {activeDoc && (() => {
-                      const url = activeDoc.fileUrl;
-                      const lower = url?.toLowerCase() ?? '';
-                      const isPdf   = lower.includes('.pdf');
-                      const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)/.test(lower) || activeDoc.type === 'PHOTO' || activeDoc.type?.includes('PHOTO');
-                      return (
-                        <div className="p-4 bg-black/60 border border-(--border-default) rounded-2xl space-y-3">
-                          <div className="flex items-center justify-between border-b border-(--border-subtle) pb-2">
-                            <span className="text-[10px] font-mono text-(--brand-gold) truncate max-w-[180px]">{activeDoc.type.replace(/_/g, ' ')}</span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {isImage && (<>
-                                <button onClick={() => setZoom(p => Math.max(0.5, p - 0.2))} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><ZoomOut className="w-3.5 h-3.5" /></button>
-                                <span className="text-[10px] font-mono text-(--text-secondary)">{Math.round(zoom * 100)}%</span>
-                                <button onClick={() => setZoom(p => Math.min(3, p + 0.2))} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><ZoomIn className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => setRotation(p => (p + 90) % 360)} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><RotateCw className="w-3.5 h-3.5" /></button>
-                              </>)}
-                              {url && <a href={url} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><ExternalLink className="w-3.5 h-3.5" /></a>}
-                              {url && <a href={url} download className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><Download className="w-3.5 h-3.5" /></a>}
-                              <button onClick={() => setFullscreen(!fullscreen)} className="p-1 hover:bg-(--hover-overlay) rounded text-(--text-muted)"><Maximize2 className="w-3.5 h-3.5" /></button>
-                            </div>
-                          </div>
-                          <div className={`relative overflow-hidden flex items-center justify-center bg-(--bg-base) border border-(--border-subtle) rounded-xl ${fullscreen ? 'fixed inset-4 z-[200]' : 'h-[280px]'}`}>
-                            {fullscreen && <button onClick={() => setFullscreen(false)} className="absolute top-4 right-4 p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl z-50 text-(--text-muted)"><X className="w-4 h-4" /></button>}
-                            {!url ? (
-                              <div className="text-center p-6"><FileText className="w-10 h-10 text-(--text-faint) mx-auto mb-2" /><p className="text-sm text-(--text-faint)">No file available</p></div>
-                            ) : isImage ? (
-                              <div className="w-full h-full overflow-auto flex items-center justify-center">
-                                <img src={url} alt={activeDoc.type} style={{ transform: `scale(${zoom}) rotate(${rotation}deg)`, transformOrigin: 'center', transition: 'transform 0.2s ease', maxWidth: '100%', maxHeight: fullscreen ? '90vh' : '260px', objectFit: 'contain' }} />
-                              </div>
-                            ) : isPdf ? (
-                              <iframe src={`${url}#toolbar=0&navpanes=0`} title={activeDoc.type} className="w-full border-0 rounded-xl" style={{ height: fullscreen ? '90vh' : '260px' }} />
-                            ) : (
-                              <div className="text-center p-6 space-y-3">
-                                <FileText className="w-10 h-10 text-(--text-faint) mx-auto" />
-                                <p className="text-sm text-(--text-faint)">Preview not available.</p>
-                                {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-(--brand-gold)">Open file ↗</a>}
-                              </div>
-                            )}
-                          </div>
+                    <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Academic Records</h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      {selected.matricResult && (
+                        <div className="p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
+                          <p className="text-[10px] font-mono text-(--text-faint) mb-1">Matric Result</p>
+                          <p className="text-xs text-(--text-primary) font-semibold">{selected.matricResult}</p>
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
-                {selected.documents.length === 0 && (
-                  <div className="p-4 bg-(--hover-overlay) border border-(--border-subtle) rounded-2xl text-center">
-                    <FileText className="w-8 h-8 text-(--text-faint) mx-auto mb-2" />
-                    <p className="text-xs text-(--text-faint)">No documents uploaded.</p>
-                  </div>
-                )}
-
-                {/* Finance Officer Approval */}
-                <div className={`p-5 rounded-2xl border space-y-3 ${selected.financeVerified ? 'bg-(--status-success-bg) border-(--status-success-border)/40' : 'bg-(--status-warning-bg) border-(--status-warning-border)/40'}`}>
-                  <div className="flex items-center gap-2">
-                    {selected.financeVerified ? <ShieldCheck className="w-4 h-4 text-(--status-success) shrink-0" /> : <ShieldAlert className="w-4 h-4 text-(--status-warning) shrink-0" />}
-                    <h4 className={`text-xs font-semibold font-mono uppercase tracking-wider ${selected.financeVerified ? 'text-(--status-success)' : 'text-(--status-warning)'}`}>
-                      Finance Officer {selected.financeVerified ? 'Approved' : 'Approval Pending'}
-                    </h4>
-                  </div>
-                  {selected.financeVerified ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><p className="text-[10px] font-mono text-(--text-faint)">Verified by</p><p className="text-xs font-semibold text-(--text-primary)">{selected.financeVerifiedByName ?? 'Finance Officer'}</p></div>
-                      <div><p className="text-[10px] font-mono text-(--text-faint)">Verified on</p><p className="text-xs font-semibold text-(--text-primary)">{selected.financeVerifiedAt ? new Date(selected.financeVerifiedAt).toLocaleString() : '—'}</p></div>
+                      )}
+                      {selected.ministryResult && (
+                        <div className="p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
+                          <p className="text-[10px] font-mono text-(--text-faint) mb-1">Ministry Result</p>
+                          <p className="text-xs text-(--text-primary) font-semibold">{selected.ministryResult}</p>
+                        </div>
+                      )}
+                      {selected.transcriptUrl && (
+                        <div className="p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
+                          <p className="text-[10px] font-mono text-(--text-faint) mb-1">Transcript</p>
+                          <a href={selected.transcriptUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-(--brand-gold) hover:underline flex items-center gap-1">
+                            View Document <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-xs text-(--status-warning) leading-relaxed">The Finance Officer has not yet verified this student's registration fee payment. Approval will be blocked until the Finance Office confirms payment.</p>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Actions */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Review Actions</h4>
-                  <div className="flex flex-wrap gap-3">
-                    <Button variant="gold" size="sm" disabled={actionLoading || selected.status === 'ACCEPTED'} onClick={handleApprove} className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" /> {actionLoading ? 'Processing…' : 'Approve Admission'}
-                    </Button>
-                    <Button variant="rose" size="sm" disabled={actionLoading || selected.status === 'REJECTED'} onClick={() => setShowRejectForm(!showRejectForm)} className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
-                      <XCircle className="w-4 h-4" /> Reject Application
-                    </Button>
-                    <Button variant="secondary" size="sm" disabled={actionLoading} onClick={handleRequestCorrection} className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5">
-                      <AlertCircle className="w-4 h-4 text-(--status-warning)" /> Request Correction
+                <div className="p-5 bg-(--status-success-bg) border border-(--status-success-border)/40 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-(--status-success)" />
+                    <h4 className="text-xs font-semibold font-mono uppercase tracking-wider text-(--status-success)">Ready for Admission</h4>
+                  </div>
+                  <p className="text-xs text-(--text-secondary)">This student has completed payment verification and is ready to be approved for admission.</p>
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="primary" size="sm" onClick={handleApprove} disabled={actionLoading} className="flex-1">
+                      {actionLoading ? 'Processing...' : 'Approve Admission'}
                     </Button>
                   </div>
-                  {showRejectForm && (
-                    <form onSubmit={handleReject} className="flex gap-2 mt-2">
-                      <input type="text" required value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                        placeholder="Rejection reason (required)..."
-                        className="flex-1 px-3 py-2 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--status-danger)" />
-                      <Button variant="rose" size="sm" type="submit" disabled={actionLoading}>Confirm Reject</Button>
-                    </form>
-                  )}
-                </div>
-
-                {selected.reviewComment && (
-                  <div className="p-3 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl text-xs text-(--text-secondary)">
-                    <span className="font-mono text-[10px] text-(--text-faint) block mb-1">Last Review Comment</span>
-                    {selected.reviewComment}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-(--text-faint)">Add Comment</h4>
-                  <form onSubmit={handleAddComment} className="flex gap-3">
-                    <input type="text" required value={commentText} onChange={e => setCommentText(e.target.value)}
-                      placeholder="Internal review notes..."
-                      className="flex-1 px-4 py-2.5 bg-(--bg-input) border border-(--border-default) rounded-xl text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)" />
-                    <Button variant="gold" size="sm" type="submit" disabled={actionLoading} className="shrink-0 flex items-center gap-1.5">
-                      <Send className="w-3.5 h-3.5" /> Post
-                    </Button>
-                  </form>
                 </div>
               </div>
             </motion.div>
