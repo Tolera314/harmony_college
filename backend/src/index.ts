@@ -23,6 +23,7 @@ import financeOfficerRouter from './routes/financeOfficer';
 import aiRouter             from './routes/ai';
 import adminRouter          from './routes/admin';
 import { adminInvitationsRouter } from './routes/adminInvitations';
+import notificationsRouter  from './routes/notifications';
 import { initSocket }       from './lib/socket';
 import { startContractExpiryJob } from './services/hr/hrContractExpiryJob';
 import {
@@ -71,6 +72,7 @@ app.use('/api/messages/conversations/:id/messages', sendMessageLimiter);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth',               authRouter);
+app.use('/api/notifications',      authenticate, notificationsRouter);
 app.use('/api/upload',             authenticate, uploadRouter);
 app.use('/api/advisor',            authenticate, advisorRouter);
 app.use('/api/chat',               chatRouter);
