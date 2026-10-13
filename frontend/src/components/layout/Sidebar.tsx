@@ -29,6 +29,7 @@ export interface GenericNavItem<T extends string = string> {
   icon: React.ReactNode;
   badge?: string;
   badgeVariant?: 'gold' | 'rose' | 'amber' | 'emerald';
+  locked?: boolean;
 }
 
 interface SidebarProps<T extends string = NavTab> {
@@ -117,17 +118,19 @@ export const Sidebar = <T extends string = NavTab>({
       <nav className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" role="navigation">
         {items.map((item) => {
           const isActive = activeTab === item.id;
+          const isLocked = item.locked;
           return (
             <motion.button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              whileHover={{ x: 4 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={isLocked ? {} : { x: 4 }}
+              whileTap={isLocked ? {} : { scale: 0.97 }}
               aria-current={isActive ? 'page' : undefined}
               aria-label={item.label}
               title={item.label}
-              className={`relative flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl font-sans text-sm font-medium transition-all group touch-target ${isActive ? 'ds-nav-item-active font-semibold' : 'ds-nav-item'
-                }`}
+              className={`relative flex items-center gap-3.5 px-3.5 py-2.5 text-left rounded-xl font-sans text-sm font-medium transition-all group touch-target ${
+                isActive ? 'ds-nav-item-active font-semibold' : 'ds-nav-item'
+              } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isActive && (
                 <motion.div

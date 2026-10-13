@@ -11,6 +11,7 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { ErrorState, EmptyState, SkeletonTable } from '../../ui/States';
+import { getAcademicFilters, getFilterParamName, transformFilterValue, type ProgramType } from '@/src/lib/academicFilters';
 
 const standingConfig = (gpa: number): { variant: 'emerald' | 'gold' | 'amber' | 'rose'; label: string; color: string } => {
   if (gpa >= 3.5) return { variant: 'emerald', label: 'Excellent', color: 'text-(--status-success)' };
@@ -30,31 +31,51 @@ const attColor = (rate: number | null) =>
   rate >= 90 ? 'text-(--status-success)' :
   rate >= 80 ? 'text-(--brand-gold)' : 'text-(--status-danger)';
 
-export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
+export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType = 'TVET' }) => {
   const [students,  setStudents]  = useState<StudentSummary[]>([]);
   const [total,     setTotal]     = useState(0);
   const [page,      setPage]      = useState(1);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [search,    setSearch]    = useState('');
-  const [yearFilter, setYearFilter] = useState('');
+  const [academicFilter, setAcademicFilter] = useState(''); // Renamed from yearFilter to be program-type agnostic
   const [statusFilter, setStatusFilter] = useState('');
   const [selected,  setSelected]  = useState<StudentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const LIMIT = 15;
 
+  // Get the appropriate filter parameter name based on program type
+  const filterParamName = getFilterParamName(programType);
+  
+  // Reset filter when program type changes
+  useEffect(() => {
+    setAcademicFilter('');
+    setPage(1);
+  }, [programType]);
+
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await hodStudentsApi.list({
+      const filterValue = transformFilterValue(programType, academicFilter);
+      const params: any = {
         page:      p,
         limit:     LIMIT,
         search:    search || undefined,
-        yearLevel: yearFilter ? parseInt(yearFilter) : undefined,
         status:    statusFilter || undefined,
-        // programType intentionally omitted — students are scoped by departmentId
-      });
+        programType: programType, // Include programType to ensure correct filtering
+      };
+      
+      // Add the appropriate filter parameter based on program type
+      if (filterValue !== undefined) {
+        if (programType === 'SHORT_PROGRAM') {
+          params.shortProgramDuration = filterValue;
+        } else {
+          params.yearLevel = filterValue;
+        }
+      }
+      
+      const res = await hodStudentsApi.list(params);
       setStudents(res.students);
       setTotal(res.total);
     } catch (e) {
@@ -62,7 +83,7 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
     } finally {
       setLoading(false);
     }
-  }, [search, yearFilter, statusFilter]);
+  }, [search, academicFilter, statusFilter, programType]);
 
   useEffect(() => { load(page); }, [page, load]);
 
@@ -98,12 +119,36 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {(['', '1', '2', '3', '4'] as const).map(y => (
-            <button key={y} onClick={() => { setYearFilter(y); setPage(1); }}
-              className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${yearFilter === y ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
-              {y === '' ? 'All Years' : `Year ${y}`}
+          {/* Dynamic academic filters based on program type */}
+          {programType === 'TVET' && getAcademicFilters(programType).map(filter => (
+            <button 
+              key={filter.value} 
+              onClick={() => { setAcademicFilter(filter.value); setPage(1); }}
+              className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${
+                academicFilter === filter.value 
+                  ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' 
+                  : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'
+              }`}
+            >
+              {filter.displayLabel}
             </button>
           ))}
+          
+          {/* For Short Program, use a dropdown for durations */}
+          {programType === 'SHORT_PROGRAM' && (
+            <select
+              value={academicFilter}
+              onChange={e => { setAcademicFilter(e.target.value); setPage(1); }}
+              className="px-3 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)"
+            >
+              {getAcademicFilters(programType).map(filter => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
+          )}
+          
           <select
             value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setPage(1); }}

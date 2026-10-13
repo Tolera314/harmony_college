@@ -43,11 +43,10 @@ import { toEthiopianTimeRange } from '@/src/lib/utils';
 
 // ── Tabs that require a complete profile ──────────────────────────────────────
 const LOCKED_TABS: NavTab[] = [
-  'registration', 'financials', 'degree_audit',
+  'registration', 'financials', 'degree_audit', 
+  'assignments', 'quizzes', 'grades', 'gpa_simulator',
 ];
-// 'assignments', 'quizzes', 'attendance', 'my_courses' are accessible so student can interact with courses & quizzes
-
-  const isProfileIncomplete = false;
+// These tabs are locked until student completes their profile
 
 // ── DAY names for timetable ───────────────────────────────────────────────────
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -404,15 +403,15 @@ export default function StudentDashboardPage() {
   }, []);
 
   // ── Nav items ─────────────────────────────────────────────────────────────
-  const studentNavItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
+  const studentNavItems: { id: NavTab; label: string; icon: React.ReactNode; locked?: boolean }[] = [
     { id: 'dashboard',    label: 'Dashboard',            icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'my_courses',   label: 'My Courses',           icon: <BookOpen className="w-4 h-4" /> },
     { id: 'timetable',    label: 'My Timetable',         icon: <CalendarDays className="w-4 h-4" /> },
-    { id: 'assignments',  label: 'Assignments',          icon: <ClipboardList className="w-4 h-4" /> },
-    { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-4 h-4" /> },
+    { id: 'assignments',  label: 'Assignments',          icon: <ClipboardList className="w-4 h-4" />, locked: isProfileIncomplete },
+    { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'attendance',   label: 'My Attendance',        icon: <CalendarCheck className="w-4 h-4" /> },
-    { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-4 h-4" /> },
-    { id: 'gpa_simulator', label: 'GPA Simulator',       icon: <Calculator className="w-4 h-4" /> },
+    { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-4 h-4" />, locked: isProfileIncomplete },
+    { id: 'gpa_simulator', label: 'GPA Simulator',       icon: <Calculator className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'degree_audit', label: 'Degree Audit',         icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'profile',      label: 'My Profile',           icon: <UserCircle className="w-4 h-4" /> },
@@ -581,6 +580,7 @@ export default function StudentDashboardPage() {
                 <nav className="flex-1 overflow-y-auto p-3 space-y-1">
                   {studentNavItems.map(item => {
                     const isActive = activeTab === item.id;
+                    const isLocked = item.locked;
                     return (
                       <button
                         key={item.id}
@@ -588,6 +588,8 @@ export default function StudentDashboardPage() {
                         className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-left"
                         style={isActive
                           ? { backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid rgba(233,195,73,0.2)' }
+                          : isLocked
+                          ? { color: 'var(--text-faint)', opacity: 0.5 }
                           : { color: 'var(--text-secondary)' }}
                       >
                         {item.icon}

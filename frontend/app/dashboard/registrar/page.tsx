@@ -57,9 +57,6 @@ const MENU_ITEMS: MenuItem[] = [
   { id: 'student_grades',    label: 'Student Grades',       icon: Award },
   { id: 'onboardings',       label: 'Onboardings',          icon: ClipboardList },
   { id: 'admissions',   label: 'Admissions',          icon: ClipboardList },
-  { id: 'enrollments',  label: 'Course Enrollments',  icon: BookOpen },
-  { id: 'catalog',      label: 'Course Catalog',      icon: BookOpen },
-  { id: 'offerings',    label: 'Course Offerings',    icon: Grid },
   { id: 'timetable',    label: 'Class Timetable',     icon: Clock },
   { id: 'transcripts',  label: 'Transcripts',         icon: FileText },
   { id: 'graduation',   label: 'Graduation Auditing', icon: GraduationCap },
@@ -230,7 +227,6 @@ export default function RegistrarDashboardPage() {
     { id: 'dashboard',   label: 'Dash',       icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'students',    label: 'Students',   icon: <Users className="w-5 h-5" /> },
     { id: 'admissions',  label: 'Admissions', icon: <ClipboardList className="w-5 h-5" /> },
-    { id: 'enrollments', label: 'Enroll',     icon: <BookOpen className="w-5 h-5" /> },
     { id: 'graduation',  label: 'Grad',       icon: <GraduationCap className="w-5 h-5" /> },
   ];
 

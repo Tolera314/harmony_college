@@ -205,7 +205,7 @@ interface AdmissionStudent {
   profilePictureUrl: string | null;
   nationalId: string | null;
   createdAt: string;
-  user: { id: string; fullName: string; email: string; phone: string; createdAt: string };
+  user: { id: string; fullName: string; email: string; phone: string; createdAt: string; profileCompleted: boolean };
   selectedDepartment: { id: string; name: string; code: string } | null;
 }
 
@@ -218,6 +218,7 @@ interface AdmissionsResponse {
 }
 
 const StudentApplicationsTab: React.FC = () => {
+  const [subTab, setSubTab] = useState<'pending' | 'approved'>('pending');
   const [data, setData] = useState<AdmissionsResponse | null>(null);
   const [selected, setSelected] = useState<AdmissionStudent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -230,35 +231,40 @@ const StudentApplicationsTab: React.FC = () => {
   const [page, setPage] = useState(1);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (pg = page, q = search, pf = programFilter) => {
+  const load = useCallback(async (pg = page, q = search, pf = programFilter, tab = subTab) => {
     setLoading(true); setError(null);
     try {
-      const res = await apiFetch<AdmissionsResponse>(`/api/registrar/admissions${qs({ page: pg, limit: 15, search: q, program: pf || undefined })}`);
+      // Filter by profileCompleted status: false = pending, true = approved
+      const isApproved = tab === 'approved';
+      const res = await apiFetch<AdmissionsResponse>(`/api/registrar/admissions${qs({ 
+        page: pg, 
+        limit: 15, 
+        search: q, 
+        program: pf || undefined,
+        approved: isApproved ? 'true' : 'false'
+      })}`);
       setData(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load admissions');
     } finally { setLoading(false); }
-  }, [page, search, programFilter]);
+  }, [page, search, programFilter, subTab]);
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => { load(); }, [page, subTab]);
 
   const handleSearch = (val: string) => {
     setSearch(val); setPage(1);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => load(1, val, programFilter), 350);
+    searchTimer.current = setTimeout(() => load(1, val, programFilter, subTab), 350);
   };
 
-  const handleFilter = (val: string) => { setProgramFilter(val); setPage(1); load(1, search, val); };
+  const handleFilter = (val: string) => { setProgramFilter(val); setPage(1); load(1, search, val, subTab); };
 
   const doAction = async (action: () => Promise<unknown>) => {
     setActionLoading(true); setActionError(null);
     try {
       await action();
-      await load(page, search, programFilter);
-      if (selected) {
-        const fresh = await apiFetch<AdmissionStudent>(`/api/registrar/admissions/${selected.userId}`);
-        setSelected(fresh);
-      }
+      await load(page, search, programFilter, subTab);
+      setSelected(null); // Close drawer after success
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Action failed');
     } finally { setActionLoading(false); }
@@ -268,6 +274,38 @@ const StudentApplicationsTab: React.FC = () => {
 
   return (
     <>
+      {/* Sub-tabs: Pending / Approved */}
+      <div className="flex items-center gap-3 mb-5">
+        <button
+          onClick={() => { setSubTab('pending'); setPage(1); }}
+          className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            subTab === 'pending'
+              ? 'bg-(--accent-gold-subtle) text-(--brand-gold) border-2 border-(--brand-gold)/30'
+              : 'bg-(--hover-overlay) text-(--text-secondary) border border-(--border-default) hover:border-(--border-strong)'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            <span>Pending Approval</span>
+            {data && subTab === 'pending' && <Badge variant="amber" className="ml-1">{data.total}</Badge>}
+          </div>
+        </button>
+        <button
+          onClick={() => { setSubTab('approved'); setPage(1); }}
+          className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            subTab === 'approved'
+              ? 'bg-(--status-success-bg) text-(--status-success) border-2 border-(--status-success-border)'
+              : 'bg-(--hover-overlay) text-(--text-secondary) border border-(--border-default) hover:border-(--border-strong)'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" />
+            <span>Approved</span>
+            {data && subTab === 'approved' && <Badge variant="emerald" className="ml-1">{data.total}</Badge>}
+          </div>
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-(--hover-overlay) border border-(--border-default) p-4 rounded-2xl">
         <div className="relative md:col-span-2">
@@ -298,6 +336,7 @@ const StudentApplicationsTab: React.FC = () => {
                 <th className="px-5 py-4">Department</th>
                 <th className="px-5 py-4">Registered</th>
                 <th className="px-5 py-4">Payment Verified</th>
+                <th className="px-5 py-4">Status</th>
                 <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -339,16 +378,23 @@ const StudentApplicationsTab: React.FC = () => {
                       </span>
                     </div>
                   </td>
+                  <td className="px-5 py-4">
+                    {student.user.profileCompleted ? (
+                      <Badge variant="emerald">Approved</Badge>
+                    ) : (
+                      <Badge variant="amber">Pending</Badge>
+                    )}
+                  </td>
                   <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
                     <button onClick={() => { setSelected(student); setActionError(null); }}
                       className="px-3 py-1.5 rounded-xl border border-(--border-default) bg-(--hover-overlay) text-(--text-secondary) hover:text-(--brand-gold) hover:border-(--brand-gold)/30 text-[10px] font-semibold transition-all">
-                      Review
+                      {student.user.profileCompleted ? 'View' : 'Review'}
                     </button>
                   </td>
                 </tr>
               ))}
               {(data?.admissions ?? []).length === 0 && (
-                <tr><td colSpan={6} className="p-0"><EmptyState variant="search" compact /></td></tr>
+                <tr><td colSpan={7} className="p-0"><EmptyState variant="search" compact /></td></tr>
               )}
             </tbody>
           </table>
@@ -381,7 +427,11 @@ const StudentApplicationsTab: React.FC = () => {
                   <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">Admission Review</span>
                   <h3 className="text-lg font-serif font-bold text-(--text-primary) flex items-center gap-2">
                     {selected.user.fullName}
-                    <Badge variant="emerald">Payment Verified</Badge>
+                    {selected.user.profileCompleted ? (
+                      <Badge variant="emerald">Approved</Badge>
+                    ) : (
+                      <Badge variant="amber">Pending Approval</Badge>
+                    )}
                   </h3>
                 </div>
                 <button onClick={() => setSelected(null)} className="p-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl text-(--text-muted) hover:text-(--text-primary) transition-colors">
@@ -457,18 +507,55 @@ const StudentApplicationsTab: React.FC = () => {
                 )}
 
                 {/* Actions */}
-                <div className="p-5 bg-(--status-success-bg) border border-(--status-success-border)/40 rounded-2xl space-y-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-(--status-success)" />
-                    <h4 className="text-xs font-semibold font-mono uppercase tracking-wider text-(--status-success)">Ready for Admission</h4>
+                {!selected.user.profileCompleted && (
+                  <div className="relative p-5 bg-gradient-to-br from-emerald-500/20 to-green-600/20 border-2 border-emerald-500/40 rounded-2xl space-y-3 shadow-lg shadow-emerald-500/20 animate-pulse-subtle">
+                    {/* Attention badge */}
+                    <div className="absolute -top-3 -right-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-lg animate-bounce-slow">
+                      ACTION REQUIRED
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-pulse" />
+                      <h4 className="text-sm font-bold font-mono uppercase tracking-wider text-emerald-400">Ready for Admission Approval</h4>
+                    </div>
+                    <p className="text-xs text-(--text-secondary) leading-relaxed">
+                      ✅ Payment verified by Finance Officer<br/>
+                      ✅ Department selected and confirmed<br/>
+                      🎓 Student is ready to be approved for admission
+                    </p>
+                    <div className="flex gap-2 pt-3">
+                      <Button 
+                        variant="primary" 
+                        size="sm" 
+                        onClick={handleApprove} 
+                        disabled={actionLoading} 
+                        className="flex-1 !bg-gradient-to-r !from-emerald-500 !to-green-600 hover:!from-emerald-600 hover:!to-green-700 !text-white font-bold !py-3 !text-sm shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                      >
+                        {actionLoading ? (
+                          <span className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 animate-spin" />
+                            Processing...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            <CheckCircle2 className="w-5 h-5" />
+                            Approve Admission Now
+                          </span>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-xs text-(--text-secondary)">This student has completed payment verification and is ready to be approved for admission.</p>
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="primary" size="sm" onClick={handleApprove} disabled={actionLoading} className="flex-1">
-                      {actionLoading ? 'Processing...' : 'Approve Admission'}
-                    </Button>
+                )}
+
+                {selected.user.profileCompleted && (
+                  <div className="p-5 bg-(--status-success-bg) border border-(--status-success-border)/40 rounded-2xl space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-(--status-success)" />
+                      <h4 className="text-xs font-semibold font-mono uppercase tracking-wider text-(--status-success)">Admission Approved</h4>
+                    </div>
+                    <p className="text-xs text-(--text-secondary)">This student has been approved and can now access the Student Dashboard.</p>
                   </div>
-                </div>
+                )}
               </div>
             </motion.div>
           </>
