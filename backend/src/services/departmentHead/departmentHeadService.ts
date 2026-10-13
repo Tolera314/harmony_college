@@ -333,7 +333,7 @@ export async function getCourseOfferings(
   userId: string,
   params: {
     page?: number; limit?: number; search?: string;
-    status?: string; semesterId?: string;
+    status?: string; semesterId?: string; programType?: 'TVET' | 'SHORT_PROGRAM';
   },
 ) {
   const hod = await resolveHoD(userId);
@@ -358,6 +358,9 @@ export async function getCourseOfferings(
       select: { id: true },
     });
     if (currentSemester) where.semesterId = currentSemester.id;
+  }
+  if (params.programType) {
+    where.course.programType = params.programType;
   }
   if (params.search) {
     where.OR = [
@@ -692,6 +695,7 @@ export async function getStudents(
     page?: number; limit?: number; search?: string;
     yearLevel?: number; status?: string; standing?: string;
     programType?: 'TVET' | 'SHORT_PROGRAM';
+    shortProgramDuration?: string; // Add Short Program duration filter
   },
 ) {
   const hod = await resolveHoD(userId);
@@ -702,10 +706,19 @@ export async function getStudents(
 
   const where: any = { departmentId: { in: deptIds } };
   if (params.status && params.status !== 'ALL') where.status = params.status;
-  if (params.yearLevel) where.yearLevel = params.yearLevel;
-  // NOTE: programType is intentionally NOT filtered here — students are already
-  // scoped to the HOD's department via departmentId. The TVET/SHORT toggle applies
-  // to courses and programs, not to the student directory.
+  
+  // Filter by yearLevel for TVET or shortProgramDuration for SHORT_PROGRAM
+  if (params.programType === 'SHORT_PROGRAM' && params.shortProgramDuration) {
+    where.shortProgramDuration = params.shortProgramDuration;
+  } else if (params.yearLevel) {
+    where.yearLevel = params.yearLevel;
+  }
+  
+  // Filter by programType if specified to separate TVET and SHORT_PROGRAM contexts
+  if (params.programType) {
+    where.programType = params.programType;
+  }
+  
   if (params.search) {
     where.OR = [
       { user:    { fullName: { contains: params.search, mode: 'insensitive' } } },

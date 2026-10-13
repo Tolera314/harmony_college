@@ -161,7 +161,7 @@ export const MyCoursesView: React.FC<MyCoursesViewProps> = ({
         </div>
       </div>
 
-      {/* ── Main Content: Clean Empty State or Real Courses Grid ─────────── */}
+      {/* ── Main Content: Clean Empty State or Real Courses Table ─────────── */}
       {!hasCourses ? (
         <div
           className="py-16 px-6 text-center rounded-2xl border flex flex-col items-center justify-center max-w-lg mx-auto my-6"
@@ -181,117 +181,140 @@ export const MyCoursesView: React.FC<MyCoursesViewProps> = ({
           </p>
         </div>
       ) : (
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-          {enrolledCourses.map((course, i) => {
-            const hasInstructor = Boolean(course.instructor && course.instructor !== 'TBA' && course.instructor !== 'Not Assigned');
-            const hasAttendance = typeof course.attendanceRate === 'number' && course.attendanceRate !== null && !isNaN(course.attendanceRate);
-            const hasProgress = typeof course.progress === 'number' && !isNaN(course.progress);
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...DURATION.medium, ...EASE.out }}
+          className="rounded-2xl border overflow-hidden"
+          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr style={{ backgroundColor: 'var(--hover-overlay)', borderBottom: '1px solid var(--border-default)' }}>
+                  <th className="px-4 py-3 text-left font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                    Code
+                  </th>
+                  <th className="px-4 py-3 text-left font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                    Course Name
+                  </th>
+                  <th className="px-4 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                    Credits
+                  </th>
+                  <th className="px-4 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                    ECTS
+                  </th>
+                  <th className="px-4 py-3 text-left font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                    Instructor
+                  </th>
+                  <th className="px-4 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                    Grade
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {enrolledCourses.map((course, i) => {
+                  const hasInstructor = Boolean(course.instructor && course.instructor !== 'TBA' && course.instructor !== 'Not Assigned');
 
-            return (
-              <motion.div
-                key={course.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...DURATION.medium, delay: i * 0.05, ...EASE.out }}
-              >
-                <Card
-                  onClick={() => setSelectedCourse(course)}
-                  className="flex flex-col group cursor-pointer h-full"
-                >
-                  <div className="flex-1 space-y-4">
-                    {/* Course header */}
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          {course.code && <Badge variant="gold">{course.code}</Badge>}
-                          {course.currentGrade && (
-                            <Badge variant="emerald">{course.currentGrade}</Badge>
-                          )}
-                        </div>
-                        <h3
-                          className="font-sans text-sm font-semibold leading-snug transition-colors group-hover:opacity-80"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          {course.title || 'Untitled Course'}
-                        </h3>
-                      </div>
-                      {hasInstructor && (
-                        <div
-                          className="w-10 h-10 rounded-full overflow-hidden border shrink-0 flex items-center justify-center font-serif font-bold text-xs"
-                          style={{ backgroundColor: 'var(--accent-gold-subtle)', borderColor: 'var(--accent-gold-border)', color: 'var(--brand-gold)' }}
-                        >
-                          {course.instructorPhoto ? (
-                            <img src={course.instructorPhoto} alt={course.instructor} className="w-full h-full object-cover" />
-                          ) : (
-                            course.instructor.charAt(0).toUpperCase()
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Course meta */}
-                    <div className="space-y-1.5 text-xs font-sans">
-                      {hasInstructor && (
-                        <div className="flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                          <User className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span className="truncate">{course.instructor}</span>
-                        </div>
-                      )}
-                      {course.schedule && course.schedule !== 'TBA' && (
-                        <div className="flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                          <Calendar className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span>{course.schedule}</span>
-                        </div>
-                      )}
-                      {course.room && course.room !== 'TBA' && (
-                        <div className="flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                          <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span className="truncate">{course.room}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Progress bar — only shown if progress is defined */}
-                    {hasProgress && (
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs font-mono">
-                          <span style={{ color: 'var(--text-muted)' }}>Progress</span>
-                          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{course.progress}%</span>
-                        </div>
-                        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--hover-overlay)' }}>
+                  return (
+                    <motion.tr
+                      key={`course-${course.id || i}-${i}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.03 }}
+                      onClick={() => setSelectedCourse(course)}
+                      className="cursor-pointer transition-colors hover:bg-[var(--hover-overlay)]"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                    >
+                      {/* Code */}
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
                           <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${course.progress}%`, backgroundColor: 'var(--brand-gold)' }}
-                          />
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}
+                          >
+                            <BookOpen className="w-4 h-4" style={{ color: 'var(--brand-gold)' }} />
+                          </div>
+                          <span className="font-mono text-xs font-bold uppercase" style={{ color: 'var(--brand-gold)' }}>
+                            {course.code || 'N/A'}
+                          </span>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      </td>
 
-                  {/* Footer */}
-                  <div
-                    className="mt-4 pt-3 border-t flex items-center justify-between"
-                    style={{ borderColor: 'var(--border-default)' }}
-                  >
-                    {hasAttendance ? (
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <AttendanceDot rate={course.attendanceRate as number} />
-                        <span style={{ color: 'var(--text-muted)' }}>{course.attendanceRate}% attendance</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs" style={{ color: 'var(--text-faint)' }}>Enrolled</span>
-                    )}
-                    {typeof course.credits === 'number' && course.credits > 0 && (
-                      <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-faint)' }}>
-                        {course.credits} cr
-                      </span>
-                    )}
-                  </div>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </section>
+                      {/* Course Name */}
+                      <td className="px-4 py-4">
+                        <div>
+                          <p className="font-sans text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            {course.title || 'Untitled Course'}
+                          </p>
+                          {course.room && course.room !== 'TBA' && (
+                            <p className="font-sans text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'var(--text-faint)' }}>
+                              <MapPin className="w-3 h-3" />
+                              {course.room}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Credits */}
+                      <td className="px-4 py-4 text-center">
+                        <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                          {typeof course.credits === 'number' ? course.credits : '—'}
+                        </span>
+                      </td>
+
+                      {/* ECTS */}
+                      <td className="px-4 py-4 text-center">
+                        <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                          {typeof course.credits === 'number' ? course.credits : '—'}
+                        </span>
+                      </td>
+
+                      {/* Instructor */}
+                      <td className="px-4 py-4">
+                        {hasInstructor ? (
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className="w-8 h-8 rounded-full overflow-hidden border shrink-0 flex items-center justify-center font-serif font-bold text-xs"
+                              style={{ backgroundColor: 'var(--accent-gold-subtle)', borderColor: 'var(--accent-gold-border)', color: 'var(--brand-gold)' }}
+                            >
+                              {course.instructorPhoto ? (
+                                <img src={course.instructorPhoto} alt={course.instructor} className="w-full h-full object-cover" />
+                              ) : (
+                                course.instructor.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-sans text-xs font-medium truncate max-w-[150px]" style={{ color: 'var(--text-primary)' }}>
+                                {course.instructor}
+                              </p>
+                              {course.instructorTitle && (
+                                <p className="font-sans text-[10px] truncate max-w-[150px]" style={{ color: 'var(--text-faint)' }}>
+                                  {course.instructorTitle}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="font-sans text-xs italic" style={{ color: 'var(--text-faint)' }}>Not Assigned</span>
+                        )}
+                      </td>
+
+                      {/* Grade */}
+                      <td className="px-4 py-4 text-center">
+                        {course.currentGrade ? (
+                          <Badge variant="emerald">{course.currentGrade}</Badge>
+                        ) : (
+                          <span className="font-sans text-xs italic" style={{ color: 'var(--text-faint)' }}>Pending</span>
+                        )}
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
       )}
 
       {/* ── Course Detail Drawer ───────────────────────────────────────── */}
@@ -483,9 +506,9 @@ export const MyCoursesView: React.FC<MyCoursesViewProps> = ({
                           Assignments
                         </h4>
                         <div className="space-y-2">
-                          {selectedCourse.assignments.map(asgn => (
+                          {selectedCourse.assignments.map((asgn, idx) => (
                             <div
-                              key={asgn.id}
+                              key={`assignment-${asgn.id || idx}-${idx}`}
                               className="p-3.5 rounded-xl flex items-center justify-between text-xs border"
                               style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-subtle)' }}
                             >

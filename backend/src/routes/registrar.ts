@@ -310,14 +310,26 @@ router.get('/admissions', async (req: AuthRequest, res) => {
     // Filter students who have payment verified by Finance Officer
     const where: any = { paymentVerifiedByFinance: true };
     
+    // Filter by approval status (profileCompleted in User table)
+    // approved=true means User.profileCompleted=true (Registrar already approved)
+    // approved=false means User.profileCompleted=false (pending Registrar approval)
+    const userWhere: any = {};
+    if (qp.approved === 'true') {
+      userWhere.profileCompleted = true;
+    } else if (qp.approved === 'false') {
+      userWhere.profileCompleted = false;
+    }
+    
     if (qp.search) {
-      where.user = {
-        OR: [
-          { fullName: { contains: qp.search, mode: 'insensitive' } },
-          { email:    { contains: qp.search, mode: 'insensitive' } },
-          { phone:    { contains: qp.search, mode: 'insensitive' } },
-        ],
-      };
+      userWhere.OR = [
+        { fullName: { contains: qp.search, mode: 'insensitive' } },
+        { email:    { contains: qp.search, mode: 'insensitive' } },
+        { phone:    { contains: qp.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (Object.keys(userWhere).length > 0) {
+      where.user = userWhere;
     }
 
     // Optional filters
@@ -350,7 +362,7 @@ router.get('/admissions', async (req: AuthRequest, res) => {
           profilePictureUrl:        true,
           nationalId:               true,
           createdAt:                true,
-          user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true } },
+          user: { select: { id: true, fullName: true, email: true, phone: true, createdAt: true, profileCompleted: true } },
           selectedDepartment: { select: { id: true, name: true, code: true } },
         },
       }),
@@ -398,8 +410,15 @@ router.patch('/admissions/:id/approve', async (req: AuthRequest, res) => {
       return;
     }
 
+    // Get the Application record using userId
+    const application = await prisma.application.findUnique({ where: { userId } });
+    if (!application) {
+      res.status(404).json({ error: 'Application record not found for this student' });
+      return;
+    }
+
     // Use existing approval service which handles HOD notification
-    ok(res, await admissions.approveApplication(userId, req.user!.userId, comment));
+    ok(res, await admissions.approveApplication(application.id, req.user!.userId, comment));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[Approve Admission] Error:', msg);
@@ -424,7 +443,14 @@ router.patch('/admissions/:id/reject', async (req: AuthRequest, res) => {
       return;
     }
 
-    ok(res, await admissions.rejectApplication(userId, req.user!.userId, parsed.data.reason));
+    // Get the Application record using userId
+    const application = await prisma.application.findUnique({ where: { userId } });
+    if (!application) {
+      res.status(404).json({ error: 'Application record not found for this student' });
+      return;
+    }
+
+    ok(res, await admissions.rejectApplication(application.id, req.user!.userId, parsed.data.reason));
   } catch (e) { fail(res, e, 400); }
 });
 
@@ -444,7 +470,14 @@ router.patch('/admissions/:id/request-correction', async (req: AuthRequest, res)
       return;
     }
 
-    ok(res, await admissions.requestCorrection(userId, req.user!.userId, parsed.data.comment));
+    // Get the Application record using userId
+    const application = await prisma.application.findUnique({ where: { userId } });
+    if (!application) {
+      res.status(404).json({ error: 'Application record not found for this student' });
+      return;
+    }
+
+    ok(res, await admissions.requestCorrection(application.id, req.user!.userId, parsed.data.comment));
   } catch (e) { fail(res, e, 400); }
 });
 

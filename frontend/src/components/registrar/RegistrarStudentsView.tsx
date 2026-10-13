@@ -641,7 +641,7 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
 
               {detailLoading ? (
                 <div className="p-8 text-center text-xs font-mono text-zinc-400">Loading academic record...</div>
-              ) : !academicRecord || academicRecord.semesters.length === 0 ? (
+              ) : !academicRecord || !academicRecord.semesters || academicRecord.semesters.length === 0 ? (
                 <div className="p-6 rounded-xl bg-black/30 border border-white/10 text-center text-xs text-zinc-400 font-sans">
                   No graded course enrollments recorded yet for this student.
                 </div>

@@ -576,19 +576,14 @@ export const InGradesView: React.FC<InGradesViewProps> = ({ programType }) => {
                         min="0"
                         max="15"
                         step="0.1"
-                        readOnly={marks.assignment !== ''}
                         disabled={!isEditingOpen}
                         value={marks.assignment}
                         onChange={(e) =>
                           handleMarkChange(entry.enrollmentId, 'assignment', e.target.value)
                         }
                         placeholder="/15"
-                        title={marks.assignment !== '' ? "Auto-populated from graded assignments" : "Assign (15%)"}
-                        className={`w-16 px-1.5 py-1 text-center font-mono text-xs rounded-lg border ${
-                          marks.assignment !== ''
-                            ? 'bg-amber-500/10 border-amber-500/40 text-amber-300 font-bold cursor-default'
-                            : 'bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold)'
-                        } focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
+                        title="Assign (15%)"
+                        className="w-20 px-2 py-2 text-center font-mono text-sm rounded-lg border bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold) focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </td>
 
@@ -599,19 +594,14 @@ export const InGradesView: React.FC<InGradesViewProps> = ({ programType }) => {
                         min="0"
                         max="5"
                         step="0.1"
-                        readOnly={marks.quiz !== ''}
                         disabled={!isEditingOpen}
                         value={marks.quiz}
                         onChange={(e) =>
                           handleMarkChange(entry.enrollmentId, 'quiz', e.target.value)
                         }
                         placeholder="/5"
-                        title={marks.quiz !== '' ? "Auto-populated from completed quizzes" : "Quiz (5%)"}
-                        className={`w-16 px-1.5 py-1 text-center font-mono text-xs rounded-lg border ${
-                          marks.quiz !== ''
-                            ? 'bg-amber-500/10 border-amber-500/40 text-amber-300 font-bold cursor-default'
-                            : 'bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold)'
-                        } focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed`}
+                        title="Quiz (5%)"
+                        className="w-20 px-2 py-2 text-center font-mono text-sm rounded-lg border bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold) focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </td>
 
@@ -628,7 +618,7 @@ export const InGradesView: React.FC<InGradesViewProps> = ({ programType }) => {
                           handleMarkChange(entry.enrollmentId, 'midExam', e.target.value)
                         }
                         placeholder="/30"
-                        className="w-16 px-1.5 py-1 text-center font-mono text-xs rounded-lg border bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold) focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-20 px-2 py-2 text-center font-mono text-sm rounded-lg border bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold) focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </td>
 
@@ -645,7 +635,7 @@ export const InGradesView: React.FC<InGradesViewProps> = ({ programType }) => {
                           handleMarkChange(entry.enrollmentId, 'finalExam', e.target.value)
                         }
                         placeholder="/45"
-                        className="w-16 px-1.5 py-1 text-center font-mono text-xs rounded-lg border bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold) focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-20 px-2 py-2 text-center font-mono text-sm rounded-lg border bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold) focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </td>
 
@@ -662,7 +652,7 @@ export const InGradesView: React.FC<InGradesViewProps> = ({ programType }) => {
                           handleMarkChange(entry.enrollmentId, 'attendance', e.target.value)
                         }
                         placeholder="/5"
-                        className="w-16 px-1.5 py-1 text-center font-mono text-xs rounded-lg border bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold) focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-20 px-2 py-2 text-center font-mono text-sm rounded-lg border bg-(--hover-overlay) border-(--border-default) focus:border-(--brand-gold) focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </td>
 

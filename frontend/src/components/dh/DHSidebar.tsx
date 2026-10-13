@@ -36,7 +36,6 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
       badge: newAdmissionsCount > 0 ? `${newAdmissionsCount} New` : undefined, badgeVariant: 'gold',
     },
     { id: 'classes',              label: 'Classes & Sections',   icon: <CalendarDays className="w-5 h-5" /> },
-    { id: 'course_assignments',   label: 'Course Assignments',   icon: <GitBranch className="w-5 h-5" /> },
     { id: 'academic_performance', label: 'Academic Performance', icon: <TrendingUp className="w-5 h-5" /> },
     { id: 'reports',              label: 'Department Reports',   icon: <BarChart3 className="w-5 h-5" /> },
     {

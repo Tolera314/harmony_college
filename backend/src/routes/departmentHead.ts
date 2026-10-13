@@ -80,6 +80,7 @@ router.get('/course-offerings', async (req: AuthRequest, res) => {
       search:     q.search,
       status:     q.status,
       semesterId: q.semesterId,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
@@ -148,6 +149,7 @@ router.get('/students', async (req: AuthRequest, res) => {
       yearLevel: q.yearLevel ? parseInt(q.yearLevel, 10) : undefined,
       status:    q.status,
       programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+      shortProgramDuration: q.shortProgramDuration,
     }));
   } catch (e) { fail(res, e); }
 });

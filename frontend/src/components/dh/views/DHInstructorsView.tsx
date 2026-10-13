@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { motion } from 'motion/react';
-import { DURATION, EASE } from '@/src/lib/motion';
-import { UserCog, Loader2, Search, Mail, Phone, BookOpen, BarChart2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { DURATION, EASE, SPRING } from '@/src/lib/motion';
+import { UserCog, Loader2, Search, Mail, Phone, BookOpen, BarChart2, X, Calendar, Award, MapPin, Briefcase, Clock, Users } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
@@ -17,6 +17,7 @@ export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) =>
   const [error,       setError]       = useState<string | null>(null);
   const [search,      setSearch]      = useState('');
   const [filter,      setFilter]      = useState<'all' | 'active' | 'inactive'>('all');
+  const [selectedInstructor, setSelectedInstructor] = useState<DHInstructor | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -26,6 +27,13 @@ export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) =>
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Close drawer on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedInstructor(null); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const filtered = instructors.filter(i => {
     const q = search.toLowerCase();
@@ -93,7 +101,11 @@ export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) =>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(inst => (
-            <Card key={inst.id} className="p-5">
+            <Card 
+              key={inst.id} 
+              className="p-5 cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02]"
+              onClick={() => setSelectedInstructor(inst)}
+            >
               <div className="flex items-start gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-(--accent-gold-subtle) border border-(--accent-gold-border) flex items-center justify-center text-(--brand-gold) font-serif font-bold text-lg shrink-0">
                   {inst.user.fullName.charAt(0)}
@@ -140,6 +152,187 @@ export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) =>
           ))}
         </div>
       )}
+
+      {/* Instructor Detail Drawer */}
+      <AnimatePresence>
+        {selectedInstructor && (
+          <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              transition={{ ...DURATION.standard, ...EASE.inOut }}
+              className="absolute inset-0 bg-black"
+              onClick={() => setSelectedInstructor(null)}
+            />
+
+            {/* Drawer panel */}
+            <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={SPRING.drawer}
+                className="w-screen max-w-2xl flex flex-col shadow-2xl bg-(--bg-modal) border-l border-(--border-default)"
+              >
+                {/* Header */}
+                <div className="p-6 flex items-start justify-between gap-4 sticky top-0 z-10 backdrop-blur-xl shrink-0 border-b border-(--border-default) bg-(--bg-modal-hdr)">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-14 h-14 rounded-xl bg-(--accent-gold-subtle) border-2 border-(--accent-gold-border) flex items-center justify-center text-(--brand-gold) font-serif font-bold text-2xl shrink-0">
+                      {selectedInstructor.user.fullName.charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h2 className="font-serif text-xl font-bold text-(--text-primary) truncate">
+                          {selectedInstructor.user.fullName}
+                        </h2>
+                        <Badge variant={selectedInstructor.isActive ? 'emerald' : 'glass'}>
+                          {selectedInstructor.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      <p className="font-sans text-sm text-(--text-secondary)">{selectedInstructor.title}</p>
+                      <p className="font-mono text-xs text-(--brand-gold) mt-0.5">{selectedInstructor.employeeId}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedInstructor(null)}
+                    className="p-2 rounded-xl transition-colors shrink-0 hover:bg-(--hover-overlay) text-(--text-muted)"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  
+                  {/* Contact Information */}
+                  <div className="space-y-3">
+                    <h3 className="font-mono text-xs uppercase tracking-widest text-(--brand-gold) flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5" />
+                      Contact Information
+                    </h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      {selectedInstructor.user.email && (
+                        <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Mail className="w-4 h-4 text-(--text-faint)" />
+                            <span className="font-sans text-xs text-(--text-faint)">Email</span>
+                          </div>
+                          <p className="font-sans text-sm text-(--text-primary) break-all">{selectedInstructor.user.email}</p>
+                        </div>
+                      )}
+                      {selectedInstructor.user.phone && (
+                        <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Phone className="w-4 h-4 text-(--text-faint)" />
+                            <span className="font-sans text-xs text-(--text-faint)">Phone</span>
+                          </div>
+                          <p className="font-sans text-sm text-(--text-primary)">{selectedInstructor.user.phone}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Academic Information */}
+                  {selectedInstructor.specialization && (
+                    <div className="space-y-3">
+                      <h3 className="font-mono text-xs uppercase tracking-widest text-(--brand-gold) flex items-center gap-2">
+                        <Award className="w-3.5 h-3.5" />
+                        Academic Details
+                      </h3>
+                      <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Briefcase className="w-4 h-4 text-(--text-faint)" />
+                          <span className="font-sans text-xs text-(--text-faint)">Specialization</span>
+                        </div>
+                        <p className="font-sans text-sm text-(--text-primary)">{selectedInstructor.specialization}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Workload Statistics */}
+                  <div className="space-y-3">
+                    <h3 className="font-mono text-xs uppercase tracking-widest text-(--brand-gold) flex items-center gap-2">
+                      <BarChart2 className="w-3.5 h-3.5" />
+                      Workload Summary
+                    </h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle) text-center">
+                        <div className="flex justify-center text-(--brand-gold) mb-2">
+                          <BookOpen className="w-5 h-5" />
+                        </div>
+                        <p className="font-mono text-2xl font-bold text-(--text-primary) mb-1">
+                          {selectedInstructor.assignedOfferings}
+                        </p>
+                        <p className="font-sans text-xs text-(--text-faint)">Course Offerings</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle) text-center">
+                        <div className="flex justify-center text-(--status-success) mb-2">
+                          <Clock className="w-5 h-5" />
+                        </div>
+                        <p className="font-mono text-2xl font-bold text-(--text-primary) mb-1">
+                          {selectedInstructor.totalCreditHours}
+                        </p>
+                        <p className="font-sans text-xs text-(--text-faint)">Credit Hours</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle) text-center">
+                        <div className="flex justify-center text-(--status-info) mb-2">
+                          <Award className="w-5 h-5" />
+                        </div>
+                        <p className="font-mono text-2xl font-bold text-(--text-primary) mb-1">
+                          {selectedInstructor.totalEcts}
+                        </p>
+                        <p className="font-sans text-xs text-(--text-faint)">ECTS Points</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status & Employment */}
+                  <div className="space-y-3">
+                    <h3 className="font-mono text-xs uppercase tracking-widest text-(--brand-gold) flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5" />
+                      Employment Status
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant={selectedInstructor.isActive ? 'emerald' : 'glass'} className="shrink-0" />
+                          <span className="font-sans text-xs text-(--text-faint)">Status</span>
+                        </div>
+                        <p className="font-sans text-sm text-(--text-primary) font-semibold">
+                          {selectedInstructor.isActive ? 'Active Faculty' : 'Inactive'}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Briefcase className="w-4 h-4 text-(--text-faint)" />
+                          <span className="font-sans text-xs text-(--text-faint)">Position</span>
+                        </div>
+                        <p className="font-sans text-sm text-(--text-primary) font-semibold">{selectedInstructor.title}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Info */}
+                  <div className="p-4 rounded-xl bg-(--accent-gold-subtle) border border-(--accent-gold-border)">
+                    <div className="flex items-start gap-2">
+                      <BookOpen className="w-4 h-4 text-(--brand-gold) mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-sans text-xs font-semibold text-(--brand-gold) mb-1">Department Faculty</p>
+                        <p className="font-sans text-xs text-(--text-secondary) leading-relaxed">
+                          This instructor is assigned to your department and is available for course assignments and academic activities.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

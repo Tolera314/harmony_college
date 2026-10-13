@@ -28,7 +28,7 @@ import {
   LayoutDashboard, BookOpen, ClipboardList, GraduationCap,
   CreditCard, BarChart3, HelpCircle, X, ChevronRight,
   Settings, LogOut, CalendarCheck, CalendarDays, UserCircle,
-  Calculator,
+  Calculator, Bell,
 } from 'lucide-react';
 import {
   studentDashApi,
@@ -43,11 +43,10 @@ import { toEthiopianTimeRange } from '@/src/lib/utils';
 
 // ── Tabs that require a complete profile ──────────────────────────────────────
 const LOCKED_TABS: NavTab[] = [
-  'registration', 'financials', 'degree_audit',
+  'registration', 'financials',
+  'assignments', 'quizzes', 'grades', 'gpa_simulator',
 ];
-// 'assignments', 'quizzes', 'attendance', 'my_courses' are accessible so student can interact with courses & quizzes
-
-  const isProfileIncomplete = false;
+// These tabs are locked until student completes their profile
 
 // ── DAY names for timetable ───────────────────────────────────────────────────
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -386,7 +385,6 @@ export default function StudentDashboardPage() {
     if (tab === 'my_courses' || tab === 'registration') loadCourses();
     if (tab === 'grades' || tab === 'gpa_simulator') loadGrades();
     if (tab === 'financials') loadFinancials();
-    if (tab === 'degree_audit') loadDegreeAudit();
     setTimeout(() => { setActiveTab(tab); setTabLoading(false); }, 120);
   };
 
@@ -404,17 +402,17 @@ export default function StudentDashboardPage() {
   }, []);
 
   // ── Nav items ─────────────────────────────────────────────────────────────
-  const studentNavItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
+  const studentNavItems: { id: NavTab; label: string; icon: React.ReactNode; locked?: boolean }[] = [
     { id: 'dashboard',    label: 'Dashboard',            icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'my_courses',   label: 'My Courses',           icon: <BookOpen className="w-4 h-4" /> },
     { id: 'timetable',    label: 'My Timetable',         icon: <CalendarDays className="w-4 h-4" /> },
-    { id: 'assignments',  label: 'Assignments',          icon: <ClipboardList className="w-4 h-4" /> },
-    { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-4 h-4" /> },
+    { id: 'assignments',  label: 'Assignments',          icon: <ClipboardList className="w-4 h-4" />, locked: isProfileIncomplete },
+    { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'attendance',   label: 'My Attendance',        icon: <CalendarCheck className="w-4 h-4" /> },
-    { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-4 h-4" /> },
-    { id: 'gpa_simulator', label: 'GPA Simulator',       icon: <Calculator className="w-4 h-4" /> },
+    { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-4 h-4" />, locked: isProfileIncomplete },
+    { id: 'gpa_simulator', label: 'GPA Simulator',       icon: <Calculator className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-4 h-4" /> },
-    { id: 'degree_audit', label: 'Degree Audit',         icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'notifications', label: 'Notifications',       icon: <Bell className="w-4 h-4" /> },
     { id: 'profile',      label: 'My Profile',           icon: <UserCircle className="w-4 h-4" /> },
   ];
 
@@ -455,7 +453,6 @@ export default function StudentDashboardPage() {
                   <LockedFeatureCard title="Grades & Transcript"    description="View your grades, GPA, and transcripts."        icon={GraduationCap} />
                   <LockedFeatureCard title="Assignments"            description="Access assignments and submission portal."       icon={ClipboardList} />
                   <LockedFeatureCard title="Financials & Tuition"   description="View balance, invoices, and payment history."   icon={CreditCard} />
-                  <LockedFeatureCard title="Degree Audit"           description="Track degree progress and requirements."        icon={BarChart3} />
                   <LockedFeatureCard title="Quizzes & Exams"        description="Access exam schedules and quizzes."             icon={HelpCircle} />
                 </div>
               </motion.div>
@@ -493,8 +490,25 @@ export default function StudentDashboardPage() {
         );
       case 'financials':
         return <FinancialsView profile={financialProfile} transactions={transactions} />;
-      case 'degree_audit':
-        return <DegreeAuditView profile={degreeProfile} requirements={degreeRequirements} setActiveTab={handleTabChange} />;
+      case 'notifications':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Notifications
+              </h1>
+              <p className="font-sans text-sm" style={{ color: 'var(--text-muted)' }}>
+                Stay updated with important announcements and messages
+              </p>
+            </div>
+            <div className="p-8 rounded-2xl border text-center" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}>
+              <Bell className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-faint)' }} />
+              <p className="font-sans text-sm" style={{ color: 'var(--text-muted)' }}>
+                No new notifications at this time
+              </p>
+            </div>
+          </div>
+        );
       case 'settings':
         return <SettingsView profile={profile} setProfile={setProfile} />;
       case 'profile':
@@ -581,6 +595,7 @@ export default function StudentDashboardPage() {
                 <nav className="flex-1 overflow-y-auto p-3 space-y-1">
                   {studentNavItems.map(item => {
                     const isActive = activeTab === item.id;
+                    const isLocked = item.locked;
                     return (
                       <button
                         key={item.id}
@@ -588,6 +603,8 @@ export default function StudentDashboardPage() {
                         className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-left"
                         style={isActive
                           ? { backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)', border: '1px solid rgba(233,195,73,0.2)' }
+                          : isLocked
+                          ? { color: 'var(--text-faint)', opacity: 0.5 }
                           : { color: 'var(--text-secondary)' }}
                       >
                         {item.icon}

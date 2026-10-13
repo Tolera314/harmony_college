@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { BookOpen, Search, Eye, CheckCircle2, XCircle, RefreshCw, Loader2, Plus, Edit, Trash2, Send } from 'lucide-react';
-import { hodOfferingsApi, hodSemestersApi, hodCoursesApi, type CourseOfferingSummary, type Semester, type DHCourse } from '../../../lib/hodApi';
+import { BookOpen, Search, Eye, CheckCircle2, XCircle, RefreshCw, Loader2, Plus, Edit, Trash2, Send, UserCheck, Users, GitBranch } from 'lucide-react';
+import { hodOfferingsApi, hodSemestersApi, hodCoursesApi, hodCourseAssignmentsApi, type CourseOfferingSummary, type Semester, type DHCourse } from '../../../lib/hodApi';
 import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
@@ -12,6 +12,7 @@ import { Modal } from '../../ui/Modal';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { Input } from '../../ui/Input';
 import { ErrorState, SkeletonTable, ToastContainer, useToast, InlineError } from '../../ui/States';
+import { DHCourseAssignmentsView } from './DHCourseAssignmentsView';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -59,6 +60,9 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError,   setActionError]   = useState('');
 
+  // View toggle: 'courses' or 'assignments'
+  const [viewMode, setViewMode] = useState<'courses' | 'assignments'>('courses');
+
   // Add Course State
   const [addCourseOpen, setAddCourseOpen] = useState(false);
   const [editCourse, setEditCourse] = useState<any | null>(null);
@@ -78,6 +82,10 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const [publishConfirm, setPublishConfirm] = useState(false);
   const [publishLoading, setPublishLoading] = useState(false);
 
+  // Assign Instructor State
+  const [assignInstructorOpen, setAssignInstructorOpen] = useState(false);
+  const [selectedForAssignment, setSelectedForAssignment] = useState<CourseOfferingSummary | null>(null);
+
   const { toast, show: showToast, hide: hideToast } = useToast();
   const LIMIT = 12;
 
@@ -92,9 +100,13 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
           search:     search || undefined,
           status:     statusFilter || undefined,
           semesterId: semFilter || undefined,
+          programType: programType, // Filter offerings by program type
         }),
         semesters.length === 0 ? hodSemestersApi.list() : Promise.resolve(semesters),
-        hodCoursesApi.list({ search: search || undefined }),
+        hodCoursesApi.list({ 
+          search: search || undefined,
+          programType: programType, // Filter courses by program type
+        }),
       ]);
       setOfferings(offData.offerings);
       setTotal(offData.total);
@@ -106,9 +118,19 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, semFilter, semesters]);
+  }, [search, statusFilter, semFilter, semesters, programType]);
 
   useEffect(() => { load(page); }, [page, search, statusFilter, semFilter, load]);
+
+  // Reset page and data when programType changes
+  useEffect(() => {
+    setPage(1);
+    setSearch('');
+    setStatusFilter('');
+    setSemFilter('');
+    setCourseForm(prev => ({ ...prev, programType: programType || 'TVET' }));
+    load(1);
+  }, [programType]);
 
   const handleAction = async () => {
     if (!confirmModal) return;
@@ -292,29 +314,89 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
 
   if (error) return <ErrorState variant="generic" description={error} onRetry={() => load(page)} />;
 
+  // If in assignments view mode, render the DHCourseAssignmentsView component
+  if (viewMode === 'assignments') {
+    return (
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
+        <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
+        
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 text-sm text-(--text-faint)">
+          <span>Portal</span>
+          <span>›</span>
+          <button 
+            onClick={() => setViewMode('courses')}
+            className="hover:text-(--text-primary) transition-colors hover:underline"
+          >
+            Courses
+          </button>
+          <span>›</span>
+          <span className="text-(--text-primary) font-medium">Course Assignments</span>
+        </div>
+
+        {/* Back to Courses Button - Prominent */}
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="primary" 
+            size="md" 
+            icon={<BookOpen className="w-5 h-5" />} 
+            onClick={() => setViewMode('courses')}
+            className="shadow-lg"
+          >
+            ← Back to Courses
+          </Button>
+        </div>
+        
+        <DHCourseAssignmentsView programType={programType} />
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DURATION.medium, ...EASE.out }} className="space-y-6 pb-16">
       <ToastContainer variant={toast.variant} message={toast.message} visible={toast.visible} onDismiss={hideToast} />
 
+      {/* Breadcrumb Navigation */}
+      <div className="flex items-center gap-2 text-sm text-(--text-faint)">
+        <span>Portal</span>
+        <span>›</span>
+        <span className="text-(--text-primary) font-medium">Courses</span>
+      </div>
+
+      {/* Course Assignments Button - Prominent on left */}
+      <div className="flex items-center justify-between gap-4">
+        <Button 
+          variant="primary" 
+          size="md" 
+          icon={<GitBranch className="w-5 h-5" />} 
+          onClick={() => setViewMode('assignments')}
+          className="shadow-lg"
+        >
+          Course Assignments →
+        </Button>
+        
+        <div className="flex gap-2">
+          <Button 
+            variant="primary" 
+            size="sm" 
+            icon={<Send className="w-4 h-4" />} 
+            onClick={() => setPublishConfirm(true)}
+            disabled={courses.length === 0}
+          >
+            Publish Courses
+          </Button>
+          <Button variant="secondary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => {
+            setCourseForm(prev => ({ ...prev, programType: programType || 'TVET' }));
+            setAddCourseOpen(true);
+          }}>Add Course</Button>
+          <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={() => load(page)}>Refresh</Button>
+        </div>
+      </div>
+
       <DHPageHeader
         title="Course Offerings"
-        subtitle={loading ? 'Loading…' : `${total} offerings · ${pendingCount} pending approval`}
+        subtitle={loading ? 'Loading…' : `${programType || 'TVET'} • ${total} offerings · ${pendingCount} pending approval`}
         icon={<BookOpen className="w-5 h-5" />}
-        actions={
-          <div className="flex gap-2">
-            <Button 
-              variant="primary" 
-              size="sm" 
-              icon={<Send className="w-4 h-4" />} 
-              onClick={() => setPublishConfirm(true)}
-              disabled={courses.length === 0}
-            >
-              Publish Courses
-            </Button>
-            <Button variant="secondary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setAddCourseOpen(true)}>Add Course</Button>
-            <Button variant="secondary" size="sm" icon={<RefreshCw className="w-4 h-4" />} onClick={() => load(page)}>Refresh</Button>
-          </div>
-        }
       />
 
       {/* Filters */}
@@ -369,7 +451,7 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
             <table className="w-full text-left text-xs sm:text-sm font-sans">
               <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
                 <tr>
-                  {['Code', 'Course Name', 'Credits', 'ECTS', 'Program Type', 'Status', 'Actions'].map(h => (
+                  {['Code', 'Course Name', 'Credits', 'ECTS', 'Program Type', 'Instructor', 'Status', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
                   ))}
                 </tr>
@@ -392,6 +474,11 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                       <Badge variant={c.programType === 'TVET' ? 'glass' : 'amber'}>
                         {c.programType === 'TVET' ? 'TVET' : 'Short Program'}
                       </Badge>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-(--text-faint) text-xs italic">
+                        Assigned to offerings
+                      </span>
                     </td>
                     <td className="px-4 py-3.5">
                       <Badge variant={c.status === 'ACTIVE' ? 'emerald' : 'amber'}>
@@ -496,13 +583,36 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                         </button>
                         {o.status === 'DRAFT' && (
                           <>
-                            <button onClick={() => setConfirmModal({ offering: o, action: 'Approve' })} className="p-1.5 rounded-lg hover:bg-(--status-success-bg) text-emerald-500 transition-colors" aria-label="Approve">
+                            <button
+                              onClick={() => setConfirmModal({ offering: o, action: 'Approve' })}
+                              className="p-1.5 rounded-lg hover:bg-(--status-success-bg) text-(--text-muted) hover:text-(--status-success) transition-colors"
+                              aria-label="Approve"
+                              title="Approve this course offering"
+                            >
                               <CheckCircle2 className="w-4 h-4" />
                             </button>
-                            <button onClick={() => setConfirmModal({ offering: o, action: 'Reject' })} className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--status-danger) transition-colors" aria-label="Reject">
+                            <button
+                              onClick={() => setConfirmModal({ offering: o, action: 'Reject' })}
+                              className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors"
+                              aria-label="Reject"
+                              title="Reject this course offering"
+                            >
                               <XCircle className="w-4 h-4" />
                             </button>
                           </>
+                        )}
+                        {!o.instructor && (
+                          <Button
+                            variant="gold"
+                            size="xs"
+                            onClick={() => {
+                              setSelectedForAssignment(o);
+                              setAssignInstructorOpen(true);
+                            }}
+                            title="Assign Instructor to this course"
+                          >
+                            Assign Instructor
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -812,6 +922,90 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
           </div>
         </div>
       </Modal>
+
+      {/* Assign Instructor SlidePanel */}
+      {selectedForAssignment && (
+        <SlidePanel 
+          isOpen={assignInstructorOpen} 
+          onClose={() => {
+            setAssignInstructorOpen(false);
+            setSelectedForAssignment(null);
+          }}
+          title="Assign Instructor & Create Assignments"
+          subtitle={`${selectedForAssignment.course.code} - Section ${selectedForAssignment.section}`}
+          width="max-w-2xl"
+        >
+          <div className="space-y-6 font-sans">
+            {/* Course Info */}
+            <div className="p-4 rounded-xl border border-(--border-subtle) bg-(--hover-overlay)">
+              <div className="flex items-center gap-2 mb-2">
+                <BookOpen className="w-4 h-4 text-(--brand-gold)" />
+                <span className="font-semibold text-sm text-(--text-primary)">{selectedForAssignment.course.name}</span>
+              </div>
+              <div className="flex gap-4 flex-wrap text-xs text-(--text-secondary)">
+                <span>Section: <strong>{selectedForAssignment.section}</strong></span>
+                <span>Capacity: <strong>{selectedForAssignment.capacity}</strong></span>
+                <span>Enrolled: <strong>{selectedForAssignment.enrolledCount}</strong></span>
+                <span>Credits: <strong>{selectedForAssignment.course.creditHours}</strong></span>
+              </div>
+            </div>
+
+            {/* Instructor Assignment */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-(--brand-gold)" />
+                <h3 className="font-semibold text-sm text-(--text-primary)">Step 1: Assign Instructor</h3>
+              </div>
+              <p className="text-xs text-(--text-secondary)">
+                Select an instructor from your department or from other departments to teach this course.
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<UserCheck className="w-4 h-4" />}
+                onClick={() => {
+                  // Switch to Course Assignments view
+                  setViewMode('assignments');
+                  setAssignInstructorOpen(false);
+                  setSelectedForAssignment(null);
+                }}
+              >
+                Go to Course Assignments
+              </Button>
+            </div>
+
+            {/* Create Assignments Section */}
+            <div className="space-y-3 pt-4 border-t border-(--border-subtle)">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-(--brand-gold)" />
+                <h3 className="font-semibold text-sm text-(--text-primary)">Step 2: Create Course Assignments</h3>
+              </div>
+              <p className="text-xs text-(--text-secondary)">
+                After assigning an instructor, you can create assignments, quizzes, and course materials.
+              </p>
+              <div className="p-3 rounded-xl bg-(--status-info-bg) border border-(--status-info)/20">
+                <p className="text-xs text-(--status-info)">
+                  <strong>Note:</strong> An instructor must be assigned before creating course assignments and materials.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setAssignInstructorOpen(false);
+                  setSelectedForAssignment(null);
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </SlidePanel>
+      )}
     </motion.div>
   );
 };

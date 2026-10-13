@@ -106,8 +106,8 @@ export const patchProfileSchema = z.object({
 
   // ── Academic ──────────────────────────────────────────────────────────────
   program:              z.string().trim().min(1).max(200).optional(),
-  programType:          z.enum(['TVET', 'Short Program']).optional(),
-  shortProgramDuration: z.enum(['2 Months', '4 Months']).optional().nullable(),
+  programType:          z.enum(['TVET', 'SHORT_PROGRAM']).optional(),
+  shortProgramDuration: z.enum(['2 Months', '4 Months', '8 Months', 'Summer']).optional().nullable(),
   academicYear:         z.string().trim().min(1).max(20).optional(),
   semester:             z.string().trim().max(50).optional(),
   matricResult:         z.string().trim().max(100).optional(),

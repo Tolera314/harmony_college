@@ -11,6 +11,7 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { SlidePanel } from '../../ui/SlidePanel';
 import { ErrorState, EmptyState, SkeletonTable } from '../../ui/States';
+import { getAcademicFilters, getFilterParamName, transformFilterValue, type ProgramType } from '@/src/lib/academicFilters';
 
 const standingConfig = (gpa: number): { variant: 'emerald' | 'gold' | 'amber' | 'rose'; label: string; color: string } => {
   if (gpa >= 3.5) return { variant: 'emerald', label: 'Excellent', color: 'text-(--status-success)' };
@@ -30,31 +31,51 @@ const attColor = (rate: number | null) =>
   rate >= 90 ? 'text-(--status-success)' :
   rate >= 80 ? 'text-(--brand-gold)' : 'text-(--status-danger)';
 
-export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
+export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType = 'TVET' }) => {
   const [students,  setStudents]  = useState<StudentSummary[]>([]);
   const [total,     setTotal]     = useState(0);
   const [page,      setPage]      = useState(1);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [search,    setSearch]    = useState('');
-  const [yearFilter, setYearFilter] = useState('');
+  const [academicFilter, setAcademicFilter] = useState(''); // Renamed from yearFilter to be program-type agnostic
   const [statusFilter, setStatusFilter] = useState('');
   const [selected,  setSelected]  = useState<StudentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const LIMIT = 15;
 
+  // Get the appropriate filter parameter name based on program type
+  const filterParamName = getFilterParamName(programType);
+  
+  // Reset filter when program type changes
+  useEffect(() => {
+    setAcademicFilter('');
+    setPage(1);
+  }, [programType]);
+
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await hodStudentsApi.list({
+      const filterValue = transformFilterValue(programType, academicFilter);
+      const params: any = {
         page:      p,
         limit:     LIMIT,
         search:    search || undefined,
-        yearLevel: yearFilter ? parseInt(yearFilter) : undefined,
         status:    statusFilter || undefined,
-        // programType intentionally omitted — students are scoped by departmentId
-      });
+        programType: programType, // Include programType to ensure correct filtering
+      };
+      
+      // Add the appropriate filter parameter based on program type
+      if (filterValue !== undefined) {
+        if (programType === 'SHORT_PROGRAM') {
+          params.shortProgramDuration = filterValue;
+        } else {
+          params.yearLevel = filterValue;
+        }
+      }
+      
+      const res = await hodStudentsApi.list(params);
       setStudents(res.students);
       setTotal(res.total);
     } catch (e) {
@@ -62,7 +83,7 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
     } finally {
       setLoading(false);
     }
-  }, [search, yearFilter, statusFilter]);
+  }, [search, academicFilter, statusFilter, programType]);
 
   useEffect(() => { load(page); }, [page, load]);
 
@@ -98,12 +119,36 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {(['', '1', '2', '3', '4'] as const).map(y => (
-            <button key={y} onClick={() => { setYearFilter(y); setPage(1); }}
-              className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${yearFilter === y ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'}`}>
-              {y === '' ? 'All Years' : `Year ${y}`}
+          {/* Dynamic academic filters based on program type */}
+          {programType === 'TVET' && getAcademicFilters(programType).map(filter => (
+            <button 
+              key={filter.value} 
+              onClick={() => { setAcademicFilter(filter.value); setPage(1); }}
+              className={`px-3 py-2 rounded-xl font-sans text-xs font-medium border transition-all ${
+                academicFilter === filter.value 
+                  ? 'bg-(--accent-gold-subtle) border-(--accent-gold-border) text-(--brand-gold)' 
+                  : 'bg-(--hover-overlay) border-(--border-default) text-(--text-secondary) hover:text-(--text-primary)'
+              }`}
+            >
+              {filter.displayLabel}
             </button>
           ))}
+          
+          {/* For Short Program, use a dropdown for durations */}
+          {programType === 'SHORT_PROGRAM' && (
+            <select
+              value={academicFilter}
+              onChange={e => { setAcademicFilter(e.target.value); setPage(1); }}
+              className="px-3 py-2 bg-(--hover-overlay) border border-(--border-default) rounded-xl font-sans text-xs text-(--text-secondary) focus:outline-none focus:border-(--brand-gold)"
+            >
+              {getAcademicFilters(programType).map(filter => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
+          )}
+          
           <select
             value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
@@ -193,86 +238,151 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
       )}
 
       {/* Student detail panel — READ ONLY */}
-      <SlidePanel isOpen={!!selected || detailLoading} onClose={() => setSelected(null)} title="Student Academic Record" subtitle="Read-only department view" width="max-w-2xl">
+      <SlidePanel 
+        isOpen={!!selected || detailLoading} 
+        onClose={() => setSelected(null)} 
+        title={selected ? `${selected.user.fullName} - Academic Record` : "Student Academic Record"} 
+        subtitle="Department Head View • Read-only" 
+        width="max-w-3xl"
+      >
         {detailLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="animate-spin w-6 h-6 rounded-full border-2 border-(--brand-gold) border-t-transparent" />
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="animate-spin w-8 h-8 rounded-full border-3 border-(--brand-gold) border-t-transparent" />
+            <p className="text-sm text-(--text-secondary) font-sans">Loading student information...</p>
           </div>
         ) : selected ? (
-          <div className="space-y-5 text-sm font-sans">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-(--accent-gold-subtle) border-2 border-(--accent-gold-border) flex items-center justify-center shrink-0">
-                <span className="font-serif font-bold text-2xl text-(--brand-gold)">{selected.user.fullName.charAt(0)}</span>
+          <div className="space-y-6 text-sm font-sans">
+            {/* Header with Status Badge */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-(--accent-gold-subtle) border-2 border-(--accent-gold-border) flex items-center justify-center shrink-0 shadow-lg">
+                  <span className="font-serif font-bold text-3xl text-(--brand-gold)">{selected.user.fullName.charAt(0)}</span>
+                </div>
+                <div>
+                  <p className="font-serif text-xl font-bold text-(--text-primary)">{selected.user.fullName}</p>
+                  <p className="font-mono text-sm text-(--text-faint) mt-0.5">Student ID: {selected.studentId}</p>
+                  <p className="text-sm text-(--text-muted) mt-1">{selected.program?.name ?? 'No Program'}</p>
+                  {selected.user.email && (
+                    <p className="text-xs text-(--text-secondary) mt-1">📧 {selected.user.email}</p>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="font-serif text-lg font-bold text-(--text-primary)">{selected.user.fullName}</p>
-                <p className="font-mono text-xs text-(--text-faint)">{selected.studentId}</p>
-                <p className="text-xs text-(--text-muted) mt-0.5">{selected.program?.name}</p>
-              </div>
+              <Badge 
+                variant={
+                  selected.status === 'ACTIVE' ? 'emerald' : 
+                  selected.status === 'SUSPENDED' ? 'rose' : 
+                  selected.status === 'ON_LEAVE' ? 'amber' : 'glass'
+                }
+              >
+                {selected.status}
+              </Badge>
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               {[
-                { label: 'GPA',        value: selected.gpa.toFixed(2) },
-                { label: 'Year Level', value: `Year ${selected.yearLevel}` },
-                { label: 'Attendance', value: selected.attendance.rate !== null ? `${selected.attendance.rate}%` : '—' },
+                { label: 'Cumulative GPA', value: selected.gpa.toFixed(2), icon: '📊' },
+                { label: 'Year Level', value: `Year ${selected.yearLevel}`, icon: '🎓' },
+                { label: 'Attendance Rate', value: selected.attendance.rate !== null ? `${selected.attendance.rate}%` : 'N/A', icon: '✓' },
               ].map(item => (
-                <div key={item.label} className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle) text-center">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{item.label}</p>
-                  <p className="font-mono text-xl font-bold text-(--brand-gold) mt-1">{item.value}</p>
+                <div key={item.label} className="p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle) text-center hover:border-(--brand-gold) transition-colors">
+                  <p className="text-2xl mb-1">{item.icon}</p>
+                  <p className="font-mono text-xs uppercase tracking-wider text-(--text-faint)">{item.label}</p>
+                  <p className="font-mono text-2xl font-bold text-(--brand-gold) mt-2">{item.value}</p>
                 </div>
               ))}
             </div>
 
+            {/* Contact & Program Information */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                <p className="font-mono text-xs uppercase tracking-wider text-(--text-faint) mb-2">📞 Contact</p>
+                <p className="text-sm text-(--text-primary)">{selected.user.phone || 'Not provided'}</p>
+              </div>
+              <div className="p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                <p className="font-mono text-xs uppercase tracking-wider text-(--text-faint) mb-2">📅 Admission Date</p>
+                <p className="text-sm text-(--text-primary)">
+                  {selected.admittedAt ? new Date(selected.admittedAt).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+            </div>
+
             {/* Attendance summary */}
-            <div className="p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-3">Attendance Summary</p>
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="p-5 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+              <p className="font-mono text-xs uppercase tracking-wider text-(--text-faint) mb-4 flex items-center gap-2">
+                <span>📊</span> Attendance Summary
+              </p>
+              <div className="grid grid-cols-4 gap-3 text-center text-xs">
                 {[
-                  { label: 'Present', value: selected.attendance.present, color: 'text-(--status-success)' },
-                  { label: 'Absent',  value: selected.attendance.absent,  color: 'text-(--status-danger)' },
-                  { label: 'Late',    value: selected.attendance.late,    color: 'text-(--status-warning)' },
-                  { label: 'Excused', value: selected.attendance.excused, color: 'text-(--text-secondary)' },
+                  { label: 'Present', value: selected.attendance.present, color: 'text-(--status-success)', emoji: '✓' },
+                  { label: 'Absent',  value: selected.attendance.absent,  color: 'text-(--status-danger)', emoji: '✗' },
+                  { label: 'Late',    value: selected.attendance.late,    color: 'text-(--status-warning)', emoji: '⏰' },
+                  { label: 'Excused', value: selected.attendance.excused, color: 'text-(--text-secondary)', emoji: '📋' },
                 ].map(item => (
-                  <div key={item.label}>
-                    <p className={`font-mono font-bold text-lg ${item.color}`}>{item.value}</p>
-                    <p className="text-(--text-faint) text-[10px]">{item.label}</p>
+                  <div key={item.label} className="p-3 bg-(--bg-base) rounded-lg border border-(--border-subtle)">
+                    <p className="text-xl mb-1">{item.emoji}</p>
+                    <p className={`font-mono font-bold text-2xl ${item.color}`}>{item.value}</p>
+                    <p className="text-(--text-faint) text-xs mt-1">{item.label}</p>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Enrollment history */}
-            {selected.enrollments.length > 0 && (
+            {selected.enrollments.length > 0 ? (
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-3">Course Enrollments</p>
-                <div className="space-y-2">
-                  {selected.enrollments.slice(0, 8).map(en => (
-                    <div key={en.id} className="flex items-center justify-between p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle) text-xs">
-                      <div>
-                        <p className="font-mono text-xs text-(--brand-gold)">{en.courseOffering.course.code}</p>
-                        <p className="text-(--text-secondary) text-xs">{en.courseOffering.course.name}</p>
-                        <p className="text-(--text-faint) text-[10px] font-mono">
-                          {en.courseOffering.semester.name} {en.courseOffering.semester.academicYear.name}
-                        </p>
+                <p className="font-mono text-xs uppercase tracking-wider text-(--text-faint) mb-3 flex items-center gap-2">
+                  <span>📚</span> Course Enrollments ({selected.enrollments.length})
+                </p>
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                  {selected.enrollments.map(en => (
+                    <div key={en.id} className="flex items-center justify-between p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle) text-xs hover:border-(--brand-gold) transition-colors">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono text-sm font-bold text-(--brand-gold)">{en.courseOffering.course.code}</p>
+                          {en.grade?.letterGrade && (
+                            <Badge variant="gold">{en.grade.letterGrade}</Badge>
+                          )}
+                        </div>
+                        <p className="text-(--text-primary) text-sm mt-0.5">{en.courseOffering.course.name}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <p className="text-(--text-faint) text-xs font-mono">
+                            {en.courseOffering.semester.name} · {en.courseOffering.semester.academicYear.name}
+                          </p>
+                          {en.courseOffering.course.creditHours && (
+                            <span className="text-(--text-faint) text-xs">
+                              {en.courseOffering.course.creditHours} Credits
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right ml-4">
                         {en.grade?.letterGrade ? (
-                          <span className="font-mono font-bold text-base text-(--brand-gold)">{en.grade.letterGrade}</span>
+                          <div>
+                            <p className="font-mono font-bold text-2xl text-(--brand-gold)">{en.grade.letterGrade}</p>
+                            <p className="text-xs text-(--text-faint) mt-1">{en.grade.numericGrade?.toFixed(1) || 'N/A'}</p>
+                          </div>
                         ) : (
-                          <Badge variant="glass">In Progress</Badge>
+                          <Badge variant="amber">In Progress</Badge>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+            ) : (
+              <div className="p-8 text-center bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
+                <p className="text-sm text-(--text-faint)">No course enrollments found</p>
+              </div>
             )}
 
-            <div className="p-3 bg-(--status-info-bg) border border-(--status-info-border) rounded-xl text-xs text-(--text-secondary)">
-              ℹ️ This view is read-only. Grades, attendance, and enrollment can only be modified by authorized instructors and registrars.
+            {/* Info Notice */}
+            <div className="p-4 bg-(--status-info-bg) border border-(--status-info-border) rounded-xl text-xs text-(--text-secondary) flex items-start gap-2">
+              <span className="shrink-0">ℹ️</span>
+              <p>
+                <strong>Department Head View:</strong> This information is read-only. 
+                Grades, attendance, and enrollment modifications can only be made by authorized instructors and registrars.
+              </p>
             </div>
           </div>
         ) : null}
