@@ -170,8 +170,10 @@ router.patch('/profile', async (req: AuthRequest, res: Response): Promise<void> 
     const userId = req.user!.userId;
 
     // ── 1. Validate input ────────────────────────────────────────────────────
+    console.log('[PATCH /profile] Request body:', JSON.stringify(req.body, null, 2));
     const parsed = patchProfileSchema.safeParse(req.body);
     if (!parsed.success) {
+      console.log('[PATCH /profile] Validation error:', JSON.stringify(parsed.error.flatten().fieldErrors, null, 2));
       res.status(400).json({
         error:   'Validation failed',
         details: parsed.error.flatten().fieldErrors,

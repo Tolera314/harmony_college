@@ -333,7 +333,7 @@ export async function getCourseOfferings(
   userId: string,
   params: {
     page?: number; limit?: number; search?: string;
-    status?: string; semesterId?: string;
+    status?: string; semesterId?: string; programType?: 'TVET' | 'SHORT_PROGRAM';
   },
 ) {
   const hod = await resolveHoD(userId);
@@ -358,6 +358,9 @@ export async function getCourseOfferings(
       select: { id: true },
     });
     if (currentSemester) where.semesterId = currentSemester.id;
+  }
+  if (params.programType) {
+    where.course.programType = params.programType;
   }
   if (params.search) {
     where.OR = [

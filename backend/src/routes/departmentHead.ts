@@ -80,6 +80,7 @@ router.get('/course-offerings', async (req: AuthRequest, res) => {
       search:     q.search,
       status:     q.status,
       semesterId: q.semesterId,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });

@@ -12,7 +12,6 @@ import { DHCoursesView }           from '@/src/components/dh/views/DHCoursesView
 import { DHInstructorsView }       from '@/src/components/dh/views/DHInstructorsView';
 import { DHStudentsView }          from '@/src/components/dh/views/DHStudentsView';
 import { DHClassesView }           from '@/src/components/dh/views/DHClassesView';
-import { DHCourseAssignmentsView } from '@/src/components/dh/views/DHCourseAssignmentsView';
 import { DHAcademicPerformanceView } from '@/src/components/dh/views/DHAcademicPerformanceView';
 import { DHReportsView }           from '@/src/components/dh/views/DHReportsView';
 import { DHNotificationsView }     from '@/src/components/dh/views/DHNotificationsView';
@@ -50,7 +49,6 @@ const MOBILE_NAV_ITEMS: { id: DHNavTab; label: string }[] = [
   { id: 'instructors',          label: 'Instructors' },
   { id: 'students',             label: 'Students' },
   { id: 'classes',              label: 'Classes & Sections' },
-  { id: 'course_assignments',   label: 'Course Assignments' },
   { id: 'academic_performance', label: 'Academic Performance' },
   { id: 'reports',              label: 'Department Reports' },
   { id: 'notifications',        label: 'Notifications' },
@@ -201,7 +199,6 @@ export default function DepartmentHeadPage() {
       case 'instructors':          return <DHInstructorsView programType={dhProgramType} />;
       case 'students':             return <DHStudentsView programType={dhProgramType} />;
       case 'classes':              return <DHClassesView programType={dhProgramType} />;
-      case 'course_assignments':   return <DHCourseAssignmentsView programType={dhProgramType} />;
       case 'academic_performance': return <DHAcademicPerformanceView programType={dhProgramType} />;
       case 'reports':              return <DHReportsView />;
       case 'notifications':
