@@ -43,11 +43,11 @@ function toRomanYear(year: number | null | undefined): string {
 export async function getGradeHistory(studentRecordId: string, bypassPortalCheck = false) {
   const portalOpen = await isGradePortalOpen();
 
-  // Grade filter: If student is viewing and portal is closed, only allow 'PUBLISHED' grades.
-  // If registrar or bypassPortalCheck is true, include all.
-  const statusFilter = (!portalOpen && !bypassPortalCheck)
-    ? { in: ['PUBLISHED'] }
-    : { in: ['PUBLISHED', 'SUBMITTED'] };
+  // Grade filter: Students only see officially PUBLISHED grades.
+  // Administrative views (registrar, audits) with bypassPortalCheck can see both PUBLISHED and SUBMITTED.
+  const statusFilter = bypassPortalCheck
+    ? { in: ['PUBLISHED', 'SUBMITTED'] }
+    : { in: ['PUBLISHED'] };
 
   const rawGrades = await prisma.courseGrade.findMany({
     where: {

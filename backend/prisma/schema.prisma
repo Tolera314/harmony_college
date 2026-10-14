@@ -894,14 +894,16 @@ model Quiz {
   description            String?
   instructions           String?
   durationMinutes        Int            @default(30)
-  availableFrom          DateTime
-  availableUntil         DateTime
-  passingScore           Int            @default(60)
+  availableFrom          DateTime?
+  availableUntil         DateTime?
+  passingScore           Int?           @default(60)
   maxAttempts            Int            @default(1)
   totalPoints            Int            @default(100)
   showResultsImmediately Boolean        @default(true)
   status                 QuizStatus     @default(DRAFT)
   shuffleQuestions       Boolean        @default(false)
+  instructorStartedAt    DateTime?
+  instructorStartedBy    String?
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   courseOffering         CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
@@ -912,6 +914,7 @@ model Quiz {
   @@index([status])
   @@index([availableFrom])
   @@index([availableUntil])
+  @@index([instructorStartedAt])
 }
 
 model QuizQuestion {

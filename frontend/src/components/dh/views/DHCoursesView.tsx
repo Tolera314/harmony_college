@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { BookOpen, Search, Eye, CheckCircle2, XCircle, RefreshCw, Loader2, Plus, Edit, Trash2, Send, UserCheck, Users, GitBranch } from 'lucide-react';
 import { hodOfferingsApi, hodSemestersApi, hodCoursesApi, hodCourseAssignmentsApi, type CourseOfferingSummary, type Semester, type DHCourse } from '../../../lib/hodApi';
@@ -50,6 +50,7 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const [pendingCount, setPendingCount] = useState(0);
   const [page,         setPage]         = useState(1);
   const [loading,      setLoading]      = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [error,        setError]        = useState<string | null>(null);
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -117,6 +118,7 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
       setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
       setLoading(false);
+      setIsInitialLoad(false);
     }
   }, [search, statusFilter, semFilter, semesters, programType]);
 
@@ -437,28 +439,42 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
       </div>
 
       {/* Created Courses (Not Yet Published) */}
-      {!loading && courses.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
-              Created Courses ({courses.length})
-            </h3>
-            <p className="text-xs text-(--text-faint)">
-              These courses will be published to students when you click "Publish Courses"
-            </p>
-          </div>
-          <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
-            <table className="w-full text-left text-xs sm:text-sm font-sans">
-              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-                <tr>
-                  {['Code', 'Course Name', 'Credits', 'ECTS', 'Program Type', 'Instructor', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
-                {courses.map(c => (
-                  <motion.tr key={c.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-(--hover-overlay) transition-colors">
+      <AnimatePresence mode="wait">
+        {!isInitialLoad && courses.length > 0 && (
+          <motion.div 
+            key="courses-table"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
+                Created Courses ({courses.length})
+              </h3>
+              <p className="text-xs text-(--text-faint)">
+                These courses will be published to students when you click "Publish Courses"
+              </p>
+            </div>
+            <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+              <table className="w-full text-left text-xs sm:text-sm font-sans">
+                <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
+                  <tr>
+                    {['Code', 'Course Name', 'Credits', 'ECTS', 'Program Type', 'Instructor', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
+                  {courses.map((c, index) => (
+                    <motion.tr 
+                      key={c.id} 
+                      initial={{ opacity: 0, y: 5 }} 
+                      animate={{ opacity: 1, y: 0 }} 
+                      transition={{ duration: 0.2, delay: index * 0.02, ease: "easeOut" }}
+                      className="hover:bg-(--hover-overlay) transition-colors"
+                    >
                     <td className="px-4 py-3.5">
                       <span className="font-mono text-xs font-bold text-(--brand-gold)">{c.code}</span>
                     </td>
@@ -476,9 +492,19 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                       </Badge>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="text-(--text-faint) text-xs italic">
-                        Assigned to offerings
-                      </span>
+                      {c.instructors && c.instructors.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                          {c.instructors.map((instructor: string, idx: number) => (
+                            <span key={idx} className="text-xs text-(--text-secondary)">
+                              {instructor}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-(--text-faint) text-xs italic">
+                          Not assigned
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       <Badge variant={c.status === 'ACTIVE' ? 'emerald' : 'amber'}>
@@ -493,8 +519,8 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                             size="xs"
                             icon={<Send className="w-3.5 h-3.5" />}
                             onClick={() => handlePublishSingleCourse(c)}
-                            disabled={courseLoading}
-                            title="Publish Course to Department Students"
+                            disabled={courseLoading || c.hasGrades}
+                            title={c.hasGrades ? "Cannot publish - grades already exist" : "Publish Course to Department Students"}
                           >
                             Publish
                           </Button>
@@ -503,24 +529,36 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                             variant="ghost"
                             size="xs"
                             onClick={() => handleUnpublishSingleCourse(c)}
-                            disabled={courseLoading}
+                            disabled={courseLoading || c.hasGrades}
                             className="text-(--text-muted) hover:text-(--status-warning)"
-                            title="Unpublish course from students"
+                            title={c.hasGrades ? "Cannot unpublish - grades already exist" : "Unpublish course from students"}
                           >
-                            Unpublish
+                            {c.hasGrades ? 'Locked' : 'Unpublish'}
                           </Button>
                         )}
                         <button 
                           onClick={() => handleEditCourse(c)} 
-                          className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold) transition-colors" 
+                          disabled={c.hasGrades}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            c.hasGrades 
+                              ? 'opacity-50 cursor-not-allowed text-(--text-faint)' 
+                              : 'hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold)'
+                          }`}
                           aria-label="Edit course"
+                          title={c.hasGrades ? "Cannot edit - grades already exist" : "Edit course"}
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => setDeleteConfirm(c)} 
-                          className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors" 
+                          disabled={c.hasGrades}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            c.hasGrades 
+                              ? 'opacity-50 cursor-not-allowed text-(--text-faint)' 
+                              : 'hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger)'
+                          }`}
                           aria-label="Delete course"
+                          title={c.hasGrades ? "Cannot delete - grades already exist" : "Delete course"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -531,31 +569,45 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Published Course Offerings */}
-      {!loading && offerings.length > 0 && (
-        <>
-          <div className="space-y-3">
-            <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
-              Published Course Offerings ({offerings.length})
-            </h3>
-          </div>
+      <AnimatePresence mode="wait">
+        {!isInitialLoad && offerings.length > 0 && (
+          <motion.div
+            key="offerings-section"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+          >
+            <div className="space-y-3">
+              <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
+                Published Course Offerings ({offerings.length})
+              </h3>
+            </div>
 
-          {/* Offerings Table */}
-          <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
-            <table className="w-full text-left text-xs sm:text-sm font-sans" style={{ minWidth: '800px' }}>
-              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-                <tr>
-                  {['Course', 'Instructor', 'Semester', 'Schedule', 'Enrolled', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
-                {offerings.map(o => (
-                  <motion.tr key={o.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-(--hover-overlay) transition-colors">
+            {/* Offerings Table */}
+            <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+              <table className="w-full text-left text-xs sm:text-sm font-sans" style={{ minWidth: '800px' }}>
+                <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
+                  <tr>
+                    {['Course', 'Instructor', 'Semester', 'Schedule', 'Enrolled', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
+                  {offerings.map((o, index) => (
+                    <motion.tr 
+                      key={o.id} 
+                      initial={{ opacity: 0, y: 5 }} 
+                      animate={{ opacity: 1, y: 0 }} 
+                      transition={{ duration: 0.2, delay: index * 0.015, ease: "easeOut" }}
+                      className="hover:bg-(--hover-overlay) transition-colors"
+                    >
                     <td className="px-4 py-3.5">
                       <p className="font-mono text-xs font-bold text-(--brand-gold)">{o.course.code}</p>
                       <p className="text-(--text-secondary) text-xs mt-0.5 max-w-[200px] truncate">{o.course.name}</p>
@@ -631,8 +683,9 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
               </div>
             </div>
           )}
-        </>
-      )}
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Detail panel */}
       <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.course.code} — ${selected.course.name}` : ''} subtitle="Course Offering Details" width="max-w-2xl">

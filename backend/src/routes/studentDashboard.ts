@@ -295,6 +295,94 @@ router.get('/grades', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// GET /api/student/dashboard/my-courses-full — Unified academic data for consolidated My Courses view
+router.get('/my-courses-full', async (req: AuthRequest, res) => {
+  try {
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) {
+      ok(res, {
+        student: { studentId: '', fullName: '', program: '', programType: null, department: '', yearLevel: 1 },
+        enrolledCourses: [],
+        gradeHistory: { records: [], termSummaries: [], academicSummary: { totalEcts: 0, totalQualityPoints: 0, cgpa: 0 }, cumulativeGPA: 0, totalCredits: 0, isGradePortalOpen: false },
+        currentSemester: null,
+        currentSemesterGpa: 0,
+      });
+      return;
+    }
+
+    // Fetch student record with program and department info
+    const studentRecord = await prisma.studentRecord.findUnique({
+      where: { id: srId },
+      include: {
+        user: { select: { fullName: true } },
+        program: { select: { name: true, code: true } },
+        department: { select: { name: true } },
+      },
+    });
+
+    if (!studentRecord) {
+      res.status(404).json({ error: 'Student record not found' });
+      return;
+    }
+
+    // Fetch enrolled courses (current enrollments)
+    const enrolledCourses = await coursesSvc.getEnrolledCourses(srId);
+
+    // Fetch complete grade history
+    const gradeHistory = await gradesSvc.getGradeHistory(srId);
+
+    // Find current semester
+    const currentSemester = await prisma.semester.findFirst({
+      where: {
+        isCurrent: true,
+        programType: studentRecord.programType,
+      },
+      select: {
+        id: true,
+        name: true,
+        academicYear: { select: { name: true } },
+      },
+    });
+
+    // Calculate current semester GPA from enrolled courses with grades
+    const currentSemesterGrades = enrolledCourses
+      .map(c => c.grade)
+      .filter(g => g && g.letterGrade);
+    
+    let currentSemesterGpa = 0;
+    if (currentSemesterGrades.length > 0) {
+      const totalEcts = currentSemesterGrades.reduce((sum, g) => sum + (Number((g as any).ects) || 4), 0);
+      const totalQp = currentSemesterGrades.reduce((sum, g) => {
+        const ects = Number((g as any).ects) || 4;
+        const qp = typeof (g as any).qualityPoints === 'number'
+          ? (g as any).qualityPoints
+          : (Number((g as any).gradePoints) || 0) * ects;
+        return sum + qp;
+      }, 0);
+      currentSemesterGpa = totalEcts > 0 ? Math.round((totalQp / totalEcts) * 100) / 100 : 0;
+    }
+
+    ok(res, {
+      student: {
+        studentId: studentRecord.studentId,
+        fullName: studentRecord.user.fullName,
+        program: studentRecord.program.name,
+        programType: studentRecord.programType,
+        department: studentRecord.department.name,
+        yearLevel: studentRecord.yearLevel || 1,
+      },
+      enrolledCourses,
+      gradeHistory,
+      currentSemester: currentSemester ? {
+        id: currentSemester.id,
+        name: currentSemester.name,
+        academicYear: currentSemester.academicYear.name,
+      } : null,
+      currentSemesterGpa,
+    });
+  } catch (e) { fail(res, e); }
+});
+
 router.get('/transcript', async (req: AuthRequest, res) => {
   try {
     const srId = await resolveStudentRecordOptional(req.user!.userId);

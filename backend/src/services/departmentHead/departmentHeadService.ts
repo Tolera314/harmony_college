@@ -1436,21 +1436,58 @@ export async function getCourses(
           offerings: true,
         },
       },
+      offerings: {
+        include: {
+          instructor: {
+            include: {
+              user: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+          },
+          enrollments: {
+            include: {
+              grade: {
+                select: {
+                  id: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
-  return courses.map((c) => ({
-    id:          c.id,
-    code:        c.code,
-    name:        c.name,
-    description: c.description,
-    creditHours: c.creditHours,
-    ects:        c.ects,
-    status:      c.status,
-    programType: c.programType,
-    sectionsCount: c._count.offerings,
-    createdAt:   c.createdAt,
-  }));
+  return courses.map((c) => {
+    // Get unique instructors from all offerings
+    const instructors = c.offerings
+      .filter(o => o.instructor)
+      .map(o => o.instructor!.user.fullName)
+      .filter((name, index, self) => self.indexOf(name) === index); // unique names
+
+    // Check if any grades/assessments exist for this course
+    const hasGrades = c.offerings.some(offering => 
+      offering.enrollments.some(enrollment => enrollment.grade !== null)
+    );
+
+    return {
+      id:          c.id,
+      code:        c.code,
+      name:        c.name,
+      description: c.description,
+      creditHours: c.creditHours,
+      ects:        c.ects,
+      status:      c.status,
+      programType: c.programType,
+      sectionsCount: c._count.offerings,
+      instructors: instructors.length > 0 ? instructors : null,
+      hasGrades:   hasGrades,
+      createdAt:   c.createdAt,
+    };
+  });
 }
 
 export async function enrollApprovedStudentsForCourse(courseId: string): Promise<number> {
@@ -1609,6 +1646,24 @@ export async function updateCourse(
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
+  // Check if course has any grades/assessments recorded
+  const offeringsWithGrades = await prisma.courseOffering.findFirst({
+    where: {
+      courseId,
+      enrollments: {
+        some: {
+          grade: {
+            isNot: null,
+          },
+        },
+      },
+    },
+  });
+
+  if (offeringsWithGrades) {
+    throw new Error('Cannot edit course: grades/assessments have already been recorded by instructors.');
+  }
+
   // Check if course has any offerings with assigned instructors (locked)
   const offeringWithInstructor = await prisma.courseOffering.findFirst({
     where: {
@@ -1694,6 +1749,29 @@ export async function unpublishCourse(userId: string, courseId: string) {
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
+  // Check if any grades exist for this course
+  const offerings = await prisma.courseOffering.findMany({
+    where: { courseId },
+    select: { 
+      id: true,
+      enrollments: {
+        include: {
+          grade: {
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+
+  const hasGrades = offerings.some(offering => 
+    offering.enrollments.some(enrollment => enrollment.grade !== null)
+  );
+
+  if (hasGrades) {
+    throw new Error('Cannot unpublish course: grades/assessments have already been recorded by instructors.');
+  }
+
   // Set course status to INACTIVE (DRAFT / UNPUBLISHED)
   const updatedCourse = await prisma.course.update({
     where: { id: courseId },
@@ -1707,10 +1785,6 @@ export async function unpublishCourse(userId: string, courseId: string) {
   });
 
   // Drop active enrollments for this course
-  const offerings = await prisma.courseOffering.findMany({
-    where: { courseId },
-    select: { id: true },
-  });
   if (offerings.length > 0) {
     await prisma.enrollment.updateMany({
       where: {

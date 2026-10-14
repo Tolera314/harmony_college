@@ -442,7 +442,7 @@ export const GradesView: React.FC<GradesViewProps> = ({
                 {grades.map((g, i) => {
                   const ects = g.ects ?? g.credits ?? 4;
                   const creditHours = g.creditHours ?? 3;
-                  const gradePoints = g.numericGpa ?? 0;
+                  const gradePoints = g.gradePoints ?? g.numericGpa ?? 0;
                   const qualityPoints =
                     g.qualityPoints ?? calculateQualityPoints(gradePoints, ects);
 

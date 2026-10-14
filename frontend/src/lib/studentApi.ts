@@ -78,7 +78,17 @@ export interface CourseDetail {
     department: string;
     prerequisites: { code: string; name: string }[];
   };
-  grade: { letterGrade: string | null; gradePoints: number | null; gradedAt: string | null } | null;
+  grade: {
+    letterGrade: string | null;
+    gradePoints: number | null;
+    qualityPoints?: number | null;
+    finalMark?: number | null;
+    creditHours?: number | null;
+    ects?: number | null;
+    status?: string | null;
+    gradedAt: string | null;
+    publishedAt?: string | null;
+  } | null;
   attendanceSummary: { total: number; present: number; absent: number; late: number };
   assignments: AssignmentItem[];
   quizzes: QuizItem[];
@@ -269,6 +279,25 @@ export interface DegreeAudit {
   }[];
 }
 
+export interface MyCoursesFullData {
+  student: {
+    studentId: string;
+    fullName: string;
+    program: string;
+    programType: 'TVET' | 'SHORT_PROGRAM';
+    department: string;
+    yearLevel: number;
+  };
+  enrolledCourses: CourseDetail[];
+  gradeHistory: GradeHistory;
+  currentSemester: {
+    id: string;
+    name: string;
+    academicYear: string;
+  } | null;
+  currentSemesterGpa: number;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // API methods
 // ─────────────────────────────────────────────────────────────────────────────
@@ -305,6 +334,7 @@ export const studentDashApi = {
   // Grades
   getGrades:    () => apiFetch<GradeHistory>('/grades'),
   getTranscript:() => apiFetch<any>('/transcript'),
+  getMyCoursesFull: () => apiFetch<MyCoursesFullData>('/my-courses-full'),
 
   // Financials
   getFinancials: () => apiFetch<FinancialSummary>('/financials'),

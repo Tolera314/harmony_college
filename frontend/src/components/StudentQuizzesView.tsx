@@ -387,7 +387,15 @@ export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolled
               <button
                 key={c.id}
                 onClick={() => setSelectedCourseId(c.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border ${selectedCourseId === c.id ? 'bg-(--brand-gold) text-(--text-inverse) border-transparent shadow' : 'bg-(--hover-overlay) text-(--text-primary) border-(--border-subtle) hover:border-(--border-default)'}`}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                  selectedCourseId === c.id 
+                    ? 'border-transparent shadow' 
+                    : 'border-[var(--border-subtle)] hover:border-[var(--border-default)]'
+                }`}
+                style={{
+                  backgroundColor: selectedCourseId === c.id ? 'var(--brand-gold)' : 'var(--hover-overlay)',
+                  color: selectedCourseId === c.id ? 'var(--text-inverse)' : 'var(--text-primary)',
+                }}
               >
                 {c.code}
               </button>
@@ -398,7 +406,20 @@ export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolled
               onClick={() => fetchQuizzes(selectedCourseId)}
               disabled={quizzesLoading}
               title="Refresh assessments"
-              className="p-2 rounded-xl border border-(--border-subtle) bg-(--hover-overlay) hover:border-(--border-default) text-(--text-muted) hover:text-(--text-primary) transition-all"
+              className="p-2 rounded-xl border transition-all"
+              style={{
+                borderColor: 'var(--border-subtle)',
+                backgroundColor: 'var(--hover-overlay)',
+                color: 'var(--text-muted)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-default)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                e.currentTarget.style.color = 'var(--text-muted)';
+              }}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${quizzesLoading ? 'animate-spin' : ''}`} />
             </button>

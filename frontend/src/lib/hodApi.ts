@@ -407,6 +407,8 @@ export interface DHCourse {
   creditHours: number; ects: number | null; status: string;
   programType: string | null;
   department: { id: string; name: string } | null;
+  instructors?: string[] | null;
+  hasGrades?: boolean;
   _count?: { courseOfferings: number };
 }
 

@@ -42,6 +42,7 @@ import {
   deleteQuiz,
   addQuizQuestion,
   deleteQuizQuestion,
+  startQuiz,
   getInstructorProfile,
   updateInstructorProfile,
   getAuditLog,
@@ -372,6 +373,13 @@ router.post('/quizzes/:id/questions', async (req: AuthRequest, res) => {
 router.delete('/quizzes/:id/questions/:questionId', async (req: AuthRequest, res) => {
   try {
     ok(res, await deleteQuizQuestion(req.user!.userId, String(req.params.id), String(req.params.questionId)));
+  } catch (e) { fail(res, e); }
+});
+
+// Start quiz/exam — instructor-controlled timing
+router.post('/quizzes/:id/start', async (req: AuthRequest, res) => {
+  try {
+    ok(res, await startQuiz(req.user!.userId, String(req.params.id)));
   } catch (e) { fail(res, e); }
 });
 
