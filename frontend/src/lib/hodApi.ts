@@ -419,6 +419,12 @@ export const hodCoursesApi = {
     apiFetch<DHCourse>(`${BASE}/courses`, { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<{ code: string; name: string; description: string; creditHours: number; ects: number; status: string }>) =>
     apiFetch<DHCourse>(`${BASE}/courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCourse: (id: string) =>
+    apiFetch<{ success: boolean; message: string; action: string }>(`${BASE}/courses/${id}`, { method: 'DELETE' }),
+  deactivateCourse: (id: string) =>
+    apiFetch<{ success: boolean; message: string; action: string; course: DHCourse }>(`${BASE}/courses/${id}/deactivate`, { method: 'PATCH' }),
+  reactivateCourse: (id: string) =>
+    apiFetch<{ success: boolean; message: string; action: string; course: DHCourse }>(`${BASE}/courses/${id}/reactivate`, { method: 'PATCH' }),
   toggleStatus: (id: string) =>
     apiFetch<{ id: string; status: string }>(`${BASE}/courses/${id}/toggle-status`, { method: 'PATCH' }),
   publishCourse: (id: string) =>
