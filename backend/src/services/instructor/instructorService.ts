@@ -1465,7 +1465,11 @@ export async function startQuiz(userId: string, quizId: string) {
 // GRADES / COURSE GRADES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Get all enrollments with detailed assessment breakdown and course grade for a course offering. */
+/** 
+ * Get all enrollments with detailed assessment breakdown and course grade for a course offering.
+ * This merges InstructorGradeDraft (local drafts) with CourseGrade (submitted/published grades).
+ * Priority: Drafts override submitted grades for the instructor's view.
+ */
 export async function getCourseGrades(userId: string, courseOfferingId: string) {
   const instructor = await resolveInstructor(userId);
   await verifyOfferingOwnership(courseOfferingId, instructor.id);
@@ -1497,33 +1501,72 @@ export async function getCourseGrades(userId: string, courseOfferingId: string) 
     orderBy: { studentRecord: { user: { fullName: 'asc' } } },
   });
 
-  const students = enrollments.map(e => ({
-    enrollmentId: e.id,
-    studentRecordId: e.studentRecordId,
-    studentId: e.studentRecord.studentId,
-    fullName: e.studentRecord.user.fullName,
-    gpa: e.studentRecord.gpa,
-    currentGrade: e.grade
+  // Fetch instructor's drafts for this offering
+  const drafts = await prisma.instructorGradeDraft.findMany({
+    where: {
+      instructorId: instructor.id,
+      enrollmentId: { in: enrollments.map(e => e.id) },
+    },
+  });
+
+  // Create a map of enrollmentId -> draft
+  const draftMap = new Map(drafts.map(d => [d.enrollmentId, d]));
+
+  const students = enrollments.map(e => {
+    const draft = draftMap.get(e.id);
+    const submittedGrade = e.grade;
+
+    // If draft exists, use it; otherwise use submitted grade
+    // This ensures instructors always see their latest work
+    const displayGrade = draft
       ? {
-        id: e.grade.id,
-        assignmentMarks: e.grade.assignmentMarks,
-        quizMarks: e.grade.quizMarks,
-        midExamMarks: e.grade.midExamMarks,
-        finalExamMarks: e.grade.finalExamMarks,
-        attendanceMarks: e.grade.attendanceMarks,
-        otherMarks: e.grade.otherMarks,
-        finalMark: e.grade.finalMark,
-        letterGrade: e.grade.letterGrade,
-        gradePoints: e.grade.gradePoints,
-        qualityPoints: e.grade.qualityPoints,
-        creditHours: e.grade.creditHours,
-        ects: e.grade.ects ?? offering.course.ects,
-        status: e.grade.status, // DRAFT | SUBMITTED | PUBLISHED
-        submittedAt: e.grade.submittedAt,
-        gradedAt: e.grade.gradedAt,
-      }
-      : null,
-  }));
+          id: draft.id,
+          assignmentMarks: draft.assignmentMarks,
+          quizMarks: draft.quizMarks,
+          midExamMarks: draft.midExamMarks,
+          finalExamMarks: draft.finalExamMarks,
+          attendanceMarks: draft.attendanceMarks,
+          otherMarks: draft.otherMarks,
+          finalMark: draft.finalMark,
+          letterGrade: draft.letterGrade,
+          gradePoints: draft.gradePoints,
+          qualityPoints: draft.qualityPoints,
+          creditHours: draft.creditHours,
+          ects: draft.ects ?? offering.course.ects,
+          status: 'DRAFT', // Drafts are always DRAFT status
+          submittedAt: null,
+          gradedAt: draft.updatedAt,
+        }
+      : submittedGrade
+      ? {
+          id: submittedGrade.id,
+          assignmentMarks: submittedGrade.assignmentMarks,
+          quizMarks: submittedGrade.quizMarks,
+          midExamMarks: submittedGrade.midExamMarks,
+          finalExamMarks: submittedGrade.finalExamMarks,
+          attendanceMarks: submittedGrade.attendanceMarks,
+          otherMarks: submittedGrade.otherMarks,
+          finalMark: submittedGrade.finalMark,
+          letterGrade: submittedGrade.letterGrade,
+          gradePoints: submittedGrade.gradePoints,
+          qualityPoints: submittedGrade.qualityPoints,
+          creditHours: submittedGrade.creditHours,
+          ects: submittedGrade.ects ?? offering.course.ects,
+          status: submittedGrade.status, // SUBMITTED | PUBLISHED
+          submittedAt: submittedGrade.submittedAt,
+          gradedAt: submittedGrade.gradedAt,
+        }
+      : null;
+
+    return {
+      enrollmentId: e.id,
+      studentRecordId: e.studentRecordId,
+      studentId: e.studentRecord.studentId,
+      fullName: e.studentRecord.user.fullName,
+      gpa: e.studentRecord.gpa,
+      currentGrade: displayGrade,
+    };
+  });
 
   // Check global GradeEditingSetting
   const editingSetting = await prisma.gradeEditingSetting.upsert({
@@ -1532,9 +1575,10 @@ export async function getCourseGrades(userId: string, courseOfferingId: string) 
     update: {},
   });
 
-  // Offering submission status: if any student is SUBMITTED or PUBLISHED
-  const hasSubmitted = students.some(s => s.currentGrade?.status === 'SUBMITTED' || s.currentGrade?.status === 'PUBLISHED');
-  const isAllPublished = students.length > 0 && students.every(s => s.currentGrade?.status === 'PUBLISHED');
+  // Offering submission status: check CourseGrade table only (not drafts)
+  // because only submitted grades are visible to Registrar
+  const hasSubmitted = enrollments.some(e => e.grade?.status === 'SUBMITTED' || e.grade?.status === 'PUBLISHED');
+  const isAllPublished = enrollments.length > 0 && enrollments.every(e => e.grade?.status === 'PUBLISHED');
 
   return {
     course: {
@@ -1552,7 +1596,11 @@ export async function getCourseGrades(userId: string, courseOfferingId: string) 
   };
 }
 
-/** Save or update draft assessment marks for an individual student. */
+/** 
+ * Save or update draft assessment marks for an individual student.
+ * IMPORTANT: This saves to InstructorGradeDraft table ONLY.
+ * The draft is NOT visible to Registrar until explicitly submitted.
+ */
 export async function saveAssessmentGrade(
   userId: string,
   courseOfferingId: string,
@@ -1570,7 +1618,6 @@ export async function saveAssessmentGrade(
           course: { select: { creditHours: true, ects: true } },
         },
       },
-      grade: true,
     },
   });
 
@@ -1592,11 +1639,18 @@ export async function saveAssessmentGrade(
   const creditHours = enrollment.courseOffering.course.creditHours;
   const computed = calculateCourseResult(breakdown, ects);
 
-  return prisma.courseGrade.upsert({
-    where: { enrollmentId },
+  // Save to InstructorGradeDraft table (NOT CourseGrade)
+  // This keeps the draft completely isolated from Registrar's view
+  return prisma.instructorGradeDraft.upsert({
+    where: {
+      enrollmentId_instructorId: {
+        enrollmentId,
+        instructorId: instructor.id,
+      },
+    },
     create: {
       enrollmentId,
-      studentRecordId: enrollment.studentRecordId,
+      instructorId: instructor.id,
       assignmentMarks: breakdown.assignment !== undefined && breakdown.assignment !== null ? Number(breakdown.assignment) : null,
       quizMarks: breakdown.quiz !== undefined && breakdown.quiz !== null ? Number(breakdown.quiz) : null,
       midExamMarks: breakdown.midExam !== undefined && breakdown.midExam !== null ? Number(breakdown.midExam) : null,
@@ -1609,8 +1663,6 @@ export async function saveAssessmentGrade(
       qualityPoints: computed.qualityPoints,
       creditHours,
       ects,
-      status: 'DRAFT',
-      gradedAt: new Date(),
     },
     update: {
       assignmentMarks: breakdown.assignment !== undefined && breakdown.assignment !== null ? Number(breakdown.assignment) : null,
@@ -1625,10 +1677,6 @@ export async function saveAssessmentGrade(
       qualityPoints: computed.qualityPoints,
       creditHours,
       ects,
-      status: enrollment.grade?.status === 'PUBLISHED'
-        ? 'PUBLISHED'
-        : (enrollment.grade?.status === 'SUBMITTED' ? 'SUBMITTED' : 'DRAFT'),
-      gradedAt: new Date(),
     },
   });
 }
@@ -1652,8 +1700,14 @@ export async function saveBatchAssessmentGrades(
 
 /**
  * Submit all grades for a course offering to the Registrar.
- * Transitions status from DRAFT -> SUBMITTED.
- * Teacher can still edit if Registrar's Grade Editing setting is OPEN.
+ * 
+ * WORKFLOW:
+ * 1. Fetch all instructor drafts for this offering
+ * 2. Copy drafts to CourseGrade table with status=SUBMITTED
+ * 3. Delete the drafts (they're now submitted)
+ * 4. Notify Registrar
+ * 
+ * Only grades in CourseGrade with status=SUBMITTED are visible to Registrar.
  */
 export async function submitCourseGradesToRegistrar(
   userId: string,
@@ -1666,34 +1720,87 @@ export async function submitCourseGradesToRegistrar(
     where: { id: courseOfferingId },
     include: {
       course: { select: { code: true, name: true } },
+      enrollments: {
+        where: { status: { in: ACTIVE_STATUSES } },
+        select: {
+          id: true,
+          studentRecordId: true,
+        },
+      },
     },
   });
   if (!offering) throw new Error('Course offering not found.');
 
-  // Find all grades for this offering
-  const grades = await prisma.courseGrade.findMany({
+  // Fetch instructor's drafts for this offering
+  const drafts = await prisma.instructorGradeDraft.findMany({
     where: {
-      enrollment: { courseOfferingId },
+      instructorId: instructor.id,
+      enrollmentId: { in: offering.enrollments.map(e => e.id) },
     },
   });
 
-  if (grades.length === 0) {
+  if (drafts.length === 0) {
     throw new Error('No grades found to submit. Please enter assessment marks first.');
   }
 
   const now = new Date();
 
-  // Transactionally set status to SUBMITTED for non-published grades
+  // Transaction: Copy drafts to CourseGrade and delete drafts
   await prisma.$transaction(async tx => {
-    await tx.courseGrade.updateMany({
+    // For each draft, upsert into CourseGrade with status=SUBMITTED
+    for (const draft of drafts) {
+      const enrollment = offering.enrollments.find(e => e.id === draft.enrollmentId);
+      if (!enrollment) continue;
+
+      await tx.courseGrade.upsert({
+        where: { enrollmentId: draft.enrollmentId },
+        create: {
+          enrollmentId: draft.enrollmentId,
+          studentRecordId: enrollment.studentRecordId,
+          assignmentMarks: draft.assignmentMarks,
+          quizMarks: draft.quizMarks,
+          midExamMarks: draft.midExamMarks,
+          finalExamMarks: draft.finalExamMarks,
+          attendanceMarks: draft.attendanceMarks,
+          otherMarks: draft.otherMarks,
+          finalMark: draft.finalMark,
+          letterGrade: draft.letterGrade,
+          gradePoints: draft.gradePoints,
+          qualityPoints: draft.qualityPoints,
+          creditHours: draft.creditHours,
+          ects: draft.ects,
+          status: 'SUBMITTED',
+          submittedAt: now,
+          submittedBy: userId,
+          gradedAt: now,
+        },
+        update: {
+          assignmentMarks: draft.assignmentMarks,
+          quizMarks: draft.quizMarks,
+          midExamMarks: draft.midExamMarks,
+          finalExamMarks: draft.finalExamMarks,
+          attendanceMarks: draft.attendanceMarks,
+          otherMarks: draft.otherMarks,
+          finalMark: draft.finalMark,
+          letterGrade: draft.letterGrade,
+          gradePoints: draft.gradePoints,
+          qualityPoints: draft.qualityPoints,
+          creditHours: draft.creditHours,
+          ects: draft.ects,
+          // Only update if not PUBLISHED (Registrar controls PUBLISHED status)
+          status: 'SUBMITTED',
+          submittedAt: now,
+          submittedBy: userId,
+          gradedAt: now,
+        },
+      });
+    }
+
+    // Delete all drafts for this instructor/offering after successful submission
+    await tx.instructorGradeDraft.deleteMany({
       where: {
-        enrollment: { courseOfferingId },
-        status: { not: 'PUBLISHED' },
-      },
-      data: {
-        status: 'SUBMITTED',
-        submittedAt: now,
-        submittedBy: userId,
+        instructorId: instructor.id,
+        enrollmentId: { in: drafts.map(d => d.enrollmentId) },
       },
     });
 
@@ -1707,7 +1814,7 @@ export async function submitCourseGradesToRegistrar(
       await createNotification({
         userId: r.id,
         title: 'Grades Submitted to Registrar',
-        message: `${instructor.user.fullName} has submitted final grades for ${offering.course.code} — ${offering.course.name}.`,
+        message: `${instructor.user.fullName} has submitted grades for ${offering.course.code} — ${offering.course.name}.`,
         type: 'INFO',
         entityType: 'CourseOffering',
         entityId: courseOfferingId,
@@ -1718,8 +1825,9 @@ export async function submitCourseGradesToRegistrar(
 
   return {
     success: true,
-    submittedCount: grades.length,
+    submittedCount: drafts.length,
     submittedAt: now,
+    message: `Successfully submitted ${drafts.length} grade${drafts.length !== 1 ? 's' : ''} to Registrar. Grades are now visible in the Registrar's portal.`,
   };
 }
 

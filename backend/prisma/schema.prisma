@@ -645,6 +645,33 @@ model CourseGrade {
   @@index([status])
 }
 
+/// Instructor's local draft of grades before submission to Registrar.
+/// This table is NOT visible to Registrar - only to the instructor.
+/// When instructor clicks "Submit to Registrar", drafts are copied to CourseGrade with status=SUBMITTED.
+model InstructorGradeDraft {
+  id              String   @id @default(uuid())
+  enrollmentId    String
+  instructorId    String
+  assignmentMarks Float?
+  quizMarks       Float?
+  midExamMarks    Float?
+  finalExamMarks  Float?
+  attendanceMarks Float?
+  otherMarks      Float?
+  finalMark       Float?
+  letterGrade     String?
+  gradePoints     Float?
+  qualityPoints   Float?
+  creditHours     Int      @default(3)
+  ects            Int      @default(4)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([enrollmentId, instructorId])
+  @@index([instructorId])
+  @@index([enrollmentId])
+}
+
 model TranscriptRequest {
   id              String                  @id @default(uuid())
   studentRecordId String
