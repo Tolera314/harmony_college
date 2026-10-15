@@ -351,23 +351,39 @@ export interface TranscriptData {
   completedCredits: number;
   expectedGraduation: string;
   email: string;
-  grades: { courseCode: string; courseTitle: string; term: string; credits: number; grade: string; numericGpa: number }[];
+  grades: {
+    courseCode: string;
+    courseTitle: string;
+    term: string;
+    credits?: number;
+    creditHours?: number;
+    ects?: number;
+    grade: string;
+    numericGpa?: number;
+    gradePoints?: number;
+    finalMark?: number | null;
+  }[];
 }
 
 export function printTranscript(data: TranscriptData): void {
   const esc = (v: string | number) => String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const totalCredits = data.grades.reduce((s,g) => s + g.credits, 0);
-  const weightedGpa  = data.grades.reduce((s,g) => s + g.numericGpa * g.credits, 0) / (totalCredits || 1);
+  const totalCredits = data.completedCredits || data.grades.reduce((s,g) => s + (g.credits ?? g.ects ?? g.creditHours ?? 0), 0);
+  const weightedGpa = data.cumulativeGpa != null && !isNaN(data.cumulativeGpa)
+    ? data.cumulativeGpa
+    : data.grades.reduce((s,g) => s + (Number(g.gradePoints ?? g.numericGpa ?? 0) * (g.credits ?? g.ects ?? 1)), 0) / (totalCredits || 1);
   const issueDate    = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
-  const rows = data.grades.map((g,i) => `
+  const rows = data.grades.map((g,i) => {
+    const cr = g.credits ?? g.creditHours ?? g.ects ?? 0;
+    return `
     <tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
       <td style="padding:7px 10px;border:1px solid #e0e0e0;font-family:monospace;font-weight:bold;font-size:11px">${esc(g.courseCode)}</td>
       <td style="padding:7px 10px;border:1px solid #e0e0e0;font-size:11px">${esc(g.courseTitle)}</td>
       <td style="padding:7px 10px;border:1px solid #e0e0e0;font-family:monospace;color:#555;font-size:11px">${esc(g.term)}</td>
-      <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-family:monospace;font-size:11px">${g.credits}</td>
+      <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-family:monospace;font-size:11px">${cr}</td>
       <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-family:monospace;font-weight:bold;font-size:11px">${esc(g.grade)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const html = `
   <div style="font-family:Georgia,serif;color:#000;background:#fff">

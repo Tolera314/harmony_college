@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { BookOpen, Search, Eye, CheckCircle2, XCircle, RefreshCw, Loader2, Plus, Edit, Trash2, Send, UserCheck, Users, GitBranch } from 'lucide-react';
+import { BookOpen, Search, Eye, CheckCircle2, XCircle, RefreshCw, Loader2, Plus, Edit, Trash2, Send, UserCheck, Users, GitBranch, AlertTriangle } from 'lucide-react';
 import { hodOfferingsApi, hodSemestersApi, hodCoursesApi, hodCourseAssignmentsApi, type CourseOfferingSummary, type Semester, type DHCourse } from '../../../lib/hodApi';
 import { DHPageHeader } from '../DHPageHeader';
 import { Badge } from '../../ui/Badge';
@@ -50,6 +50,7 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const [pendingCount, setPendingCount] = useState(0);
   const [page,         setPage]         = useState(1);
   const [loading,      setLoading]      = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [error,        setError]        = useState<string | null>(null);
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -67,6 +68,7 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const [addCourseOpen, setAddCourseOpen] = useState(false);
   const [editCourse, setEditCourse] = useState<any | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<any | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [courseForm, setCourseForm] = useState({
     code: '',
     name: '',
@@ -117,6 +119,7 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
       setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
       setLoading(false);
+      setIsInitialLoad(false);
     }
   }, [search, statusFilter, semFilter, semesters, programType]);
 
@@ -244,13 +247,64 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const handleDeleteCourse = async () => {
     if (!deleteConfirm) return;
     setCourseLoading(true);
+    setCourseError('');
+    
     try {
-      await hodCoursesApi.toggleStatus(deleteConfirm.id);
-      showToast(`Course ${deleteConfirm.code} status toggled successfully!`, 'success');
+      const result = await hodCoursesApi.deleteCourse(deleteConfirm.id);
+      
+      if (result.action === 'deleted') {
+        showToast(`Course ${deleteConfirm.code} permanently deleted.`, 'success');
+      } else if (result.action === 'deactivated') {
+        showToast(`Course ${deleteConfirm.code} deactivated. Historical records preserved.`, 'success');
+      }
+      
       setDeleteConfirm(null);
+      setDeleteConfirmText('');
       await load(page);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to delete course';
+      
+      // If error suggests deactivation, show deactivate option
+      if (msg.includes('deactivate')) {
+        setCourseError(msg);
+      } else {
+        showToast(msg, 'error');
+        setDeleteConfirm(null);
+        setDeleteConfirmText('');
+      }
+    } finally {
+      setCourseLoading(false);
+    }
+  };
+
+  const handleDeactivateCourse = async () => {
+    if (!deleteConfirm) return;
+    setCourseLoading(true);
+    
+    try {
+      const result = await hodCoursesApi.deactivateCourse(deleteConfirm.id);
+      showToast(result.message, 'success');
+      setDeleteConfirm(null);
+      setDeleteConfirmText('');
+      setCourseError('');
+      await load(page);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to deactivate course';
+      showToast(msg, 'error');
+    } finally {
+      setCourseLoading(false);
+    }
+  };
+
+  const handleReactivateCourse = async (course: any) => {
+    setCourseLoading(true);
+    
+    try {
+      const result = await hodCoursesApi.reactivateCourse(course.id);
+      showToast(result.message, 'success');
+      await load(page);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to reactivate course';
       showToast(msg, 'error');
     } finally {
       setCourseLoading(false);
@@ -437,28 +491,42 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
       </div>
 
       {/* Created Courses (Not Yet Published) */}
-      {!loading && courses.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
-              Created Courses ({courses.length})
-            </h3>
-            <p className="text-xs text-(--text-faint)">
-              These courses will be published to students when you click "Publish Courses"
-            </p>
-          </div>
-          <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
-            <table className="w-full text-left text-xs sm:text-sm font-sans">
-              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-                <tr>
-                  {['Code', 'Course Name', 'Credits', 'ECTS', 'Program Type', 'Instructor', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
-                {courses.map(c => (
-                  <motion.tr key={c.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-(--hover-overlay) transition-colors">
+      <AnimatePresence mode="wait">
+        {!isInitialLoad && courses.length > 0 && (
+          <motion.div 
+            key="courses-table"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
+                Created Courses ({courses.length})
+              </h3>
+              <p className="text-xs text-(--text-faint)">
+                These courses will be published to students when you click "Publish Courses"
+              </p>
+            </div>
+            <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+              <table className="w-full text-left text-xs sm:text-sm font-sans">
+                <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
+                  <tr>
+                    {['Code', 'Course Name', 'Credits', 'ECTS', 'Program Type', 'Instructor', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
+                  {courses.map((c, index) => (
+                    <motion.tr 
+                      key={c.id} 
+                      initial={{ opacity: 0, y: 5 }} 
+                      animate={{ opacity: 1, y: 0 }} 
+                      transition={{ duration: 0.2, delay: index * 0.02, ease: "easeOut" }}
+                      className="hover:bg-(--hover-overlay) transition-colors"
+                    >
                     <td className="px-4 py-3.5">
                       <span className="font-mono text-xs font-bold text-(--brand-gold)">{c.code}</span>
                     </td>
@@ -476,25 +544,50 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                       </Badge>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="text-(--text-faint) text-xs italic">
-                        Assigned to offerings
-                      </span>
+                      {c.instructors && c.instructors.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                          {c.instructors.map((instructor: string, idx: number) => (
+                            <span key={idx} className="text-xs text-(--text-secondary)">
+                              {instructor}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-(--text-faint) text-xs italic">
+                          Not assigned
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
-                      <Badge variant={c.status === 'ACTIVE' ? 'emerald' : 'amber'}>
-                        {c.status === 'ACTIVE' ? 'PUBLISHED' : 'DRAFT'}
-                      </Badge>
+                      {c.status === 'ACTIVE' ? (
+                        <Badge variant="emerald">PUBLISHED</Badge>
+                      ) : c.status === 'INACTIVE' ? (
+                        <Badge variant="glass">DEACTIVATED</Badge>
+                      ) : (
+                        <Badge variant="amber">DRAFT</Badge>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
-                        {c.status !== 'ACTIVE' ? (
+                        {c.status === 'INACTIVE' ? (
+                          <Button
+                            variant="primary"
+                            size="xs"
+                            icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                            onClick={() => handleReactivateCourse(c)}
+                            disabled={courseLoading}
+                            title="Reactivate this course"
+                          >
+                            Reactivate
+                          </Button>
+                        ) : c.status !== 'ACTIVE' ? (
                           <Button
                             variant="primary"
                             size="xs"
                             icon={<Send className="w-3.5 h-3.5" />}
                             onClick={() => handlePublishSingleCourse(c)}
-                            disabled={courseLoading}
-                            title="Publish Course to Department Students"
+                            disabled={courseLoading || c.hasGrades}
+                            title={c.hasGrades ? "Cannot publish - grades already exist" : "Publish Course to Department Students"}
                           >
                             Publish
                           </Button>
@@ -503,27 +596,43 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                             variant="ghost"
                             size="xs"
                             onClick={() => handleUnpublishSingleCourse(c)}
-                            disabled={courseLoading}
+                            disabled={courseLoading || c.hasGrades}
                             className="text-(--text-muted) hover:text-(--status-warning)"
-                            title="Unpublish course from students"
+                            title={c.hasGrades ? "Cannot unpublish - grades already exist" : "Unpublish course from students"}
                           >
-                            Unpublish
+                            {c.hasGrades ? 'Locked' : 'Unpublish'}
                           </Button>
                         )}
-                        <button 
-                          onClick={() => handleEditCourse(c)} 
-                          className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold) transition-colors" 
-                          aria-label="Edit course"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => setDeleteConfirm(c)} 
-                          className="p-1.5 rounded-lg hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger) transition-colors" 
-                          aria-label="Delete course"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {c.status !== 'INACTIVE' && (
+                          <>
+                            <button 
+                              onClick={() => handleEditCourse(c)} 
+                              disabled={c.hasGrades}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                c.hasGrades 
+                                  ? 'opacity-50 cursor-not-allowed text-(--text-faint)' 
+                                  : 'hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold)'
+                              }`}
+                              aria-label="Edit course"
+                              title={c.hasGrades ? "Cannot edit - grades already exist" : "Edit course"}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => setDeleteConfirm(c)} 
+                              disabled={c.hasGrades}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                c.hasGrades 
+                                  ? 'opacity-50 cursor-not-allowed text-(--text-faint)' 
+                                  : 'hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger)'
+                              }`}
+                              aria-label="Delete or deactivate course"
+                              title={c.hasGrades ? "Cannot delete - grades already exist" : "Delete or deactivate course"}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </motion.tr>
@@ -531,31 +640,45 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Published Course Offerings */}
-      {!loading && offerings.length > 0 && (
-        <>
-          <div className="space-y-3">
-            <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
-              Published Course Offerings ({offerings.length})
-            </h3>
-          </div>
+      <AnimatePresence mode="wait">
+        {!isInitialLoad && offerings.length > 0 && (
+          <motion.div
+            key="offerings-section"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+          >
+            <div className="space-y-3">
+              <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
+                Published Course Offerings ({offerings.length})
+              </h3>
+            </div>
 
-          {/* Offerings Table */}
-          <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
-            <table className="w-full text-left text-xs sm:text-sm font-sans" style={{ minWidth: '800px' }}>
-              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-                <tr>
-                  {['Course', 'Instructor', 'Semester', 'Schedule', 'Enrolled', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
-                {offerings.map(o => (
-                  <motion.tr key={o.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-(--hover-overlay) transition-colors">
+            {/* Offerings Table */}
+            <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+              <table className="w-full text-left text-xs sm:text-sm font-sans" style={{ minWidth: '800px' }}>
+                <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
+                  <tr>
+                    {['Course', 'Instructor', 'Semester', 'Schedule', 'Enrolled', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
+                  {offerings.map((o, index) => (
+                    <motion.tr 
+                      key={o.id} 
+                      initial={{ opacity: 0, y: 5 }} 
+                      animate={{ opacity: 1, y: 0 }} 
+                      transition={{ duration: 0.2, delay: index * 0.015, ease: "easeOut" }}
+                      className="hover:bg-(--hover-overlay) transition-colors"
+                    >
                     <td className="px-4 py-3.5">
                       <p className="font-mono text-xs font-bold text-(--brand-gold)">{o.course.code}</p>
                       <p className="text-(--text-secondary) text-xs mt-0.5 max-w-[200px] truncate">{o.course.name}</p>
@@ -631,8 +754,9 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
               </div>
             </div>
           )}
-        </>
-      )}
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Detail panel */}
       <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.course.code} — ${selected.course.name}` : ''} subtitle="Course Offering Details" width="max-w-2xl">
@@ -859,31 +983,140 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
       </SlidePanel>
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Toggle Course Status" maxWidth="max-w-md">
+      <Modal 
+        isOpen={!!deleteConfirm} 
+        onClose={() => {
+          setDeleteConfirm(null);
+          setDeleteConfirmText('');
+          setCourseError('');
+        }} 
+        title={courseError ? "Cannot Delete Course" : "Delete Course"} 
+        maxWidth="max-w-md"
+      >
         {deleteConfirm && (
           <div className="space-y-5">
-            <p className="font-sans text-sm text-(--text-secondary) leading-relaxed">
-              Are you sure you want to toggle the status of course <strong className="text-(--brand-gold)">{deleteConfirm.code}</strong>?
-            </p>
-            <div className="p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
-              <p className="font-mono text-xs text-(--text-faint) uppercase tracking-wider mb-1">Current Status</p>
-              <Badge variant={deleteConfirm.status === 'ACTIVE' ? 'emerald' : 'glass'}>{deleteConfirm.status}</Badge>
-              <p className="text-xs text-(--text-secondary) mt-2">
-                This will change the course to <strong>{deleteConfirm.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'}</strong>.
-              </p>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button variant="secondary" className="flex-1" onClick={() => setDeleteConfirm(null)} disabled={courseLoading}>Cancel</Button>
-              <Button
-                variant="primary"
-                className="flex-1"
-                onClick={handleDeleteCourse}
-                disabled={courseLoading}
-                icon={courseLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
-              >
-                {courseLoading ? 'Processing…' : 'Toggle Status'}
-              </Button>
-            </div>
+            {!courseError ? (
+              <>
+                <div className="flex items-start gap-3 p-4 rounded-xl border" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--status-danger)' }} />
+                  <div>
+                    <p className="font-sans text-sm font-semibold" style={{ color: 'var(--status-danger)' }}>
+                      Permanent Deletion
+                    </p>
+                    <p className="font-sans text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      This action cannot be undone. The course will be permanently removed from the system.
+                    </p>
+                  </div>
+                </div>
+
+                <p className="font-sans text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Are you sure you want to delete course <strong style={{ color: 'var(--brand-gold)' }}>{deleteConfirm.code}</strong>?
+                </p>
+                
+                <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-subtle)' }}>
+                  <p className="font-mono text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-faint)' }}>Course Details</p>
+                  <p className="font-sans text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{deleteConfirm.name}</p>
+                  <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Code: {deleteConfirm.code} • {deleteConfirm.creditHours} Credits • {deleteConfirm.ects} ECTS
+                  </p>
+                </div>
+
+                {/* Type "delete" to confirm */}
+                <div className="space-y-2">
+                  <label className="font-sans text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    Type <code className="px-1.5 py-0.5 rounded bg-(--hover-overlay) text-(--status-danger) font-mono text-xs">delete</code> to confirm
+                  </label>
+                  <Input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="Type 'delete' here"
+                    disabled={courseLoading}
+                    className="font-mono"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Button 
+                    variant="secondary" 
+                    className="flex-1" 
+                    onClick={() => {
+                      setDeleteConfirm(null);
+                      setDeleteConfirmText('');
+                    }} 
+                    disabled={courseLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="danger"
+                    className="flex-1"
+                    onClick={handleDeleteCourse}
+                    disabled={courseLoading || deleteConfirmText.toLowerCase() !== 'delete'}
+                    icon={courseLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  >
+                    {courseLoading ? 'Deleting…' : 'Delete Course'}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Show when course has protected history */}
+                <div className="flex items-start gap-3 p-4 rounded-xl border" style={{ backgroundColor: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.3)' }}>
+                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--brand-gold)' }} />
+                  <div>
+                    <p className="font-sans text-sm font-semibold" style={{ color: 'var(--brand-gold)' }}>
+                      Course Has Academic History
+                    </p>
+                    <p className="font-sans text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      {courseError}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-subtle)' }}>
+                  <p className="font-mono text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-faint)' }}>Course Details</p>
+                  <p className="font-sans text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{deleteConfirm.name}</p>
+                  <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Code: {deleteConfirm.code} • {deleteConfirm.creditHours} Credits • {deleteConfirm.ects} ECTS
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border" style={{ backgroundColor: 'rgba(234, 179, 8, 0.05)', borderColor: 'var(--border-subtle)' }}>
+                  <p className="font-sans text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Recommended Action: Deactivate</p>
+                  <ul className="text-xs text-(--text-secondary) space-y-1.5">
+                    <li>✓ Preserves all academic records (grades, transcripts, history)</li>
+                    <li>✓ Prevents new enrollments and assignments</li>
+                    <li>✓ Students can still view historical data</li>
+                    <li>✓ Can be reactivated later if needed</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Button 
+                    variant="secondary" 
+                    className="flex-1" 
+                    onClick={() => {
+                      setDeleteConfirm(null);
+                      setDeleteConfirmText('');
+                      setCourseError('');
+                    }} 
+                    disabled={courseLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={handleDeactivateCourse}
+                    disabled={courseLoading}
+                    icon={courseLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                  >
+                    {courseLoading ? 'Deactivating…' : 'Deactivate Course'}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>

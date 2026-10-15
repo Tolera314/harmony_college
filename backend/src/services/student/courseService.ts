@@ -195,7 +195,19 @@ export async function getEnrolledCourses(studentRecordId: string) {
           timetables: { orderBy: { dayOfWeek: 'asc' } },
         },
       },
-      grade: true,
+      grade: {
+          select: {
+            letterGrade: true,
+            gradePoints: true,
+            qualityPoints: true,
+            finalMark: true,
+            creditHours: true,
+            ects: true,
+            status: true,
+            gradedAt: true,
+            publishedAt: true,
+          },
+        },
     },
     orderBy: [
       { courseOffering: { semester: { startDate: 'desc' } } },
@@ -311,11 +323,17 @@ export async function getEnrolledCourses(studentRecordId: string) {
           startDate: offering.semester.startDate,
           endDate: offering.semester.endDate,
         },
-        grade: enroll.grade
+        grade: enroll.grade && enroll.grade.status === 'PUBLISHED'
           ? {
             letterGrade: enroll.grade.letterGrade,
             gradePoints: enroll.grade.gradePoints,
+            qualityPoints: enroll.grade.qualityPoints,
+            finalMark: enroll.grade.finalMark,
+            creditHours: enroll.grade.creditHours,
+            ects: enroll.grade.ects,
+            status: enroll.grade.status,
             gradedAt: enroll.grade.gradedAt,
+            publishedAt: enroll.grade.publishedAt,
           }
           : null,
         attendanceRate,

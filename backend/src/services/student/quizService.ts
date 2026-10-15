@@ -54,6 +54,18 @@ export async function listQuizzesForCourse(
   return quizzes.map(qz => {
     const isExam = Boolean(qz.description?.startsWith('[EXAM]') || qz.description?.startsWith('EXAM:'));
     const cleanDesc = isExam ? qz.description?.replace(/^(\[EXAM\]\s*|EXAM:\s*)/, '') : qz.description;
+    
+    // **NEW: Include instructor timing information**
+    let remainingSeconds: number | null = null;
+    let expiresAt: Date | null = null;
+    
+    if (qz.instructorStartedAt) {
+      const now = new Date();
+      expiresAt = new Date(qz.instructorStartedAt.getTime() + qz.durationMinutes * 60 * 1000);
+      const elapsedSeconds = Math.floor((now.getTime() - qz.instructorStartedAt.getTime()) / 1000);
+      remainingSeconds = Math.max(0, (qz.durationMinutes * 60) - elapsedSeconds);
+    }
+    
     return {
       id: qz.id,
       title: qz.title,
@@ -63,29 +75,32 @@ export async function listQuizzesForCourse(
       instructions: qz.instructions,
       durationMinutes: qz.durationMinutes,
       availableFrom: qz.availableFrom,
-    availableUntil: qz.availableUntil,
-    passingScore: qz.passingScore,
-    maxAttempts: qz.maxAttempts,
-    totalPoints: qz.totalPoints,
-    showResultsImmediately: qz.showResultsImmediately,
-    questionCount: qz.questions.length,
-    questions: qz.questions,
-    attempt: qz.attempts[0]
-      ? {
-        id: qz.attempts[0].id,
-        status: qz.attempts[0].status,
-        startedAt: qz.attempts[0].startedAt,
-        submittedAt: qz.attempts[0].submittedAt,
-        score: qz.attempts[0].score,
-        percentageScore: qz.attempts[0].percentageScore,
-        isPassing: qz.attempts[0].isPassing,
-        feedback: qz.attempts[0].feedback,
-        answers: qz.attempts[0].answers.reduce<Record<string, string>>((acc, ans) => {
-          acc[ans.questionId] = ans.answerText ?? ans.selectedOptionId ?? '';
-          return acc;
-        }, {}),
-      }
-      : null,
+      availableUntil: qz.availableUntil,
+      passingScore: qz.passingScore,
+      maxAttempts: qz.maxAttempts,
+      totalPoints: qz.totalPoints,
+      showResultsImmediately: qz.showResultsImmediately,
+      questionCount: qz.questions.length,
+      questions: qz.questions,
+      instructorStartedAt: qz.instructorStartedAt,
+      remainingSeconds,
+      expiresAt,
+      attempt: qz.attempts[0]
+        ? {
+          id: qz.attempts[0].id,
+          status: qz.attempts[0].status,
+          startedAt: qz.attempts[0].startedAt,
+          submittedAt: qz.attempts[0].submittedAt,
+          score: qz.attempts[0].score,
+          percentageScore: qz.attempts[0].percentageScore,
+          isPassing: qz.attempts[0].isPassing,
+          feedback: qz.attempts[0].feedback,
+          answers: qz.attempts[0].answers.reduce<Record<string, string>>((acc, ans) => {
+            acc[ans.questionId] = ans.answerText ?? ans.selectedOptionId ?? '';
+            return acc;
+          }, {}),
+        }
+        : null,
     };
   });
 }
@@ -93,7 +108,7 @@ export async function listQuizzesForCourse(
 export async function startQuizAttempt(
   quizId: string,
   studentRecordId: string,
-): Promise<{ attemptId: string; questions: any[]; durationMinutes: number }> {
+): Promise<{ attemptId: string; questions: any[]; durationMinutes: number; remainingSeconds?: number }> {
   const quiz = await prisma.quiz.findUnique({
     where: { id: quizId },
     include: {
@@ -107,10 +122,19 @@ export async function startQuizAttempt(
   if (!quiz) throw new Error('Quiz not found');
   if (quiz.status === 'DRAFT') throw new Error('Quiz is not available yet');
 
-  // Availability window check
+  // **NEW: Instructor-controlled timing check**
+  if (!quiz.instructorStartedAt) {
+    throw new Error('The instructor has not started this assessment yet. Please wait for the instructor to start it.');
+  }
+
   const now = new Date();
-  if (now < quiz.availableFrom) throw new Error('Quiz has not opened yet');
-  if (now > quiz.availableUntil) throw new Error('Quiz submission window has closed');
+  
+  // Calculate expiration based on instructor start time + duration
+  const expiresAt = new Date(quiz.instructorStartedAt.getTime() + quiz.durationMinutes * 60 * 1000);
+  
+  if (now > expiresAt) {
+    throw new Error('This assessment has expired and is no longer available.');
+  }
 
   // Enrollment check
   const enrolled = await verifyEnrollment(quiz.courseOfferingId, studentRecordId);
@@ -134,17 +158,24 @@ export async function startQuizAttempt(
     include: { answers: true },
   });
 
-  if (inProgress) {
-    const elapsed = Math.floor((now.getTime() - inProgress.startedAt.getTime()) / 1000);
-    const remaining = quiz.durationMinutes * 60 - elapsed;
-    if (remaining <= 0) {
-      // Time expired — auto-submit
+  // **Calculate remaining time from instructor's start time**
+  const totalDurationSeconds = quiz.durationMinutes * 60;
+  const elapsedSinceInstructorStart = Math.floor((now.getTime() - quiz.instructorStartedAt.getTime()) / 1000);
+  const remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSinceInstructorStart);
+
+  if (remainingSeconds <= 0) {
+    // Time expired — auto-submit any in-progress attempt
+    if (inProgress) {
       await autoSubmitAttempt(inProgress.id, quiz, studentRecordId);
-      throw new Error('Your previous attempt has expired and been auto-submitted');
     }
+    throw new Error('This assessment has expired and been auto-submitted');
+  }
+
+  if (inProgress) {
     return {
       attemptId: inProgress.id,
-      durationMinutes: Math.ceil(remaining / 60),
+      durationMinutes: quiz.durationMinutes,
+      remainingSeconds,
       questions: quiz.questions.map(q => ({
         id: q.id,
         type: q.type,
@@ -167,6 +198,7 @@ export async function startQuizAttempt(
   return {
     attemptId: attempt.id,
     durationMinutes: quiz.durationMinutes,
+    remainingSeconds,
     questions: quiz.questions.map(q => ({
       id: q.id,
       type: q.type,
@@ -183,15 +215,38 @@ export async function saveAnswer(
   answer: string,
   studentRecordId: string,
 ) {
-  // Verify ownership
+  // Verify ownership and get quiz info for deadline check
   const attempt = await prisma.quizAttempt.findUnique({
     where: { id: attemptId },
-    select: { id: true, status: true, studentRecordId: true, quizId: true },
+    select: { 
+      id: true, 
+      status: true, 
+      studentRecordId: true, 
+      quizId: true,
+      quiz: {
+        select: {
+          instructorStartedAt: true,
+          durationMinutes: true,
+        },
+      },
+    },
   });
 
   if (!attempt) throw new Error('Attempt not found');
   if (attempt.studentRecordId !== studentRecordId) throw new Error('Unauthorized');
   if (attempt.status !== 'IN_PROGRESS') throw new Error('Attempt is no longer active');
+
+  // **NEW: Backend deadline enforcement**
+  if (attempt.quiz.instructorStartedAt) {
+    const now = new Date();
+    const expiresAt = new Date(
+      attempt.quiz.instructorStartedAt.getTime() + attempt.quiz.durationMinutes * 60 * 1000
+    );
+    
+    if (now > expiresAt) {
+      throw new Error('Time has expired. Your answers can no longer be saved.');
+    }
+  }
 
   const question = await prisma.quizQuestion.findUnique({
     where: { id: questionId },
@@ -243,6 +298,19 @@ export async function submitQuizAttempt(
   if (!attempt) throw new Error('Attempt not found');
   if (attempt.studentRecordId !== studentRecordId) throw new Error('Unauthorized');
   if (attempt.status !== 'IN_PROGRESS') throw new Error('Attempt already submitted');
+
+  // **NEW: Enforce instructor deadline on backend**
+  if (attempt.quiz.instructorStartedAt) {
+    const now = new Date();
+    const expiresAt = new Date(
+      attempt.quiz.instructorStartedAt.getTime() + attempt.quiz.durationMinutes * 60 * 1000
+    );
+    
+    if (now > expiresAt) {
+      // Time expired — still allow submission but log it as late
+      console.warn(`Late submission for attempt ${attemptId}: expired at ${expiresAt}, submitted at ${now}`);
+    }
+  }
 
   return finalizeAttempt(attempt);
 }

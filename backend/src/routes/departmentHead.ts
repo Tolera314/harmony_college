@@ -440,6 +440,21 @@ router.patch('/courses/:id/toggle-status', async (req: AuthRequest, res) => {
   catch (e) { fail(res, e); }
 });
 
+router.delete('/courses/:id', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.deleteCourse(req.user!.userId, pid(req))); }
+  catch (e) { fail(res, e); }
+});
+
+router.patch('/courses/:id/deactivate', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.deactivateCourse(req.user!.userId, pid(req))); }
+  catch (e) { fail(res, e); }
+});
+
+router.patch('/courses/:id/reactivate', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.reactivateCourse(req.user!.userId, pid(req))); }
+  catch (e) { fail(res, e); }
+});
+
 router.post('/courses/:id/publish', async (req: AuthRequest, res) => {
   try { ok(res, await svc.publishCourse(req.user!.userId, pid(req))); }
   catch (e) { fail(res, e); }

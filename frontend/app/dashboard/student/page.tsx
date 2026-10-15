@@ -44,7 +44,7 @@ import { toEthiopianTimeRange } from '@/src/lib/utils';
 // ── Tabs that require a complete profile ──────────────────────────────────────
 const LOCKED_TABS: NavTab[] = [
   'registration', 'financials',
-  'assignments', 'quizzes', 'grades', 'gpa_simulator',
+  'assignments', 'quizzes', 'gpa_simulator',
 ];
 // These tabs are locked until student completes their profile
 
@@ -409,7 +409,6 @@ export default function StudentDashboardPage() {
     { id: 'assignments',  label: 'Assignments',          icon: <ClipboardList className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'attendance',   label: 'My Attendance',        icon: <CalendarCheck className="w-4 h-4" /> },
-    { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'gpa_simulator', label: 'GPA Simulator',       icon: <Calculator className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'notifications', label: 'Notifications',       icon: <Bell className="w-4 h-4" /> },
@@ -450,7 +449,6 @@ export default function StudentDashboardPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <LockedFeatureCard title="Course Registration"    description="Browse and register for your courses."          icon={BookOpen} />
-                  <LockedFeatureCard title="Grades & Transcript"    description="View your grades, GPA, and transcripts."        icon={GraduationCap} />
                   <LockedFeatureCard title="Assignments"            description="Access assignments and submission portal."       icon={ClipboardList} />
                   <LockedFeatureCard title="Financials & Tuition"   description="View balance, invoices, and payment history."   icon={CreditCard} />
                   <LockedFeatureCard title="Quizzes & Exams"        description="Access exam schedules and quizzes."             icon={HelpCircle} />
@@ -461,7 +459,7 @@ export default function StudentDashboardPage() {
         );
       case 'my_courses':
       case 'registration':
-        return <MyCoursesView enrolledCourses={enrolledCourses} setActiveTab={handleTabChange} programName={profile.major} />;
+        return <MyCoursesView />;
       case 'timetable':
         return <MyTimetableView />;
       case 'assignments':
@@ -470,15 +468,6 @@ export default function StudentDashboardPage() {
         return <StudentQuizzesView enrolledCourses={enrolledCourses} />;
       case 'attendance':
         return <StudentAttendanceView />;
-      case 'grades':
-        return (
-          <GradesView
-            profile={profile}
-            gradeData={gradeData}
-            grades={grades}
-            enrolledCourses={enrolledCourses.map(c => ({ id: c.id, code: c.code, name: c.title, credits: c.credits }))}
-          />
-        );
       case 'gpa_simulator':
         return (
           <GpaSimulatorView

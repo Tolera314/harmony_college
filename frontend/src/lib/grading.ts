@@ -65,7 +65,7 @@ export function calculateFinalMark(breakdown: AssessmentBreakdown): number {
   let total = 0;
   for (const p of parts) {
     const num = Number(p);
-    if (!isNaN(num) && num > 0) {
+    if (typeof p !== 'undefined' && p !== null && p !== '' && !isNaN(num) && num >= 0) {
       total += num;
     }
   }

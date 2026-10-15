@@ -1425,6 +1425,42 @@ export async function deleteQuizQuestion(userId: string, quizId: string, questio
   return { id: questionId };
 }
 
+/**
+ * Start a quiz/exam — instructor-controlled timing
+ * Records the server-side start time and makes the assessment available to students
+ */
+export async function startQuiz(userId: string, quizId: string) {
+  await verifyQuizOwnership(quizId, userId);
+  
+  const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
+  if (!quiz) throw new Error('Quiz not found.');
+  
+  if (quiz.instructorStartedAt) {
+    throw new Error('Quiz has already been started.');
+  }
+  
+  if (quiz.status === 'DRAFT') {
+    throw new Error('Cannot start a draft quiz. Please publish it first.');
+  }
+  
+  // Record the server-side start time
+  const startedQuiz = await prisma.quiz.update({
+    where: { id: quizId },
+    data: {
+      instructorStartedAt: new Date(),
+      instructorStartedBy: userId,
+      status: 'ACTIVE', // Ensure it's active
+    },
+  });
+  
+  return {
+    id: startedQuiz.id,
+    instructorStartedAt: startedQuiz.instructorStartedAt,
+    durationMinutes: startedQuiz.durationMinutes,
+    expiresAt: new Date(startedQuiz.instructorStartedAt!.getTime() + startedQuiz.durationMinutes * 60 * 1000),
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GRADES / COURSE GRADES
 // ─────────────────────────────────────────────────────────────────────────────

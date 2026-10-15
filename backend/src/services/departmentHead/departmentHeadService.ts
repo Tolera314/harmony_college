@@ -1436,21 +1436,58 @@ export async function getCourses(
           offerings: true,
         },
       },
+      offerings: {
+        include: {
+          instructor: {
+            include: {
+              user: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+          },
+          enrollments: {
+            include: {
+              grade: {
+                select: {
+                  id: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
-  return courses.map((c) => ({
-    id:          c.id,
-    code:        c.code,
-    name:        c.name,
-    description: c.description,
-    creditHours: c.creditHours,
-    ects:        c.ects,
-    status:      c.status,
-    programType: c.programType,
-    sectionsCount: c._count.offerings,
-    createdAt:   c.createdAt,
-  }));
+  return courses.map((c) => {
+    // Get unique instructors from all offerings
+    const instructors = c.offerings
+      .filter(o => o.instructor)
+      .map(o => o.instructor!.user.fullName)
+      .filter((name, index, self) => self.indexOf(name) === index); // unique names
+
+    // Check if any grades/assessments exist for this course
+    const hasGrades = c.offerings.some(offering => 
+      offering.enrollments.some(enrollment => enrollment.grade !== null)
+    );
+
+    return {
+      id:          c.id,
+      code:        c.code,
+      name:        c.name,
+      description: c.description,
+      creditHours: c.creditHours,
+      ects:        c.ects,
+      status:      c.status,
+      programType: c.programType,
+      sectionsCount: c._count.offerings,
+      instructors: instructors.length > 0 ? instructors : null,
+      hasGrades:   hasGrades,
+      createdAt:   c.createdAt,
+    };
+  });
 }
 
 export async function enrollApprovedStudentsForCourse(courseId: string): Promise<number> {
@@ -1609,6 +1646,24 @@ export async function updateCourse(
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
+  // Check if course has any grades/assessments recorded
+  const offeringsWithGrades = await prisma.courseOffering.findFirst({
+    where: {
+      courseId,
+      enrollments: {
+        some: {
+          grade: {
+            isNot: null,
+          },
+        },
+      },
+    },
+  });
+
+  if (offeringsWithGrades) {
+    throw new Error('Cannot edit course: grades/assessments have already been recorded by instructors.');
+  }
+
   // Check if course has any offerings with assigned instructors (locked)
   const offeringWithInstructor = await prisma.courseOffering.findFirst({
     where: {
@@ -1694,6 +1749,29 @@ export async function unpublishCourse(userId: string, courseId: string) {
     throw new Error('Not authorized: course does not belong to your department.');
   }
 
+  // Check if any grades exist for this course
+  const offerings = await prisma.courseOffering.findMany({
+    where: { courseId },
+    select: { 
+      id: true,
+      enrollments: {
+        include: {
+          grade: {
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+
+  const hasGrades = offerings.some(offering => 
+    offering.enrollments.some(enrollment => enrollment.grade !== null)
+  );
+
+  if (hasGrades) {
+    throw new Error('Cannot unpublish course: grades/assessments have already been recorded by instructors.');
+  }
+
   // Set course status to INACTIVE (DRAFT / UNPUBLISHED)
   const updatedCourse = await prisma.course.update({
     where: { id: courseId },
@@ -1707,10 +1785,6 @@ export async function unpublishCourse(userId: string, courseId: string) {
   });
 
   // Drop active enrollments for this course
-  const offerings = await prisma.courseOffering.findMany({
-    where: { courseId },
-    select: { id: true },
-  });
   if (offerings.length > 0) {
     await prisma.enrollment.updateMany({
       where: {
@@ -1755,6 +1829,231 @@ export async function toggleCourseStatus(userId: string, courseId: string) {
     const res = await publishCourse(userId, courseId);
     return res.course;
   }
+}
+
+/**
+ * Delete or deactivate a course based on its academic history.
+ * 
+ * DELETION RULES (database-driven):
+ * - If course has NO offerings, program courses, or prerequisites: ALLOW permanent deletion
+ * - If course has offerings but NO enrollments/grades/assessments: ALLOW permanent deletion
+ * - If course has enrollments, grades, assessments, or curriculum links: REQUIRE deactivation
+ * 
+ * This preserves academic history while allowing cleanup of unused courses.
+ */
+export async function deleteCourse(userId: string, courseId: string) {
+  const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
+  
+  // Fetch course with all relationships that indicate academic history
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    include: {
+      offerings: {
+        include: {
+          enrollments: {
+            include: {
+              grade: true,
+            },
+          },
+          assignments: {
+            select: { id: true },
+          },
+          quizzes: {
+            select: { id: true },
+          },
+          classSessions: {
+            select: { id: true },
+          },
+        },
+      },
+      programCourses: {
+        select: { id: true },
+      },
+      prerequisites: {
+        select: { id: true },
+      },
+      requiredBy: {
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!course) {
+    throw new Error('Course not found.');
+  }
+
+  if (!deptIds.includes(course.departmentId)) {
+    throw new Error('You are not authorized to modify courses in this department.');
+  }
+
+  // Check if course is part of any program curriculum
+  const isInCurriculum = course.programCourses.length > 0;
+  
+  // Check if course has prerequisite relationships
+  const hasPrerequisiteLinks = course.prerequisites.length > 0 || course.requiredBy.length > 0;
+
+  // Check if course has any enrollments
+  const hasEnrollments = course.offerings.some(offering => offering.enrollments.length > 0);
+
+  // Check if any grades have been published
+  const hasGrades = course.offerings.some(offering =>
+    offering.enrollments.some(enrollment => enrollment.grade !== null)
+  );
+
+  // Check if course has assignments or quizzes
+  const hasAssessments = course.offerings.some(offering =>
+    offering.assignments.length > 0 || offering.quizzes.length > 0
+  );
+
+  // Check if course has class sessions (attendance history)
+  const hasClassSessions = course.offerings.some(offering => offering.classSessions.length > 0);
+
+  // Check if course has any offerings at all
+  const hasOfferings = course.offerings.length > 0;
+
+  // Determine if course has protected academic history
+  const hasProtectedHistory = 
+    isInCurriculum ||
+    hasPrerequisiteLinks ||
+    hasEnrollments ||
+    hasGrades ||
+    hasAssessments ||
+    hasClassSessions;
+
+  // If course has protected history, require deactivation instead of deletion
+  if (hasProtectedHistory) {
+    const reasons: string[] = [];
+    if (hasGrades) reasons.push('published grades');
+    if (hasEnrollments && !hasGrades) reasons.push('student enrollments');
+    if (hasAssessments) reasons.push('assignments or quizzes');
+    if (hasClassSessions) reasons.push('attendance records');
+    if (isInCurriculum) reasons.push('program curriculum links');
+    if (hasPrerequisiteLinks) reasons.push('prerequisite relationships');
+
+    throw new Error(
+      `Cannot permanently delete this course because it has ${reasons.join(', ')}. ` +
+      `To remove this course from active use, please deactivate it instead. ` +
+      `Deactivation preserves academic history while preventing new enrollments.`
+    );
+  }
+
+  // Course has no protected history - safe to delete permanently
+  // This handles:
+  // 1. Courses with no offerings at all (test/draft courses)
+  // 2. Courses with offerings but no enrollments or assessments (unused offerings)
+  
+  try {
+    await prisma.course.delete({ where: { id: courseId } });
+    
+    return {
+      success: true,
+      message: `Course ${course.code} has been permanently deleted.`,
+      action: 'deleted',
+    };
+  } catch (error: any) {
+    // Handle any unexpected foreign key constraints
+    if (error.code === 'P2003' || error.code === 'P2014') {
+      throw new Error(
+        'Cannot delete this course due to existing database references. ' +
+        'Please deactivate the course instead to preserve academic records.'
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * Deactivate a course (soft delete) - prevents new use while preserving history.
+ * Deactivated courses:
+ * - Cannot be assigned to new offerings
+ * - Cannot be enrolled by new students
+ * - Remain visible in historical records (transcripts, grades, etc.)
+ * - Can be reactivated if needed
+ */
+export async function deactivateCourse(userId: string, courseId: string) {
+  const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
+  
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      status: true,
+      departmentId: true,
+    },
+  });
+
+  if (!course) {
+    throw new Error('Course not found.');
+  }
+
+  if (!deptIds.includes(course.departmentId)) {
+    throw new Error('You are not authorized to modify courses in this department.');
+  }
+
+  if (course.status === 'INACTIVE') {
+    throw new Error('This course is already deactivated.');
+  }
+
+  // Update course status to INACTIVE
+  const updated = await prisma.course.update({
+    where: { id: courseId },
+    data: { status: 'INACTIVE' },
+  });
+
+  return {
+    success: true,
+    message: `Course ${course.code} has been deactivated. It will no longer be available for new enrollments, but historical records are preserved.`,
+    action: 'deactivated',
+    course: updated,
+  };
+}
+
+/**
+ * Reactivate a previously deactivated course.
+ */
+export async function reactivateCourse(userId: string, courseId: string) {
+  const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
+  
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      status: true,
+      departmentId: true,
+    },
+  });
+
+  if (!course) {
+    throw new Error('Course not found.');
+  }
+
+  if (!deptIds.includes(course.departmentId)) {
+    throw new Error('You are not authorized to modify courses in this department.');
+  }
+
+  if (course.status === 'ACTIVE') {
+    throw new Error('This course is already active.');
+  }
+
+  // Update course status to ACTIVE
+  const updated = await prisma.course.update({
+    where: { id: courseId },
+    data: { status: 'ACTIVE' },
+  });
+
+  return {
+    success: true,
+    message: `Course ${course.code} has been reactivated and is now available for use.`,
+    action: 'reactivated',
+    course: updated,
+  };
 }
 
 /**

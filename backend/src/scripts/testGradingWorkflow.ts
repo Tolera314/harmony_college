@@ -15,26 +15,28 @@ async function main() {
   // 1. Verify Grading Scale
   console.log('1. Verifying Institutional Grading Scale:');
   const testCases = [
-    { mark: 95, expectedGrade: 'A+', expectedGp: 4.0 },
-    { mark: 87, expectedGrade: 'A', expectedGp: 4.0 },
-    { mark: 82, expectedGrade: 'A-', expectedGp: 3.75 },
-    { mark: 77, expectedGrade: 'B+', expectedGp: 3.5 },
-    { mark: 72, expectedGrade: 'B', expectedGp: 3.0 },
-    { mark: 67, expectedGrade: 'B-', expectedGp: 2.75 },
-    { mark: 62, expectedGrade: 'C+', expectedGp: 2.5 },
-    { mark: 55, expectedGrade: 'C', expectedGp: 2.0 },
-    { mark: 47, expectedGrade: 'C-', expectedGp: 1.75 },
-    { mark: 42, expectedGrade: 'D', expectedGp: 1.0 },
-    { mark: 35, expectedGrade: 'F', expectedGp: 0.0 },
+    { min: 90, max: 100, expectedGrade: 'A+', expectedGp: 4.0 },
+    { min: 85, max: 89, expectedGrade: 'A', expectedGp: 4.0 },
+    { min: 80, max: 84, expectedGrade: 'A-', expectedGp: 3.75 },
+    { min: 75, max: 79, expectedGrade: 'B+', expectedGp: 3.5 },
+    { min: 70, max: 74, expectedGrade: 'B', expectedGp: 3.0 },
+    { min: 65, max: 69, expectedGrade: 'B-', expectedGp: 2.75 },
+    { min: 60, max: 64, expectedGrade: 'C+', expectedGp: 2.5 },
+    { min: 50, max: 59, expectedGrade: 'C', expectedGp: 2.0 },
+    { min: 45, max: 49, expectedGrade: 'C-', expectedGp: 1.75 },
+    { min: 40, max: 44, expectedGrade: 'D', expectedGp: 1.0 },
+    { min: 0, max: 39, expectedGrade: 'F', expectedGp: 0.0 },
   ];
 
   for (const tc of testCases) {
-    const res = markToGrade(tc.mark);
-    const passed = res.letterGrade === tc.expectedGrade && res.gradePoints === tc.expectedGp;
-    console.log(
-      `  Mark ${tc.mark} -> Grade ${res.letterGrade} (${res.gradePoints.toFixed(2)} pts) | Expected: ${tc.expectedGrade} (${tc.expectedGp.toFixed(2)}) -> ${passed ? '✓ PASS' : '✗ FAIL'}`
-    );
-    if (!passed) throw new Error(`Scale test failed for mark ${tc.mark}`);
+    for (const mark of [tc.min, tc.max]) {
+      const res = markToGrade(mark);
+      const passed = res.letterGrade === tc.expectedGrade && res.gradePoints === tc.expectedGp;
+      console.log(
+        `  Range [${tc.min}–${tc.max}] Mark ${mark} -> Grade ${res.letterGrade} (${res.gradePoints.toFixed(2)} pts) | Expected: ${tc.expectedGrade} (${tc.expectedGp.toFixed(2)}) -> ${passed ? '✓ PASS' : '✗ FAIL'}`
+      );
+      if (!passed) throw new Error(`Scale test failed for mark ${mark}`);
+    }
   }
 
   // 2. Verify Assessment Components Auto-Calculation

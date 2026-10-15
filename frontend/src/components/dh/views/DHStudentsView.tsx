@@ -360,7 +360,7 @@ export const DHStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
                         {en.grade?.letterGrade ? (
                           <div>
                             <p className="font-mono font-bold text-2xl text-(--brand-gold)">{en.grade.letterGrade}</p>
-                            <p className="text-xs text-(--text-faint) mt-1">{en.grade.numericGrade?.toFixed(1) || 'N/A'}</p>
+                            <p className="text-xs text-(--text-faint) mt-1">{typeof en.grade.gradePoints === 'number' ? `${en.grade.gradePoints.toFixed(2)} GP` : 'N/A'}</p>
                           </div>
                         ) : (
                           <Badge variant="amber">In Progress</Badge>

@@ -118,9 +118,18 @@ export default function SignInPage() {
             transition={{ duration: 1, delay: 0.2 }}
             className="max-w-xl mt-auto md:mt-0 md:pt-8"
           >
-            <span className="inline-block uppercase tracking-widest text-[#D4AF37] text-xs font-bold mb-3 font-mono border border-[#D4AF37]/30 px-3 py-1 rounded-full bg-[#D4AF37]/10">
-              Welcome to Harmony College
-            </span>
+            <div className="inline-flex items-center gap-2 mb-4 bg-white/5 backdrop-blur-sm border border-[#D4AF37]/30 px-4 py-2 rounded-full">
+              <Image
+                src="/logo1.jpg"
+                alt="Harmony College Logo"
+                width={32}
+                height={32}
+                className="object-contain rounded-full"
+              />
+              <span className="uppercase tracking-widest text-[#D4AF37] text-xs font-bold font-mono">
+                Harmony College
+              </span>
+            </div>
             <h1 className="text-4xl md:text-5xl font-serif font-semibold leading-tight mb-4 text-white drop-shadow-md">
               Empowering Future Leaders
             </h1>
@@ -170,12 +179,12 @@ export default function SignInPage() {
         >
           {/* Header */}
           <div className="flex flex-col items-center mb-8 text-center">
-            <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center mb-4 border border-white/10 shadow-inner">
+            <div className="mb-4">
               <Image
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkk-GfOeeS5kDbA0-xztv8nzqkDrjaLS9xrLYqbgsKDnF3Mgv96Vc6Y3DD4IWBFmoV8u_skSaXfx90BGbNSsit1rc6tnddGQr95P7j0XYaVMT-mv9BIr-INftW65Au2LacF37YGXy4n5CkW1e3oDOI8CUTg4wHCFFuY5-a-_LwZdZbdsruqrfDTWakKwehMJk_9SkFYy9ssYdDjfMKD_e4REWNqaiaoYA9Ppx_gYawAHQQjXFAAHh_uYQcMyOXdTB31Xj6fpKXxQ" 
-                alt="Logo" 
-                width={32}
-                height={32}
+                src="/logo2.jpg" 
+                alt="Harmony College Logo" 
+                width={80}
+                height={80}
                 className="object-contain"
               />
             </div>
