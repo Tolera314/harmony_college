@@ -519,42 +519,18 @@ router.get('/courses/:id', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
-router.post('/courses', async (req: AuthRequest, res) => {
-  try {
-    const schema = z.object({
-      code: z.string().min(2).max(20), name: z.string().min(3).max(200),
-      description: z.string().optional(), creditHours: z.number().int().min(1).max(10),
-      ects: z.number().int().min(1).max(20).optional(),
-      departmentId: z.string().uuid(), prerequisiteIds: z.array(z.string().uuid()).optional(),
-    });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
-    ok(res, await courses.createCourse(parsed.data, req.user!.userId), 201);
-  } catch (e) { fail(res, e, 400); }
-});
-
-router.patch('/courses/:id', async (req: AuthRequest, res) => {
-  try {
-    const schema = z.object({
-      name: z.string().min(3).optional(), description: z.string().optional(),
-      creditHours: z.number().int().min(1).max(10).optional(),
-      ects: z.number().int().min(1).max(20).optional(),
-      departmentId: z.string().uuid().optional(),
-      prerequisiteIds: z.array(z.string().uuid()).optional(),
-    });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
-    ok(res, await courses.updateCourse(pid(req), parsed.data, req.user!.userId));
-  } catch (e) { fail(res, e, 400); }
-});
-
-router.patch('/courses/:id/status', async (req: AuthRequest, res) => {
-  try {
-    const parsed = z.object({ status: z.nativeEnum(CourseStatus) }).safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: 'Invalid status' }); return; }
-    ok(res, await courses.setCourseStatus(pid(req), parsed.data.status, req.user!.userId));
-  } catch (e) { fail(res, e, 400); }
-});
+// ═══════════════════════════════════════════════════════════════════════════
+// COURSE CREATION/EDITING — REMOVED
+// ═══════════════════════════════════════════════════════════════════════════
+// Per updated role permissions, Registrar does NOT create or edit courses.
+// Head of Department (HOD) manages courses within their authorized department.
+// Use /api/department-head/courses endpoints for course creation/editing.
+//
+// Registrar retains read-only course access for oversight and reporting:
+// - GET /api/registrar/courses (list)
+// - GET /api/registrar/courses/meta (metadata)
+// - GET /api/registrar/courses/:id (details)
+// ═══════════════════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DEPARTMENTS & ASSIGN INSTRUCTOR ACADEMIC STRUCTURE
@@ -1943,6 +1919,334 @@ router.patch('/settings/registration', async (req: AuthRequest, res) => {
     });
 
     ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ACADEMIC PERIOD LIFECYCLE (TVET SEMESTERS & SHORT PROGRAM TERMS)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/registrar/academic-years — list academic years for period creation
+router.get('/academic-years', async (_req: AuthRequest, res) => {
+  try {
+    const years = await prisma.academicYear.findMany({
+      orderBy: { startDate: 'desc' },
+      select: { id: true, name: true, startDate: true, endDate: true, isCurrent: true, isActive: true },
+    });
+    ok(res, years);
+  } catch (e) { fail(res, e); }
+});
+
+// GET /api/registrar/academic-periods — list TVET semesters and Short Program terms
+router.get('/academic-periods', async (req: AuthRequest, res) => {
+  try {
+    const qp = q(req);
+    const programType = qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+
+    const periods = await prisma.semester.findMany({
+      where: programType ? { programType } : undefined,
+      include: {
+        academicYear: { select: { id: true, name: true, startDate: true, endDate: true } },
+        _count: { select: { offerings: true } },
+      },
+      orderBy: [
+        { academicYear: { startDate: 'desc' } },
+        { programType: 'asc' },
+        { termOrder: 'asc' },
+      ],
+    });
+
+    const periodIds = periods.map(p => p.id);
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        courseOffering: { semesterId: { in: periodIds } },
+        status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] },
+      },
+      select: {
+        studentRecordId: true,
+        courseOffering: { select: { semesterId: true } },
+      },
+    });
+
+    const studentMap = new Map<string, Set<string>>();
+    for (const e of enrollments) {
+      const sId = e.courseOffering.semesterId;
+      if (!studentMap.has(sId)) studentMap.set(sId, new Set());
+      studentMap.get(sId)!.add(e.studentRecordId);
+    }
+
+    const result = periods.map(p => ({
+      id: p.id,
+      name: p.name,
+      academicYearId: p.academicYearId,
+      academicYearName: p.academicYear?.name ?? '',
+      programType: p.programType,
+      termOrder: p.termOrder ?? 1,
+      durationWeeks: p.durationWeeks ?? (p.programType === 'SHORT_PROGRAM' ? 12 : 16),
+      startDate: p.startDate,
+      endDate: p.endDate,
+      registrationStart: p.registrationStart,
+      registrationEnd: p.registrationEnd,
+      addDropDeadline: p.addDropDeadline,
+      isCurrent: p.isCurrent,
+      isClosed: p.isClosed,
+      closedAt: p.closedAt,
+      closedBy: p.closedBy,
+      courseCount: p._count.offerings,
+      studentCount: studentMap.get(p.id)?.size ?? 0,
+    }));
+
+    ok(res, result);
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/registrar/academic-periods — create a new TVET semester or Short Program term
+router.post('/academic-periods', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      academicYearId: z.string().uuid(),
+      name: z.string().min(1),
+      programType: z.enum(['TVET', 'SHORT_PROGRAM']),
+      termOrder: z.number().int().min(1).default(1),
+      durationWeeks: z.number().int().min(1).optional(),
+      startDate: z.string().datetime(),
+      endDate: z.string().datetime(),
+      registrationStart: z.string().datetime().optional(),
+      registrationEnd: z.string().datetime().optional(),
+      addDropDeadline: z.string().datetime().optional(),
+      isCurrent: z.boolean().optional().default(false),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    const { academicYearId, name, programType, termOrder, durationWeeks, startDate, endDate, registrationStart, registrationEnd, addDropDeadline, isCurrent } = parsed.data;
+
+    // Validate naming convention strictly per requirements:
+    // TVET must be Semester, Short Program must be Term (never Semester!)
+    if (programType === 'SHORT_PROGRAM' && name.toLowerCase().includes('semester')) {
+      res.status(400).json({ error: 'Short Program periods must be designated as "Term" (e.g., "Term I", "Term II"), never "Semester".' });
+      return;
+    }
+
+    const regStart = registrationStart ? new Date(registrationStart) : new Date(startDate);
+    const regEnd = registrationEnd ? new Date(registrationEnd) : new Date(new Date(startDate).getTime() + 14 * 86400000);
+    const addDrop = addDropDeadline ? new Date(addDropDeadline) : new Date(new Date(startDate).getTime() + 21 * 86400000);
+
+    const created = await prisma.$transaction(async tx => {
+      if (isCurrent) {
+        await tx.semester.updateMany({
+          where: { programType, isCurrent: true },
+          data: { isCurrent: false },
+        });
+      }
+
+      return tx.semester.create({
+        data: {
+          academicYearId,
+          name: name.trim(),
+          programType,
+          termOrder,
+          durationWeeks: durationWeeks ?? (programType === 'SHORT_PROGRAM' ? 12 : 16),
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          registrationStart: regStart,
+          registrationEnd: regEnd,
+          addDropDeadline: addDrop,
+          isCurrent,
+          isClosed: false,
+        },
+        include: { academicYear: { select: { id: true, name: true } } },
+      });
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'CALENDAR_EVENT_CREATED',
+        entityType: 'Semester',
+        entityId: created.id,
+        description: `Created ${programType} academic period: ${created.name} (${created.academicYear.name})`,
+      },
+    });
+
+    ok(res, created, 201);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// PATCH /api/registrar/academic-periods/:id — configure period details and dates
+router.patch('/academic-periods/:id', async (req: AuthRequest, res) => {
+  try {
+    const periodId = pid(req);
+    const schema = z.object({
+      name: z.string().min(1).optional(),
+      termOrder: z.number().int().min(1).optional(),
+      durationWeeks: z.number().int().min(1).optional(),
+      startDate: z.string().datetime().optional(),
+      endDate: z.string().datetime().optional(),
+      registrationStart: z.string().datetime().optional(),
+      registrationEnd: z.string().datetime().optional(),
+      addDropDeadline: z.string().datetime().optional(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    const existing = await prisma.semester.findUnique({ where: { id: periodId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Academic period not found' });
+      return;
+    }
+
+    if (parsed.data.name && existing.programType === 'SHORT_PROGRAM' && parsed.data.name.toLowerCase().includes('semester')) {
+      res.status(400).json({ error: 'Short Program periods must be designated as "Term", never "Semester".' });
+      return;
+    }
+
+    const updated = await prisma.semester.update({
+      where: { id: periodId },
+      data: {
+        ...(parsed.data.name && { name: parsed.data.name.trim() }),
+        ...(parsed.data.termOrder != null && { termOrder: parsed.data.termOrder }),
+        ...(parsed.data.durationWeeks != null && { durationWeeks: parsed.data.durationWeeks }),
+        ...(parsed.data.startDate && { startDate: new Date(parsed.data.startDate) }),
+        ...(parsed.data.endDate && { endDate: new Date(parsed.data.endDate) }),
+        ...(parsed.data.registrationStart && { registrationStart: new Date(parsed.data.registrationStart) }),
+        ...(parsed.data.registrationEnd && { registrationEnd: new Date(parsed.data.registrationEnd) }),
+        ...(parsed.data.addDropDeadline && { addDropDeadline: new Date(parsed.data.addDropDeadline) }),
+      },
+      include: { academicYear: { select: { id: true, name: true } } },
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'CALENDAR_EVENT_UPDATED',
+        entityType: 'Semester',
+        entityId: periodId,
+        description: `Updated academic period: ${updated.name}`,
+      },
+    });
+
+    ok(res, updated);
+  } catch (e) { fail(res, e, 400); }
+});
+
+// POST /api/registrar/academic-periods/:id/open — set period active/current and reopen
+router.post('/academic-periods/:id/open', async (req: AuthRequest, res) => {
+  try {
+    const periodId = pid(req);
+    const target = await prisma.semester.findUnique({ where: { id: periodId } });
+    if (!target) {
+      res.status(404).json({ error: 'Academic period not found' });
+      return;
+    }
+
+    const updated = await prisma.$transaction(async tx => {
+      // Mark other periods of the same programType as not current
+      await tx.semester.updateMany({
+        where: { programType: target.programType, isCurrent: true },
+        data: { isCurrent: false },
+      });
+
+      // Set target period as active and open
+      return tx.semester.update({
+        where: { id: periodId },
+        data: {
+          isCurrent: true,
+          isClosed: false,
+          closedAt: null,
+          closedBy: null,
+        },
+        include: { academicYear: { select: { id: true, name: true } } },
+      });
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'CALENDAR_EVENT_UPDATED',
+        entityType: 'Semester',
+        entityId: periodId,
+        description: `Opened and set as current period: ${updated.name} (${updated.programType})`,
+      },
+    });
+
+    ok(res, { message: `Academic period ${updated.name} is now open and active.`, period: updated });
+  } catch (e) { fail(res, e, 400); }
+});
+
+// POST /api/registrar/academic-periods/:id/close — close period and preserve all records
+router.post('/academic-periods/:id/close', async (req: AuthRequest, res) => {
+  try {
+    const periodId = pid(req);
+    const target = await prisma.semester.findUnique({ where: { id: periodId } });
+    if (!target) {
+      res.status(404).json({ error: 'Academic period not found' });
+      return;
+    }
+
+    const updated = await prisma.semester.update({
+      where: { id: periodId },
+      data: {
+        isClosed: true,
+        closedAt: new Date(),
+        closedBy: req.user!.userId,
+      },
+      include: { academicYear: { select: { id: true, name: true } } },
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'CALENDAR_EVENT_UPDATED',
+        entityType: 'Semester',
+        entityId: periodId,
+        description: `Closed academic period: ${updated.name} (${updated.programType}). All student records and GPAs preserved.`,
+      },
+    });
+
+    ok(res, { message: `Academic period ${updated.name} closed successfully. All historical records are locked and preserved.`, period: updated });
+  } catch (e) { fail(res, e, 400); }
+});
+
+// POST /api/registrar/academic-periods/:id/reopen — reopen closed period for authorized edits
+router.post('/academic-periods/:id/reopen', async (req: AuthRequest, res) => {
+  try {
+    const periodId = pid(req);
+    const target = await prisma.semester.findUnique({ where: { id: periodId } });
+    if (!target) {
+      res.status(404).json({ error: 'Academic period not found' });
+      return;
+    }
+
+    const updated = await prisma.semester.update({
+      where: { id: periodId },
+      data: {
+        isClosed: false,
+        closedAt: null,
+        closedBy: null,
+      },
+      include: { academicYear: { select: { id: true, name: true } } },
+    });
+
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'CALENDAR_EVENT_UPDATED',
+        entityType: 'Semester',
+        entityId: periodId,
+        description: `Reopened academic period: ${updated.name} (${updated.programType})`,
+      },
+    });
+
+    ok(res, { message: `Academic period ${updated.name} reopened successfully.`, period: updated });
   } catch (e) { fail(res, e, 400); }
 });
 // ══════════════════════════════════════════════════════════════════════════════

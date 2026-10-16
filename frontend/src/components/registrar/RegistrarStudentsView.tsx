@@ -20,6 +20,7 @@ import {
   type StudentListItem, type StudentListResponse, type CourseMeta,
   type DepartmentItem, type StudentAcademicRecord,
 } from '@/src/lib/registrarApi';
+import { AcademicPeriodCourseTable } from '../academic/AcademicPeriodCourseTable';
 
 const STATUS_BADGE: Record<string, any> = {
   ACTIVE: 'emerald', ON_LEAVE: 'amber', SUSPENDED: 'rose', GRADUATED: 'glass', WITHDRAWN: 'rose',
@@ -676,70 +677,13 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
                         </div>
                       </div>
 
-                      {/* Semester Courses Table */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs font-sans">
-                          <thead className="bg-black/20 border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                            <tr>
-                              <th className="px-3.5 py-2.5 text-left">Course</th>
-                              <th className="px-2 py-2.5 text-center">Cr.Hr</th>
-                              <th className="px-2 py-2.5 text-center">ECTS</th>
-                              <th className="px-2 py-2.5 text-center">Final Mark</th>
-                              <th className="px-2 py-2.5 text-center">Grade</th>
-                              <th className="px-2 py-2.5 text-center">Grade Pt</th>
-                              <th className="px-2 py-2.5 text-center">Quality Pt</th>
-                              <th className="px-2 py-2.5 text-center">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {sem.courses.map((c) => (
-                              <tr key={c.courseId} className="hover:bg-white/5 transition-colors">
-                                <td className="px-3.5 py-2.5">
-                                  <div className="font-semibold text-white">{c.courseCode}</div>
-                                  <div className="text-[11px] text-zinc-400 truncate max-w-xs">{c.courseName}</div>
-                                </td>
-                                <td className="px-2 py-2.5 text-center font-mono text-zinc-400">{c.creditHours}</td>
-                                <td className="px-2 py-2.5 text-center font-mono text-zinc-300 font-semibold">{c.ects}</td>
-                                <td className="px-2 py-2.5 text-center font-mono text-zinc-300 font-bold">
-                                  {c.finalMark != null ? c.finalMark : '—'}
-                                </td>
-                                <td className="px-2 py-2.5 text-center">
-                                  <span className="font-mono font-bold text-xs text-[#E9C349]">{c.letterGrade}</span>
-                                </td>
-                                <td className="px-2 py-2.5 text-center font-mono text-zinc-300">{c.gradePoints.toFixed(2)}</td>
-                                <td className="px-2 py-2.5 text-center font-mono text-purple-300 font-semibold">
-                                  {c.qualityPoints.toFixed(2)}
-                                </td>
-                                <td className="px-2 py-2.5 text-center">
-                                  <span
-                                    className={`px-1.5 py-0.5 text-[10px] font-mono rounded ${
-                                      c.status === 'PUBLISHED'
-                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                        : c.status === 'SUBMITTED'
-                                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                        : 'bg-zinc-500/20 text-zinc-300 border border-zinc-500/30'
-                                    }`}
-                                  >
-                                    {c.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Semester Summary Footer */}
-                      <div className="px-4 py-2.5 bg-black/30 border-t border-white/5 flex flex-wrap items-center justify-between text-xs font-mono text-zinc-400">
-                        <span>Total Courses: <strong className="text-white">{sem.courses.length}</strong></span>
-                        <div className="flex items-center gap-4">
-                          <span>Total Cr.Hr: <strong className="text-white">{sem.totalCreditHours}</strong></span>
-                          <span>Total ECTS: <strong className="text-white">{sem.totalEcts}</strong></span>
-                          <span>Total QP: <strong className="text-white">{sem.totalQualityPoints.toFixed(2)}</strong></span>
-                          <span className="text-white font-bold">
-                            Semester GPA: <span className="text-[#E9C349]">{sem.semesterGpa.toFixed(2)}</span>
-                          </span>
-                        </div>
+                      {/* 8-Column Course Table & 4-Column Summary */}
+                      <div className="p-4">
+                        <AcademicPeriodCourseTable
+                          term={sem as any}
+                          isShortProgram={programType === 'SHORT_PROGRAM' || sem.programType === 'SHORT_PROGRAM'}
+                          isPortalOpen={true}
+                        />
                       </div>
                     </div>
                   ))}

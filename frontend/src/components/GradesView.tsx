@@ -26,6 +26,7 @@ import {
   formatGPA,
   calculateQualityPoints,
 } from '@/src/lib/grading';
+import { AcademicPeriodCourseTable } from './academic/AcademicPeriodCourseTable';
 
 const gradeBadgeColor = (letter: string | undefined) => {
   if (!letter) return 'bg-slate-500/15 text-slate-400 border-slate-500/30';
@@ -206,84 +207,13 @@ export const GradesView: React.FC<GradesViewProps> = ({
                   </div>
                 </div>
 
-                {/* Courses Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs font-sans">
-                    <thead className="bg-black/20 border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Course</th>
-                        <th className="px-2 py-3 text-center">Cr.Hr</th>
-                        <th className="px-2 py-3 text-center">ECTS</th>
-                        <th className="px-2 py-3 text-center">Final Mark</th>
-                        <th className="px-2 py-3 text-center">Grade</th>
-                        <th className="px-2 py-3 text-center">Grade Pt</th>
-                        <th className="px-2 py-3 text-center">Quality Pt</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {term.courses.map((c) => {
-                        const ects = c.ects ?? c.credits ?? 4;
-                        const creditHours = c.creditHours ?? 3;
-                        const gradePoints = c.gradePoints ?? c.numericGpa ?? 0;
-                        const qualityPoints =
-                          c.qualityPoints ?? calculateQualityPoints(gradePoints, ects);
-
-                        return (
-                          <tr key={c.id} className="hover:bg-white/5 transition-colors">
-                            <td className="px-4 py-3">
-                              <div className="font-semibold text-white">{c.courseCode}</div>
-                              <div className="text-[11px] text-zinc-400 truncate max-w-xs">
-                                {c.courseTitle}
-                              </div>
-                            </td>
-                            <td className="px-2 py-3 text-center font-mono text-zinc-400">
-                              {creditHours}
-                            </td>
-                            <td className="px-2 py-3 text-center font-mono font-semibold text-zinc-200">
-                              {ects}
-                            </td>
-                            <td className="px-2 py-3 text-center font-mono font-bold text-indigo-300">
-                              {c.finalMark != null ? c.finalMark : '—'}
-                            </td>
-                            <td className="px-2 py-3 text-center">
-                              <span
-                                className={`inline-block px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeBadgeColor(
-                                  c.grade
-                                )}`}
-                              >
-                                {c.grade}
-                              </span>
-                            </td>
-                            <td className="px-2 py-3 text-center font-mono text-zinc-300">
-                              {formatGradePoint(gradePoints)}
-                            </td>
-                            <td className="px-2 py-3 text-center font-mono font-semibold text-purple-300">
-                              {formatQualityPoints(qualityPoints)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Semester Summary Footer */}
-                <div className="px-5 py-3 bg-black/30 border-t border-white/5 flex flex-wrap items-center justify-between text-xs font-mono text-zinc-400">
-                  <span>
-                    Courses: <strong className="text-white">{term.courses.length}</strong>
-                  </span>
-                  <div className="flex items-center gap-4">
-                    <span>
-                      Total ECTS: <strong className="text-white">{term.totalEcts}</strong>
-                    </span>
-                    <span>
-                      Total QP: <strong className="text-white">{formatQualityPoints(term.totalQualityPoints)}</strong>
-                    </span>
-                    <span className="text-white font-bold">
-                      Semester GPA:{' '}
-                      <span className="text-[#E9C349]">{formatGPA(term.semesterGpa)}</span>
-                    </span>
-                  </div>
+                {/* 8-Column Course Table & 4-Column Summary */}
+                <div className="p-4">
+                  <AcademicPeriodCourseTable
+                    term={term as any}
+                    isShortProgram={profile.programType === 'SHORT_PROGRAM'}
+                    isPortalOpen={isPortalOpen}
+                  />
                 </div>
               </div>
             ))

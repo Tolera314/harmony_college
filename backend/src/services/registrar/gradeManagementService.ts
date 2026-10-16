@@ -117,7 +117,10 @@ export async function getDepartmentGradeCards(
         }),
         prisma.courseOffering.findMany({
           where: {
-            course: { departmentId: dept.id },
+            course: { 
+              departmentId: dept.id,
+              status: 'ACTIVE', // Only show offerings for ACTIVE courses
+            },
             ...progFilter,
           },
           select: {
@@ -203,7 +206,14 @@ export async function getDepartmentGrades(
       user: { select: { fullName: true, email: true } },
       program: { select: { name: true } },
       enrollments: {
-        where: { status: 'ACTIVE' },
+        where: { 
+          status: 'ACTIVE',
+          courseOffering: {
+            course: {
+              status: 'ACTIVE', // Only show enrollments for ACTIVE courses
+            },
+          },
+        },
         include: {
           courseOffering: {
             include: {
@@ -326,7 +336,10 @@ export async function getCourseSubmissionStatus(
   programType?: 'TVET' | 'SHORT_PROGRAM',
 ): Promise<CourseSubmissionStatusItem[]> {
   const whereOffering: any = {
-    course: { departmentId },
+    course: { 
+      departmentId,
+      status: 'ACTIVE', // Only show offerings for ACTIVE courses
+    },
   };
   if (programType) {
     whereOffering.programType = programType;

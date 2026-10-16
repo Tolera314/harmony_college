@@ -56,6 +56,7 @@ export type NavTab =
   | 'gpa_simulator'
   | 'financials'
   | 'notifications'
+  | 'degree_audit'
   | 'settings'
   | 'profile';
 

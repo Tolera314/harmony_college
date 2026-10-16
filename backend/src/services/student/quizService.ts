@@ -317,7 +317,7 @@ export async function submitQuizAttempt(
 
 async function autoSubmitAttempt(
   attemptId: string,
-  quiz: { questions: any[]; totalPoints: number; passingScore: number },
+  quiz: { questions: any[]; totalPoints: number; passingScore: number | null },
   studentRecordId: string,
 ) {
   const attempt = await prisma.quizAttempt.findUnique({

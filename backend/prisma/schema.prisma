@@ -159,13 +159,13 @@ model StudentProfile {
   /// Set to true once a Finance Officer verifies the student's registration fee payment.
   paymentVerifiedByFinance Boolean     @default(false)
   paymentVerifiedByUserId  String?
-  /// Registrar notification tracking
-  notifiedByRegistrar      Boolean     @default(false)
-  notifiedAt               DateTime?
-  notifiedBy               String?
   nationalId               String?
   programType              String?
   shortProgramDuration     String?
+  notifiedAt               DateTime?
+  notifiedBy               String?
+  /// Registrar notification tracking
+  notifiedByRegistrar      Boolean     @default(false)
   selectedDepartment       Department? @relation(fields: [selectedDepartmentId], references: [id])
   user                     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -388,6 +388,11 @@ model Semester {
   addDropDeadline   DateTime
   isCurrent         Boolean          @default(false)
   isActive          Boolean          @default(true)
+  isClosed          Boolean          @default(false)
+  closedAt          DateTime?
+  closedBy          String?
+  termOrder         Int              @default(1)
+  durationWeeks     Int?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   programType       ProgramType      @default(TVET)
@@ -397,6 +402,7 @@ model Semester {
   @@unique([academicYearId, name, programType])
   @@index([programType])
   @@index([isCurrent])
+  @@index([isClosed])
 }
 
 model Course {
@@ -643,6 +649,33 @@ model CourseGrade {
   @@index([studentRecordId])
   @@index([enrollmentId])
   @@index([status])
+}
+
+/// Instructor's local draft of grades before submission to Registrar.
+/// This table is NOT visible to Registrar - only to the instructor.
+/// When instructor clicks "Submit to Registrar", drafts are copied to CourseGrade with status=SUBMITTED.
+model InstructorGradeDraft {
+  id              String   @id @default(uuid())
+  enrollmentId    String
+  instructorId    String
+  assignmentMarks Float?
+  quizMarks       Float?
+  midExamMarks    Float?
+  finalExamMarks  Float?
+  attendanceMarks Float?
+  otherMarks      Float?
+  finalMark       Float?
+  letterGrade     String?
+  gradePoints     Float?
+  qualityPoints   Float?
+  creditHours     Int      @default(3)
+  ects            Int      @default(4)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([enrollmentId, instructorId])
+  @@index([instructorId])
+  @@index([enrollmentId])
 }
 
 model TranscriptRequest {
@@ -902,10 +935,10 @@ model Quiz {
   showResultsImmediately Boolean        @default(true)
   status                 QuizStatus     @default(DRAFT)
   shuffleQuestions       Boolean        @default(false)
-  instructorStartedAt    DateTime?
-  instructorStartedBy    String?
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
+  instructorStartedAt    DateTime?
+  instructorStartedBy    String?
   courseOffering         CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
   attempts               QuizAttempt[]
   questions              QuizQuestion[]
@@ -1992,6 +2025,8 @@ enum LeaveStatus {
 enum DepartmentHeadAction {
   OFFERING_APPROVED
   OFFERING_REJECTED
+  OFFERING_INSTRUCTOR_ASSIGNED
+  OFFERING_INSTRUCTOR_UNASSIGNED
   LEAVE_APPROVED
   LEAVE_REJECTED
   PROFILE_UPDATED
@@ -2013,11 +2048,11 @@ enum HRContractStatus {
 }
 
 enum HREmployeeStatus {
-  PENDING
   ACTIVE
   INACTIVE
   ON_LEAVE
   TERMINATED
+  PENDING
 }
 
 enum HRGender {

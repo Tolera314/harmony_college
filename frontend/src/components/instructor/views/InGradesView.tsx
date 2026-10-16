@@ -243,7 +243,7 @@ export const InGradesView: React.FC<InGradesViewProps> = ({ programType }) => {
 
   // Bulk save all drafts
   const handleBatchSaveDrafts = async () => {
-    if (!isEditingOpen) return;
+    if (!isEditingOpen || (selectedClass as any)?.semester?.isClosed) return;
     setBatchSaving(true);
     setError(null);
     try {
@@ -265,7 +265,7 @@ export const InGradesView: React.FC<InGradesViewProps> = ({ programType }) => {
 
   // Submit to Registrar
   const handleSubmitToRegistrar = async () => {
-    if (!isEditingOpen) return;
+    if (!isEditingOpen || (selectedClass as any)?.semester?.isClosed) return;
     setConfirmSubmitModal(false);
     setSubmittingToRegistrar(true);
     setError(null);
@@ -427,7 +427,11 @@ export const InGradesView: React.FC<InGradesViewProps> = ({ programType }) => {
               <span className="px-2.5 py-1 rounded-lg bg-black/30 border border-white/10 text-zinc-400">
                 {grades.length} student{grades.length !== 1 ? 's' : ''}
               </span>
-              {isEditingOpen ? (
+              {(selectedClass as any)?.semester?.isClosed ? (
+                <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Period Closed
+                </span>
+              ) : isEditingOpen ? (
                 <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">
                   ● Editing Open
                 </span>

@@ -1609,7 +1609,11 @@ export async function createCourse(
 
   const deptIds = await resolveDeptIds(hod);
   const existing = await prisma.course.findFirst({
-    where: { code: codeUpper, departmentId: { in: deptIds } },
+    where: { 
+      code: codeUpper, 
+      departmentId: { in: deptIds },
+      programType: (data.programType as any) || 'TVET',
+    },
   });
   if (existing) {
     throw new Error('A course with this code already exists in your department.');
@@ -2486,7 +2490,7 @@ export async function assignInstructorToOffering(
     where:   { id: data.offeringId },
     include: {
       course:   { select: { departmentId: true, name: true, code: true } },
-      semester: { select: { id: true, name: true } },
+      semester: { select: { id: true, name: true, isClosed: true } },
     },
   });
   if (!offering) throw new Error('Course offering not found.');
@@ -2494,8 +2498,12 @@ export async function assignInstructorToOffering(
     throw new Error('Not authorized: this course offering does not belong to your department.');
   }
 
-  // 2. Verify instructor is active (cross-department assignment is allowed;
-  //    the instructor's home department and employee record remain unchanged)
+  // 2. Check if academic period is closed
+  if (offering.semester?.isClosed) {
+    throw new Error(`Cannot assign instructors: academic period "${offering.semester.name}" is closed.`);
+  }
+
+  // 3. Verify instructor is active and belongs to authorized department
   const instructor = await prisma.instructorRecord.findUnique({
     where:   { id: data.instructorId },
     include: {
@@ -2507,15 +2515,17 @@ export async function assignInstructorToOffering(
     throw new Error('Selected instructor is not active or not found.');
   }
 
-  // 3. Duplicate-assignment guard: same instructor already on this exact offering
+  // 4. Verify instructor belongs to HOD's authorized department family
+  if (!deptIds.includes(instructor.departmentId)) {
+    throw new Error('Cannot assign instructor from another department. Instructor must belong to your department or its branches.');
+  }
+
+  // 5. Duplicate-assignment guard: same instructor already on this exact offering
   if (offering.instructorId === data.instructorId) {
     throw new Error(`${instructor.user.fullName} is already assigned to this class section.`);
   }
 
-  // 4. Cross-department flag (informational only — does not block assignment)
-  const isCrossDept = instructor.departmentId !== deptId;
-
-  // 5. Schedule conflict detection: check if the instructor is already committed
+  // 6. Schedule conflict detection: check if the instructor is already committed
   //    to another section with overlapping timetable slots in the same semester
   if (offering.semesterId) {
     const timetableSlots = await prisma.timetableSlot.findMany({
@@ -2558,7 +2568,7 @@ export async function assignInstructorToOffering(
     }
   }
 
-  // 6. Update offering
+  // 7. Update offering
   const updated = await prisma.courseOffering.update({
     where: { id: data.offeringId },
     data: {
@@ -2572,23 +2582,38 @@ export async function assignInstructorToOffering(
     },
   });
 
-  // 7. Notify the instructor — include cross-dept context when applicable
-  const crossDeptNote = isCrossDept
-    ? ` (cross-department assignment from ${instructor.department?.name ?? 'another department'})`
-    : '';
+  // 8. Create audit log entry
+  await prisma.departmentHeadAuditLog.create({
+    data: {
+      userId:     userId,
+      action:     DepartmentHeadAction.OFFERING_INSTRUCTOR_ASSIGNED,
+      entityType: 'CourseOffering',
+      entityId:   data.offeringId,
+      description: `Assigned instructor ${instructor.user.fullName} to ${offering.course.code} Section ${offering.section}`,
+      metadata: {
+        hodId:          hod.id,
+        instructorId:   data.instructorId,
+        instructorName: instructor.user.fullName,
+        courseCode:     offering.course.code,
+        courseName:     offering.course.name,
+        section:        offering.section,
+        semesterName:   offering.semester?.name,
+      },
+    },
+  }).catch(() => {}); // Non-critical audit failure
+
+  // 9. Notify the instructor
   await createNotification({
     userId:  instructor.userId,
     title:   'Teaching Assignment',
     message: `You have been assigned to teach ${offering.course.code} (${offering.course.name}) ` +
-             `Section ${offering.section} for ${offering.semester.name}${crossDeptNote}.`,
+             `Section ${offering.section} for ${offering.semester.name}.`,
     type:    'INFO',
   }).catch(() => {});
 
   return {
-    success:     true,
-    isCrossDept,
-    message: `Assigned ${instructor.user.fullName} to ${offering.course.code} Section ${offering.section}.` +
-             (isCrossDept ? ` Cross-department assignment from ${instructor.department?.name ?? 'another department'}.` : ''),
+    success: true,
+    message: `Assigned ${instructor.user.fullName} to ${offering.course.code} Section ${offering.section}.`,
     offering: updated,
   };
 }
@@ -2596,7 +2621,31 @@ export async function assignInstructorToOffering(
 export async function unassignInstructorFromOffering(userId: string, offeringId: string) {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
-  const offering = await verifyOfferingDept(offeringId, deptIds);
+  
+  // Verify offering belongs to HOD's department and fetch full details for audit
+  const offering = await prisma.courseOffering.findUnique({
+    where: { id: offeringId },
+    include: {
+      course: { select: { departmentId: true, code: true, name: true } },
+      semester: { select: { id: true, name: true, isClosed: true } },
+      instructor: {
+        include: { user: { select: { fullName: true } } },
+      },
+    },
+  });
+  
+  if (!offering) throw new Error('Course offering not found.');
+  if (!deptIds.includes(offering.course.departmentId)) {
+    throw new Error('Not authorized: this course offering does not belong to your department.');
+  }
+
+  // Check if academic period is closed
+  if (offering.semester?.isClosed) {
+    throw new Error(`Cannot unassign instructors: academic period "${offering.semester.name}" is closed.`);
+  }
+
+  const previousInstructorName = offering.instructor?.user.fullName;
+  const previousInstructorId = offering.instructorId;
 
   await prisma.courseOffering.update({
     where: { id: offeringId },
@@ -2605,6 +2654,28 @@ export async function unassignInstructorFromOffering(userId: string, offeringId:
       status:       'SCHEDULED',
     },
   });
+
+  // Create audit log entry
+  if (previousInstructorId) {
+    await prisma.departmentHeadAuditLog.create({
+      data: {
+        userId:     userId,
+        action:     DepartmentHeadAction.OFFERING_INSTRUCTOR_UNASSIGNED,
+        entityType: 'CourseOffering',
+        entityId:   offeringId,
+        description: `Unassigned instructor ${previousInstructorName} from ${offering.course.code} Section ${offering.section}`,
+        metadata: {
+          hodId:                  hod.id,
+          previousInstructorId:   previousInstructorId,
+          previousInstructorName: previousInstructorName,
+          courseCode:             offering.course.code,
+          courseName:             offering.course.name,
+          section:                offering.section,
+          semesterName:           offering.semester?.name,
+        },
+      },
+    }).catch(() => {}); // Non-critical audit failure
+  }
 
   return { success: true, message: 'Instructor unassigned successfully.' };
 }

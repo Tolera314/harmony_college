@@ -36,6 +36,7 @@ import {
   formatGPA,
   calculateQualityPoints,
 } from '../lib/grading';
+import { AcademicPeriodCourseTable } from './academic/AcademicPeriodCourseTable';
 
 type TabId = 'current' | 'semesters' | 'summary';
 
@@ -293,6 +294,12 @@ export const MyCoursesView: React.FC = () => {
             key="current"
             courses={enrolledCourses}
             isPortalOpen={isPortalOpen}
+            student={student}
+            currentSemester={currentSemester}
+            currentSemesterGpa={currentSemesterGpa}
+            totalCompletedEcts={totalCompletedEcts}
+            totalQualityPoints={totalQualityPoints}
+            cgpa={cgpa}
           />
         )}
 
@@ -303,6 +310,7 @@ export const MyCoursesView: React.FC = () => {
             expandedSemesters={expandedSemesters}
             toggleSemester={toggleSemester}
             isPortalOpen={isPortalOpen}
+            isShortProgram={student.programType === 'SHORT_PROGRAM'}
           />
         )}
 
@@ -411,9 +419,24 @@ export const MyCoursesView: React.FC = () => {
 interface CurrentCoursesTabProps {
   courses: CourseDetail[];
   isPortalOpen: boolean;
+  student: any;
+  currentSemester: any;
+  currentSemesterGpa: number;
+  totalCompletedEcts: number;
+  totalQualityPoints: number;
+  cgpa: number;
 }
 
-const CurrentCoursesTab: React.FC<CurrentCoursesTabProps> = ({ courses, isPortalOpen }) => {
+const CurrentCoursesTab: React.FC<CurrentCoursesTabProps> = ({
+  courses,
+  isPortalOpen,
+  student,
+  currentSemester,
+  currentSemesterGpa,
+  totalCompletedEcts,
+  totalQualityPoints,
+  cgpa,
+}) => {
   if (courses.length === 0) {
     return (
       <motion.div
@@ -439,6 +462,60 @@ const CurrentCoursesTab: React.FC<CurrentCoursesTabProps> = ({ courses, isPortal
       </motion.div>
     );
   }
+
+  const isSP = student.programType === 'SHORT_PROGRAM';
+  const termLabel = currentSemester?.name || (isSP ? 'Term I' : 'Current Semester');
+  const curEcts = courses.reduce((s, c) => s + (c.grade?.ects ?? (c as any).ects ?? (c.course as any)?.ects ?? c.creditHours ?? 4), 0);
+  const curQP = courses.reduce((s, c) => s + ((c.grade?.gradePoints ?? 0) * (c.grade?.ects ?? (c as any).ects ?? (c.course as any)?.ects ?? c.creditHours ?? 4)), 0);
+
+  const currentTermSummary: TermSummary = {
+    term: termLabel,
+    academicYear: currentSemester?.academicYear || '',
+    semester: currentSemester?.name || '',
+    yearLevelLabel: isSP ? 'Term I' : `Year ${student.yearLevel || 1}`,
+    programType: isSP ? 'SHORT_PROGRAM' : 'TVET',
+    courses: courses.map((course, i) => {
+      const grade = course.grade;
+      const ects = grade?.ects ?? (course as any).ects ?? (course.course as any)?.ects ?? course.creditHours ?? 4;
+      const creditHours = grade?.creditHours ?? course.creditHours ?? course.course?.creditHours ?? 3;
+      const gradeLetter = grade?.letterGrade || '—';
+      const gradePoints = grade?.gradePoints ?? 0;
+      const qualityPoints = grade?.qualityPoints ?? (gradePoints * ects);
+
+      return {
+        index: i + 1,
+        id: course.enrollmentId || String(i),
+        courseCode: course.course?.code || course.code || '—',
+        courseTitle: course.course?.name || course.name || 'Untitled Course',
+        term: termLabel,
+        semester: currentSemester?.name || '',
+        academicYear: currentSemester?.academicYear || '',
+        credits: creditHours,
+        creditHours,
+        ects,
+        grade: gradeLetter,
+        gradePoints,
+        qualityPoints,
+        instructor: course.instructor?.name || 'TBA',
+        gradedAt: grade?.gradedAt || null,
+      };
+    }),
+    totalEcts: curEcts,
+    totalQualityPoints: curQP,
+    semesterGpa: currentSemesterGpa,
+    currentSummary: {
+      label: isSP ? 'Current Term:' : 'Current Semester:',
+      totalEcts: curEcts,
+      totalQualityPoints: curQP,
+      gpa: currentSemesterGpa,
+    },
+    cumulativeSummary: {
+      label: 'Cumulative:',
+      totalEcts: totalCompletedEcts,
+      totalQualityPoints: totalQualityPoints,
+      gpa: cgpa,
+    },
+  };
 
   return (
     <motion.div
@@ -466,167 +543,12 @@ const CurrentCoursesTab: React.FC<CurrentCoursesTabProps> = ({ courses, isPortal
         </div>
       </div>
 
-      {/* Courses Table */}
-      <div
-        className="rounded-2xl border overflow-hidden"
-        style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--hover-overlay)', borderBottom: '1px solid var(--border-default)' }}>
-                <th className="px-4 py-3 text-left font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  Code
-                </th>
-                <th className="px-4 py-3 text-left font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  Course Name
-                </th>
-                <th className="px-4 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  Cr.Hrs
-                </th>
-                <th className="px-4 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  ECTS
-                </th>
-                <th className="px-4 py-3 text-left font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  Instructor
-                </th>
-                <th className="px-4 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  Final Mark
-                </th>
-                <th className="px-4 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  Grade
-                </th>
-                <th className="px-4 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {courses.map((course, i) => {
-                const hasInstructor = course.instructor && course.instructor.name && course.instructor.name !== 'TBA';
-                const grade = course.grade;
-                const ects = grade?.ects ?? (course as any).ects ?? (course.course as any)?.ects ?? course.creditHours ?? 4;
-                const creditHours = grade?.creditHours ?? course.creditHours ?? course.course?.creditHours ?? 3;
-                const hasGrade = grade && grade.letterGrade;
-
-                return (
-                  <motion.tr
-                    key={`course-${course.enrollmentId || i}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="transition-colors hover:bg-[var(--hover-overlay)]"
-                    style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                  >
-                    {/* Code */}
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}
-                        >
-                          <BookOpen className="w-4 h-4" style={{ color: 'var(--brand-gold)' }} />
-                        </div>
-                        <span className="font-mono text-xs font-bold uppercase" style={{ color: 'var(--brand-gold)' }}>
-                          {course.course?.code || course.code || 'N/A'}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Course Name */}
-                    <td className="px-4 py-4">
-                      <div>
-                        <p className="font-sans text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {course.course?.name || course.name || 'Untitled Course'}
-                        </p>
-                        {course.room && typeof course.room === 'string' && course.room !== 'TBA' && (
-                          <p className="font-sans text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'var(--text-faint)' }}>
-                            <MapPin className="w-3 h-3" />
-                            {course.room}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Credit Hours */}
-                    <td className="px-4 py-4 text-center">
-                      <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                        {creditHours || '—'}
-                      </span>
-                    </td>
-
-                    {/* ECTS */}
-                    <td className="px-4 py-4 text-center">
-                      <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                        {ects || '—'}
-                      </span>
-                    </td>
-
-                    {/* Instructor */}
-                    <td className="px-4 py-4">
-                      {hasInstructor && course.instructor ? (
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className="w-8 h-8 rounded-full overflow-hidden border shrink-0 flex items-center justify-center font-serif font-bold text-xs"
-                            style={{ backgroundColor: 'var(--accent-gold-subtle)', borderColor: 'var(--accent-gold-border)', color: 'var(--brand-gold)' }}
-                          >
-                            {course.instructor.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-sans text-xs font-medium truncate max-w-[150px]" style={{ color: 'var(--text-primary)' }}>
-                              {course.instructor.name}
-                            </p>
-                            {course.instructor.title && (
-                              <p className="font-sans text-[10px] truncate max-w-[150px]" style={{ color: 'var(--text-faint)' }}>
-                                {course.instructor.title}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="font-sans text-xs italic" style={{ color: 'var(--text-faint)' }}>Not Assigned</span>
-                      )}
-                    </td>
-
-                    {/* Final Mark */}
-                    <td className="px-4 py-4 text-center">
-                      {hasGrade && (grade?.finalMark != null || typeof (grade as any)?.finalMark === 'number') ? (
-                        <span className="font-mono text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                          {grade.finalMark ?? (grade as any).finalMark}
-                        </span>
-                      ) : (
-                        <span className="font-sans text-xs italic" style={{ color: 'var(--text-faint)' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* Grade */}
-                    <td className="px-4 py-4 text-center">
-                      {hasGrade ? (
-                        <span className={`inline-block px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeBadgeColor(grade.letterGrade)}`}>
-                          {grade.letterGrade}
-                        </span>
-                      ) : (
-                        <Badge variant="amber">Pending</Badge>
-                      )}
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-4 py-4 text-center">
-                      {hasGrade ? (
-                        <Badge variant="emerald">Published</Badge>
-                      ) : !isPortalOpen ? (
-                        <Badge variant="glass">Portal Closed</Badge>
-                      ) : (
-                        <Badge variant="amber">In Progress</Badge>
-                      )}
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* 8-Column Course Table & 4-Column Summary */}
+      <AcademicPeriodCourseTable
+        term={currentTermSummary}
+        isShortProgram={isSP}
+        isPortalOpen={isPortalOpen}
+      />
     </motion.div>
   );
 };
@@ -636,6 +558,7 @@ interface SemesterResultsTabProps {
   expandedSemesters: Set<string>;
   toggleSemester: (key: string) => void;
   isPortalOpen: boolean;
+  isShortProgram?: boolean;
 }
 
 const SemesterResultsTab: React.FC<SemesterResultsTabProps> = ({
@@ -643,6 +566,7 @@ const SemesterResultsTab: React.FC<SemesterResultsTabProps> = ({
   expandedSemesters,
   toggleSemester,
   isPortalOpen,
+  isShortProgram = false,
 }) => {
   if (termSummaries.length === 0) {
     return (
@@ -679,7 +603,7 @@ const SemesterResultsTab: React.FC<SemesterResultsTabProps> = ({
       className="space-y-4"
     >
       {termSummaries.map((term, idx) => {
-        const termKey = `${term.academicYear}-${term.semester}`;
+        const termKey = `${term.academicYear}-${term.semester}-${idx}`;
         const isExpanded = expandedSemesters.has(termKey);
 
         return (
@@ -698,10 +622,10 @@ const SemesterResultsTab: React.FC<SemesterResultsTabProps> = ({
                 <BookOpen className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
                 <div className="text-left">
                   <h3 className="font-serif font-bold text-base" style={{ color: 'var(--text-primary)' }}>
-                    {term.semester || term.term}
+                    {term.term || term.semester}
                   </h3>
                   <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {term.academicYear} · {term.yearLevelLabel}
+                    {term.academicYear ? `${term.academicYear} · ` : ''}{term.yearLevelLabel}
                   </p>
                 </div>
               </div>
@@ -741,103 +665,13 @@ const SemesterResultsTab: React.FC<SemesterResultsTabProps> = ({
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
-                  className="overflow-hidden"
+                  className="p-4 overflow-hidden border-t border-[var(--border-subtle)]"
                 >
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: 'var(--hover-overlay)', borderBottom: '1px solid var(--border-subtle)' }}>
-                          <th className="px-4 py-3 text-left font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                            Course
-                          </th>
-                          <th className="px-3 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                            Cr.Hr
-                          </th>
-                          <th className="px-3 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                            ECTS
-                          </th>
-                          <th className="px-3 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                            Final Mark
-                          </th>
-                          <th className="px-3 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                            Grade
-                          </th>
-                          <th className="px-3 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                            Grade Pt
-                          </th>
-                          <th className="px-3 py-3 text-center font-sans text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                            Quality Pt
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {term.courses.map((course, cIdx) => {
-                          const ects = course.ects ?? course.credits ?? 4;
-                          const creditHours = course.creditHours ?? 3;
-                          const gradePoints = course.gradePoints ?? course.numericGpa ?? 0;
-                          const qualityPoints = course.qualityPoints ?? calculateQualityPoints(gradePoints, ects);
-
-                          return (
-                            <tr
-                              key={course.id || cIdx}
-                              className="transition-colors hover:bg-[var(--hover-overlay)]"
-                              style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                            >
-                              <td className="px-4 py-3">
-                                <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                  {course.courseCode}
-                                </div>
-                                <div className="text-xs truncate max-w-xs" style={{ color: 'var(--text-muted)' }}>
-                                  {course.courseTitle}
-                                </div>
-                              </td>
-                              <td className="px-3 py-3 text-center font-mono" style={{ color: 'var(--text-muted)' }}>
-                                {creditHours}
-                              </td>
-                              <td className="px-3 py-3 text-center font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                {ects}
-                              </td>
-                              <td className="px-3 py-3 text-center font-mono font-bold" style={{ color: 'var(--text-primary)' }}>
-                                {course.finalMark != null ? course.finalMark : '—'}
-                              </td>
-                              <td className="px-3 py-3 text-center">
-                                <span className={`inline-block px-2 py-0.5 text-xs font-mono font-bold rounded border ${gradeBadgeColor(course.grade)}`}>
-                                  {course.grade}
-                                </span>
-                              </td>
-                              <td className="px-3 py-3 text-center font-mono" style={{ color: 'var(--text-muted)' }}>
-                                {formatGradePoint(gradePoints)}
-                              </td>
-                              <td className="px-3 py-3 text-center font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                {formatQualityPoints(qualityPoints)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Semester Summary Footer */}
-                  <div
-                    className="px-5 py-3 flex flex-wrap items-center justify-between text-xs font-mono border-t"
-                    style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
-                  >
-                    <span>
-                      Courses: <strong style={{ color: 'var(--text-primary)' }}>{term.courses.length}</strong>
-                    </span>
-                    <div className="flex items-center gap-4">
-                      <span>
-                        Total ECTS: <strong style={{ color: 'var(--text-primary)' }}>{term.totalEcts}</strong>
-                      </span>
-                      <span>
-                        Total QP: <strong style={{ color: 'var(--text-primary)' }}>{formatQualityPoints(term.totalQualityPoints)}</strong>
-                      </span>
-                      <span style={{ color: 'var(--text-primary)' }} className="font-bold">
-                        Semester GPA: <span style={{ color: 'var(--brand-gold)' }}>{formatGPA(term.semesterGpa)}</span>
-                      </span>
-                    </div>
-                  </div>
+                  <AcademicPeriodCourseTable
+                    term={term}
+                    isShortProgram={isShortProgram || term.programType === 'SHORT_PROGRAM'}
+                    isPortalOpen={isPortalOpen}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

@@ -297,7 +297,9 @@ export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) =>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-4 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge variant={selectedInstructor.isActive ? 'emerald' : 'glass'} className="shrink-0" />
+                          <Badge variant={selectedInstructor.isActive ? 'emerald' : 'glass'} className="shrink-0">
+                            {selectedInstructor.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
                           <span className="font-sans text-xs text-(--text-faint)">Status</span>
                         </div>
                         <p className="font-sans text-sm text-(--text-primary) font-semibold">
