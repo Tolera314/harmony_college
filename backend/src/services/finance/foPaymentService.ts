@@ -138,7 +138,7 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
   if (!registrarApproved) {
     try {
       const studentUser = await prisma.user.findUnique({
-        where:  { userId },
+        where:  { id: userId },
         select: { fullName: true, email: true },
       });
       const registrars = await prisma.user.findMany({

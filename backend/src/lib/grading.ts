@@ -137,8 +137,8 @@ export function calculateQualityPoints(gradePoints: number, ects: number): numbe
 /**
  * Calculate Semester GPA = Total Semester Quality Points / Total Semester ECTS.
  * Never averages course grade points directly.
- * Returns 0 if total ECTS is 0.
- */
+  * Returns 0 if total ECTS is 0.
+  */
 export function calculateSemesterGPA(
   courses: { qualityPoints?: number | null; gradePoints?: number | null; ects: number; letterGrade?: string | null }[],
 ): TermSummaryResult {
@@ -149,8 +149,19 @@ export function calculateSemesterGPA(
     const ects = Number(c.ects) || 0;
     if (ects <= 0) continue;
 
-    // Only count completed/graded courses (skip non-graded or withdrawals if any)
-    if (c.letterGrade === 'W' || c.letterGrade === 'NG' || c.letterGrade === 'I' || c.letterGrade === 'IP') {
+    // Skip non-graded, withdrawals, incompletes, in-progress
+    if (
+      c.letterGrade === 'W' ||
+      c.letterGrade === 'NG' ||
+      c.letterGrade === 'I' ||
+      c.letterGrade === 'IP' ||
+      c.letterGrade === 'AUD'
+    ) {
+      continue;
+    }
+
+    // Pass/Fail courses: 'P' earns credit, but does not affect GPA quality points or denominator
+    if (c.letterGrade === 'P') {
       continue;
     }
 
@@ -165,6 +176,7 @@ export function calculateSemesterGPA(
     totalEcts += ects;
   }
 
+  // Calculate using full precision internally, round to 2 decimal places for presentation
   const gpa = totalEcts > 0 ? Math.round((totalQualityPoints / totalEcts) * 100) / 100 : 0.00;
 
   return {
@@ -189,7 +201,18 @@ export function calculateCGPA(
     const ects = Number(c.ects) || 0;
     if (ects <= 0) continue;
 
-    if (c.letterGrade === 'W' || c.letterGrade === 'NG' || c.letterGrade === 'I' || c.letterGrade === 'IP') {
+    if (
+      c.letterGrade === 'W' ||
+      c.letterGrade === 'NG' ||
+      c.letterGrade === 'I' ||
+      c.letterGrade === 'IP' ||
+      c.letterGrade === 'AUD'
+    ) {
+      continue;
+    }
+
+    // Pass/Fail courses: 'P' earns credit, but does not affect GPA quality points or denominator
+    if (c.letterGrade === 'P') {
       continue;
     }
 
@@ -211,4 +234,34 @@ export function calculateCGPA(
     totalQualityPoints: Math.round(totalQualityPoints * 100) / 100,
     cgpa,
   };
+}
+
+/**
+ * Calculate Cumulative Record handling course retakes / repeated courses without double-counting.
+ * Latest graded attempt for a course replaces earlier attempts.
+ */
+export function calculateCumulativeRecord(
+  allCoursesChronological: {
+    courseCode?: string;
+    courseId?: string;
+    qualityPoints?: number | null;
+    gradePoints?: number | null;
+    ects: number;
+    letterGrade?: string | null;
+  }[],
+): CumulativeSummaryResult {
+  const latestByCode = new Map<string, (typeof allCoursesChronological)[0]>();
+  const unkeyed: typeof allCoursesChronological = [];
+
+  for (const c of allCoursesChronological) {
+    const key = c.courseCode || c.courseId;
+    if (key) {
+      latestByCode.set(key, c);
+    } else {
+      unkeyed.push(c);
+    }
+  }
+
+  const deduplicated = [...Array.from(latestByCode.values()), ...unkeyed];
+  return calculateCGPA(deduplicated);
 }

@@ -43,10 +43,20 @@ async function resolveInstructor(userId: string) {
 }
 
 /** Verify the instructor owns the course offering and optionally matches expected courseId. Throws 403 if not. */
-async function verifyOfferingOwnership(courseOfferingId: string, instructorRecordId: string, expectedCourseId?: string) {
+async function verifyOfferingOwnership(
+  courseOfferingId: string,
+  instructorRecordId: string,
+  expectedCourseId?: string,
+  checkPeriodClosed: boolean = false,
+) {
   const offering = await prisma.courseOffering.findUnique({
     where: { id: courseOfferingId },
-    select: { id: true, instructorId: true, courseId: true },
+    select: {
+      id: true,
+      instructorId: true,
+      courseId: true,
+      semester: { select: { id: true, name: true, isClosed: true } },
+    },
   });
   if (!offering) throw new Error('Course offering not found.');
   if (offering.instructorId !== instructorRecordId) {
@@ -54,6 +64,9 @@ async function verifyOfferingOwnership(courseOfferingId: string, instructorRecor
   }
   if (expectedCourseId && offering.courseId !== expectedCourseId) {
     throw new Error('Selected class does not belong to the selected course.');
+  }
+  if (checkPeriodClosed && offering.semester?.isClosed) {
+    throw new Error(`Academic period "${offering.semester.name}" is closed. Grade modifications and submissions are not permitted.`);
   }
   return offering;
 }
@@ -1608,7 +1621,7 @@ export async function saveAssessmentGrade(
   breakdown: AssessmentBreakdown,
 ) {
   const instructor = await resolveInstructor(userId);
-  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id, undefined, true);
 
   const enrollment = await prisma.enrollment.findUnique({
     where: { id: enrollmentId },
@@ -1688,7 +1701,7 @@ export async function saveBatchAssessmentGrades(
   entries: { enrollmentId: string; breakdown: AssessmentBreakdown }[],
 ) {
   const instructor = await resolveInstructor(userId);
-  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id, undefined, true);
 
   const results = [];
   for (const entry of entries) {
@@ -1714,7 +1727,7 @@ export async function submitCourseGradesToRegistrar(
   courseOfferingId: string,
 ) {
   const instructor = await resolveInstructor(userId);
-  await verifyOfferingOwnership(courseOfferingId, instructor.id);
+  await verifyOfferingOwnership(courseOfferingId, instructor.id, undefined, true);
 
   const offering = await prisma.courseOffering.findUnique({
     where: { id: courseOfferingId },

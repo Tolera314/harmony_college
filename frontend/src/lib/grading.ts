@@ -105,7 +105,18 @@ export function calculateSemesterGPA(
     const ects = Number(c.ects) || 0;
     if (ects <= 0) continue;
 
-    if (c.letterGrade === 'W' || c.letterGrade === 'NG' || c.letterGrade === 'I' || c.letterGrade === 'IP') {
+    if (
+      c.letterGrade === 'W' ||
+      c.letterGrade === 'NG' ||
+      c.letterGrade === 'I' ||
+      c.letterGrade === 'IP' ||
+      c.letterGrade === 'AUD'
+    ) {
+      continue;
+    }
+
+    // Pass/Fail: 'P' earns credit, does not affect GPA
+    if (c.letterGrade === 'P') {
       continue;
     }
 
@@ -139,7 +150,18 @@ export function calculateCGPA(
     const ects = Number(c.ects) || 0;
     if (ects <= 0) continue;
 
-    if (c.letterGrade === 'W' || c.letterGrade === 'NG' || c.letterGrade === 'I' || c.letterGrade === 'IP') {
+    if (
+      c.letterGrade === 'W' ||
+      c.letterGrade === 'NG' ||
+      c.letterGrade === 'I' ||
+      c.letterGrade === 'IP' ||
+      c.letterGrade === 'AUD'
+    ) {
+      continue;
+    }
+
+    // Pass/Fail: 'P' earns credit, does not affect GPA
+    if (c.letterGrade === 'P') {
       continue;
     }
 
@@ -163,6 +185,32 @@ export function calculateCGPA(
   };
 }
 
+export function calculateCumulativeRecord(
+  allCoursesChronological: {
+    courseCode?: string;
+    courseId?: string;
+    qualityPoints?: number | null;
+    gradePoints?: number | null;
+    ects: number;
+    letterGrade?: string | null;
+  }[],
+): { totalEcts: number; totalQualityPoints: number; cgpa: number } {
+  const latestByCode = new Map<string, (typeof allCoursesChronological)[0]>();
+  const unkeyed: typeof allCoursesChronological = [];
+
+  for (const c of allCoursesChronological) {
+    const key = c.courseCode || c.courseId;
+    if (key) {
+      latestByCode.set(key, c);
+    } else {
+      unkeyed.push(c);
+    }
+  }
+
+  const deduplicated = [...Array.from(latestByCode.values()), ...unkeyed];
+  return calculateCGPA(deduplicated);
+}
+
 export function formatGradePoint(gp: number | null | undefined): string {
   if (gp == null || isNaN(Number(gp))) return '0.00';
   return Number(gp).toFixed(2);
@@ -173,8 +221,8 @@ export function formatQualityPoints(qp: number | null | undefined): string {
   return Number(qp).toFixed(2);
 }
 
-export function formatGPA(gpa: number | null | undefined): string {
-  if (gpa == null || isNaN(Number(gpa))) return '0.00';
+export function formatGPA(gpa: number | null | undefined, placeholder: string = '0.00'): string {
+  if (gpa == null || isNaN(Number(gpa))) return placeholder;
   return Number(gpa).toFixed(2);
 }
 

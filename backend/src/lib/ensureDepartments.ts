@@ -172,47 +172,97 @@ export async function ensureRealDepartments() {
     });
   }
 
-  // 2. Ensure Semesters exist for BOTH TVET and SHORT_PROGRAM
-  for (const progType of [ProgramType.TVET, ProgramType.SHORT_PROGRAM]) {
-    const sem1 = await prisma.semester.findFirst({
-      where: { academicYearId: academicYear.id, name: 'Semester I', programType: progType },
+  // 2. Ensure Academic Periods exist for TVET (Semesters) and SHORT_PROGRAM (Terms)
+  // TVET Semesters
+  const tvetSem1 = await prisma.semester.findFirst({
+    where: { academicYearId: academicYear.id, name: 'Semester I', programType: ProgramType.TVET },
+  });
+  if (!tvetSem1) {
+    await prisma.semester.create({
+      data: {
+        name: 'Semester I',
+        academicYearId: academicYear.id,
+        programType: ProgramType.TVET,
+        termOrder: 1,
+        startDate: new Date('2026-09-01'),
+        endDate: new Date('2027-01-31'),
+        registrationStart: new Date('2026-08-15'),
+        registrationEnd: new Date('2026-09-30'),
+        addDropDeadline: new Date('2026-10-15'),
+        isCurrent: true,
+        isActive: true,
+        isClosed: false,
+      },
     });
-    if (!sem1) {
-      await prisma.semester.create({
-        data: {
-          name: 'Semester I',
-          academicYearId: academicYear.id,
-          programType: progType,
-          startDate: new Date('2026-09-01'),
-          endDate: new Date('2027-01-31'),
-          registrationStart: new Date('2026-08-15'),
-          registrationEnd: new Date('2026-09-30'),
-          addDropDeadline: new Date('2026-10-15'),
-          isCurrent: true,
-          isActive: true,
-        },
-      });
-    }
+  }
 
-    const sem2 = await prisma.semester.findFirst({
-      where: { academicYearId: academicYear.id, name: 'Semester II', programType: progType },
+  const tvetSem2 = await prisma.semester.findFirst({
+    where: { academicYearId: academicYear.id, name: 'Semester II', programType: ProgramType.TVET },
+  });
+  if (!tvetSem2) {
+    await prisma.semester.create({
+      data: {
+        name: 'Semester II',
+        academicYearId: academicYear.id,
+        programType: ProgramType.TVET,
+        termOrder: 2,
+        startDate: new Date('2027-02-01'),
+        endDate: new Date('2027-06-30'),
+        registrationStart: new Date('2027-01-15'),
+        registrationEnd: new Date('2027-02-28'),
+        addDropDeadline: new Date('2027-03-15'),
+        isCurrent: false,
+        isActive: true,
+        isClosed: false,
+      },
     });
-    if (!sem2) {
-      await prisma.semester.create({
-        data: {
-          name: 'Semester II',
-          academicYearId: academicYear.id,
-          programType: progType,
-          startDate: new Date('2027-02-01'),
-          endDate: new Date('2027-06-30'),
-          registrationStart: new Date('2027-01-15'),
-          registrationEnd: new Date('2027-02-28'),
-          addDropDeadline: new Date('2027-03-15'),
-          isCurrent: false,
-          isActive: true,
-        },
-      });
-    }
+  }
+
+  // Short Program Terms (Term I, Term II)
+  const spTerm1 = await prisma.semester.findFirst({
+    where: { academicYearId: academicYear.id, name: 'Term I', programType: ProgramType.SHORT_PROGRAM },
+  });
+  if (!spTerm1) {
+    await prisma.semester.create({
+      data: {
+        name: 'Term I',
+        academicYearId: academicYear.id,
+        programType: ProgramType.SHORT_PROGRAM,
+        termOrder: 1,
+        durationWeeks: 12,
+        startDate: new Date('2026-09-01'),
+        endDate: new Date('2026-11-30'),
+        registrationStart: new Date('2026-08-15'),
+        registrationEnd: new Date('2026-09-15'),
+        addDropDeadline: new Date('2026-09-30'),
+        isCurrent: true,
+        isActive: true,
+        isClosed: false,
+      },
+    });
+  }
+
+  const spTerm2 = await prisma.semester.findFirst({
+    where: { academicYearId: academicYear.id, name: 'Term II', programType: ProgramType.SHORT_PROGRAM },
+  });
+  if (!spTerm2) {
+    await prisma.semester.create({
+      data: {
+        name: 'Term II',
+        academicYearId: academicYear.id,
+        programType: ProgramType.SHORT_PROGRAM,
+        termOrder: 2,
+        durationWeeks: 12,
+        startDate: new Date('2026-12-01'),
+        endDate: new Date('2027-02-28'),
+        registrationStart: new Date('2026-11-15'),
+        registrationEnd: new Date('2026-12-15'),
+        addDropDeadline: new Date('2026-12-31'),
+        isCurrent: false,
+        isActive: true,
+        isClosed: false,
+      },
+    });
   }
 
   // 3. Upsert 10 Real Departments for TVET (these become the administrative parents)

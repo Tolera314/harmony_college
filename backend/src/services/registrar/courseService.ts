@@ -11,7 +11,16 @@ export async function listCourses(q: CourseListQuery) {
   const { page, limit, search, departmentId, status } = q;
   const skip = (page - 1) * limit;
   const where: any = {};
-  if (status) where.status = status;
+  
+  // IMPORTANT: Only show ACTIVE courses to Registrar
+  // INACTIVE (deactivated) courses are hidden from Registrar's view
+  if (status) {
+    where.status = status;
+  } else {
+    // Default: only show ACTIVE courses
+    where.status = 'ACTIVE';
+  }
+  
   if (departmentId) where.departmentId = departmentId;
   if (search) {
     where.OR = [

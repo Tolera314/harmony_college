@@ -39,20 +39,21 @@ const AnnouncementsManager   = dynamic(() => import('@/src/components/registrar/
 const AuditLogsTimeline      = dynamic(() => import('@/src/components/registrar/AuditLogsTimeline').then(m => m.AuditLogsTimeline), { ssr: false });
 const RegistrarSettings          = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
 const RegistrarDepartmentsView   = dynamic(() => import('@/src/components/registrar/RegistrarDepartmentsView').then(m => m.RegistrarDepartmentsView), { ssr: false });
+const AcademicPeriodsView        = dynamic(() => import('@/src/components/registrar/AcademicPeriodsView').then(m => m.AcademicPeriodsView), { ssr: false });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RegistrarTab =
-  | 'dashboard' | 'students' | 'student_grades' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
+  | 'dashboard' | 'departments' | 'academic_periods' | 'students' | 'student_grades' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
-  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages'
-  | 'departments';
+  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
 
 interface MenuItem { id: RegistrarTab; label: string; icon: React.ComponentType<any> }
 
 const MENU_ITEMS: MenuItem[] = [
   { id: 'dashboard',         label: 'Dashboard',            icon: LayoutDashboard },
   { id: 'departments',       label: 'Department Management',icon: Building2 },
+  { id: 'academic_periods',  label: 'Academic Periods',     icon: Calendar },
   { id: 'students',          label: 'Student Records',      icon: Users },
   { id: 'student_grades',    label: 'Student Grades',       icon: Award },
   { id: 'onboardings',       label: 'Onboardings',          icon: ClipboardList },
@@ -238,6 +239,7 @@ export default function RegistrarDashboardPage() {
     switch (activeTab) {
       case 'dashboard':         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} programType={registrarProgramType} />;
       case 'departments':       return <RegistrarDepartmentsView />;
+      case 'academic_periods':  return <AcademicPeriodsView programType={registrarProgramType} />;
       case 'students':          return <RegistrarStudentsView programType={registrarProgramType} />;
       case 'student_grades':    return <StudentGradesView programType={registrarProgramType} />;
       case 'onboardings':       return <RegistrarOnboardingsView />;

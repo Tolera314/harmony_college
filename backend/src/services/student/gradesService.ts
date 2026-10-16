@@ -17,6 +17,7 @@ import {
   calculateQualityPoints,
   calculateSemesterGPA,
   calculateCGPA,
+  calculateCumulativeRecord,
 } from '../../lib/grading';
 
 /** Check if the Registrar's Grade Portal is currently open. */
@@ -43,6 +44,18 @@ function toRomanYear(year: number | null | undefined): string {
 export async function getGradeHistory(studentRecordId: string, bypassPortalCheck = false) {
   const portalOpen = await isGradePortalOpen();
 
+  // Retrieve student record to know programType, program name, department
+  const studentRecord = await prisma.studentRecord.findUnique({
+    where: { id: studentRecordId },
+    include: {
+      user: { select: { fullName: true, email: true, phone: true } },
+      program: { select: { id: true, name: true, code: true, totalCredits: true } },
+      department: { select: { id: true, name: true, code: true } },
+    },
+  });
+
+  const isShortProgram = studentRecord?.programType === 'SHORT_PROGRAM';
+
   // Grade filter: Students only see officially PUBLISHED grades.
   // Administrative views (registrar, audits) with bypassPortalCheck can see both PUBLISHED and SUBMITTED.
   const statusFilter = bypassPortalCheck
@@ -61,7 +74,11 @@ export async function getGradeHistory(studentRecordId: string, bypassPortalCheck
           courseOffering: {
             include: {
               course: { select: { id: true, code: true, name: true, creditHours: true, ects: true } },
-              semester: { include: { academicYear: { select: { id: true, name: true, startDate: true } } } },
+              semester: {
+                include: {
+                  academicYear: { select: { id: true, name: true, startDate: true } },
+                },
+              },
               instructor: { include: { user: { select: { fullName: true } } } },
             },
           },
@@ -74,7 +91,7 @@ export async function getGradeHistory(studentRecordId: string, bypassPortalCheck
     ],
   });
 
-  const records = rawGrades.map(g => {
+  const records = rawGrades.map((g, idx) => {
     const course = g.enrollment.courseOffering.course;
     const semester = g.enrollment.courseOffering.semester;
     const ects = g.ects ?? course.ects ?? 4;
@@ -82,13 +99,20 @@ export async function getGradeHistory(studentRecordId: string, bypassPortalCheck
     const gradePoints = g.gradePoints ?? 0;
     const qualityPoints = g.qualityPoints ?? calculateQualityPoints(gradePoints, ects);
 
-    // Calculate Year Level label based on semester or course yearLevel
-    const semName = semester.name; // e.g. "Semester I" or "Semester II"
-    // Extract academic year name
+    const semName = semester.name;
     const ayName = semester.academicYear.name;
+
+    // Appropriate label based on programType:
+    // TVET -> "Semester I — 2026/2027"
+    // Short Program -> "Term I"
+    const termLabel = isShortProgram
+      ? semName
+      : `${semName} — ${ayName}`;
 
     return {
       id: g.id,
+      index: idx + 1,
+      courseId: course.id,
       courseCode: course.code,
       courseTitle: course.name,
       creditHours,
@@ -97,8 +121,10 @@ export async function getGradeHistory(studentRecordId: string, bypassPortalCheck
       grade: g.letterGrade ?? 'F',
       gradePoints,
       qualityPoints,
-      term: `${semester.name} — ${ayName}`,
+      term: termLabel,
       semester: semName,
+      semesterId: semester.id,
+      semesterStartDate: semester.startDate,
       academicYear: ayName,
       instructor: g.enrollment.courseOffering.instructor?.user.fullName ?? 'TBA',
       status: g.status,
@@ -106,40 +132,68 @@ export async function getGradeHistory(studentRecordId: string, bypassPortalCheck
     };
   });
 
-  // Group into Year and Semester structure:
-  // e.g. "Year I" -> "Semester I", "Semester II"
-  // Group key by Academic Year & Semester
-  const termMap = new Map<string, typeof records>();
+  // Group records by unique Semester/Period ID
+  const semesterMap = new Map<string, typeof records>();
   for (const r of records) {
-    const key = `${r.academicYear}::${r.semester}`;
-    if (!termMap.has(key)) {
-      termMap.set(key, []);
+    if (!semesterMap.has(r.semesterId)) {
+      semesterMap.set(r.semesterId, []);
     }
-    termMap.get(key)!.push(r);
+    semesterMap.get(r.semesterId)!.push(r);
   }
 
-  // Sort terms chronologically
+  // Determine chronological distinct academic years for TVET Roman numeral labeling
+  const distinctYears = Array.from(new Set(records.map(r => r.academicYear)));
+
   const termSummaries: {
+    semesterId: string;
+    semesterName: string;
+    periodId: string;
+    periodName: string;
+    programType: 'TVET' | 'SHORT_PROGRAM';
     term: string;
     academicYear: string;
     semester: string;
+    yearLevel: number;
     yearLevelLabel: string;
+    summaryLabel: string;
     courses: typeof records;
+    totalCreditHours: number;
     totalEcts: number;
     totalQualityPoints: number;
     semesterGpa: number;
+    currentSummary: {
+      label: string;
+      totalEcts: number;
+      totalQualityPoints: number;
+      gpa: number;
+    };
+    cumulativeSummary: {
+      label: string;
+      totalEcts: number;
+      totalQualityPoints: number;
+      gpa: number;
+    };
   }[] = [];
 
-  // Group terms into Year index (first distinct academic year = Year I, second = Year II, etc.)
-  const distinctYears = Array.from(new Set(records.map(r => r.academicYear)));
+  const cumulativeCoursesAccumulator: typeof records = [];
 
-  termMap.forEach((termCourses, key) => {
-    const [academicYear, semester] = key.split('::');
+  semesterMap.forEach((termCourses) => {
+    const first = termCourses[0];
+    const academicYear = first.academicYear;
+    const semesterName = first.semester;
     const yearIndex = distinctYears.indexOf(academicYear) + 1;
-    const yearLevelLabel = toRomanYear(yearIndex > 0 ? yearIndex : 1);
+    const yearLevel = yearIndex > 0 ? yearIndex : (studentRecord?.yearLevel || 1);
+    const yearLevelLabel = toRomanYear(yearLevel);
 
-    const calc = calculateSemesterGPA(
-      termCourses.map(c => ({
+    // Number courses 1..N in this period's independent course table
+    const numberedPeriodCourses = termCourses.map((c, i) => ({
+      ...c,
+      index: i + 1,
+    }));
+
+    // Period GPA calculation (Current Semester / Current Term)
+    const periodCalc = calculateSemesterGPA(
+      numberedPeriodCourses.map(c => ({
         qualityPoints: c.qualityPoints,
         gradePoints: c.gradePoints,
         ects: c.ects,
@@ -147,21 +201,67 @@ export async function getGradeHistory(studentRecordId: string, bypassPortalCheck
       })),
     );
 
+    // Add to cumulative tracker and compute cumulative summary up to this period
+    cumulativeCoursesAccumulator.push(...numberedPeriodCourses);
+    const cumulativeToDate = calculateCumulativeRecord(
+      cumulativeCoursesAccumulator.map(c => ({
+        courseCode: c.courseCode,
+        courseId: c.courseId,
+        qualityPoints: c.qualityPoints,
+        gradePoints: c.gradePoints,
+        ects: c.ects,
+        letterGrade: c.grade,
+      })),
+    );
+
+    const totalCreditHours = numberedPeriodCourses.reduce((sum, c) => sum + c.creditHours, 0);
+
+    // Label conventions:
+    // TVET -> "Year I · Semester I (2026/2027)"
+    // Short Program -> "Term I" (or "Term II", etc.) - NEVER "Year I · Semester I"
+    const displayTermLabel = isShortProgram
+      ? semesterName
+      : `${yearLevelLabel} · ${semesterName} (${academicYear})`;
+
+    const periodSummaryLabel = isShortProgram ? 'Current Term:' : 'Current Semester:';
+
     termSummaries.push({
-      term: `${yearLevelLabel} · ${semester} (${academicYear})`,
+      semesterId: first.semesterId,
+      semesterName,
+      periodId: first.semesterId,
+      periodName: semesterName,
+      programType: isShortProgram ? 'SHORT_PROGRAM' : 'TVET',
+      term: displayTermLabel,
       academicYear,
-      semester,
+      semester: semesterName,
+      yearLevel,
       yearLevelLabel,
-      courses: termCourses,
-      totalEcts: calc.totalEcts,
-      totalQualityPoints: calc.totalQualityPoints,
-      semesterGpa: calc.gpa,
+      summaryLabel: periodSummaryLabel,
+      courses: numberedPeriodCourses,
+      totalCreditHours,
+      totalEcts: periodCalc.totalEcts,
+      totalQualityPoints: periodCalc.totalQualityPoints,
+      semesterGpa: periodCalc.gpa,
+      currentSummary: {
+        label: periodSummaryLabel,
+        totalEcts: periodCalc.totalEcts,
+        totalQualityPoints: periodCalc.totalQualityPoints,
+        gpa: periodCalc.gpa,
+      },
+      cumulativeSummary: {
+        label: 'Cumulative:',
+        totalEcts: cumulativeToDate.totalEcts,
+        totalQualityPoints: cumulativeToDate.totalQualityPoints,
+        gpa: cumulativeToDate.cgpa,
+      },
     });
   });
 
-  // Calculate Cumulative Summary across all completed courses
-  const cumulative = calculateCGPA(
+  // Calculate overall Cumulative Summary across all completed courses
+  const cumulative = calculateCumulativeRecord(
     records.map(r => ({
+      courseCode: r.courseCode,
+      courseId: r.courseId,
       qualityPoints: r.qualityPoints,
       gradePoints: r.gradePoints,
       ects: r.ects,
@@ -169,10 +269,34 @@ export async function getGradeHistory(studentRecordId: string, bypassPortalCheck
     })),
   );
 
+  const totalCreditHours = records.reduce((sum, r) => sum + r.creditHours, 0);
+
   return {
+    student: studentRecord ? {
+      id: studentRecord.id,
+      studentId: studentRecord.studentId,
+      fullName: studentRecord.user.fullName,
+      email: studentRecord.user.email ?? '',
+      programName: studentRecord.program?.name ?? '',
+      programType: studentRecord.programType,
+      departmentName: studentRecord.department?.name ?? '',
+      currentGpa: cumulative.cgpa,
+      yearLevel: studentRecord.yearLevel || 1,
+    } : null,
     records,
     termSummaries,
+    // Expose `semesters` alias for RegistrarStudentsView compatibility
+    semesters: termSummaries,
     academicSummary: {
+      totalCourses: records.length,
+      totalCreditHours,
+      totalEcts: cumulative.totalEcts,
+      totalQualityPoints: cumulative.totalQualityPoints,
+      cgpa: cumulative.cgpa,
+    },
+    cumulative: {
+      totalCourses: records.length,
+      totalCreditHours,
       totalEcts: cumulative.totalEcts,
       totalQualityPoints: cumulative.totalQualityPoints,
       cgpa: cumulative.cgpa,
@@ -196,10 +320,7 @@ export async function getTranscriptData(studentRecordId: string) {
   if (!studentRecord) return null;
 
   // For official institutional transcript, retrieve official grades
-  const { records, termSummaries, academicSummary, isGradePortalOpen } = await getGradeHistory(
-    studentRecordId,
-    false,
-  );
+  const gradeData = await getGradeHistory(studentRecordId, false);
 
   return {
     student: {
@@ -208,18 +329,20 @@ export async function getTranscriptData(studentRecordId: string) {
       email:      studentRecord.user.email,
       program:    studentRecord.program.name,
       department: studentRecord.department.name,
+      programType: studentRecord.programType,
     },
-    academicSummary,
-    cumulativeGPA:        academicSummary.cgpa,
-    totalEcts:            academicSummary.totalEcts,
-    completedCredits:     academicSummary.totalEcts,
+    academicSummary:      gradeData.academicSummary,
+    cumulativeGPA:        gradeData.academicSummary.cgpa,
+    totalEcts:            gradeData.academicSummary.totalEcts,
+    completedCredits:     gradeData.academicSummary.totalEcts,
     totalRequiredCredits: studentRecord.program.totalCredits,
     admittedAt:           studentRecord.admittedAt,
     graduationStatus:     studentRecord.graduationAudit?.status ?? null,
     graduatedAt:          studentRecord.graduationAudit?.graduatedAt ?? null,
-    grades:               records,
-    termSummaries,
-    isGradePortalOpen,
+    grades:               gradeData.records,
+    termSummaries:        gradeData.termSummaries,
+    semesters:            gradeData.termSummaries,
+    isGradePortalOpen:    gradeData.isGradePortalOpen,
     issuedAt:             new Date(),
   };
 }

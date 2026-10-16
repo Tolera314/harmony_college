@@ -26,6 +26,7 @@ import {
   type GradeEditingStatus,
   type GradePortalStatus,
 } from '@/src/lib/registrarApi';
+import { AcademicPeriodCourseTable } from '../academic/AcademicPeriodCourseTable';
 
 const GRADE_BADGE_VARIANT: Record<string, 'emerald' | 'info' | 'amber' | 'rose' | 'glass'> = {
   'A+': 'emerald',
@@ -830,56 +831,13 @@ export const StudentGradesView: React.FC<StudentGradesViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Course Table for this Term (NO individual assessment marks) */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-black/30 border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-                        <tr>
-                          <th className="px-3 py-2.5">Course Code</th>
-                          <th className="px-3 py-2.5">Course Title</th>
-                          <th className="px-3 py-2.5 text-center">ECTS</th>
-                          <th className="px-3 py-2.5 text-center">Final Mark</th>
-                          <th className="px-3 py-2.5 text-center">Grade</th>
-                          <th className="px-3 py-2.5 text-center">Grade Point</th>
-                          <th className="px-3 py-2.5 text-center">Quality Points</th>
-                          <th className="px-3 py-2.5">Teacher</th>
-                          <th className="px-3 py-2.5 text-right">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 font-mono">
-                        {term.courses.map((c: any) => (
-                          <tr key={c.id} className="hover:bg-white/5">
-                            <td className="px-3 py-2.5 text-[#E9C349] font-bold">{c.courseCode}</td>
-                            <td className="px-3 py-2.5 text-white font-sans">{c.courseTitle}</td>
-                            <td className="px-3 py-2.5 text-center text-zinc-400">{c.ects}</td>
-                            <td className="px-3 py-2.5 text-center text-white">{c.finalMark ?? '—'}</td>
-                            <td className="px-3 py-2.5 text-center">
-                              <span
-                                className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                                  c.grade.startsWith('A')
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                    : c.grade.startsWith('B')
-                                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                                    : c.grade.startsWith('C')
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                                }`}
-                              >
-                                {c.grade}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5 text-center text-zinc-300">{Number(c.gradePoints).toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-center text-[#E9C349]">{Number(c.qualityPoints).toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-zinc-400 font-sans text-[11px] truncate max-w-[120px]">{c.instructor}</td>
-                            <td className="px-3 py-2.5 text-right">
-                              <Badge variant={c.status === 'PUBLISHED' ? 'emerald' : 'info'}>
-                                {c.status}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  {/* 8-Column Course Table & 4-Column Summary */}
+                  <div className="p-4">
+                    <AcademicPeriodCourseTable
+                      term={term as any}
+                      isShortProgram={programType === 'SHORT_PROGRAM' || (term as any).programType === 'SHORT_PROGRAM'}
+                      isPortalOpen={true}
+                    />
                   </div>
                 </div>
               ))

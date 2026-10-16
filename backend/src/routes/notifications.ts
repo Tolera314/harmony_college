@@ -75,7 +75,7 @@ router.post('/:id/read', async (req: AuthRequest, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user.userId;
 
     // Verify ownership

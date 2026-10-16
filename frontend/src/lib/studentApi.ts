@@ -151,15 +151,33 @@ export interface GradeRecord {
   gradedAt: string | null;
 }
 
+export interface PeriodSummaryRow {
+  label: string;
+  totalEcts: number;
+  totalQualityPoints: number;
+  gpa: number;
+}
+
 export interface TermSummary {
+  semesterId?: string;
+  semesterName?: string;
+  periodId?: string;
+  periodName?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   term: string;
   academicYear: string;
   semester: string;
+  yearLevel?: number;
   yearLevelLabel: string;
-  courses: GradeRecord[];
+  summaryLabel?: string;
+  courses: (GradeRecord & { index?: number })[];
+  totalCredits?: number;
+  totalCreditHours?: number;
   totalEcts: number;
   totalQualityPoints: number;
   semesterGpa: number;
+  currentSummary?: PeriodSummaryRow;
+  cumulativeSummary?: PeriodSummaryRow;
 }
 
 export interface GradeHistory {

@@ -151,6 +151,7 @@ export async function forceAddEnrollment(data: {
       where: { id: courseOfferingId },
       include: {
         course: { select: { code: true, name: true } },
+        semester: { select: { isClosed: true, name: true } },
         _count: { select: { enrollments: { where: { status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] } } } } },
       },
     }),
@@ -158,6 +159,9 @@ export async function forceAddEnrollment(data: {
 
   if (!student) throw new Error('Student record not found');
   if (!offering) throw new Error('Course offering not found');
+  if (offering.semester?.isClosed) {
+    throw new Error(`Cannot enroll: Academic period "${offering.semester.name}" is closed.`);
+  }
 
   const existing = await prisma.enrollment.findUnique({
     where: { studentRecordId_courseOfferingId: { studentRecordId, courseOfferingId } },
@@ -210,11 +214,14 @@ export async function forceDropEnrollment(data: {
     where: { id: enrollmentId },
     include: {
       studentRecord: { include: { user: { select: { fullName: true } } } },
-      courseOffering: { include: { course: { select: { code: true } } } },
+      courseOffering: { include: { course: { select: { code: true } }, semester: { select: { isClosed: true, name: true } } } },
     },
   });
 
   if (!enrollment) throw new Error('Enrollment not found');
+  if (enrollment.courseOffering.semester?.isClosed) {
+    throw new Error(`Cannot drop enrollment: Academic period "${enrollment.courseOffering.semester.name}" is closed.`);
+  }
   if (enrollment.status === EnrollmentStatus.FORCE_DROPPED || enrollment.status === EnrollmentStatus.DROPPED) {
     throw new Error('Enrollment is already dropped');
   }
@@ -256,6 +263,7 @@ export async function addEnrollment(data: {
       where: { id: courseOfferingId },
       include: {
         course: { select: { code: true } },
+        semester: { select: { isClosed: true, name: true } },
         _count: { select: { enrollments: { where: { status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.FORCE_ADDED] } } } } },
       },
     }),
@@ -263,6 +271,9 @@ export async function addEnrollment(data: {
 
   if (!student) throw new Error('Student not found');
   if (!offering) throw new Error('Course offering not found');
+  if (offering.semester?.isClosed) {
+    throw new Error(`Cannot enroll: Academic period "${offering.semester.name}" is closed.`);
+  }
   if (offering._count.enrollments >= offering.capacity) throw new Error('Course offering is at full capacity');
 
   const existing = await prisma.enrollment.findUnique({
@@ -301,9 +312,19 @@ export async function addEnrollment(data: {
 export async function dropEnrollment(enrollmentId: string, reason: string, registrarUserId: string) {
   const enrollment = await prisma.enrollment.findUnique({
     where: { id: enrollmentId },
-    include: { courseOffering: { include: { course: { select: { code: true } } } } },
+    include: {
+      courseOffering: {
+        include: {
+          course: { select: { code: true } },
+          semester: { select: { isClosed: true, name: true } },
+        },
+      },
+    },
   });
   if (!enrollment) throw new Error('Enrollment not found');
+  if (enrollment.courseOffering.semester?.isClosed) {
+    throw new Error(`Cannot drop enrollment: Academic period "${enrollment.courseOffering.semester.name}" is closed.`);
+  }
   if ((enrollment.status === EnrollmentStatus.DROPPED || enrollment.status === EnrollmentStatus.FORCE_DROPPED)) {
     throw new Error('Already dropped');
   }
