@@ -227,13 +227,12 @@ export interface CourseMeta {
   departments: { id: string; name: string; code: string }[];
   programs: { id: string; name: string; code: string; department: { name: string } }[];
 }
+// Registrar has read-only access to courses for oversight and reporting.
+// Course creation/editing is handled by Head of Department (HOD) via /api/department-head/courses
 export const coursesApi = {
   list:    (params: Record<string, unknown> = {}) => apiFetch<CoursesListResponse>(`/api/registrar/courses${qs(params)}`),
   getMeta: () => apiFetch<CourseMeta>('/api/registrar/courses/meta'),
   getById: (id: string) => apiFetch<CourseItem & Record<string, any>>(`/api/registrar/courses/${id}`),
-  create:  (data: Record<string, unknown>) => apiFetch(`/api/registrar/courses`, { method: 'POST', body: JSON.stringify(data) }),
-  update:  (id: string, data: Record<string, unknown>) => apiFetch(`/api/registrar/courses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  setStatus: (id: string, status: string) => apiFetch(`/api/registrar/courses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -608,6 +607,10 @@ export interface StudentAcademicRecordSemester {
   totalEcts: number;
   totalQualityPoints: number;
   semesterGpa: number;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+  term?: string;
+  currentSummary?: any;
+  cumulativeSummary?: any;
   courses: StudentAcademicRecordCourse[];
 }
 
@@ -808,4 +811,101 @@ export const registrarGradesApi = {
     apiFetch<{ count: number; message: string }>(`/api/registrar/offerings/${offeringId}/publish-grades`, { method: 'POST' }),
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ACADEMIC YEARS
+// ═══════════════════════════════════════════════════════════════════════════
 
+export interface AcademicYearItem {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  isActive: boolean;
+}
+
+export const academicYearsApi = {
+  list: () => apiFetch<AcademicYearItem[]>('/api/registrar/academic-years'),
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACADEMIC PERIOD LIFECYCLE (TVET SEMESTERS & SHORT PROGRAM TERMS)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface AcademicPeriodItem {
+  id: string;
+  name: string;
+  academicYearId: string;
+  academicYearName: string;
+  programType: 'TVET' | 'SHORT_PROGRAM';
+  termOrder: number;
+  durationWeeks: number;
+  startDate: string;
+  endDate: string;
+  registrationStart: string;
+  registrationEnd: string;
+  addDropDeadline: string;
+  isCurrent: boolean;
+  isClosed: boolean;
+  closedAt: string | null;
+  closedBy: string | null;
+  courseCount: number;
+  studentCount: number;
+}
+
+export interface CreateAcademicPeriodPayload {
+  academicYearId: string;
+  name: string;
+  programType: 'TVET' | 'SHORT_PROGRAM';
+  termOrder?: number;
+  durationWeeks?: number;
+  startDate: string;
+  endDate: string;
+  registrationStart?: string;
+  registrationEnd?: string;
+  addDropDeadline?: string;
+  isCurrent?: boolean;
+}
+
+export interface UpdateAcademicPeriodPayload {
+  name?: string;
+  termOrder?: number;
+  durationWeeks?: number;
+  startDate?: string;
+  endDate?: string;
+  registrationStart?: string;
+  registrationEnd?: string;
+  addDropDeadline?: string;
+}
+
+export const academicPeriodsApi = {
+  list: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<AcademicPeriodItem[]>(`/api/registrar/academic-periods${programType ? `?programType=${programType}` : ''}`),
+
+  create: (data: CreateAcademicPeriodPayload) =>
+    apiFetch<any>('/api/registrar/academic-periods', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateAcademicPeriodPayload) =>
+    apiFetch<any>(`/api/registrar/academic-periods/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  open: (id: string) =>
+    apiFetch<{ message: string; period: any }>(`/api/registrar/academic-periods/${id}/open`, {
+      method: 'POST',
+    }),
+
+  close: (id: string) =>
+    apiFetch<{ message: string; period: any }>(`/api/registrar/academic-periods/${id}/close`, {
+      method: 'POST',
+    }),
+
+  reopen: (id: string) =>
+    apiFetch<{ message: string; period: any }>(`/api/registrar/academic-periods/${id}/reopen`, {
+      method: 'POST',
+    }),
+};
