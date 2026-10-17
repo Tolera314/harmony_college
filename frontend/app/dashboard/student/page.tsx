@@ -20,6 +20,7 @@ import { StudentAssignmentsView } from '@/src/components/StudentAssignmentsView'
 import { StudentQuizzesView } from '@/src/components/StudentQuizzesView';
 import { StudentAttendanceView } from '@/src/components/StudentAttendanceView';
 import { StudentProfileView } from '@/src/components/StudentProfileView';
+import { StudentSemestersView } from '@/src/components/student/StudentSemestersView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { ProfileCompletionBanner, LockedFeatureCard } from '@/src/components/onboarding/ProfileCompletionBanner';
 import { AnimatePresence, motion } from 'motion/react';
@@ -438,6 +439,17 @@ export default function StudentDashboardPage() {
               degreeCompletionPct={degreeData?.progress.completionPercentage}
               upcomingEvents={dashboardData?.upcomingEvents ?? []}
             />
+            
+            {/* Terms & Semesters Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+              className="mt-8"
+            >
+              <StudentSemestersView />
+            </motion.div>
+
             {isProfileIncomplete && (
               <motion.div
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}

@@ -322,20 +322,94 @@ router.patch('/settings/password', async (req: AuthRequest, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SEMESTERS (for filter dropdowns)
+// SEMESTERS (for filter dropdowns and detailed semester view)
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/semesters', async (req: AuthRequest, res) => {
   try {
-    const semesters = await prisma.semester.findMany({
-      orderBy: { startDate: 'desc' },
-      take:    10,
-      select:  {
-        id: true, name: true, isCurrent: true,
-        academicYear: { select: { name: true } },
-      },
-    });
-    ok(res, semesters);
+    const hod = await svc.resolveHoD(req.user!.userId);
+    const deptIds = await svc.resolveDeptIds(hod);
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    
+    // If 'detailed' query param is true, return full semester info with course counts
+    if (q.detailed === 'true') {
+      const semesters = await prisma.semester.findMany({
+        where: {
+          ...(programType ? { programType } : {}),
+          isActive: true,
+        },
+        orderBy: [{ isCurrent: 'desc' }, { startDate: 'desc' }],
+        take: 10,
+        select: {
+          id: true,
+          name: true,
+          startDate: true,
+          endDate: true,
+          registrationStart: true,
+          registrationEnd: true,
+          isCurrent: true,
+          programType: true,
+          termOrder: true,
+          durationWeeks: true,
+          academicYear: { select: { id: true, name: true } },
+          _count: {
+            select: {
+              offerings: {
+                where: {
+                  course: { departmentId: { in: deptIds } },
+                  status: { in: ['ACTIVE', 'SCHEDULED', 'INSTRUCTOR_ASSIGNED', 'DRAFT'] },
+                },
+              },
+            },
+          },
+        },
+      });
+      
+      // For each semester, get enrolled student count and active offerings
+      const semestersWithDetails = await Promise.all(semesters.map(async (sem) => {
+        const offerings = await prisma.courseOffering.findMany({
+          where: {
+            semesterId: sem.id,
+            course: { departmentId: { in: deptIds } },
+            status: { in: ['ACTIVE', 'SCHEDULED', 'INSTRUCTOR_ASSIGNED'] },
+          },
+          select: {
+            id: true,
+            section: true,
+            status: true,
+            course: { select: { id: true, code: true, name: true, creditHours: true, ects: true } },
+            instructor: {
+              select: {
+                id: true,
+                user: { select: { fullName: true } },
+              },
+            },
+            _count: { select: { enrollments: true } },
+          },
+        });
+        
+        return {
+          ...sem,
+          courseCount: sem._count.offerings,
+          offerings,
+        };
+      }));
+      
+      ok(res, semestersWithDetails);
+    } else {
+      // Simple list for dropdowns
+      const semesters = await prisma.semester.findMany({
+        where: programType ? { programType } : undefined,
+        orderBy: { startDate: 'desc' },
+        take: 10,
+        select: {
+          id: true, name: true, isCurrent: true,
+          academicYear: { select: { name: true } },
+        },
+      });
+      ok(res, semesters);
+    }
   } catch (e) { fail(res, e); }
 });
 
@@ -468,6 +542,28 @@ router.post('/courses/:id/unpublish', async (req: AuthRequest, res) => {
 router.post('/courses/publish', async (req: AuthRequest, res) => {
   try {
     ok(res, await svc.publishAllCourses(req.user!.userId), 201);
+  } catch (e) { fail(res, e); }
+});
+
+// Add course offering to a specific semester
+router.post('/semesters/:semesterId/offerings', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      courseCode:  z.string().min(2).max(20),
+      courseName:  z.string().min(2).max(150),
+      description: z.string().optional(),
+      creditHours: z.number().int().min(1).max(12).default(3),
+      ects:        z.number().int().min(1).max(20).default(4),
+      section:     z.string().min(1).max(10).default('A'),
+      capacity:    z.number().int().min(1).max(200).default(40),
+      programType: z.enum(['TVET', 'SHORT_PROGRAM']).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { 
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); 
+      return; 
+    }
+    ok(res, await svc.addCourseOffering(req.user!.userId, pid(req, 'semesterId'), parsed.data), 201);
   } catch (e) { fail(res, e); }
 });
 

@@ -132,7 +132,7 @@ async function run() {
     console.log(`  ✓ Course Created: "${createdCourse.name}" [${createdCourse.code}] — ECTS: ${createdCourse.ects}, Credits: ${createdCourse.creditHours}`);
 
     const coursesList = await hodSvc.getCourses(instructorUser.id, {});
-    console.log(`  ✓ Courses in Department: ${coursesList.length} (Found created: ${coursesList.some(c => c.id === createdCourse.id)})`);
+    console.log(`  ✓ Courses in Department: ${coursesList.courses.length} (Found created: ${coursesList.courses.some(c => c.id === createdCourse.id)})`);
 
     // Step 7: Test Class & Section Management
     console.log('\nStep 7: Testing HOD Class & Section Management...');

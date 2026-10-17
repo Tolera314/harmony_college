@@ -388,9 +388,6 @@ model Semester {
   addDropDeadline   DateTime
   isCurrent         Boolean          @default(false)
   isActive          Boolean          @default(true)
-  isClosed          Boolean          @default(false)
-  closedAt          DateTime?
-  closedBy          String?
   termOrder         Int              @default(1)
   durationWeeks     Int?
   createdAt         DateTime         @default(now())
@@ -402,7 +399,6 @@ model Semester {
   @@unique([academicYearId, name, programType])
   @@index([programType])
   @@index([isCurrent])
-  @@index([isClosed])
 }
 
 model Course {
@@ -2139,3 +2135,4 @@ enum HRAuditStatus {
   WARNING
   FAILED
 }
+

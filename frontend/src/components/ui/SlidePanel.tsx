@@ -71,27 +71,27 @@ export const SlidePanel: React.FC<SlidePanelProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden" aria-modal="true" role="dialog">
-          {/* Backdrop — semi-transparent, no blur so dashboard stays visible */}
+        <div className="fixed inset-0 z-40 overflow-hidden" aria-modal="true" role="dialog">
+          {/* Backdrop — semi-transparent, covers everything except sidebar */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.6 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black"
+            className="absolute inset-0 bg-black pointer-events-auto md:left-20 xl:left-64"
             aria-hidden="true"
           />
 
-          {/* Panel container — left or right edge */}
-          <div className={`absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} flex max-w-full`}>
+          {/* Panel container — positioned to account for sidebar */}
+          <div className={`absolute inset-y-0 ${side === 'left' ? 'md:left-20 xl:left-64' : 'md:left-20 xl:left-64 right-0'} flex`}>
             <motion.div
               ref={panelRef}
               initial={{ x: side === 'left' ? '-100%' : '100%' }}
               animate={{ x: 0 }}
               exit={{ x: side === 'left' ? '-100%' : '100%' }}
               transition={SPRING.drawer}
-              className={`relative flex w-screen flex-col shadow-2xl ${width}`}
+              className={`relative flex flex-col shadow-2xl w-full ${width}`}
               style={{
                 backgroundColor: 'var(--bg-modal, var(--bg-base))',
                 ...(side === 'left'

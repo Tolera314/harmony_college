@@ -175,14 +175,14 @@ export async function ensureRealDepartments() {
   // 2. Ensure Academic Periods exist for TVET (Semesters) and SHORT_PROGRAM (Terms)
   // TVET Semesters
   const tvetSem1 = await prisma.semester.findFirst({
-    where: { academicYearId: academicYear.id, name: 'Semester I', programType: ProgramType.TVET },
+    where: { academicYearId: academicYear.id, name: 'Semester I', programType: 'TVET' },
   });
   if (!tvetSem1) {
     await prisma.semester.create({
       data: {
         name: 'Semester I',
         academicYearId: academicYear.id,
-        programType: ProgramType.TVET,
+        programType: 'TVET',
         termOrder: 1,
         startDate: new Date('2026-09-01'),
         endDate: new Date('2027-01-31'),
@@ -191,43 +191,23 @@ export async function ensureRealDepartments() {
         addDropDeadline: new Date('2026-10-15'),
         isCurrent: true,
         isActive: true,
-        isClosed: false,
       },
     });
   }
 
-  const tvetSem2 = await prisma.semester.findFirst({
-    where: { academicYearId: academicYear.id, name: 'Semester II', programType: ProgramType.TVET },
-  });
-  if (!tvetSem2) {
-    await prisma.semester.create({
-      data: {
-        name: 'Semester II',
-        academicYearId: academicYear.id,
-        programType: ProgramType.TVET,
-        termOrder: 2,
-        startDate: new Date('2027-02-01'),
-        endDate: new Date('2027-06-30'),
-        registrationStart: new Date('2027-01-15'),
-        registrationEnd: new Date('2027-02-28'),
-        addDropDeadline: new Date('2027-03-15'),
-        isCurrent: false,
-        isActive: true,
-        isClosed: false,
-      },
-    });
-  }
+  // REMOVED: Semester II (discontinued under current academic policy)
+  // Only Semester I is permitted for TVET programs
 
-  // Short Program Terms (Term I, Term II)
+  // Short Program Terms (Term I only)
   const spTerm1 = await prisma.semester.findFirst({
-    where: { academicYearId: academicYear.id, name: 'Term I', programType: ProgramType.SHORT_PROGRAM },
+    where: { academicYearId: academicYear.id, name: 'Term I', programType: 'SHORT_PROGRAM' },
   });
   if (!spTerm1) {
     await prisma.semester.create({
       data: {
         name: 'Term I',
         academicYearId: academicYear.id,
-        programType: ProgramType.SHORT_PROGRAM,
+        programType: 'SHORT_PROGRAM',
         termOrder: 1,
         durationWeeks: 12,
         startDate: new Date('2026-09-01'),
@@ -237,33 +217,12 @@ export async function ensureRealDepartments() {
         addDropDeadline: new Date('2026-09-30'),
         isCurrent: true,
         isActive: true,
-        isClosed: false,
       },
     });
   }
 
-  const spTerm2 = await prisma.semester.findFirst({
-    where: { academicYearId: academicYear.id, name: 'Term II', programType: ProgramType.SHORT_PROGRAM },
-  });
-  if (!spTerm2) {
-    await prisma.semester.create({
-      data: {
-        name: 'Term II',
-        academicYearId: academicYear.id,
-        programType: ProgramType.SHORT_PROGRAM,
-        termOrder: 2,
-        durationWeeks: 12,
-        startDate: new Date('2026-12-01'),
-        endDate: new Date('2027-02-28'),
-        registrationStart: new Date('2026-11-15'),
-        registrationEnd: new Date('2026-12-15'),
-        addDropDeadline: new Date('2026-12-31'),
-        isCurrent: false,
-        isActive: true,
-        isClosed: false,
-      },
-    });
-  }
+  // REMOVED: Term II (discontinued under current academic policy)
+  // Only Term I is permitted for Short Program
 
   // 3. Upsert 10 Real Departments for TVET (these become the administrative parents)
   //    Then link each Short Program dept as a child of the TVET dept with the same name.
@@ -272,7 +231,7 @@ export async function ensureRealDepartments() {
       where: {
         name_programType: {
           name: dept.name,
-          programType: ProgramType.TVET,
+          programType: 'TVET',
         },
       },
       update: {
@@ -284,7 +243,7 @@ export async function ensureRealDepartments() {
       create: {
         name: dept.name,
         code: dept.tvetCode,
-        programType: ProgramType.TVET,
+        programType: 'TVET',
         description: dept.description,
         isActive: true,
         parentId: null,
@@ -312,7 +271,7 @@ export async function ensureRealDepartments() {
         where: {
           code_programType: {
             code: c.code,
-            programType: ProgramType.TVET,
+            programType: 'TVET',
           },
         },
         update: {
@@ -328,20 +287,20 @@ export async function ensureRealDepartments() {
           creditHours: c.credits,
           description: c.description,
           departmentId: tvetDept.id,
-          programType: ProgramType.TVET,
+          programType: 'TVET',
           status: CourseStatus.ACTIVE,
         },
       });
 
       const tvetSemester = await prisma.semester.findFirst({
-        where: { academicYearId: academicYear.id, isCurrent: true, programType: ProgramType.TVET },
+        where: { academicYearId: academicYear.id, isCurrent: true, programType: 'TVET' },
       });
       if (tvetSemester) {
         const existingOffering = await prisma.courseOffering.findFirst({
           where: {
             courseId: course.id,
             semesterId: tvetSemester.id,
-            programType: ProgramType.TVET,
+            programType: 'TVET',
           },
         });
         if (!existingOffering) {
@@ -349,7 +308,7 @@ export async function ensureRealDepartments() {
             data: {
               courseId: course.id,
               semesterId: tvetSemester.id,
-              programType: ProgramType.TVET,
+              programType: 'TVET',
               capacity: 40,
               status: OfferingStatus.ACTIVE,
             },
@@ -365,7 +324,7 @@ export async function ensureRealDepartments() {
   for (const dept of REAL_DEPARTMENTS) {
     // Re-fetch the TVET parent to get its id
     const tvetParent = await prisma.department.findUnique({
-      where: { name_programType: { name: dept.name, programType: ProgramType.TVET } },
+      where: { name_programType: { name: dept.name, programType: 'TVET' } },
       select: { id: true },
     });
 
@@ -373,7 +332,7 @@ export async function ensureRealDepartments() {
       where: {
         name_programType: {
           name: dept.name,
-          programType: ProgramType.SHORT_PROGRAM,
+          programType: 'SHORT_PROGRAM',
         },
       },
       update: {
@@ -385,7 +344,7 @@ export async function ensureRealDepartments() {
       create: {
         name: dept.name,
         code: dept.spCode,
-        programType: ProgramType.SHORT_PROGRAM,
+        programType: 'SHORT_PROGRAM',
         description: `${dept.description} (Short Program)`,
         isActive: true,
         parentId: tvetParent?.id ?? null,
@@ -413,7 +372,7 @@ export async function ensureRealDepartments() {
         where: {
           code_programType: {
             code: c.code,
-            programType: ProgramType.SHORT_PROGRAM,
+            programType: 'SHORT_PROGRAM',
           },
         },
         update: {
@@ -429,20 +388,20 @@ export async function ensureRealDepartments() {
           creditHours: c.credits,
           description: c.description,
           departmentId: spDept.id,
-          programType: ProgramType.SHORT_PROGRAM,
+          programType: 'SHORT_PROGRAM',
           status: CourseStatus.ACTIVE,
         },
       });
 
       const spSemester = await prisma.semester.findFirst({
-        where: { academicYearId: academicYear.id, isCurrent: true, programType: ProgramType.SHORT_PROGRAM },
+        where: { academicYearId: academicYear.id, isCurrent: true, programType: 'SHORT_PROGRAM' },
       });
       if (spSemester) {
         const existingOffering = await prisma.courseOffering.findFirst({
           where: {
             courseId: course.id,
             semesterId: spSemester.id,
-            programType: ProgramType.SHORT_PROGRAM,
+            programType: 'SHORT_PROGRAM',
           },
         });
         if (!existingOffering) {
@@ -450,7 +409,7 @@ export async function ensureRealDepartments() {
             data: {
               courseId: course.id,
               semesterId: spSemester.id,
-              programType: ProgramType.SHORT_PROGRAM,
+              programType: 'SHORT_PROGRAM',
               capacity: 30,
               status: OfferingStatus.ACTIVE,
             },
@@ -488,7 +447,7 @@ export async function ensureRealDepartments() {
   });
 
   const defaultTvetDept = await prisma.department.findFirst({
-    where: { code: 'IT-T', programType: ProgramType.TVET },
+    where: { code: 'IT-T', programType: 'TVET' },
   });
   const defaultTvetProg = await prisma.program.findFirst({
     where: { departmentId: defaultTvetDept?.id },
@@ -505,7 +464,7 @@ export async function ensureRealDepartments() {
       const matchedSpDept = await prisma.department.findFirst({
         where: {
           name: { contains: cleanName, mode: 'insensitive' },
-          programType: ProgramType.SHORT_PROGRAM,
+          programType: 'SHORT_PROGRAM',
           isActive: true,
         },
       });
@@ -516,7 +475,7 @@ export async function ensureRealDepartments() {
       await prisma.studentRecord.update({
         where: { id: s.id },
         data: {
-          programType: ProgramType.SHORT_PROGRAM,
+          programType: 'SHORT_PROGRAM',
           shortProgramDuration: profile?.shortProgramDuration || '2 Months',
           ...(matchedSpDept ? { departmentId: matchedSpDept.id } : {}),
           ...(matchedSpProg ? { programId: matchedSpProg.id } : {}),
@@ -530,12 +489,12 @@ export async function ensureRealDepartments() {
       let tvetDept = cleanName ? await prisma.department.findFirst({
         where: {
           name: { contains: cleanName, mode: 'insensitive' },
-          programType: ProgramType.TVET,
+          programType: 'TVET',
           isActive: true,
         },
       }) : null;
 
-      if (!tvetDept && s.department?.programType === ProgramType.TVET) {
+      if (!tvetDept && s.department?.programType === 'TVET') {
         tvetDept = s.department;
       }
       if (!tvetDept) tvetDept = defaultTvetDept;
@@ -547,7 +506,7 @@ export async function ensureRealDepartments() {
       await prisma.studentRecord.update({
         where: { id: s.id },
         data: {
-          programType: ProgramType.TVET,
+          programType: 'TVET',
           shortProgramDuration: null, // TVET students do not have short program duration
           ...(tvetDept ? { departmentId: tvetDept.id } : {}),
           ...(tvetProg ? { programId: tvetProg.id } : {}),

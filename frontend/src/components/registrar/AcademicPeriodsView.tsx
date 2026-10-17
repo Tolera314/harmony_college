@@ -6,7 +6,7 @@ import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Calendar, Plus, Lock, Unlock, Play, Pause, RefreshCw,
   ChevronDown, ChevronRight, Clock, Users, BookOpen,
-  AlertTriangle, CheckCircle2, X,
+  AlertTriangle, CheckCircle2, X, Trash2,
 } from 'lucide-react';
 import { DHPageHeader } from '../dh/DHPageHeader';
 import { Badge } from '../ui/Badge';
@@ -49,7 +49,6 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
   const [createForm, setCreateForm] = useState({
     academicYearId: '',
     name: '',
-    termOrder: 1,
     durationWeeks: programType === 'SHORT_PROGRAM' ? 12 : 16,
     startDate: '',
     endDate: '',
@@ -58,7 +57,7 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
 
   // Confirmation modals
   const [actionTarget, setActionTarget] = useState<AcademicPeriodItem | null>(null);
-  const [actionType, setActionType] = useState<'open' | 'close' | 'reopen' | null>(null);
+  const [actionType, setActionType] = useState<'open' | 'close' | 'reopen' | 'delete' | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const isSP = programType === 'SHORT_PROGRAM';
@@ -92,6 +91,17 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
     }));
   }, [programType, isSP]);
 
+  // ── Auto-calculate End Date from Start Date + Duration ────────────────────
+  useEffect(() => {
+    if (createForm.startDate && createForm.durationWeeks) {
+      const start = new Date(createForm.startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + (createForm.durationWeeks * 7)); // weeks to days
+      const endDateStr = end.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+      setCreateForm(f => ({ ...f, endDate: endDateStr }));
+    }
+  }, [createForm.startDate, createForm.durationWeeks]);
+
   // ── Create period ─────────────────────────────────────────────────────────
   const handleCreate = async () => {
     if (!createForm.academicYearId || !createForm.name || !createForm.startDate || !createForm.endDate) return;
@@ -101,7 +111,6 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
         academicYearId: createForm.academicYearId,
         name: createForm.name.trim(),
         programType,
-        termOrder: createForm.termOrder,
         durationWeeks: createForm.durationWeeks,
         startDate: new Date(createForm.startDate).toISOString(),
         endDate: new Date(createForm.endDate).toISOString(),
@@ -111,7 +120,6 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
       setCreateForm({
         academicYearId: '',
         name: '',
-        termOrder: 1,
         durationWeeks: isSP ? 12 : 16,
         startDate: '',
         endDate: '',
@@ -133,6 +141,17 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
       if (actionType === 'open') await academicPeriodsApi.open(actionTarget.id);
       else if (actionType === 'close') await academicPeriodsApi.close(actionTarget.id);
       else if (actionType === 'reopen') await academicPeriodsApi.reopen(actionTarget.id);
+      else if (actionType === 'delete') {
+        // Delete from database
+        const response = await fetch(`/api/registrar/semesters/${actionTarget.id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to delete period');
+        }
+      }
       setActionTarget(null);
       setActionType(null);
       await load();
@@ -260,7 +279,7 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
                                 {period.name}
                               </div>
                               <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                                {period.programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} · Order #{period.termOrder}
+                                {period.programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'}
                               </div>
                             </div>
 
@@ -315,6 +334,18 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
                                   title="Reopen this period"
                                 >
                                   <Unlock className="w-3.5 h-3.5 text-amber-400" />
+                                </Button>
+                              )}
+                              {/* Delete Button - Only show if no courses assigned */}
+                              {period.courseCount === 0 && (
+                                <Button
+                                  size="xs"
+                                  variant="ghost"
+                                  onClick={() => { setActionTarget(period); setActionType('delete'); }}
+                                  title="Delete this period (no courses assigned)"
+                                  className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               )}
                             </div>
@@ -376,30 +407,20 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
             </p>
           </div>
 
-          {/* Term Order & Duration */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                {periodLabel} Order
-              </label>
-              <Input
-                type="number"
-                min={1}
-                value={createForm.termOrder}
-                onChange={e => setCreateForm(f => ({ ...f, termOrder: parseInt(e.target.value) || 1 }))}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                Duration (weeks)
-              </label>
-              <Input
-                type="number"
-                min={1}
-                value={createForm.durationWeeks}
-                onChange={e => setCreateForm(f => ({ ...f, durationWeeks: parseInt(e.target.value) || 12 }))}
-              />
-            </div>
+          {/* Duration */}
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+              Duration (weeks)
+            </label>
+            <Input
+              type="number"
+              min={1}
+              value={createForm.durationWeeks}
+              onChange={e => setCreateForm(f => ({ ...f, durationWeeks: parseInt(e.target.value) || 12 }))}
+            />
+            <p className="text-[10px] text-[var(--text-muted)] mt-1">
+              End date will be calculated automatically
+            </p>
           </div>
 
           {/* Dates */}
@@ -416,13 +437,18 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
             </div>
             <div>
               <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                End Date <span className="text-rose-400">*</span>
+                End Date <span className="text-rose-400">*</span> <span className="text-[10px] font-normal text-[var(--text-muted)]">(auto-calculated)</span>
               </label>
               <Input
                 type="date"
                 value={createForm.endDate}
-                onChange={e => setCreateForm(f => ({ ...f, endDate: e.target.value }))}
+                readOnly
+                className="bg-[var(--bg-secondary)] cursor-not-allowed opacity-75"
+                title="Automatically calculated from Start Date + Duration"
               />
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                Calculated from start date + duration weeks
+              </p>
             </div>
           </div>
 
@@ -482,6 +508,16 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
         message={`Reopening "${actionTarget?.name}" will allow grade modifications, enrollments, and attendance edits again. No records will be duplicated. Use this only for authorized corrections.`}
         confirmLabel="Reopen Period"
         variant="warning"
+      />
+
+      <ConfirmModal
+        isOpen={!!actionTarget && actionType === 'delete'}
+        onClose={() => { setActionTarget(null); setActionType(null); }}
+        onConfirm={handleAction}
+        title={`Delete ${periodLabel}: ${actionTarget?.name ?? ''}`}
+        message={`This will permanently delete "${actionTarget?.name}" from the database. This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        variant="danger"
       />
     </div>
   );
