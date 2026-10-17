@@ -316,6 +316,27 @@ export interface MyCoursesFullData {
   currentSemesterGpa: number;
 }
 
+export interface SemesterInfo {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  registrationStart: string;
+  registrationEnd: string;
+  addDropDeadline: string;
+  isCurrent: boolean;
+  termOrder: number;
+  durationWeeks: number | null;
+  programType: 'TVET' | 'SHORT_PROGRAM';
+  academicYear: {
+    id: string;
+    name: string;
+  };
+  _count: {
+    offerings: number;
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // API methods
 // ─────────────────────────────────────────────────────────────────────────────
@@ -388,6 +409,9 @@ export const studentDashApi = {
     }[];
     offeringIds: string[];
   }>('/timetable'),
+
+  // Semesters — current and upcoming for student
+  getSemesters: () => apiFetch<SemesterInfo[]>('/semesters'),
 
   // Support / Appointments
   getAppointments: ()      => apiFetch<any[]>('/support/appointments'),

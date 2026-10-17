@@ -402,7 +402,6 @@ model Semester {
   @@unique([academicYearId, name, programType])
   @@index([programType])
   @@index([isCurrent])
-  @@index([isClosed])
 }
 
 model Course {
@@ -2139,3 +2138,4 @@ enum HRAuditStatus {
   WARNING
   FAILED
 }
+

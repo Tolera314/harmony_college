@@ -6,6 +6,7 @@ export type DHNavTab =
   | 'overview'
   | 'programs'
   | 'courses'
+  | 'semesters'
   | 'instructors'
   | 'students'
   | 'classes'

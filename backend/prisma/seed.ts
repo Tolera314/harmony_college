@@ -108,32 +108,32 @@ async function main(): Promise<void> {
   // ── 2. Departments ───────────────────────────────────────────────────────
   console.log('\n📁  Seeding departments...');
   const deptPHOTO = await prisma.department.upsert({
-    where: { code: 'PHOTO' }, update: {},
-    create: { name: 'Photography & Visual Media', code: 'PHOTO', description: 'Photography, Videography & Visual Storytelling', isActive: true },
+    where: { code_programType: { code: 'PHOTO', programType: 'SHORT_PROGRAM' } }, update: {},
+    create: { name: 'Photography & Visual Media', code: 'PHOTO', description: 'Photography, Videography & Visual Storytelling', isActive: true, programType: 'SHORT_PROGRAM' },
   });
   const deptFILM = await prisma.department.upsert({
-    where: { code: 'FILM' }, update: {},
-    create: { name: 'Theatrical Art & Filmmaking', code: 'FILM', description: 'Theatre, Acting, Directing & Independent Filmmaking', isActive: true },
+    where: { code_programType: { code: 'FILM', programType: 'SHORT_PROGRAM' } }, update: {},
+    create: { name: 'Theatrical Art & Filmmaking', code: 'FILM', description: 'Theatre, Acting, Directing & Independent Filmmaking', isActive: true, programType: 'SHORT_PROGRAM' },
   });
   const deptMUSIC = await prisma.department.upsert({
-    where: { code: 'MUSIC' }, update: {},
-    create: { name: 'Music & Performing Arts', code: 'MUSIC', description: 'Instrumental Performance, Vocal Arts & Music Production', isActive: true },
+    where: { code_programType: { code: 'MUSIC', programType: 'SHORT_PROGRAM' } }, update: {},
+    create: { name: 'Music & Performing Arts', code: 'MUSIC', description: 'Instrumental Performance, Vocal Arts & Music Production', isActive: true, programType: 'SHORT_PROGRAM' },
   });
   const deptDESIGN = await prisma.department.upsert({
-    where: { code: 'DESIGN' }, update: {},
-    create: { name: 'Design & Digital Marketing', code: 'DESIGN', description: 'Graphic Design, Brand Identity & Digital Marketing', isActive: true },
+    where: { code_programType: { code: 'DESIGN', programType: 'SHORT_PROGRAM' } }, update: {},
+    create: { name: 'Design & Digital Marketing', code: 'DESIGN', description: 'Graphic Design, Brand Identity & Digital Marketing', isActive: true, programType: 'SHORT_PROGRAM' },
   });
   const deptMEDIA = await prisma.department.upsert({
-    where: { code: 'MEDIA' }, update: {},
-    create: { name: 'Media, Communication & Languages', code: 'MEDIA', description: 'Journalism, Media Reporting & Professional Languages', isActive: true },
+    where: { code_programType: { code: 'MEDIA', programType: 'SHORT_PROGRAM' } }, update: {},
+    create: { name: 'Media, Communication & Languages', code: 'MEDIA', description: 'Journalism, Media Reporting & Professional Languages', isActive: true, programType: 'SHORT_PROGRAM' },
   });
   const deptIT = await prisma.department.upsert({
-    where: { code: 'IT' }, update: {},
-    create: { name: 'Information Technology', code: 'IT', description: 'IT, Networking, Software & Digital Systems', isActive: true },
+    where: { code_programType: { code: 'IT', programType: 'TVET' } }, update: {},
+    create: { name: 'Information Technology', code: 'IT', description: 'IT, Networking, Software & Digital Systems', isActive: true, programType: 'TVET' },
   });
   const deptPHARM = await prisma.department.upsert({
-    where: { code: 'PHARM' }, update: {},
-    create: { name: 'Pharmacy & Health Sciences', code: 'PHARM', description: 'Pharmaceutical Sciences, Drug Dispensing & Clinical Practice', isActive: true },
+    where: { code_programType: { code: 'PHARM', programType: 'TVET' } }, update: {},
+    create: { name: 'Pharmacy & Health Sciences', code: 'PHARM', description: 'Pharmaceutical Sciences, Drug Dispensing & Clinical Practice', isActive: true, programType: 'TVET' },
   });
   console.log('   ✓ 7 departments');
 
@@ -215,10 +215,10 @@ async function main(): Promise<void> {
   });
 
   const sem1_2026 = await prisma.semester.upsert({
-    where: { academicYearId_name: { academicYearId: ay2026.id, name: 'Semester I' } },
+    where: { academicYearId_name_programType: { academicYearId: ay2026.id, name: 'Semester I', programType: 'TVET' } },
     update: {},
     create: {
-      name: 'Semester I', academicYearId: ay2026.id,
+      name: 'Semester I', academicYearId: ay2026.id, programType: 'TVET', termOrder: 1, durationWeeks: 16,
       startDate: new Date('2026-09-01'), endDate: new Date('2027-01-31'),
       registrationStart: new Date('2026-08-01'), registrationEnd: new Date('2026-08-20'),
       addDropDeadline: new Date('2026-09-15'),
@@ -226,10 +226,10 @@ async function main(): Promise<void> {
     },
   });
   const sem2_2026 = await prisma.semester.upsert({
-    where: { academicYearId_name: { academicYearId: ay2026.id, name: 'Semester II' } },
+    where: { academicYearId_name_programType: { academicYearId: ay2026.id, name: 'Semester II', programType: 'TVET' } },
     update: {},
     create: {
-      name: 'Semester II', academicYearId: ay2026.id,
+      name: 'Semester II', academicYearId: ay2026.id, programType: 'TVET', termOrder: 2, durationWeeks: 16,
       startDate: new Date('2027-02-01'), endDate: new Date('2027-06-30'),
       registrationStart: new Date('2027-01-05'), registrationEnd: new Date('2027-01-20'),
       addDropDeadline: new Date('2027-02-15'),
@@ -237,10 +237,10 @@ async function main(): Promise<void> {
     },
   });
   const sem1_2025 = await prisma.semester.upsert({
-    where: { academicYearId_name: { academicYearId: ay2025.id, name: 'Semester I' } },
+    where: { academicYearId_name_programType: { academicYearId: ay2025.id, name: 'Semester I', programType: 'TVET' } },
     update: {},
     create: {
-      name: 'Semester I', academicYearId: ay2025.id,
+      name: 'Semester I', academicYearId: ay2025.id, programType: 'TVET', termOrder: 1, durationWeeks: 16,
       startDate: new Date('2025-09-01'), endDate: new Date('2026-01-31'),
       registrationStart: new Date('2025-08-01'), registrationEnd: new Date('2025-08-20'),
       addDropDeadline: new Date('2025-09-15'),
@@ -248,10 +248,10 @@ async function main(): Promise<void> {
     },
   });
   const sem2_2025 = await prisma.semester.upsert({
-    where: { academicYearId_name: { academicYearId: ay2025.id, name: 'Semester II' } },
+    where: { academicYearId_name_programType: { academicYearId: ay2025.id, name: 'Semester II', programType: 'TVET' } },
     update: {},
     create: {
-      name: 'Semester II', academicYearId: ay2025.id,
+      name: 'Semester II', academicYearId: ay2025.id, programType: 'TVET', termOrder: 2, durationWeeks: 16,
       startDate: new Date('2026-02-01'), endDate: new Date('2026-06-30'),
       registrationStart: new Date('2026-01-05'), registrationEnd: new Date('2026-01-20'),
       addDropDeadline: new Date('2026-02-15'),

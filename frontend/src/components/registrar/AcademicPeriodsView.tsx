@@ -6,7 +6,7 @@ import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Calendar, Plus, Lock, Unlock, Play, Pause, RefreshCw,
   ChevronDown, ChevronRight, Clock, Users, BookOpen,
-  AlertTriangle, CheckCircle2, X,
+  AlertTriangle, CheckCircle2, X, Trash2,
 } from 'lucide-react';
 import { DHPageHeader } from '../dh/DHPageHeader';
 import { Badge } from '../ui/Badge';
@@ -49,7 +49,6 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
   const [createForm, setCreateForm] = useState({
     academicYearId: '',
     name: '',
-    termOrder: 1,
     durationWeeks: programType === 'SHORT_PROGRAM' ? 12 : 16,
     startDate: '',
     endDate: '',
@@ -58,7 +57,7 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
 
   // Confirmation modals
   const [actionTarget, setActionTarget] = useState<AcademicPeriodItem | null>(null);
-  const [actionType, setActionType] = useState<'open' | 'close' | 'reopen' | null>(null);
+  const [actionType, setActionType] = useState<'open' | 'close' | 'reopen' | 'delete' | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const isSP = programType === 'SHORT_PROGRAM';
@@ -92,16 +91,51 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
     }));
   }, [programType, isSP]);
 
+  // ── Auto-populate suggested term name when academic year is selected ──────
+  useEffect(() => {
+    const fetchSuggestedName = async () => {
+      if (!createForm.academicYearId) {
+        setCreateForm(f => ({ ...f, name: '' }));
+        return;
+      }
+
+      try {
+        const suggestion = await academicPeriodsApi.suggestName(createForm.academicYearId, programType);
+        setCreateForm(f => ({ ...f, name: suggestion.suggestedName }));
+      } catch (err) {
+        console.error('Failed to fetch suggested name:', err);
+        // Fallback to default if API fails
+        const baseName = isSP ? 'Term' : 'Semester';
+        setCreateForm(f => ({ ...f, name: `${baseName} I` }));
+      }
+    };
+
+    fetchSuggestedName();
+  }, [createForm.academicYearId, programType, isSP]);
+
+  // ── Auto-calculate End Date from Start Date + Duration ────────────────────
+  useEffect(() => {
+    if (createForm.startDate && createForm.durationWeeks) {
+      const start = new Date(createForm.startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + (createForm.durationWeeks * 7)); // weeks to days
+      const endDateStr = end.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+      setCreateForm(f => ({ ...f, endDate: endDateStr }));
+    }
+  }, [createForm.startDate, createForm.durationWeeks]);
+
   // ── Create period ─────────────────────────────────────────────────────────
   const handleCreate = async () => {
-    if (!createForm.academicYearId || !createForm.name || !createForm.startDate || !createForm.endDate) return;
+    if (!createForm.academicYearId || !createForm.startDate || !createForm.endDate) return;
+    
+    // Name is auto-generated, so we don't check for it manually
     setCreating(true);
+    setError(null);
     try {
       await academicPeriodsApi.create({
         academicYearId: createForm.academicYearId,
-        name: createForm.name.trim(),
+        name: createForm.name.trim() || undefined, // Let backend generate if somehow empty
         programType,
-        termOrder: createForm.termOrder,
         durationWeeks: createForm.durationWeeks,
         startDate: new Date(createForm.startDate).toISOString(),
         endDate: new Date(createForm.endDate).toISOString(),
@@ -111,15 +145,17 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
       setCreateForm({
         academicYearId: '',
         name: '',
-        termOrder: 1,
         durationWeeks: isSP ? 12 : 16,
         startDate: '',
         endDate: '',
         isCurrent: false,
       });
       await load();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to create period');
+    } catch (e: any) {
+      // Handle specific error messages from backend
+      const errorMessage = e?.message || e?.error || 'Failed to create period';
+      setError(errorMessage);
+      console.error('Failed to create period:', e);
     } finally {
       setCreating(false);
     }
@@ -133,6 +169,17 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
       if (actionType === 'open') await academicPeriodsApi.open(actionTarget.id);
       else if (actionType === 'close') await academicPeriodsApi.close(actionTarget.id);
       else if (actionType === 'reopen') await academicPeriodsApi.reopen(actionTarget.id);
+      else if (actionType === 'delete') {
+        // Delete from database
+        const response = await fetch(`/api/registrar/semesters/${actionTarget.id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to delete period');
+        }
+      }
       setActionTarget(null);
       setActionType(null);
       await load();
@@ -260,7 +307,7 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
                                 {period.name}
                               </div>
                               <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                                {period.programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'} · Order #{period.termOrder}
+                                {period.programType === 'SHORT_PROGRAM' ? 'Short Program' : 'TVET'}
                               </div>
                             </div>
 
@@ -317,6 +364,18 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
                                   <Unlock className="w-3.5 h-3.5 text-amber-400" />
                                 </Button>
                               )}
+                              {/* Delete Button - Only show if no courses assigned */}
+                              {period.courseCount === 0 && (
+                                <Button
+                                  size="xs"
+                                  variant="ghost"
+                                  onClick={() => { setActionTarget(period); setActionType('delete'); }}
+                                  title="Delete this period (no courses assigned)"
+                                  className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -335,11 +394,22 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
          ═══════════════════════════════════════════════════════════════════ */}
       <SlidePanel
         isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
+        onClose={() => {
+          setShowCreate(false);
+          setError(null);
+        }}
         title={`Create New ${periodLabel}`}
         width="md"
       >
-        <div className="space-y-4 p-1">
+        <div className="space-y-4">
+          {/* Error Display */}
+          {error && (
+            <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-rose-300">{error}</p>
+            </div>
+          )}
+
           {/* Academic Year */}
           <div>
             <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
@@ -348,7 +418,10 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
             <select
               className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-gold)]/40"
               value={createForm.academicYearId}
-              onChange={e => setCreateForm(f => ({ ...f, academicYearId: e.target.value }))}
+              onChange={e => {
+                setCreateForm(f => ({ ...f, academicYearId: e.target.value }));
+                setError(null);
+              }}
             >
               <option value="">Select academic year…</option>
               {academicYears.map(ay => (
@@ -359,35 +432,22 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
             </select>
           </div>
 
-          {/* Period Name */}
-          <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-              {periodLabel} Name <span className="text-rose-400">*</span>
-            </label>
-            <Input
-              value={createForm.name}
-              onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
-              placeholder={isSP ? 'e.g., Term I' : 'e.g., Semester I'}
-            />
-            <p className="text-[10px] text-[var(--text-muted)] mt-1">
-              {isSP
-                ? 'Short Programs must use "Term" labels (e.g., "Term I", "Term II"). Never use "Semester".'
-                : 'TVET programs use "Semester" labels (e.g., "Semester I", "Semester II").'}
-            </p>
-          </div>
-
-          {/* Term Order & Duration */}
+          {/* Period Name & Duration */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                {periodLabel} Order
+                {periodLabel} Name <span className="text-[10px] font-normal text-[var(--text-muted)]">(auto-generated)</span>
               </label>
               <Input
-                type="number"
-                min={1}
-                value={createForm.termOrder}
-                onChange={e => setCreateForm(f => ({ ...f, termOrder: parseInt(e.target.value) || 1 }))}
+                value={createForm.name}
+                readOnly
+                disabled
+                className="w-full bg-[var(--bg-secondary)] cursor-not-allowed opacity-75"
+                title="Automatically generated based on existing terms"
               />
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                Auto-generated: {createForm.name || `${periodLabel} I`}
+              </p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
@@ -396,8 +456,9 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
               <Input
                 type="number"
                 min={1}
-                value={createForm.durationWeeks}
-                onChange={e => setCreateForm(f => ({ ...f, durationWeeks: parseInt(e.target.value) || 12 }))}
+                value={createForm.durationWeeks || ''}
+                onChange={e => setCreateForm(f => ({ ...f, durationWeeks: parseInt(e.target.value) || 0 }))}
+                className="w-full"
               />
             </div>
           </div>
@@ -416,12 +477,14 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
             </div>
             <div>
               <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                End Date <span className="text-rose-400">*</span>
+                End Date <span className="text-[10px] font-normal text-[var(--text-muted)]">(auto)</span>
               </label>
               <Input
                 type="date"
                 value={createForm.endDate}
-                onChange={e => setCreateForm(f => ({ ...f, endDate: e.target.value }))}
+                readOnly
+                className="bg-[var(--bg-secondary)] cursor-not-allowed opacity-75"
+                title="Automatically calculated from Start Date + Duration"
               />
             </div>
           </div>
@@ -434,19 +497,22 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
               onChange={e => setCreateForm(f => ({ ...f, isCurrent: e.target.checked }))}
               className="w-4 h-4 rounded border-[var(--border-default)] bg-[var(--bg-input)] accent-[var(--brand-gold)]"
             />
-            <span className="text-sm text-[var(--text-secondary)]">Set as current active period</span>
+            <span className="text-sm text-[var(--text-secondary)]">Set as current period</span>
           </label>
 
           {/* Submit */}
           <div className="flex gap-2 pt-3 border-t border-[var(--border-subtle)]">
             <Button
               onClick={handleCreate}
-              disabled={creating || !createForm.academicYearId || !createForm.name || !createForm.startDate || !createForm.endDate}
+              disabled={creating || !createForm.academicYearId || !createForm.startDate || !createForm.endDate || !createForm.name}
               className="bg-[var(--brand-gold)] text-black hover:brightness-110 flex-1"
             >
               {creating ? 'Creating…' : `Create ${periodLabel}`}
             </Button>
-            <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => {
+              setShowCreate(false);
+              setError(null);
+            }}>Cancel</Button>
           </div>
         </div>
       </SlidePanel>
@@ -459,7 +525,7 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
         onClose={() => { setActionTarget(null); setActionType(null); }}
         onConfirm={handleAction}
         title={`Open ${periodLabel}: ${actionTarget?.name ?? ''}`}
-        message={`This will set "${actionTarget?.name}" as the current active ${periodLabel.toLowerCase()} and mark other ${isSP ? 'terms' : 'semesters'} as inactive. All existing course offerings, enrollments, and records remain untouched.`}
+        message={`Set "${actionTarget?.name}" as the current active ${periodLabel.toLowerCase()}. Other ${isSP ? 'terms' : 'semesters'} will be marked inactive.`}
         confirmLabel="Open Period"
         variant="warning"
       />
@@ -469,7 +535,7 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
         onClose={() => { setActionTarget(null); setActionType(null); }}
         onConfirm={handleAction}
         title={`Close ${periodLabel}: ${actionTarget?.name ?? ''}`}
-        message={`Closing "${actionTarget?.name}" will lock all enrollments, grade modifications, and attendance for this period. Historical records and academic summaries are preserved. Instructors will not be able to submit or edit grades for courses in this period.`}
+        message={`Lock all enrollments, grades, and attendance for "${actionTarget?.name}". Instructors cannot submit or edit grades for this period.`}
         confirmLabel="Close Period"
         variant="danger"
       />
@@ -479,9 +545,19 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
         onClose={() => { setActionTarget(null); setActionType(null); }}
         onConfirm={handleAction}
         title={`Reopen ${periodLabel}: ${actionTarget?.name ?? ''}`}
-        message={`Reopening "${actionTarget?.name}" will allow grade modifications, enrollments, and attendance edits again. No records will be duplicated. Use this only for authorized corrections.`}
+        message={`Allow grade modifications, enrollments, and attendance edits for "${actionTarget?.name}". Use only for authorized corrections.`}
         confirmLabel="Reopen Period"
         variant="warning"
+      />
+
+      <ConfirmModal
+        isOpen={!!actionTarget && actionType === 'delete'}
+        onClose={() => { setActionTarget(null); setActionType(null); }}
+        onConfirm={handleAction}
+        title={`Delete ${periodLabel}: ${actionTarget?.name ?? ''}`}
+        message={`Permanently delete "${actionTarget?.name}". This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        variant="danger"
       />
     </div>
   );

@@ -2000,14 +2000,48 @@ router.get('/academic-periods', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// GET /api/registrar/academic-periods/suggest-name — get suggested next term/semester name
+router.get('/academic-periods/suggest-name', async (req: AuthRequest, res) => {
+  try {
+    const academicYearId = req.query.academicYearId as string;
+    const programType = req.query.programType as string;
+
+    if (!academicYearId || !programType || !['TVET', 'SHORT_PROGRAM'].includes(programType)) {
+      res.status(400).json({ error: 'academicYearId and valid programType are required' });
+      return;
+    }
+
+    // Find existing semesters for this academic year and program type
+    const existingSemesters = await prisma.semester.findMany({
+      where: { academicYearId, programType: programType as 'TVET' | 'SHORT_PROGRAM' },
+      orderBy: { termOrder: 'desc' },
+      select: { termOrder: true, name: true },
+    });
+
+    const nextOrder = existingSemesters.length > 0 ? (existingSemesters[0].termOrder || 0) + 1 : 1;
+    
+    // Generate name dynamically
+    const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+    const baseName = programType === 'SHORT_PROGRAM' ? 'Term' : 'Semester';
+    const suggestedName = `${baseName} ${romanNumerals[nextOrder - 1] || nextOrder}`;
+
+    ok(res, {
+      suggestedName,
+      nextOrder,
+      existingCount: existingSemesters.length,
+      existingTerms: existingSemesters.map(s => s.name),
+    });
+  } catch (e) { fail(res, e, 400); }
+});
+
 // POST /api/registrar/academic-periods — create a new TVET semester or Short Program term
 router.post('/academic-periods', async (req: AuthRequest, res) => {
   try {
     const schema = z.object({
       academicYearId: z.string().uuid(),
-      name: z.string().min(1),
+      name: z.string().min(1).optional(), // Make name optional since we'll auto-generate it
       programType: z.enum(['TVET', 'SHORT_PROGRAM']),
-      termOrder: z.number().int().min(1).default(1),
+      termOrder: z.number().int().min(1).optional(), // Will be auto-calculated
       durationWeeks: z.number().int().min(1).optional(),
       startDate: z.string().datetime(),
       endDate: z.string().datetime(),
@@ -2023,12 +2057,52 @@ router.post('/academic-periods', async (req: AuthRequest, res) => {
       return;
     }
 
-    const { academicYearId, name, programType, termOrder, durationWeeks, startDate, endDate, registrationStart, registrationEnd, addDropDeadline, isCurrent } = parsed.data;
+    const { academicYearId, name: inputName, programType, termOrder: inputTermOrder, durationWeeks, startDate, endDate, registrationStart, registrationEnd, addDropDeadline, isCurrent } = parsed.data;
+
+    // Auto-calculate termOrder by finding the highest existing termOrder for this academicYear + programType
+    let termOrder = inputTermOrder;
+    let name = inputName;
+    
+    if (!termOrder || !name) {
+      const existingSemesters = await prisma.semester.findMany({
+        where: { academicYearId, programType },
+        orderBy: { termOrder: 'desc' },
+        take: 1,
+      });
+
+      const nextOrder = existingSemesters.length > 0 ? (existingSemesters[0].termOrder || 0) + 1 : 1;
+      termOrder = termOrder || nextOrder;
+      
+      // Generate name if not provided: "Term I", "Term II", etc. for SHORT_PROGRAM, "Semester I", "Semester II", etc. for TVET
+      if (!name) {
+        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+        const baseName = programType === 'SHORT_PROGRAM' ? 'Term' : 'Semester';
+        name = `${baseName} ${romanNumerals[nextOrder - 1] || nextOrder}`;
+      }
+    }
 
     // Validate naming convention strictly per requirements:
     // TVET must be Semester, Short Program must be Term (never Semester!)
     if (programType === 'SHORT_PROGRAM' && name.toLowerCase().includes('semester')) {
-      res.status(400).json({ error: 'Short Program periods must be designated as "Term" (e.g., "Term I", "Term II"), never "Semester".' });
+      res.status(400).json({ error: 'Short Program periods must be designated as "Term" (e.g., "Term I"), never "Semester".' });
+      return;
+    }
+
+    // Check for duplicates BEFORE attempting to create
+    const duplicate = await prisma.semester.findFirst({
+      where: {
+        academicYearId,
+        name: name.trim(),
+        programType,
+      },
+    });
+
+    if (duplicate) {
+      const baseName = programType === 'SHORT_PROGRAM' ? 'Term' : 'Semester';
+      res.status(409).json({ 
+        error: `${baseName} "${name.trim()}" already exists for this academic year and program type. Please use a different name.`,
+        code: 'DUPLICATE_PERIOD_NAME',
+      });
       return;
     }
 
@@ -2057,7 +2131,6 @@ router.post('/academic-periods', async (req: AuthRequest, res) => {
           registrationEnd: regEnd,
           addDropDeadline: addDrop,
           isCurrent,
-          isClosed: false,
         },
         include: { academicYear: { select: { id: true, name: true } } },
       });
@@ -3258,3 +3331,61 @@ router.post('/notifications/read-all', async (req: AuthRequest, res) => {
 export { router as registrarRouter };
 export default router;
 
+
+/**
+ * DELETE /api/registrar/semesters/:id
+ * Delete a semester/term (hard delete from database)
+ */
+router.delete('/semesters/:id', requireRole(['REGISTRAR']), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id;
+
+    // Check if semester exists and has course offerings
+    const semester = await prisma.semester.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            offerings: true,
+          },
+        },
+      },
+    });
+
+    if (!semester) {
+      res.status(404).json({ error: 'Semester not found' });
+      return;
+    }
+
+    if (semester._count.offerings > 0) {
+      res.status(400).json({ 
+        error: `Cannot delete semester with ${semester._count.offerings} course offering(s). Delete or reassign courses first.` 
+      });
+      return;
+    }
+
+    // Hard delete the semester
+    await prisma.semester.delete({
+      where: { id },
+    });
+
+    // Create audit log
+    await prisma.registrarAuditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'CALENDAR_EVENT_DELETED',
+        entityType: 'Semester',
+        entityId: id,
+        description: `Deleted ${semester.programType} period: ${semester.name}`,
+      },
+    });
+
+    res.json({ 
+      success: true, 
+      message: `${semester.name} (${semester.programType}) deleted successfully` 
+    });
+  } catch (error) {
+    console.error('Error deleting semester:', error);
+    res.status(500).json({ error: 'Failed to delete semester' });
+  }
+});

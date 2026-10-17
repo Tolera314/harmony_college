@@ -46,6 +46,8 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
   const [offerings,    setOfferings]    = useState<CourseOfferingSummary[]>([]);
   const [courses,      setCourses]      = useState<any[]>([]);
   const [semesters,    setSemesters]    = useState<Semester[]>([]);
+  const [currentSemester, setCurrentSemester] = useState<{ id: string; name: string; academicYear: string } | null>(null);
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string>('');
   const [total,        setTotal]        = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [page,         setPage]         = useState(1);
@@ -75,6 +77,8 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
     description: '',
     creditHours: 3,
     ects: 4,
+    section: 'A',
+    capacity: 40,
     programType: 'TVET' as 'TVET' | 'SHORT_PROGRAM',
   });
   const [courseLoading, setCourseLoading] = useState(false);
@@ -95,7 +99,7 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
     setLoading(true);
     setError(null);
     try {
-      const [offData, semData, coursesData] = await Promise.all([
+      const [offData, coursesData] = await Promise.all([
         hodOfferingsApi.list({
           page:       p,
           limit:      LIMIT,
@@ -104,24 +108,32 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
           semesterId: semFilter || undefined,
           programType: programType, // Filter offerings by program type
         }),
-        semesters.length === 0 ? hodSemestersApi.list() : Promise.resolve(semesters),
         hodCoursesApi.list({ 
           search: search || undefined,
-          programType: programType, // Filter courses by program type
+          programType: programType,
+          semesterId: selectedSemesterId || undefined,
         }),
       ]);
       setOfferings(offData.offerings);
       setTotal(offData.total);
       setPendingCount(offData.pendingCount ?? offData.offerings.filter(o => o.status === 'DRAFT').length);
-      if (semesters.length === 0) setSemesters(semData as Semester[]);
-      setCourses(coursesData);
+      setCourses(coursesData.courses);
+      
+      // Set semesters and current semester from courses response
+      if (coursesData.semesters && coursesData.semesters.length > 0) {
+        setSemesters(coursesData.semesters as any);
+        if (!selectedSemesterId && coursesData.currentSemester) {
+          setSelectedSemesterId(coursesData.currentSemester.id);
+        }
+      }
+      setCurrentSemester(coursesData.currentSemester);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
       setLoading(false);
       setIsInitialLoad(false);
     }
-  }, [search, statusFilter, semFilter, semesters, programType]);
+  }, [search, statusFilter, semFilter, programType, selectedSemesterId]);
 
   useEffect(() => { load(page); }, [page, search, statusFilter, semFilter, load]);
 
@@ -185,6 +197,10 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
       setCourseError('ECTS must be between 1 and 20');
       return;
     }
+    if (!selectedSemesterId && !currentSemester) {
+      setCourseError('No semester selected. Please select a semester first.');
+      return;
+    }
 
     setCourseLoading(true);
     try {
@@ -199,16 +215,19 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
         });
         showToast(`Course ${courseForm.code} updated successfully!`, 'success');
       } else {
-        // Create new course
-        await hodCoursesApi.create({
-          code: courseForm.code.trim().toUpperCase(),
-          name: courseForm.name.trim(),
+        // Create new course offering for the selected semester
+        const targetSemesterId = selectedSemesterId || currentSemester!.id;
+        await hodCoursesApi.addOffering(targetSemesterId, {
+          courseCode: courseForm.code.trim().toUpperCase(),
+          courseName: courseForm.name.trim(),
           description: courseForm.description.trim() || undefined,
           creditHours: courseForm.creditHours,
           ects: courseForm.ects,
+          section: courseForm.section || 'A',
+          capacity: courseForm.capacity || 40,
           programType: courseForm.programType,
         });
-        showToast(`Course ${courseForm.code} created successfully!`, 'success');
+        showToast(`Course ${courseForm.code} added to semester successfully!`, 'success');
       }
       setAddCourseOpen(false);
       setEditCourse(null);
@@ -218,7 +237,9 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
         description: '',
         creditHours: 3,
         ects: 4,
-        programType: 'TVET',
+        section: 'A',
+        capacity: 40,
+        programType: programType || 'TVET',
       });
       // Reload data
       await load(page);
@@ -509,6 +530,40 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                 These courses will be published to students when you click "Publish Courses"
               </p>
             </div>
+            {/* Semester Selector and Info */}
+            {currentSemester && (
+              <div className="px-4 py-3 border border-(--border-default) rounded-lg bg-(--hover-overlay) backdrop-blur-xl">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-(--text-muted) font-semibold">
+                      Current Semester:
+                    </span>
+                    <span className="text-sm font-semibold text-(--text-primary)">
+                      {currentSemester.name}
+                    </span>
+                    <span className="text-[10px] text-(--text-faint)">
+                      ({currentSemester.academicYear})
+                    </span>
+                  </div>
+                  {semesters.length > 1 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-wider text-(--text-muted) font-semibold">View:</span>
+                      <select
+                        value={selectedSemesterId}
+                        onChange={e => { setSelectedSemesterId(e.target.value); setPage(1); load(1); }}
+                        className="px-3 py-1.5 bg-(--bg-card) border border-(--border-default) rounded-lg font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
+                      >
+                        {semesters.map(s => (
+                          <option key={s.id} value={s.id} className="bg-(--bg-card-solid)">
+                            {s.name} - {s.academicYear}{s.isCurrent ? ' (Current)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
               <table className="w-full text-left text-xs sm:text-sm font-sans">
                 <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
@@ -955,9 +1010,38 @@ export const DHCoursesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
                 required
                 disabled={courseLoading}
               />
-              <p className="text-xs text-(--text-faint)">Between 1 and 20</p>
+              <p className="text-xs text-(--text-faint)">European Credit Transfer System (1-20)</p>
             </div>
           </div>
+
+          {!editCourse && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Section *</label>
+                <Input
+                  value={courseForm.section}
+                  onChange={e => setCourseForm(prev => ({ ...prev, section: e.target.value }))}
+                  placeholder="e.g., A"
+                  maxLength={10}
+                  disabled={courseLoading}
+                />
+                <p className="text-xs text-(--text-faint)">Section identifier (A, B, etc.)</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">Capacity *</label>
+                <Input
+                  type="number"
+                  value={courseForm.capacity}
+                  onChange={e => setCourseForm(prev => ({ ...prev, capacity: parseInt(e.target.value) || 40 }))}
+                  min={1}
+                  max={200}
+                  disabled={courseLoading}
+                />
+                <p className="text-xs text-(--text-faint)">Maximum number of students</p>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4 border-t border-(--border-subtle)">
             <Button

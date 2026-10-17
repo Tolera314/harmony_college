@@ -9,6 +9,7 @@ import { DHSearchModal }           from '@/src/components/dh/DHSearchModal';
 import { DHLogoutModal }           from '@/src/components/dh/DHLogoutModal';
 import { DHOverviewView }          from '@/src/components/dh/views/DHOverviewView';
 import { DHCoursesView }           from '@/src/components/dh/views/DHCoursesView';
+import { DHSemestersView }         from '@/src/components/dh/views/DHSemestersView';
 import { DHInstructorsView }       from '@/src/components/dh/views/DHInstructorsView';
 import { DHStudentsView }          from '@/src/components/dh/views/DHStudentsView';
 import { DHClassesView }           from '@/src/components/dh/views/DHClassesView';
@@ -196,6 +197,7 @@ export default function DepartmentHeadPage() {
     switch (activeTab) {
       case 'overview':             return <DHOverviewView profile={profile} setActiveTab={setActiveTab} programType={dhProgramType} />;
       case 'courses':              return <DHCoursesView programType={dhProgramType} />;
+      case 'semesters':            return <DHSemestersView programType={dhProgramType} />;
       case 'instructors':          return <DHInstructorsView programType={dhProgramType} />;
       case 'students':             return <DHStudentsView programType={dhProgramType} />;
       case 'classes':              return <DHClassesView programType={dhProgramType} />;

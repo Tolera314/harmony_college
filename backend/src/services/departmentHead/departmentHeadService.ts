@@ -16,6 +16,8 @@ import {
   DepartmentHeadAction,
   StudentStatus,
   EnrollmentStatus,
+  CourseStatus,
+  ProgramType,
 } from '@prisma/client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1406,88 +1408,326 @@ export async function toggleProgramStatus(userId: string, programId: string) {
 // COURSE MANAGEMENT
 // ─────────────────────────────────────────────────────────────────────
 
-export async function getCourses(
+/**
+ * Add course offering to a specific semester
+ * Creates or finds course, then creates offering linked to semester
+ */
+export async function addCourseOffering(
   userId: string,
-  params: { search?: string; status?: string; programType?: string },
+  semesterId: string,
+  data: {
+    courseCode: string;
+    courseName: string;
+    description?: string;
+    creditHours?: number;
+    ects?: number;
+    section?: string;
+    capacity?: number;
+    programType?: 'TVET' | 'SHORT_PROGRAM';
+  },
 ) {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
 
-  const where: any = { departmentId: { in: deptIds } };
-  if (params.status && params.status !== 'ALL') {
-    where.status = params.status;
+  // Verify semester exists and is active
+  const semester = await prisma.semester.findUnique({
+    where: { id: semesterId },
+    include: { academicYear: { select: { name: true } } },
+  });
+  if (!semester) {
+    throw new Error('Semester not found.');
   }
-  if (params.programType && params.programType !== 'ALL') {
-    where.programType = params.programType;
-  }
-  if (params.search) {
-    where.OR = [
-      { name: { contains: params.search, mode: 'insensitive' } },
-      { code: { contains: params.search, mode: 'insensitive' } },
-    ];
+  if (!semester.isActive) {
+    throw new Error('Cannot add courses to an inactive semester.');
   }
 
-  const courses = await prisma.course.findMany({
-    where,
-    orderBy: [{ code: 'asc' }],
+  // Determine program type from semester or data
+  const programType = data.programType || semester.programType;
+
+  // Determine department ID (use child department for Short Programs)
+  let deptId = hod.departmentId;
+  if (programType === 'SHORT_PROGRAM') {
+    const childDept = await prisma.department.findFirst({
+      where: { parentId: hod.departmentId, isActive: true, programType: 'SHORT_PROGRAM' },
+      select: { id: true },
+    });
+    if (childDept) deptId = childDept.id;
+  }
+
+  // Verify HOD has access to this department
+  if (!deptIds.includes(deptId)) {
+    throw new Error('You do not have permission to add courses to this department.');
+  }
+
+  const codeUpper = data.courseCode.trim().toUpperCase();
+  const nameTrim = data.courseName.trim();
+
+  // Find or create course
+  let course = await prisma.course.findFirst({
+    where: {
+      code: codeUpper,
+      departmentId: { in: deptIds },
+      programType,
+    },
+  });
+
+  if (!course) {
+    // Create new course
+    course = await prisma.course.create({
+      data: {
+        code: codeUpper,
+        name: nameTrim,
+        description: data.description?.trim() || null,
+        creditHours: data.creditHours ?? 3,
+        ects: data.ects ?? 4,
+        programType,
+        departmentId: deptId,
+        status: 'ACTIVE', // Courses created through offerings are active
+      },
+    });
+  }
+
+  // Check if offering already exists for this course, semester, and section
+  const existingOffering = await prisma.courseOffering.findFirst({
+    where: {
+      courseId: course.id,
+      semesterId,
+      section: data.section || 'A',
+    },
+  });
+
+  if (existingOffering) {
+    throw new Error(`Course ${course.code} section ${data.section || 'A'} already exists for this semester.`);
+  }
+
+  // Create course offering
+  const offering = await prisma.courseOffering.create({
+    data: {
+      courseId: course.id,
+      semesterId,
+      section: data.section || 'A',
+      capacity: data.capacity ?? 40,
+      status: 'ACTIVE',
+      programType,
+    },
     include: {
-      _count: {
+      course: {
         select: {
-          offerings: true,
+          id: true,
+          code: true,
+          name: true,
+          creditHours: true,
+          ects: true,
+          programType: true,
         },
       },
-      offerings: {
-        include: {
-          instructor: {
-            include: {
-              user: {
-                select: {
-                  fullName: true,
-                },
-              },
-            },
-          },
-          enrollments: {
-            include: {
-              grade: {
-                select: {
-                  id: true,
-                },
-              },
-            },
-          },
+      semester: {
+        select: {
+          id: true,
+          name: true,
+          academicYear: { select: { name: true } },
         },
       },
     },
   });
 
-  return courses.map((c) => {
+  // Log the action
+  await prisma.departmentHeadAuditLog.create({
+    data: {
+      userId,
+      action: DepartmentHeadAction.COURSE_OFFERING_CREATED,
+      entityType: 'CourseOffering',
+      entityId: offering.id,
+      description: `HOD added course offering ${course.code} section ${offering.section} to ${semester.name}`,
+      metadata: {
+        courseId: course.id,
+        courseCode: course.code,
+        courseName: course.name,
+        semesterId,
+        semesterName: semester.name,
+        section: offering.section,
+        capacity: offering.capacity,
+      },
+    },
+  });
+
+  return {
+    offering,
+    course,
+    semester: offering.semester,
+  };
+}
+
+export async function getCourses(
+  userId: string,
+  params: { search?: string; status?: string; programType?: string; semesterId?: string },
+) {
+  const hod = await resolveHoD(userId);
+  const deptIds = await resolveDeptIds(hod);
+
+  // Get semesters for this HOD's department(s) program type
+  const deptProgramTypes = await prisma.department.findMany({
+    where: { id: { in: deptIds } },
+    select: { programType: true },
+  });
+  const programTypes = [...new Set(deptProgramTypes.map(d => d.programType))];
+
+  // Get all active semesters for the program type(s)
+  const semesters = await prisma.semester.findMany({
+    where: {
+      programType: { in: programTypes },
+      isActive: true,
+    },
+    include: {
+      academicYear: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: [
+      { isCurrent: 'desc' },
+      { startDate: 'desc' },
+    ],
+  });
+
+  // Get current semester for banner display
+  const currentSemester = semesters.find(s => s.isCurrent) || semesters[0] || null;
+
+  // If no semesterId specified, use current semester
+  const targetSemesterId = params.semesterId || currentSemester?.id;
+
+  if (!targetSemesterId) {
+    return {
+      courses: [],
+      currentSemester: null,
+      semesters: [],
+    };
+  }
+
+  // Query courses through CourseOffering filtered by semester
+  const offerings = await prisma.courseOffering.findMany({
+    where: {
+      semesterId: targetSemesterId,
+      course: {
+        departmentId: { in: deptIds },
+        ...(params.status && params.status !== 'ALL' ? { status: params.status as CourseStatus } : {}),
+        ...(params.programType && params.programType !== 'ALL' ? { programType: params.programType as ProgramType } : {}),
+        ...(params.search ? {
+          OR: [
+            { name: { contains: params.search, mode: 'insensitive' as any } },
+            { code: { contains: params.search, mode: 'insensitive' as any } },
+          ],
+        } : {}),
+      },
+    },
+    include: {
+      course: {
+        include: {
+          _count: {
+            select: {
+              offerings: {
+                where: {
+                  semesterId: targetSemesterId,
+                },
+              },
+            },
+          },
+        },
+      },
+      instructor: {
+        include: {
+          user: {
+            select: {
+              fullName: true,
+            },
+          },
+        },
+      },
+      enrollments: {
+        include: {
+          grade: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      },
+      semester: {
+        include: {
+          academicYear: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: [
+      { course: { code: 'asc' } },
+    ],
+  });
+
+  // Group by course (multiple offerings per course possible)
+  const courseMap = new Map<string, {
+    course: any;
+    offerings: any[];
+  }>();
+
+  for (const offering of offerings) {
+    if (!courseMap.has(offering.course.id)) {
+      courseMap.set(offering.course.id, {
+        course: offering.course,
+        offerings: [],
+      });
+    }
+    courseMap.get(offering.course.id)!.offerings.push(offering);
+  }
+
+  const courses = Array.from(courseMap.values()).map(({ course, offerings }) => {
     // Get unique instructors from all offerings
-    const instructors = c.offerings
+    const instructors = offerings
       .filter(o => o.instructor)
       .map(o => o.instructor!.user.fullName)
-      .filter((name, index, self) => self.indexOf(name) === index); // unique names
+      .filter((name, index, self) => self.indexOf(name) === index);
 
-    // Check if any grades/assessments exist for this course
-    const hasGrades = c.offerings.some(offering => 
-      offering.enrollments.some(enrollment => enrollment.grade !== null)
+    // Check if any grades exist
+    const hasGrades = offerings.some(offering => 
+      offering.enrollments.some((enrollment: any) => enrollment.grade !== null)
     );
 
     return {
-      id:          c.id,
-      code:        c.code,
-      name:        c.name,
-      description: c.description,
-      creditHours: c.creditHours,
-      ects:        c.ects,
-      status:      c.status,
-      programType: c.programType,
-      sectionsCount: c._count.offerings,
-      instructors: instructors.length > 0 ? instructors : null,
-      hasGrades:   hasGrades,
-      createdAt:   c.createdAt,
+      id:            course.id,
+      code:          course.code,
+      name:          course.name,
+      description:   course.description,
+      creditHours:   course.creditHours,
+      ects:          course.ects,
+      status:        course.status,
+      programType:   course.programType,
+      sectionsCount: course._count.offerings,
+      instructors:   instructors.length > 0 ? instructors : null,
+      hasGrades:     hasGrades,
+      createdAt:     course.createdAt,
     };
   });
+
+  return {
+    courses,
+    currentSemester: currentSemester ? {
+      id: currentSemester.id,
+      name: currentSemester.name,
+      academicYear: currentSemester.academicYear.name,
+    } : null,
+    semesters: semesters.map(s => ({
+      id: s.id,
+      name: s.name,
+      academicYear: s.academicYear.name,
+      isCurrent: s.isCurrent,
+      startDate: s.startDate,
+      endDate: s.endDate,
+    })),
+  };
 }
 
 export async function enrollApprovedStudentsForCourse(courseId: string): Promise<number> {

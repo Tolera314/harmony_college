@@ -239,7 +239,7 @@ export const applicationSchema = z.object({
   // Step 3 — Academic
   program: z.string().min(1, 'Program is required'),
   academicYear: z.string().min(1, 'Academic year is required'),
-  semester: z.enum(['Semester I', 'Semester II']),
+  semester: z.enum(['Semester I']), // TVET only. Short Programs use programType/termOrder field
   studyMode: z.enum(['In-Person', 'Online']),
 
   // Step 4 — Document URLs (uploaded separately via /api/upload)

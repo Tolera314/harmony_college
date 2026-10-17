@@ -882,6 +882,11 @@ export const academicPeriodsApi = {
   list: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
     apiFetch<AcademicPeriodItem[]>(`/api/registrar/academic-periods${programType ? `?programType=${programType}` : ''}`),
 
+  suggestName: (academicYearId: string, programType: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<{ suggestedName: string; nextOrder: number; existingCount: number; existingTerms: string[] }>(
+      `/api/registrar/academic-periods/suggest-name?academicYearId=${academicYearId}&programType=${programType}`
+    ),
+
   create: (data: CreateAcademicPeriodPayload) =>
     apiFetch<any>('/api/registrar/academic-periods', {
       method: 'POST',

@@ -298,6 +298,26 @@ export interface Semester {
   academicYear: { name: string };
 }
 
+export interface DetailedSemester extends Semester {
+  startDate: string;
+  endDate: string;
+  registrationStart: string;
+  registrationEnd: string;
+  programType: 'TVET' | 'SHORT_PROGRAM';
+  termOrder: number;
+  durationWeeks: number | null;
+  academicYear: { id: string; name: string };
+  courseCount: number;
+  offerings: {
+    id: string;
+    section: string;
+    status: string;
+    course: { id: string; code: string; name: string; creditHours: number; ects: number | null };
+    instructor: { id: string; user: { fullName: string } } | null;
+    _count: { enrollments: number };
+  }[];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // API NAMESPACES
 // ─────────────────────────────────────────────────────────────────────────────
@@ -376,6 +396,8 @@ export const hodAuditApi = {
 
 export const hodSemestersApi = {
   list: () => apiFetch<Semester[]>(`${BASE}/semesters`),
+  listDetailed: (params: Record<string, unknown> = {}) => 
+    apiFetch<DetailedSemester[]>(`${BASE}/semesters${qs({ ...params, detailed: 'true' })}`),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -406,15 +428,32 @@ export interface DHCourse {
   id: string; code: string; name: string; description: string | null;
   creditHours: number; ects: number | null; status: string;
   programType: string | null;
-  department: { id: string; name: string } | null;
+  sectionsCount?: number;
   instructors?: string[] | null;
   hasGrades?: boolean;
-  _count?: { courseOfferings: number };
+  createdAt?: string;
+}
+
+export interface DHCoursesResponse {
+  courses: DHCourse[];
+  currentSemester: {
+    id: string;
+    name: string;
+    academicYear: string;
+  } | null;
+  semesters: {
+    id: string;
+    name: string;
+    academicYear: string;
+    isCurrent: boolean;
+    startDate: string;
+    endDate: string;
+  }[];
 }
 
 export const hodCoursesApi = {
   list: (params: Record<string, unknown> = {}) =>
-    apiFetch<DHCourse[]>(`${BASE}/courses${qs(params)}`),
+    apiFetch<DHCoursesResponse>(`${BASE}/courses${qs(params)}`),
   create: (data: { code: string; name: string; description?: string; creditHours: number; ects: number; programType?: string }) =>
     apiFetch<DHCourse>(`${BASE}/courses`, { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<{ code: string; name: string; description: string; creditHours: number; ects: number; status: string }>) =>
@@ -442,6 +481,22 @@ export const hodCoursesApi = {
       `${BASE}/courses/publish`,
       { method: 'POST' }
     ),
+  // Add course offering to a specific semester
+  addOffering: (semesterId: string, data: { 
+    courseCode: string; 
+    courseName: string; 
+    description?: string; 
+    creditHours?: number; 
+    ects?: number; 
+    section?: string; 
+    capacity?: number; 
+    programType?: 'TVET' | 'SHORT_PROGRAM';
+  }) =>
+    apiFetch<{ 
+      offering: any; 
+      course: DHCourse; 
+      semester: { id: string; name: string; academicYear: { name: string } };
+    }>(`${BASE}/semesters/${semesterId}/offerings`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

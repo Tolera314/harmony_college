@@ -629,6 +629,74 @@ router.post('/settings/password', async (req: AuthRequest, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SEMESTERS (current and upcoming for student's program)
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/semesters', async (req: AuthRequest, res) => {
+  try {
+    const srId = await resolveStudentRecordOptional(req.user!.userId);
+    if (!srId) { ok(res, []); return; }
+
+    // Get student's program type
+    const studentRecord = await prisma.studentRecord.findUnique({
+      where: { id: srId },
+      select: { programType: true, departmentId: true },
+    });
+
+    if (!studentRecord) {
+      ok(res, []);
+      return;
+    }
+
+    // Fetch current and upcoming semesters for the student's program type
+    const now = new Date();
+    const semesters = await prisma.semester.findMany({
+      where: {
+        programType: studentRecord.programType,
+        isActive: true,
+        OR: [
+          { isCurrent: true },
+          { startDate: { gte: now } }, // Upcoming semesters
+        ],
+      },
+      orderBy: { startDate: 'asc' },
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        endDate: true,
+        registrationStart: true,
+        registrationEnd: true,
+        addDropDeadline: true,
+        isCurrent: true,
+        termOrder: true,
+        durationWeeks: true,
+        programType: true,
+        academicYear: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            offerings: {
+              where: {
+                course: { departmentId: studentRecord.departmentId },
+                status: { in: ['ACTIVE', 'SCHEDULED', 'INSTRUCTOR_ASSIGNED'] },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    ok(res, semesters);
+  } catch (e) { fail(res, e); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC ANNOUNCEMENTS (student can read published announcements)
 // ═══════════════════════════════════════════════════════════════════════════
 
