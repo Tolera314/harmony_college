@@ -427,12 +427,7 @@ export default function RegistrarDashboardPage() {
                 })}
               </div>
 
-              <div className="p-3 border-t border-(--border-subtle) space-y-1">
-                <button onClick={() => { setActiveTab('settings'); setMM(false); }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-(--text-secondary) hover:bg-(--hover-overlay) transition-all">
-                  <Settings className="w-4 h-4 text-(--text-muted)" />
-                  <span>Settings Board</span>
-                </button>
+              <div className="p-3 border-t border-(--border-subtle)">
                 <button onClick={() => { setMM(false); setLogout(true); }}
                   className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-(--status-danger) hover:bg-(--status-danger-bg) transition-all">
                   <LogOut className="w-4 h-4" />

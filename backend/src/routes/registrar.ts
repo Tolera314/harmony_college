@@ -2000,6 +2000,40 @@ router.get('/academic-periods', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// GET /api/registrar/academic-periods/suggest-name — get suggested next term/semester name
+router.get('/academic-periods/suggest-name', async (req: AuthRequest, res) => {
+  try {
+    const academicYearId = req.query.academicYearId as string;
+    const programType = req.query.programType as string;
+
+    if (!academicYearId || !programType || !['TVET', 'SHORT_PROGRAM'].includes(programType)) {
+      res.status(400).json({ error: 'academicYearId and valid programType are required' });
+      return;
+    }
+
+    // Find existing semesters for this academic year and program type
+    const existingSemesters = await prisma.semester.findMany({
+      where: { academicYearId, programType: programType as 'TVET' | 'SHORT_PROGRAM' },
+      orderBy: { termOrder: 'desc' },
+      select: { termOrder: true, name: true },
+    });
+
+    const nextOrder = existingSemesters.length > 0 ? (existingSemesters[0].termOrder || 0) + 1 : 1;
+    
+    // Generate name dynamically
+    const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+    const baseName = programType === 'SHORT_PROGRAM' ? 'Term' : 'Semester';
+    const suggestedName = `${baseName} ${romanNumerals[nextOrder - 1] || nextOrder}`;
+
+    ok(res, {
+      suggestedName,
+      nextOrder,
+      existingCount: existingSemesters.length,
+      existingTerms: existingSemesters.map(s => s.name),
+    });
+  } catch (e) { fail(res, e, 400); }
+});
+
 // POST /api/registrar/academic-periods — create a new TVET semester or Short Program term
 router.post('/academic-periods', async (req: AuthRequest, res) => {
   try {
@@ -2041,7 +2075,7 @@ router.post('/academic-periods', async (req: AuthRequest, res) => {
       
       // Generate name if not provided: "Term I", "Term II", etc. for SHORT_PROGRAM, "Semester I", "Semester II", etc. for TVET
       if (!name) {
-        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
         const baseName = programType === 'SHORT_PROGRAM' ? 'Term' : 'Semester';
         name = `${baseName} ${romanNumerals[nextOrder - 1] || nextOrder}`;
       }
@@ -2051,6 +2085,24 @@ router.post('/academic-periods', async (req: AuthRequest, res) => {
     // TVET must be Semester, Short Program must be Term (never Semester!)
     if (programType === 'SHORT_PROGRAM' && name.toLowerCase().includes('semester')) {
       res.status(400).json({ error: 'Short Program periods must be designated as "Term" (e.g., "Term I"), never "Semester".' });
+      return;
+    }
+
+    // Check for duplicates BEFORE attempting to create
+    const duplicate = await prisma.semester.findFirst({
+      where: {
+        academicYearId,
+        name: name.trim(),
+        programType,
+      },
+    });
+
+    if (duplicate) {
+      const baseName = programType === 'SHORT_PROGRAM' ? 'Term' : 'Semester';
+      res.status(409).json({ 
+        error: `${baseName} "${name.trim()}" already exists for this academic year and program type. Please use a different name.`,
+        code: 'DUPLICATE_PERIOD_NAME',
+      });
       return;
     }
 
