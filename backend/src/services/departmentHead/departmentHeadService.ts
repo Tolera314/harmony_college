@@ -1444,6 +1444,11 @@ export async function addCourseOffering(
   // Determine program type from semester or data
   const programType = data.programType || semester.programType;
 
+  // Validate program type matches semester
+  if (data.programType && data.programType !== semester.programType) {
+    throw new Error(`Cannot add ${data.programType} course to ${semester.programType} semester. Please select the correct semester for your program type.`);
+  }
+
   // Determine department ID (use child department for Short Programs)
   let deptId = hod.departmentId;
   if (programType === 'SHORT_PROGRAM') {

@@ -241,8 +241,18 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
         showToast(`Course ${courseForm.code} updated successfully!`, 'success');
       } else {
         // Create new course offering for the selected semester
-        const targetSemesterId = selectedSemesterId || currentSemester!.id;
-        await hodCoursesApi.addOffering(targetSemesterId, {
+        // Find the current semester that matches the course program type
+        const currentSemesterForType = semesters.find(s => 
+          s.isCurrent && s.programType === courseForm.programType
+        );
+        
+        if (!currentSemesterForType) {
+          setCourseError(`No current ${courseForm.programType === 'TVET' ? 'TVET semester' : 'Short Program term'} found. Please create one first or select a different program type.`);
+          setCourseLoading(false);
+          return;
+        }
+        
+        await hodCoursesApi.addOffering(currentSemesterForType.id, {
           courseCode: courseForm.code.trim().toUpperCase(),
           courseName: courseForm.name.trim(),
           description: courseForm.description.trim() || undefined,
@@ -554,194 +564,7 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
         </select>
       </div>
 
-      {/* Created Courses (Not Yet Published) */}
-      <AnimatePresence mode="wait">
-        {!isInitialLoad && courses.length > 0 && (
-          <motion.div 
-            key="courses-table"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="space-y-3"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-sans text-sm font-semibold text-(--text-primary)">
-                Created Courses ({courses.length})
-              </h3>
-              <p className="text-xs text-(--text-faint)">
-                These courses will be published to students when you click &quot;Publish Courses&quot;
-              </p>
-            </div>
-            {/* Semester Selector and Info */}
-            {currentSemester && (
-              <div className="px-4 py-3 border border-(--border-default) rounded-lg bg-(--hover-overlay) backdrop-blur-xl">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-(--text-muted) font-semibold">
-                      Current Semester:
-                    </span>
-                    <span className="text-sm font-semibold text-(--text-primary)">
-                      {currentSemester.name}
-                    </span>
-                    <span className="text-[10px] text-(--text-faint)">
-                      ({currentSemester.academicYear})
-                    </span>
-                  </div>
-                  {allSemesters.length > 1 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-wider text-(--text-muted) font-semibold">View:</span>
-                      <select
-                        value={selectedSemesterId}
-                        onChange={e => { setSelectedSemesterId(e.target.value); setPage(1); load(1); }}
-                        className="px-3 py-1.5 bg-(--bg-card) border border-(--border-default) rounded-lg font-sans text-xs text-(--text-primary) focus:outline-none focus:border-(--brand-gold)"
-                      >
-                        {allSemesters.map(s => (
-                          <option key={s.id} value={s.id} className="bg-(--bg-card-solid)">
-                            {s.name} - {s.academicYear.name}{s.isCurrent ? ' (Current)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
-              <table className="w-full text-left text-xs sm:text-sm font-sans">
-                <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
-                  <tr>
-                    {['Code', 'Course Name', 'Credits', 'ECTS', 'Program Type', 'Instructor', 'Status', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-(--border-subtle) text-(--text-secondary)">
-                  {courses.map((c, index) => (
-                    <motion.tr 
-                      key={c.id} 
-                      initial={{ opacity: 0, y: 5 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      transition={{ duration: 0.2, delay: index * 0.02, ease: "easeOut" }}
-                      className="hover:bg-(--hover-overlay) transition-colors"
-                    >
-                    <td className="px-4 py-3.5">
-                      <span className="font-mono text-xs font-bold text-(--brand-gold)">{c.code}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <p className="text-(--text-secondary) text-xs max-w-[250px]">{c.name}</p>
-                      {c.description && (
-                        <p className="text-(--text-faint) text-[10px] mt-0.5 max-w-[250px] truncate">{c.description}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 font-mono text-xs text-(--text-secondary)">{c.creditHours}</td>
-                    <td className="px-4 py-3.5 font-mono text-xs text-(--text-secondary)">{c.ects}</td>
-                    <td className="px-4 py-3.5">
-                      <Badge variant={c.programType === 'TVET' ? 'glass' : 'amber'}>
-                        {c.programType === 'TVET' ? 'TVET' : 'Short Program'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {c.instructors && c.instructors.length > 0 ? (
-                        <div className="flex flex-col gap-0.5">
-                          {c.instructors.map((instructor: string, idx: number) => (
-                            <span key={idx} className="text-xs text-(--text-secondary)">
-                              {instructor}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-(--text-faint) text-xs italic">
-                          Not assigned
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {c.status === 'ACTIVE' ? (
-                        <Badge variant="emerald">PUBLISHED</Badge>
-                      ) : c.status === 'INACTIVE' ? (
-                        <Badge variant="glass">DEACTIVATED</Badge>
-                      ) : (
-                        <Badge variant="amber">DRAFT</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1.5">
-                        {c.status === 'INACTIVE' ? (
-                          <Button
-                            variant="primary"
-                            size="xs"
-                            icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                            onClick={() => handleReactivateCourse(c)}
-                            disabled={courseLoading}
-                            title="Reactivate this course"
-                          >
-                            Reactivate
-                          </Button>
-                        ) : c.status !== 'ACTIVE' ? (
-                          <Button
-                            variant="primary"
-                            size="xs"
-                            icon={<Send className="w-3.5 h-3.5" />}
-                            onClick={() => handlePublishSingleCourse(c)}
-                            disabled={courseLoading || c.hasGrades}
-                            title={c.hasGrades ? "Cannot publish - grades already exist" : "Publish Course to Department Students"}
-                          >
-                            Publish
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={() => handleUnpublishSingleCourse(c)}
-                            disabled={courseLoading || c.hasGrades}
-                            className="text-(--text-muted) hover:text-(--status-warning)"
-                            title={c.hasGrades ? "Cannot unpublish - grades already exist" : "Unpublish course from students"}
-                          >
-                            {c.hasGrades ? 'Locked' : 'Unpublish'}
-                          </Button>
-                        )}
-                        {c.status !== 'INACTIVE' && (
-                          <>
-                            <button 
-                              onClick={() => handleEditCourse(c)} 
-                              disabled={c.hasGrades}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                c.hasGrades 
-                                  ? 'opacity-50 cursor-not-allowed text-(--text-faint)' 
-                                  : 'hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold)'
-                              }`}
-                              aria-label="Edit course"
-                              title={c.hasGrades ? "Cannot edit - grades already exist" : "Edit course"}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => setDeleteConfirm(c)} 
-                              disabled={c.hasGrades}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                c.hasGrades 
-                                  ? 'opacity-50 cursor-not-allowed text-(--text-faint)' 
-                                  : 'hover:bg-(--status-danger-bg) text-(--text-muted) hover:text-(--status-danger)'
-                              }`}
-                              aria-label="Delete or deactivate course"
-                              title={c.hasGrades ? "Cannot delete - grades already exist" : "Delete or deactivate course"}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-        )}
-      </AnimatePresence>
-
+      {/* Semester Cards with Course Tables */}
       {semesters.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 px-4 text-center border border-(--border-default) rounded-2xl bg-(--hover-overlay)">
           <Calendar className="w-12 h-12 text-(--text-faint) mb-4" />
@@ -841,11 +664,11 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs font-sans">
+                          <table className="w-full text-left text-xs font-sans min-w-[900px]">
                             <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
                               <tr>
-                                {['Code', 'Course Name', 'Section', 'Credits', 'ECTS', 'Instructor', 'Enrolled', 'Status'].map(h => (
-                                  <th key={h} className="px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-(--text-muted) font-semibold">
+                                {['Code', 'Course Name', 'Section', 'Credits', 'ECTS', 'Program Type', 'Instructor', 'Schedule', 'Status', 'Actions'].map(h => (
+                                  <th key={h} className="px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-(--text-muted) font-semibold whitespace-nowrap">
                                     {h}
                                   </th>
                                 ))}
@@ -866,10 +689,10 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                                     </span>
                                   </td>
                                   <td className="px-3 py-2.5">
-                                    <span className="text-xs text-(--text-secondary)">{offering.course.name}</span>
+                                    <span className="text-xs text-(--text-secondary) truncate max-w-[180px] block">{offering.course.name}</span>
                                   </td>
                                   <td className="px-3 py-2.5">
-                                    <span className="text-xs text-(--text-secondary)">{offering.section}</span>
+                                    <Badge variant="glass" className="text-[10px]">{offering.section}</Badge>
                                   </td>
                                   <td className="px-3 py-2.5">
                                     <span className="font-mono text-xs text-(--text-secondary)">
@@ -882,18 +705,53 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                                     </span>
                                   </td>
                                   <td className="px-3 py-2.5">
-                                    <span className="text-xs text-(--text-secondary)">
-                                      {offering.instructor?.user.fullName ?? (
-                                        <span className="italic text-(--text-faint)">Not assigned</span>
-                                      )}
-                                    </span>
+                                    <Badge variant={offering.course.programType === 'TVET' ? 'glass' : 'amber'} className="text-[10px]">
+                                      {offering.course.programType === 'TVET' ? 'TVET' : 'Short'}
+                                    </Badge>
                                   </td>
                                   <td className="px-3 py-2.5">
-                                    <span className="font-mono text-xs text-(--text-secondary)">
-                                      {offering._count.enrollments}
-                                    </span>
+                                    {offering.instructor?.user.fullName ? (
+                                      <span className="text-xs text-(--text-secondary) truncate max-w-[120px] block">
+                                        {offering.instructor.user.fullName}
+                                      </span>
+                                    ) : (
+                                      <button
+                                        onClick={() => setViewMode('assignments')}
+                                        className="text-xs text-(--brand-gold) hover:text-(--brand-gold-dark) underline font-medium transition-colors"
+                                        title="Go to Course Assignments to assign instructor"
+                                      >
+                                        Not assigned
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2.5">
+                                    {offering.schedule && offering.schedule.length > 0 ? (
+                                      <div className="text-[10px] text-(--text-secondary)">
+                                        {offering.schedule.slice(0, 2).map((sch: any, schIdx: number) => (
+                                          <div key={schIdx} className="truncate max-w-[100px]">
+                                            {DAY_NAMES[sch.dayOfWeek]} {sch.startTime}
+                                          </div>
+                                        ))}
+                                        {offering.schedule.length > 2 && (
+                                          <span className="text-(--text-faint)">+{offering.schedule.length - 2} more</span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-(--text-faint) italic">—</span>
+                                    )}
                                   </td>
                                   <td className="px-3 py-2.5">{statusBadge(offering.status)}</td>
+                                  <td className="px-3 py-2.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="xs"
+                                      icon={<Eye className="w-3.5 h-3.5" />}
+                                      onClick={() => setSelected(offering)}
+                                      title="View details"
+                                    >
+                                      View
+                                    </Button>
+                                  </td>
                                 </motion.tr>
                               ))}
                             </tbody>
@@ -915,12 +773,12 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
           <div className="space-y-5 text-sm font-sans">
             <div className="grid grid-cols-2 gap-4">
               {[
-                ['Semester',  `${selected.semester.name} ${selected.semester.academicYear.name}`],
+                ['Semester',  selected.semester ? `${selected.semester.name} ${selected.semester.academicYear?.name || ''}` : '—'],
                 ['Section',   selected.section],
                 ['Credits',   `${selected.course.creditHours} credit hours`],
                 ['Room',      selected.room ? `${selected.room.building} ${selected.room.name}` : '—'],
                 ['Capacity',  `${selected.capacity} seats`],
-                ['Enrolled',  `${selected.enrolledCount} (${selected.utilizationPct}%)`],
+                ['Enrolled',  `${selected.enrolledCount || selected._count?.enrollments || 0} (${selected.utilizationPct || 0}%)`],
               ].map(([k, v]) => (
                 <div key={String(k)} className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                   <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{k}</p>
