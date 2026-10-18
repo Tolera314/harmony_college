@@ -134,7 +134,7 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
     try {
       await academicPeriodsApi.create({
         academicYearId: createForm.academicYearId,
-        name: createForm.name.trim() || undefined, // Let backend generate if somehow empty
+        name: createForm.name.trim(),
         programType,
         durationWeeks: createForm.durationWeeks,
         startDate: new Date(createForm.startDate).toISOString(),
@@ -364,18 +364,21 @@ export const AcademicPeriodsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGR
                                   <Unlock className="w-3.5 h-3.5 text-amber-400" />
                                 </Button>
                               )}
-                              {/* Delete Button - Only show if no courses assigned */}
-                              {period.courseCount === 0 && (
-                                <Button
-                                  size="xs"
-                                  variant="ghost"
-                                  onClick={() => { setActionTarget(period); setActionType('delete'); }}
-                                  title="Delete this period (no courses assigned)"
-                                  className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              )}
+                              {/* Delete Button - Always visible */}
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => { setActionTarget(period); setActionType('delete'); }}
+                                title={period.courseCount === 0 
+                                  ? "Delete this period" 
+                                  : `Cannot delete: ${period.courseCount} course(s) assigned`}
+                                disabled={period.courseCount > 0}
+                                className={period.courseCount === 0 
+                                  ? "text-rose-500 hover:text-rose-400 hover:bg-rose-500/15 transition-colors" 
+                                  : "text-[var(--text-faint)] cursor-not-allowed opacity-40"}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
                         ))}

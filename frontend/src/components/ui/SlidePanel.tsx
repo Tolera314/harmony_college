@@ -84,7 +84,7 @@ export const SlidePanel: React.FC<SlidePanelProps> = ({
           />
 
           {/* Panel container — positioned to account for sidebar */}
-          <div className={`absolute inset-y-0 ${side === 'left' ? 'md:left-20 xl:left-64' : 'md:left-20 xl:left-64 right-0'} flex`}>
+          <div className={`absolute inset-y-0 ${side === 'left' ? 'left-0 md:left-20 xl:left-64' : 'right-0'} flex ${side === 'right' ? 'justify-end' : ''}`}>
             <motion.div
               ref={panelRef}
               initial={{ x: side === 'left' ? '-100%' : '100%' }}

@@ -62,11 +62,9 @@ const MENU_ITEMS: MenuItem[] = [
   { id: 'transcripts',  label: 'Transcripts',         icon: FileText },
   { id: 'graduation',   label: 'Graduation Auditing', icon: GraduationCap },
   { id: 'certificates', label: 'Digital Certificates',icon: ShieldCheck },
-  { id: 'reports',      label: 'Interactive Reports', icon: BarChart3 },
   { id: 'calendar',     label: 'Academic Calendar',   icon: Calendar },
   { id: 'announcements',label: 'Announcements',       icon: Send },
   { id: 'audit_logs',   label: 'Audit Logs',          icon: ShieldAlert },
-  { id: 'settings',     label: 'Settings',            icon: Settings },
 ];
 
 const TAB_LABELS: Record<string, string> = {
@@ -252,7 +250,6 @@ export default function RegistrarDashboardPage() {
       case 'transcripts':  return <TranscriptServices />;
       case 'graduation':   return <GraduationAuditing />;
       case 'certificates': return <DigitalCertificates />;
-      case 'reports':      return <InteractiveReports />;
       case 'calendar':     return <AcademicCalendarView />;
       case 'announcements':return <AnnouncementsManager />;
       case 'audit_logs':   return <AuditLogsTimeline />;

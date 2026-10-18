@@ -414,6 +414,7 @@ export default function StudentDashboardPage() {
     { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'notifications', label: 'Notifications',       icon: <Bell className="w-4 h-4" /> },
     { id: 'profile',      label: 'My Profile',           icon: <UserCircle className="w-4 h-4" /> },
+    { id: 'settings',     label: 'Settings',             icon: <Settings className="w-4 h-4" /> },
   ];
 
   // ── renderView ────────────────────────────────────────────────────────────
@@ -617,13 +618,6 @@ export default function StudentDashboardPage() {
                 </nav>
 
                 <div className="p-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  <button
-                    onClick={() => { handleTabChange('settings'); setMobileMenuOpen(false); }}
-                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors mb-1"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    <Settings className="w-4 h-4" /> Settings
-                  </button>
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold"

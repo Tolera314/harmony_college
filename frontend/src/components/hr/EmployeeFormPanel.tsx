@@ -501,8 +501,20 @@ export const EmployeeFormPanel: React.FC<EmployeeFormPanelProps> = ({
             </div>
 
             <div>
-              <Input label="Education / Qualifications" value={form.education}
-                onChange={e => set('education', e.target.value)} />
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">
+                Education / Qualifications
+              </label>
+              <select
+                value={form.education}
+                onChange={e => set('education', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-gold)]/40"
+              >
+                <option value="">Select qualification...</option>
+                <option value="Diploma">Diploma</option>
+                <option value="Degree">Degree</option>
+                <option value="Master's degrees">Master's degrees</option>
+                <option value="PhD">PhD</option>
+              </select>
             </div>
             <div>
               <Input label="Years of Experience" type="number" min="0" max="60"
