@@ -9,8 +9,6 @@ import { HRSearchModal }       from '@/src/components/hr/HRSearchModal';
 import { HRLogoutModal }       from '@/src/components/hr/HRLogoutModal';
 import { HROverviewView }      from '@/src/components/hr/views/HROverviewView';
 import { HREmployeesView }     from '@/src/components/hr/views/HREmployeesView';
-import { HROnboardingView }    from '@/src/components/hr/views/HROnboardingView';
-import { HROffboardingView }   from '@/src/components/hr/views/HROffboardingView';
 import { HRPerformanceView }   from '@/src/components/hr/views/HRPerformanceView';
 import { HRDocumentsView }     from '@/src/components/hr/views/HRDocumentsView';
 import { HRReportsView }       from '@/src/components/hr/views/HRReportsView';
@@ -109,8 +107,6 @@ export default function HRDashboardPage() {
     switch (activeTab) {
       case 'overview':      return <HROverviewView setActiveTab={setActiveTab} />;
       case 'employees':     return <HREmployeesView />;
-      case 'onboarding':    return <HROnboardingView />;
-      case 'offboarding':   return <HROffboardingView />;
       case 'performance':   return <HRPerformanceView />;
       case 'documents':     return <HRDocumentsView />;
       case 'salary_history': return <HRSalaryHistoryView />;
@@ -182,7 +178,7 @@ export default function HRDashboardPage() {
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-1">
                 {([
-                  ['overview','Dashboard'], ['employees','Employees'], ['onboarding','Onboarding'], ['offboarding','Offboarding'],
+                  ['overview','Dashboard'], ['employees','Employees'],
                   ['leave','Leave Management'], ['payroll','Payroll'], ['performance','Performance'],
                   ['documents','Documents'], ['salary_history','Salary & Contracts'], ['reports','Reports'], ['notifications','Notifications'],
                   ['audit_log','Audit Logs'], ['settings','Settings'],

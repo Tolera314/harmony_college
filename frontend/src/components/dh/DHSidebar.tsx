@@ -29,7 +29,6 @@ export const DHSidebar: React.FC<DHSidebarProps> = ({
 }) => {
   const navItems: NavItem[] = [
     { id: 'overview',             label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'courses',              label: 'Courses',              icon: <BookOpen className="w-5 h-5" /> },
     { id: 'semesters',            label: 'Terms & Semesters',    icon: <CalendarDays className="w-5 h-5" /> },
     { id: 'instructors',          label: 'Instructors',          icon: <UserCog className="w-5 h-5" /> },
     {

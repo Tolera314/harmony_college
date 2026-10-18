@@ -403,9 +403,13 @@ export const HREmployeesView: React.FC = () => {
               onClick={() => exportCsv(empList)}>
               Export
             </Button>
-            <Button variant="primary" size="sm" icon={<Send className="w-4 h-4" />}
-              onClick={openInvitePanel}>
-              Invite Staff
+            <Button 
+              variant="primary" 
+              size="md"
+              onClick={openInvitePanel}
+              className="bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 border-2 border-[var(--brand-gold)] px-5 py-2.5">
+              <Send className="w-4 h-4 mr-2" />
+              Invite New Staff
             </Button>
           </div>
         }
@@ -506,15 +510,35 @@ export const HREmployeesView: React.FC = () => {
                   {emp.department?.name.split('&')[0].trim()}
                 </td>
                 <td className="px-4 py-3.5">
-                  <p className="text-(--text-secondary) text-xs truncate max-w-[160px]">{emp.position}</p>
-                  {emp.systemRole && (
-                    <Badge variant="glass" className="text-[9px] mt-0.5">
-                      {emp.systemRole.replace('_', ' ')}
-                    </Badge>
-                  )}
+                  <div className="space-y-1">
+                    {emp.position && emp.position !== 'Staff Member' && (
+                      <p className="text-(--text-secondary) text-xs truncate max-w-[160px] font-medium">{emp.position}</p>
+                    )}
+                    {emp.systemRole && (
+                      <Badge 
+                        variant={
+                          emp.systemRole === 'DEPARTMENT_HEAD' ? 'gold' :
+                          emp.systemRole === 'INSTRUCTOR' ? 'amber' :
+                          emp.systemRole === 'REGISTRAR' ? 'emerald' :
+                          emp.systemRole === 'HR_OFFICER' ? 'glass' :
+                          emp.systemRole === 'FINANCE_OFFICER' ? 'glass' : 'glass'
+                        }
+                        className="text-[9px] font-semibold"
+                      >
+                        {emp.systemRole.replace(/_/g, ' ')}
+                      </Badge>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3.5">
-                  <Badge variant="glass" className="text-[10px]">
+                  <Badge 
+                    variant={
+                      emp.employmentType === 'FULL_TIME' ? 'emerald' :
+                      emp.employmentType === 'PART_TIME' ? 'amber' :
+                      emp.employmentType === 'CONTRACT' ? 'glass' : 'glass'
+                    }
+                    className="text-[10px] font-medium"
+                  >
                     {(EMPLOYMENT_TYPE_LABEL as Record<string,string>)[emp.employmentType] ?? emp.employmentType}
                   </Badge>
                 </td>
@@ -834,12 +858,22 @@ export const HREmployeesView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="Education / Qualifications"
-              value={invForm.education}
-              onChange={e => setInvForm({ ...invForm, education: e.target.value })}
-              placeholder="e.g. PhD in Computer Science"
-            />
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">
+                Education / Qualifications
+              </label>
+              <select
+                value={invForm.education}
+                onChange={e => setInvForm({ ...invForm, education: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-gold)]/40"
+              >
+                <option value="">Select qualification...</option>
+                <option value="Diploma">Diploma</option>
+                <option value="Degree">Degree</option>
+                <option value="Master's degrees">Master's degrees</option>
+                <option value="PhD">PhD</option>
+              </select>
+            </div>
             <Input
               label="Years of Experience"
               type="number"

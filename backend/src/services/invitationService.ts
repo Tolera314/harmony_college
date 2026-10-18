@@ -264,7 +264,19 @@ export async function createStaffInvitation(
     };
     const defaultPosition = roleTitles[input.role] ?? 'Staff Member';
 
-    if (!existingHREmployee && hrDeptId) {
+    if (!existingHREmployee) {
+      // Ensure we have an HR department - if none found, create a default one
+      if (!hrDeptId) {
+        console.warn(`[StaffInvitation] No HR department found for ${normalizedEmail}. Creating default department.`);
+        const defaultDept = await prisma.hRDepartment.create({
+          data: {
+            name: 'General Staff',
+            isActive: true,
+          },
+        });
+        hrDeptId = defaultDept.id;
+      }
+
       // Auto-generate employee code if not provided
       let empCode = input.employeeCode?.trim() || '';
       
@@ -327,7 +339,8 @@ export async function createStaffInvitation(
       });
     }
   } catch (hrErr) {
-    console.warn('[StaffInvitation] Warning creating/updating HREmployee for invitation:', hrErr);
+    console.error('[StaffInvitation] ERROR creating/updating HREmployee for invitation:', hrErr);
+    console.error('[StaffInvitation] Invitation was created but HREmployee failed. Manual intervention may be required.');
   }
 
   return {

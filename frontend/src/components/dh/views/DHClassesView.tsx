@@ -134,7 +134,7 @@ export const DHClassesView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }>
       ]);
       setClasses(classRes.classes ?? []);
       setTotal(classRes.total);
-      setCourses(courseList);
+      setCourses(courseList.courses);
       setSemesters(semList);
       setInstructors(instrList);
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load classes'); }

@@ -56,7 +56,7 @@ export const HRSearchModal: React.FC<HRSearchModalProps> = ({ isOpen, onClose, o
     { tab: 'performance',    label: 'Performance',         icon: <TrendingUp className="w-4 h-4" /> },
     { tab: 'documents',      label: 'Documents',           icon: <FolderOpen className="w-4 h-4" /> },
     { tab: 'salary_history', label: 'Salary & Contracts',  icon: <TrendingUp className="w-4 h-4" /> },
-    { tab: 'offboarding',    label: 'Offboarding',         icon: <Users className="w-4 h-4" /> },
+    { tab: 'reports',        label: 'Reports',             icon: <Users className="w-4 h-4" /> },
   ];
 
   return (

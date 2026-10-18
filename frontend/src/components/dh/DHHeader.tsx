@@ -23,7 +23,6 @@ interface DHHeaderProps {
 const tabLabels: Record<DHNavTab, string> = {
   overview:             'Dashboard Overview',
   programs:             'Programs',
-  courses:              'Courses',
   semesters:            'Terms & Semesters',
   instructors:          'Instructors',
   students:             'Student Performance',

@@ -8,7 +8,6 @@ import { DHMobileNav }             from '@/src/components/dh/DHMobileNav';
 import { DHSearchModal }           from '@/src/components/dh/DHSearchModal';
 import { DHLogoutModal }           from '@/src/components/dh/DHLogoutModal';
 import { DHOverviewView }          from '@/src/components/dh/views/DHOverviewView';
-import { DHCoursesView }           from '@/src/components/dh/views/DHCoursesView';
 import { DHSemestersView }         from '@/src/components/dh/views/DHSemestersView';
 import { DHInstructorsView }       from '@/src/components/dh/views/DHInstructorsView';
 import { DHStudentsView }          from '@/src/components/dh/views/DHStudentsView';
@@ -46,7 +45,7 @@ function toHeaderNotif(n: ApiNotification) {
 // ─────────────────────────────────────────────────────────────────────────────
 const MOBILE_NAV_ITEMS: { id: DHNavTab; label: string }[] = [
   { id: 'overview',             label: 'Dashboard' },
-  { id: 'courses',              label: 'Courses' },
+  { id: 'semesters',            label: 'Terms & Semesters' },
   { id: 'instructors',          label: 'Instructors' },
   { id: 'students',             label: 'Students' },
   { id: 'classes',              label: 'Classes & Sections' },
@@ -196,7 +195,6 @@ export default function DepartmentHeadPage() {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':             return <DHOverviewView profile={profile} setActiveTab={setActiveTab} programType={dhProgramType} />;
-      case 'courses':              return <DHCoursesView programType={dhProgramType} />;
       case 'semesters':            return <DHSemestersView programType={dhProgramType} />;
       case 'instructors':          return <DHInstructorsView programType={dhProgramType} />;
       case 'students':             return <DHStudentsView programType={dhProgramType} />;
