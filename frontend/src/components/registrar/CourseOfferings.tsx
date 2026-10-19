@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<string, string> = {
 const KANBAN_COLUMNS = ['DRAFT', 'INSTRUCTOR_ASSIGNED', 'SCHEDULED', 'CLOSED'] as const;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export const CourseOfferings: React.FC = () => {
+export const CourseOfferings: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [data, setData]         = useState<OfferingsListResponse | null>(null);
   const [meta, setMeta]         = useState<OfferingMeta | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -62,21 +62,21 @@ export const CourseOfferings: React.FC = () => {
   const load = useCallback(async (pg: number, q: string, sem: string) => {
     setLoading(true); setError(null);
     try {
-      const res = await offeringsApi.list({ page: pg, limit: 20, search: q || undefined, semesterId: sem || undefined });
+      const res = await offeringsApi.list({ page: pg, limit: 20, search: q || undefined, semesterId: sem || undefined, programType });
       setData(res);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load offerings');
     } finally { setLoading(false); }
-  }, []);
+  }, [programType]);
 
   useEffect(() => {
-    offeringsApi.getMeta().then(m => {
+    offeringsApi.getMeta({ programType }).then(m => {
       setMeta(m);
       const cur = m.semesters.find(s => s.isCurrent);
       if (cur) { setSF(cur.id); load(1, search, cur.id); }
       else load(1, search, semesterFilter);
     }).catch(() => { load(1, search, semesterFilter); });
-  }, []);
+  }, [programType]);
 
   // Reload on page change
   useEffect(() => { load(page, search, semesterFilter); }, [page]);

@@ -168,17 +168,16 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const { fullName, email, phone, password } = result.data;
-    const normalizedEmail = email && email.trim() !== '' ? email.trim().toLowerCase() : undefined;
-    const normalizedPhone = phone && phone.trim() !== '' ? normalizePhone(phone.trim()) : undefined;
+    const { fullName, phone, password } = result.data;
+    const normalizedPhone = normalizePhone(phone.trim());
 
-    const [emailConflict, phoneConflict] = await Promise.all([
-      normalizedEmail ? prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } }) : null,
-      normalizedPhone ? prisma.user.findUnique({ where: { phone: normalizedPhone }, select: { id: true } }) : null,
-    ]);
+    const phoneConflict = await prisma.user.findUnique({ 
+      where: { phone: normalizedPhone }, 
+      select: { id: true } 
+    });
 
-    if (emailConflict || phoneConflict) {
-      res.status(409).json({ error: 'An account with this contact information already exists.' });
+    if (phoneConflict) {
+      res.status(409).json({ error: 'An account with this phone number already exists.' });
       return;
     }
 
@@ -187,7 +186,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     const user = await prisma.user.create({
       data: {
         fullName: fullName.trim(),
-        email:    normalizedEmail,
+        email:    undefined, // Email will be collected during profile completion
         phone:    normalizedPhone,
         passwordHash,
         role:                PUBLIC_SIGNUP_ROLE,

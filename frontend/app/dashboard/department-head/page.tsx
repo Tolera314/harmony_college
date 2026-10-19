@@ -122,10 +122,10 @@ export default function DepartmentHeadPage() {
   // Load new admissions count (last 30 days) for sidebar badge
   const loadNewAdmissions = useCallback(async () => {
     try {
-      const res = await hodNewAdmissionsApi.list(30);
+      const res = await hodNewAdmissionsApi.list(30, dhProgramType);
       setNewAdmissionsCount(res.total);
     } catch { /* non-critical */ }
-  }, []);
+  }, [dhProgramType]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
   useEffect(() => { loadNewAdmissions(); }, [loadNewAdmissions]);
@@ -200,7 +200,7 @@ export default function DepartmentHeadPage() {
       case 'students':             return <DHStudentsView programType={dhProgramType} />;
       case 'classes':              return <DHClassesView programType={dhProgramType} />;
       case 'academic_performance': return <DHAcademicPerformanceView programType={dhProgramType} />;
-      case 'reports':              return <DHReportsView />;
+      case 'reports':              return <DHReportsView programType={dhProgramType} />;
       case 'notifications':
         return (
           <DHNotificationsView

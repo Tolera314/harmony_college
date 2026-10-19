@@ -1,4 +1,4 @@
-﻿import { prisma }              from '../../lib/prisma';
+import { prisma }              from '../../lib/prisma';
 import { createNotification } from '../notificationService';
 import { CertificateStatus }  from '@prisma/client';
 import { randomBytes } from 'crypto';
@@ -15,10 +15,14 @@ function generateVerificationCode(): string {
 
 export async function listCertificates(q: {
   page: number; limit: number; search?: string; status?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }) {
   const skip = (q.page - 1) * q.limit;
   const where: any = {};
   if (q.status) where.status = q.status;
+  if (q.programType) {
+    where.studentRecord = { ...where.studentRecord, programType: q.programType };
+  }
   if (q.search) {
     where.OR = [
       { certificateNumber: { contains: q.search, mode: 'insensitive' } },

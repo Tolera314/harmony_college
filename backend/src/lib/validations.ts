@@ -4,28 +4,44 @@ import { z } from 'zod';
 // SHARED PRIMITIVES
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Ethiopian phone: 09XX... / 07XX... / +251...
-const ethioPhoneRegex = /^(?:\+251|0)[79]\d{8}$/;
+// Ethiopian phone: 09XXXXXXXX (exactly 10 digits) or +251XXXXXXXXX (exactly 13 characters)
+const ethioPhoneRegex = /^(?:09\d{8}|\+251\d{9})$/;
 
 export const normalizePhone = (phone: string): string => {
-  if (phone.startsWith('0')) {
-    return '+251' + phone.slice(1);
+  // Remove spaces
+  const cleaned = phone.trim().replace(/\s/g, '');
+  
+  if (cleaned.startsWith('09')) {
+    // Convert 09XXXXXXXX to +251XXXXXXXXX
+    return '+251' + cleaned.slice(1);
   }
-  return phone;
+  return cleaned;
 };
 
 /** Returns true if the string looks like an Ethiopian phone number. */
 export function isPhone(identifier: string): boolean {
-  return ethioPhoneRegex.test(identifier.trim());
+  const cleaned = identifier.trim().replace(/\s/g, '');
+  return ethioPhoneRegex.test(cleaned);
 }
 
 export const phoneSchema = z
   .string()
-  .min(10, 'Phone number must be at least 10 characters')
-  .max(13, 'Phone number must be at most 13 characters')
-  .regex(
-    ethioPhoneRegex,
-    'Please enter a valid Ethiopian phone number (e.g., 09XX..., 07XX..., or +251...)'
+  .transform((val) => val.replace(/\s/g, '')) // Remove spaces before validation
+  .refine(
+    (val) => val.startsWith('09') || val.startsWith('+251'),
+    'Phone must start with 09 or +251'
+  )
+  .refine(
+    (val) => {
+      if (val.startsWith('09')) {
+        return /^09\d{8}$/.test(val);
+      }
+      if (val.startsWith('+251')) {
+        return /^\+251\d{9}$/.test(val);
+      }
+      return false;
+    },
+    'Phone must be exactly 10 digits (09XXXXXXXX) or 13 characters (+251XXXXXXXXX)'
   );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -160,16 +176,8 @@ export const registerSchema = z
       .max(100, 'Full name must be at most 100 characters')
       .regex(/\S+\s+\S+/, 'Please enter both your first and last name'),
 
-    // At least one of email / phone is required — enforced by superRefine below
-    email: z
-      .string()
-      .trim()
-      .email('Please enter a valid email address')
-      .max(254, 'Email address is too long')
-      .optional()
-      .or(z.literal('')),
-
-    phone: phoneSchema.optional().or(z.literal('')),
+    // Phone is now required (email removed from /apply form)
+    phone: phoneSchema,
 
     password: passwordSchema,
 
@@ -181,18 +189,6 @@ export const registerSchema = z
       }),
   })
   .superRefine((data, ctx) => {
-    // At least one contact method is required
-    const hasEmail = typeof data.email === 'string' && data.email.trim().length > 0;
-    const hasPhone = typeof data.phone === 'string' && data.phone.trim().length > 0;
-
-    if (!hasEmail && !hasPhone) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['phone'],
-        message: 'At least one of phone number or email address is required',
-      });
-    }
-
     // Password confirmation
     if (data.password !== data.confirmPassword) {
       ctx.addIssue({

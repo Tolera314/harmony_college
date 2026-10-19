@@ -87,7 +87,8 @@ router.get('/classes', async (req: AuthRequest, res) => {
 
 router.get('/timetable', async (req: AuthRequest, res) => {
   try {
-    ok(res, await getTimetable(req.user!.userId));
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await getTimetable(req.user!.userId, programType));
   } catch (e) { fail(res, e); }
 });
 
@@ -98,11 +99,13 @@ router.get('/timetable', async (req: AuthRequest, res) => {
 router.get('/schedule', async (req: AuthRequest, res) => {
   try {
     const instructorId = await resolveInstructor(req.user!.userId);
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
 
     const slots = await prisma.timetableSlot.findMany({
       where: {
         instructorId,
         status: { in: ['PUBLISHED'] },
+        ...(programType ? { courseOffering: { programType: programType as any } } : {}),
       },
       include: {
         courseOffering: {
@@ -129,6 +132,7 @@ router.get('/schedule', async (req: AuthRequest, res) => {
 router.get('/schedule/today', async (req: AuthRequest, res) => {
   try {
     const instructorId = await resolveInstructor(req.user!.userId);
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
 
     const now = new Date();
     const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
@@ -137,7 +141,10 @@ router.get('/schedule/today', async (req: AuthRequest, res) => {
     const sessions = await prisma.classSession.findMany({
       where: {
         date: { gte: startOfDay, lte: endOfDay },
-        courseOffering: { instructorId },
+        courseOffering: {
+          instructorId,
+          ...(programType ? { programType: programType as any } : {}),
+        },
       },
       include: {
         courseOffering: {

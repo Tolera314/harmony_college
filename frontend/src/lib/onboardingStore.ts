@@ -23,6 +23,9 @@ export interface AccountData {
 
 export interface ProfileData {
   // Step 1 — Personal
+  fullName: string;
+  phone: string;
+  email: string;
   nationality: string;
   dob: string;
   gender: string;
@@ -68,6 +71,9 @@ const DEFAULT_ACCOUNT: AccountData = {
 };
 
 const DEFAULT_PROFILE: ProfileData = {
+  fullName: '',
+  phone: '',
+  email: '',
   nationality: 'Ethiopian',
   dob: '',
   gender: '',
@@ -107,6 +113,7 @@ function generateAppNumber(): string {
 
 export function computeCompletion(profile: ProfileData): number {
   const fields: (keyof ProfileData)[] = [
+    'fullName', 'phone', 'email',
     'nationality', 'dob', 'gender', 'city', 'nationalId',
     'program', 'programType',
     'matricResult', 'ministryResult',

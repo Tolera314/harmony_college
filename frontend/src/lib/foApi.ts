@@ -37,6 +37,7 @@ export async function getStudentAccounts(params?: {
   departmentId?: string;
   paymentStatus?: string;
   riskLevel?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   page?: number;
   limit?: number;
 }) {
@@ -78,11 +79,11 @@ export async function updateAccountClearance(
 }
 
 // ── Registration Payments Verification ────────────────────────────────────────
-export async function getPendingRegistrationPayments(params?: { search?: string; page?: number; limit?: number }) {
+export async function getPendingRegistrationPayments(params?: { search?: string; programType?: 'TVET' | 'SHORT_PROGRAM'; page?: number; limit?: number }) {
   return apiFetch<any>(`/payments/pending${qs(params || {})}`);
 }
 
-export async function getVerifiedRegistrationPayments(params?: { search?: string; page?: number; limit?: number }) {
+export async function getVerifiedRegistrationPayments(params?: { search?: string; programType?: 'TVET' | 'SHORT_PROGRAM'; page?: number; limit?: number }) {
   return apiFetch<any>(`/payments/verified${qs(params || {})}`);
 }
 
@@ -109,7 +110,7 @@ export async function recordStudentPayment(paymentData: {
   });
 }
 
-export async function getTransactions(params?: { search?: string; type?: string; status?: string; page?: number; limit?: number }) {
+export async function getTransactions(params?: { search?: string; type?: string; status?: string; programType?: 'TVET' | 'SHORT_PROGRAM'; page?: number; limit?: number }) {
   return apiFetch<any>(`/transactions${qs(params || {})}`);
 }
 
@@ -121,7 +122,7 @@ export async function reverseTransaction(transactionId: string, reason: string) 
 }
 
 // ── Receipts ──────────────────────────────────────────────────────────────────
-export async function getReceipts(params?: { search?: string; page?: number; limit?: number }) {
+export async function getReceipts(params?: { search?: string; programType?: 'TVET' | 'SHORT_PROGRAM'; page?: number; limit?: number }) {
   return apiFetch<any>(`/receipts${qs(params || {})}`);
 }
 
@@ -130,7 +131,7 @@ export async function getReceiptDetail(receiptId: string) {
 }
 
 // ── Outstanding & Reminders ───────────────────────────────────────────────────
-export async function getOutstandingAccounts(params?: { search?: string; page?: number; limit?: number }) {
+export async function getOutstandingAccounts(params?: { search?: string; programType?: 'TVET' | 'SHORT_PROGRAM'; page?: number; limit?: number }) {
   return apiFetch<any>(`/outstanding${qs(params || {})}`);
 }
 
@@ -142,7 +143,7 @@ export async function sendPaymentReminder(studentRecordId: string, message?: str
 }
 
 // ── Gateway Reconciliation ─────────────────────────────────────────────────────
-export async function getReconciliationEntries(params?: { status?: string; search?: string }) {
+export async function getReconciliationEntries(params?: { status?: string; search?: string; programType?: 'TVET' | 'SHORT_PROGRAM' }) {
   return apiFetch<any>(`/reconciliation${qs(params || {})}`);
 }
 
@@ -167,12 +168,12 @@ export async function runAutoMatchReconciliation() {
 }
 
 // ── Financial Reports ─────────────────────────────────────────────────────────
-export async function getFinancialSummaryReport(period?: string) {
-  return apiFetch<any>(`/reports/summary${qs({ period })}`);
+export async function getFinancialSummaryReport(period?: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
+  return apiFetch<any>(`/reports/summary${qs({ period, programType })}`);
 }
 
-export async function getAgedReceivablesReport() {
-  return apiFetch<any>('/reports/aged-receivables');
+export async function getAgedReceivablesReport(programType?: 'TVET' | 'SHORT_PROGRAM') {
+  return apiFetch<any>(`/reports/aged-receivables${qs({ programType })}`);
 }
 
 // ── Notifications & Audit Logs ────────────────────────────────────────────────
@@ -263,6 +264,7 @@ export async function deleteTuitionConfig(id: string) {
 // ── Payment Submissions Review ────────────────────────────────────────────────
 export async function getPaymentSubmissions(params?: {
   search?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   page?: number;
   limit?: number;
 }) {

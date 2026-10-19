@@ -5,10 +5,11 @@ export interface CourseListQuery {
   page: number; limit: number;
   search?: string; departmentId?: string;
   status?: CourseStatus;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
 export async function listCourses(q: CourseListQuery) {
-  const { page, limit, search, departmentId, status } = q;
+  const { page, limit, search, departmentId, status, programType } = q;
   const skip = (page - 1) * limit;
   const where: any = {};
   
@@ -21,6 +22,7 @@ export async function listCourses(q: CourseListQuery) {
     where.status = 'ACTIVE';
   }
   
+  if (programType) where.programType = programType;
   if (departmentId) where.departmentId = departmentId;
   if (search) {
     where.OR = [
@@ -169,18 +171,22 @@ export async function setCourseStatus(id: string, status: CourseStatus, registra
   return updated;
 }
 
-export async function listDepartments() {
+export async function listDepartments(programType?: 'TVET' | 'SHORT_PROGRAM') {
   return prisma.department.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...(programType ? { programType } : {}) },
     orderBy: { name: 'asc' },
-    select: { id: true, name: true, code: true },
+    select: { id: true, name: true, code: true, programType: true },
   });
 }
 
-export async function listPrograms(departmentId?: string) {
+export async function listPrograms(departmentId?: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   return prisma.program.findMany({
-    where: { isActive: true, ...(departmentId ? { departmentId } : {}) },
+    where: {
+      isActive: true,
+      ...(departmentId ? { departmentId } : {}),
+      ...(programType ? { department: { programType } } : {}),
+    },
     orderBy: { name: 'asc' },
-    include: { department: { select: { id: true, name: true, code: true } } },
+    include: { department: { select: { id: true, name: true, code: true, programType: true } } },
   });
 }

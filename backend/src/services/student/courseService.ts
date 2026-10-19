@@ -37,14 +37,15 @@ export async function syncStudentPublishedCourses(studentRecordId: string): Prom
 
   const deptIds = await resolveDepartmentFamilyIds(student.departmentId);
 
-  // Find current semester matching programType, or fallback to current semester
+  // Find current semester matching programType, or fallback to most recent semester of same programType
   const currentSemester = await prisma.semester.findFirst({
     where: {
       isCurrent: true,
       programType: student.programType,
     },
   }) || await prisma.semester.findFirst({
-    where: { isCurrent: true },
+    where: { programType: student.programType },
+    orderBy: { startDate: 'desc' },
   });
 
   if (!currentSemester) return false;
@@ -112,6 +113,7 @@ export async function syncStudentPublishedCourses(studentRecordId: string): Prom
       course: {
         departmentId: { in: deptIds },
         status: { not: 'ACTIVE' },
+        programType: student.programType,
       },
     },
     select: { id: true },

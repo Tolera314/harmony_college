@@ -55,7 +55,8 @@ const ALL_ROLES         = [Role.STUDENT, Role.INSTRUCTOR, Role.REGISTRAR, Role.A
 
 router.get('/sessions/today', requireRole(INSTRUCTOR_ROLES), async (req: AuthRequest, res) => {
   try {
-    ok(res, await svc.getTodaySessionsForInstructor(req.user!.userId));
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getTodaySessionsForInstructor(req.user!.userId, programType));
   } catch (e) { fail(res, e); }
 });
 

@@ -23,13 +23,14 @@ import {
   type AccountData,
 } from '@/src/lib/onboardingStore';
 import type { VerifiedUser } from './OTPVerification';
+import { validateEthiopianPhone, formatFullName, validateFullName } from '@/src/lib/validationUtils';
 
 type Stage = 'create' | 'verify';
 
 // ── Floating label input ──────────────────────────────────────────────────────
 function FloatingInput({
   id, icon: Icon, label, type = 'text', value, onChange, error, hint,
-  required, suffix,
+  required, suffix, onBlur,
 }: {
   id: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
@@ -41,6 +42,7 @@ function FloatingInput({
   hint?: string;
   required?: boolean;
   suffix?: React.ReactNode;
+  onBlur?: () => void;
 }) {
   return (
     <div className="relative group">
@@ -61,6 +63,7 @@ function FloatingInput({
         value={value}
         autoComplete={type === 'password' ? 'new-password' : 'off'}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
         placeholder={label}
@@ -144,7 +147,7 @@ export function ApplyPageInner() {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>('create');
   const [account, setAccount] = useState<AccountData>({
-    fullName: '', phone: '', email: '', password: '', userId: '',
+    fullName: '', phone: '', password: '', userId: '', email: '',
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -169,16 +172,20 @@ export function ApplyPageInner() {
 
   const validate = (): boolean => {
     const errs: typeof errors = {};
-    if (!account.fullName.trim()) errs.fullName = 'Full name is required.';
-    else if (account.fullName.trim().split(' ').length < 2) errs.fullName = 'Please enter your full name.';
-
-    if (!account.phone.trim()) errs.phone = 'Phone number is required.';
-    else if (!/^(?:\+251|0)[79]\d{8}$/.test(account.phone)) errs.phone = 'Enter a valid Ethiopian phone (09XX… or +251…).';
-
-    if (account.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.email)) {
-      errs.email = 'Enter a valid email address.';
+    
+    // Validate full name
+    const nameValidation = validateFullName(account.fullName);
+    if (!nameValidation.valid) {
+      errs.fullName = nameValidation.error;
     }
 
+    // Validate phone number
+    const phoneValidation = validateEthiopianPhone(account.phone);
+    if (!phoneValidation.valid) {
+      errs.phone = phoneValidation.error;
+    }
+
+    // Password validation
     if (!account.password) errs.password = 'Password is required.';
     else if (account.password.length < 8) errs.password = 'Minimum 8 characters.';
 
@@ -202,8 +209,7 @@ export function ApplyPageInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName:        account.fullName,
-          phone:           account.phone  || undefined,
-          email:           account.email  || undefined,
+          phone:           account.phone || undefined,
           password:        account.password,
           confirmPassword,
           acceptTerms:     true,
@@ -256,8 +262,44 @@ export function ApplyPageInner() {
   };
 
   const setField = (key: keyof AccountData) => (val: string) => {
-    setAccount((p) => ({ ...p, [key]: val }));
+    let processedValue = val;
+    
+    // Smart name formatting: capitalize when space is pressed (word completed)
+    if (key === 'fullName' && val.length > 0) {
+      // Check if the last character is a space (user just completed a word)
+      if (val.endsWith(' ')) {
+        processedValue = formatFullName(val);
+      }
+    }
+    
+    // Phone number smart length limit based on format
+    if (key === 'phone') {
+      // Remove spaces for length checking
+      const cleaned = val.replace(/\s/g, '');
+      
+      // Smart limiting based on prefix
+      if (cleaned.startsWith('+251')) {
+        // +251 format: limit to 13 characters
+        processedValue = cleaned.slice(0, 13);
+      } else if (cleaned.startsWith('09')) {
+        // 09 format: limit to 10 digits
+        processedValue = cleaned.slice(0, 10);
+      } else {
+        // For incomplete input, allow up to 13 chars
+        processedValue = cleaned.slice(0, 13);
+      }
+    }
+    
+    setAccount((p) => ({ ...p, [key]: processedValue }));
     if (errors[key]) setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
+  };
+  
+  // Format name on blur (when user leaves the field) - final cleanup
+  const handleNameBlur = () => {
+    if (account.fullName) {
+      const formatted = formatFullName(account.fullName);
+      setAccount((p) => ({ ...p, fullName: formatted }));
+    }
   };
 
   return (
@@ -418,8 +460,9 @@ export function ApplyPageInner() {
                       label="Full Name"
                       value={account.fullName}
                       onChange={setField('fullName')}
+                      onBlur={handleNameBlur}
                       error={errors.fullName}
-                      hint="First and last name"
+                      hint="First and last name (auto-capitalized)"
                       required
                     />
 
@@ -431,18 +474,8 @@ export function ApplyPageInner() {
                       value={account.phone}
                       onChange={setField('phone')}
                       error={errors.phone}
-                      hint="09XX XXX XXXX or +251…"
+                      hint="09XXXXXXXX or +251XXXXXXXXX"
                       required
-                    />
-
-                    <FloatingInput
-                      id="email"
-                      icon={Mail}
-                      label="Email Address (Optional)"
-                      type="email"
-                      value={account.email}
-                      onChange={setField('email')}
-                      error={errors.email}
                     />
 
                     <div>

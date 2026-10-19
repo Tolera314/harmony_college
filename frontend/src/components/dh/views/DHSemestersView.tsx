@@ -59,7 +59,7 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [semFilter, setSemFilter] = useState('');
-  const [selected, setSelected] = useState<CourseOfferingSummary | null>(null);
+  const [selected, setSelected] = useState<any | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ offering: CourseOfferingSummary; action: 'Approve' | 'Reject' } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -635,7 +635,7 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                     <div>
                       <p className="text-[10px] uppercase font-mono tracking-wider text-(--text-muted)">Enrollment</p>
                       <p className="text-xs text-(--text-secondary) font-medium">
-                        {semester.offerings.reduce((sum, o) => sum + o._count.enrollments, 0)} students
+                        {semester.offerings.reduce((sum, o) => sum + (o._count?.enrollments ?? 0), 0)} students
                       </p>
                     </div>
                   </div>
@@ -705,8 +705,8 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                                     </span>
                                   </td>
                                   <td className="px-3 py-2.5">
-                                    <Badge variant={offering.course.programType === 'TVET' ? 'glass' : 'amber'} className="text-[10px]">
-                                      {offering.course.programType === 'TVET' ? 'TVET' : 'Short'}
+                                    <Badge variant={(offering as any).course?.programType === 'TVET' ? 'glass' : 'amber'} className="text-[10px]">
+                                      {(offering as any).course?.programType === 'TVET' ? 'TVET' : 'Short'}
                                     </Badge>
                                   </td>
                                   <td className="px-3 py-2.5">
@@ -725,15 +725,15 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                                     )}
                                   </td>
                                   <td className="px-3 py-2.5">
-                                    {offering.schedule && offering.schedule.length > 0 ? (
+                                    {((offering as any).timetables || (offering as any).schedule)?.length > 0 ? (
                                       <div className="text-[10px] text-(--text-secondary)">
-                                        {offering.schedule.slice(0, 2).map((sch: any, schIdx: number) => (
+                                        {(((offering as any).timetables || (offering as any).schedule) as any[]).slice(0, 2).map((sch: any, schIdx: number) => (
                                           <div key={schIdx} className="truncate max-w-[100px]">
                                             {DAY_NAMES[sch.dayOfWeek]} {sch.startTime}
                                           </div>
                                         ))}
-                                        {offering.schedule.length > 2 && (
-                                          <span className="text-(--text-faint)">+{offering.schedule.length - 2} more</span>
+                                        {(((offering as any).timetables || (offering as any).schedule) as any[]).length > 2 && (
+                                          <span className="text-(--text-faint)">+{(((offering as any).timetables || (offering as any).schedule) as any[]).length - 2} more</span>
                                         )}
                                       </div>
                                     ) : (
@@ -746,7 +746,7 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                                       variant="ghost"
                                       size="xs"
                                       icon={<Eye className="w-3.5 h-3.5" />}
-                                      onClick={() => setSelected(offering)}
+                                      onClick={() => setSelected(offering as any)}
                                       title="View details"
                                     >
                                       View
@@ -768,17 +768,17 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
       )}
 
       {/* Detail panel */}
-      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.course.code} — ${selected.course.name}` : ''} subtitle="Course Offering Details" width="max-w-2xl">
+      <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.course?.code || ''} — ${selected.course?.name || ''}` : ''} subtitle="Course Offering Details" width="max-w-2xl">
         {selected && (
           <div className="space-y-5 text-sm font-sans">
             <div className="grid grid-cols-2 gap-4">
               {[
                 ['Semester',  selected.semester ? `${selected.semester.name} ${selected.semester.academicYear?.name || ''}` : '—'],
                 ['Section',   selected.section],
-                ['Credits',   `${selected.course.creditHours} credit hours`],
+                ['Credits',   `${selected.course?.creditHours || 0} credit hours`],
                 ['Room',      selected.room ? `${selected.room.building} ${selected.room.name}` : '—'],
-                ['Capacity',  `${selected.capacity} seats`],
-                ['Enrolled',  `${selected.enrolledCount || selected._count?.enrollments || 0} (${selected.utilizationPct || 0}%)`],
+                ['Capacity',  `${selected.capacity || 0} seats`],
+                ['Enrolled',  `${selected.enrolledCount || (selected as any)._count?.enrollments || 0} (${selected.utilizationPct || 0}%)`],
               ].map(([k, v]) => (
                 <div key={String(k)} className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                   <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint)">{k}</p>
@@ -803,7 +803,7 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
             {selected.timetables.length > 0 && (
               <div className="p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-2">Schedule</p>
-                {selected.timetables.map((t, i) => (
+                {selected.timetables.map((t: { dayOfWeek: number; startTime: string; endTime: string }, i: number) => (
                   <p key={i} className="text-xs text-(--text-secondary) font-mono">{DAY_NAMES[t.dayOfWeek]} · {t.startTime} – {t.endTime}</p>
                 ))}
               </div>
@@ -811,7 +811,7 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
             {selected.course.prerequisites.length > 0 && (
               <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-2">Prerequisites</p>
-                {selected.course.prerequisites.map((p, i) => (
+                {selected.course.prerequisites.map((p: { prerequisite: { code: string } }, i: number) => (
                   <span key={i} className="inline-block mr-2 mb-1 font-mono text-xs text-(--brand-gold) bg-(--accent-gold-subtle) px-2 py-0.5 rounded-lg">{p.prerequisite.code}</span>
                 ))}
               </div>

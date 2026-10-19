@@ -42,6 +42,9 @@ export async function getPendingRegistrationPayments(query: Record<string, strin
       { user: { application: { registrationScreenshotUrl: { not: null } } } },
     ],
   };
+  if (query.programType) {
+    where.programType = query.programType;
+  }
   if (search) {
     where.user = {
       ...where.user,
@@ -74,6 +77,9 @@ export async function getVerifiedRegistrationPayments(query: Record<string, stri
   const search = typeof query.search === 'string' ? query.search : undefined;
 
   const where: any = { paymentVerifiedByFinance: true };
+  if (query.programType) {
+    where.programType = query.programType;
+  }
   if (search) {
     where.user = {
       OR: [
@@ -345,6 +351,7 @@ export async function listTransactions(params: {
   search?: string;
   type?: string;
   status?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   page?: number;
   limit?: number;
 }) {
@@ -355,6 +362,13 @@ export async function listTransactions(params: {
   const where: any = {};
   if (params.type) where.type = params.type;
   if (params.status) where.status = params.status;
+  if (params.programType) {
+    where.financialAccount = {
+      studentRecord: {
+        programType: params.programType,
+      },
+    };
+  }
   if (params.search) {
     where.OR = [
       { description: { contains: params.search, mode: 'insensitive' } },

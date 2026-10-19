@@ -235,6 +235,16 @@ export async function createOffering(data: {
     if (data.instructorId && data.roomId && data.timetables?.length) status = OfferingStatus.SCHEDULED;
   }
 
+  const [course, semester] = await Promise.all([
+    prisma.course.findUnique({ where: { id: data.courseId }, select: { id: true, programType: true } }),
+    prisma.semester.findUnique({ where: { id: data.semesterId }, select: { id: true, programType: true } }),
+  ]);
+  if (!course) throw new Error('Course not found');
+  if (!semester) throw new Error('Semester/Academic period not found');
+  if (course.programType !== semester.programType) {
+    throw new Error(`Cannot create offering: Course program type (${course.programType}) does not match academic period program type (${semester.programType}).`);
+  }
+
   const offering = await prisma.$transaction(async (tx) => {
     const off = await tx.courseOffering.create({
       data: {
@@ -242,6 +252,7 @@ export async function createOffering(data: {
         instructorId: data.instructorId ?? null,
         roomId: data.roomId ?? null,
         capacity: data.capacity, section, status,
+        programType: course.programType,
       },
     });
 
@@ -465,8 +476,9 @@ export async function updateOffering(id: string, data: {
   return updated;
 }
 
-export async function listSemesters() {
+export async function listSemesters(programType?: 'TVET' | 'SHORT_PROGRAM') {
   return prisma.semester.findMany({
+    where: programType ? { programType } : undefined,
     orderBy: [{ academicYear: { startDate: 'desc' } }, { startDate: 'asc' }],
     include: { academicYear: { select: { name: true } } },
   });

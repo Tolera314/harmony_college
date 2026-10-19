@@ -447,11 +447,14 @@ export async function getMyClasses(userId: string, programType?: 'TVET' | 'SHORT
 // TIMETABLE
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getTimetable(userId: string) {
+export async function getTimetable(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const instructor = await resolveInstructor(userId);
 
   const slots = await prisma.timetableSlot.findMany({
-    where: { instructorId: instructor.id },
+    where: {
+      instructorId: instructor.id,
+      ...(programType ? { courseOffering: { programType: programType as any } } : {}),
+    },
     include: {
       courseOffering: {
         include: {

@@ -66,6 +66,7 @@ router.get('/student-accounts', async (req: AuthRequest, res: Response): Promise
       departmentId: query.departmentId,
       paymentStatus: query.paymentStatus,
       riskLevel: query.riskLevel,
+      programType: query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 20,
     });
@@ -258,6 +259,7 @@ router.get('/transactions', async (req: AuthRequest, res: Response): Promise<voi
       search: query.search,
       type: query.type,
       status: query.status,
+      programType: query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 20,
     });
@@ -293,6 +295,7 @@ router.get('/receipts', async (req: AuthRequest, res: Response): Promise<void> =
     const query = req.query as Record<string, string | undefined>;
     const data = await foReceiptService.listReceipts({
       search: query.search,
+      programType: query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 20,
     }, req.user?.userId);
@@ -321,6 +324,7 @@ router.get('/outstanding', async (req: AuthRequest, res: Response): Promise<void
     const data = await foStudentAccountService.listStudentAccounts({
       paymentStatus: 'Unpaid',
       search: query.search,
+      programType: query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 20,
     });
@@ -353,6 +357,7 @@ router.get('/reconciliation', async (req: AuthRequest, res: Response): Promise<v
     const data = await foReconciliationService.listReconciliationEntries({
       status: query.status,
       search: query.search,
+      programType: query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     });
     ok(res, data);
   } catch (err) {
@@ -400,7 +405,10 @@ router.post('/reconciliation/:id/flag', async (req: AuthRequest, res: Response):
 router.get('/reports/summary', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const query = req.query as Record<string, string | undefined>;
-    const data = await foReportService.getFinancialSummaryReport(query.period);
+    const data = await foReportService.getFinancialSummaryReport(
+      query.period,
+      query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined
+    );
     ok(res, data);
   } catch (err) {
     console.error('[FO/reports/summary]', err);
@@ -408,9 +416,11 @@ router.get('/reports/summary', async (req: AuthRequest, res: Response): Promise<
   }
 });
 
-router.get('/reports/aged-receivables', async (_req: AuthRequest, res: Response): Promise<void> => {
+router.get('/reports/aged-receivables', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const data = await foReportService.getAgedReceivablesReport();
+    const data = await foReportService.getAgedReceivablesReport(
+      req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined
+    );
     ok(res, data);
   } catch (err) {
     console.error('[FO/reports/aged-receivables]', err);
@@ -562,6 +572,7 @@ router.get('/payment-submissions', async (req: AuthRequest, res: Response): Prom
     const q = req.query as Record<string, string | undefined>;
     const data = await paymentSubmissionService.listPendingSubmissions({
       search: q.search,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
       page:   q.page ? parseInt(q.page, 10) : 1,
       limit:  q.limit ? parseInt(q.limit, 10) : 20,
     });

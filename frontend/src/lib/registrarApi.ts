@@ -79,8 +79,8 @@ export interface EligibleHod {
 }
 
 export const departmentMgmtApi = {
-  list: () =>
-    apiFetch<DepartmentCard[]>('/api/registrar/departments'),
+  list: (programType?: 'TVET' | 'SHORT_PROGRAM') =>
+    apiFetch<DepartmentCard[]>(`/api/registrar/departments${qs({ programType })}`),
   create: (data: { name: string; code: string; description?: string }) =>
     apiFetch<DepartmentCard>('/api/registrar/departments', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<{ name: string; code: string; description: string; isActive: boolean }>) =>
@@ -231,7 +231,7 @@ export interface CourseMeta {
 // Course creation/editing is handled by Head of Department (HOD) via /api/department-head/courses
 export const coursesApi = {
   list:    (params: Record<string, unknown> = {}) => apiFetch<CoursesListResponse>(`/api/registrar/courses${qs(params)}`),
-  getMeta: () => apiFetch<CourseMeta>('/api/registrar/courses/meta'),
+  getMeta: (params: Record<string, unknown> = {}) => apiFetch<CourseMeta>(`/api/registrar/courses/meta${qs(params)}`),
   getById: (id: string) => apiFetch<CourseItem & Record<string, any>>(`/api/registrar/courses/${id}`),
 };
 
@@ -258,7 +258,7 @@ export interface OfferingMeta {
 }
 export const offeringsApi = {
   list:    (params: Record<string, unknown> = {}) => apiFetch<OfferingsListResponse>(`/api/registrar/offerings${qs(params)}`),
-  getMeta: () => apiFetch<OfferingMeta>('/api/registrar/offerings/meta'),
+  getMeta: (params: Record<string, unknown> = {}) => apiFetch<OfferingMeta>(`/api/registrar/offerings/meta${qs(params)}`),
   getById: (id: string) => apiFetch<OfferingItem & Record<string, any>>(`/api/registrar/offerings/${id}`),
   create:  (data: Record<string, unknown>) => apiFetch(`/api/registrar/offerings`, { method: 'POST', body: JSON.stringify(data) }),
   update:  (id: string, data: Record<string, unknown>) => apiFetch(`/api/registrar/offerings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -356,9 +356,14 @@ export const certificatesApi = {
 // ═══════════════════════════════════════════════════════════════════════════
 export const reportsApi = {
   enrollments:       (params: Record<string, unknown> = {}) => apiFetch<Record<string, any>>(`/api/registrar/reports/enrollments${qs(params)}`),
-  admissions:        () => apiFetch<Record<string, any>>('/api/registrar/reports/admissions'),
-  graduation:        () => apiFetch<Record<string, any>>('/api/registrar/reports/graduation'),
-  courseUtilization: (semesterId?: string) => apiFetch<Record<string, any>[]>(`/api/registrar/reports/course-utilization${semesterId ? `?semesterId=${semesterId}` : ''}`),
+  admissions:        (params: Record<string, unknown> = {}) => apiFetch<Record<string, any>>(`/api/registrar/reports/admissions${qs(params)}`),
+  graduation:        (params: Record<string, unknown> = {}) => apiFetch<Record<string, any>>(`/api/registrar/reports/graduation${qs(params)}`),
+  courseUtilization: (paramsOrSemesterId?: string | Record<string, unknown>, programType?: string) => {
+    if (typeof paramsOrSemesterId === 'object' && paramsOrSemesterId !== null) {
+      return apiFetch<Record<string, any>[]>(`/api/registrar/reports/course-utilization${qs(paramsOrSemesterId)}`);
+    }
+    return apiFetch<Record<string, any>[]>(`/api/registrar/reports/course-utilization${qs({ semesterId: paramsOrSemesterId, programType })}`);
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

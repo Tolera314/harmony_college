@@ -27,13 +27,24 @@ const progressBar = (val: number, max: number, color = '#E9C349') => {
 
 type Tab = 'enrollment' | 'performance' | 'workload';
 
-export const DHReportsView: React.FC = () => {
+interface DHReportsViewProps {
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}
+
+export const DHReportsView: React.FC<DHReportsViewProps> = ({ programType }) => {
   const [tab,         setTab]         = useState<Tab>('enrollment');
   const [enrollment,  setEnrollment]  = useState<EnrollmentReport | null>(null);
   const [performance, setPerformance] = useState<PerformanceReport | null>(null);
   const [workload,    setWorkload]    = useState<WorkloadReport[] | null>(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
+
+  // Clear cached reports when switching academic program context
+  useEffect(() => {
+    setEnrollment(null);
+    setPerformance(null);
+    setWorkload(null);
+  }, [programType]);
 
   const load = useCallback(async (t: Tab) => {
     setLoading(true);
