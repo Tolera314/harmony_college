@@ -312,9 +312,16 @@ export interface DetailedSemester extends Semester {
     id: string;
     section: string;
     status: string;
-    course: { id: string; code: string; name: string; creditHours: number; ects: number | null };
+    capacity?: number;
+    course: { id: string; code: string; name: string; creditHours: number; ects: number | null; programType?: 'TVET' | 'SHORT_PROGRAM' };
     instructor: { id: string; user: { fullName: string } } | null;
-    _count: { enrollments: number };
+    room?: { id: string; name: string; building: string } | null;
+    semester?: { id: string; name: string; academicYear?: { name: string } } | null;
+    schedule?: { dayOfWeek: number; startTime: string; endTime: string }[];
+    timetables?: { dayOfWeek: number; startTime: string; endTime: string }[];
+    _count?: { enrollments: number };
+    enrolledCount?: number;
+    utilizationPct?: number;
   }[];
 }
 
@@ -348,8 +355,8 @@ export const hodOfferingsApi = {
 export const hodFacultyApi = {
   list: (params: Record<string, unknown> = {}) =>
     apiFetch<FacultyResponse>(`${BASE}/faculty${qs(params)}`),
-  get: (id: string) =>
-    apiFetch<FacultyDetail>(`${BASE}/faculty/${id}`),
+  get: (id: string, programType?: string) =>
+    apiFetch<FacultyDetail>(`${BASE}/faculty/${id}${qs({ programType })}`),
 };
 
 export const hodStudentsApi = {
@@ -360,15 +367,15 @@ export const hodStudentsApi = {
 };
 
 export const hodNewAdmissionsApi = {
-  list: (days?: number) =>
-    apiFetch<NewAdmissionsResponse>(`${BASE}/students/new-admissions${qs({ days: days ?? 60 })}`),
+  list: (days?: number, programType?: string) =>
+    apiFetch<NewAdmissionsResponse>(`${BASE}/students/new-admissions${qs({ days: days ?? 60, programType })}`),
 };
 
 export const hodReportsApi = {
-  enrollment:  () => apiFetch<EnrollmentReport>(`${BASE}/reports/enrollment`),
-  attendance:  () => apiFetch<AttendanceReport>(`${BASE}/reports/attendance`),
-  performance: () => apiFetch<PerformanceReport>(`${BASE}/reports/performance`),
-  workload:    () => apiFetch<WorkloadReport[]>(`${BASE}/reports/workload`),
+  enrollment:  (params: Record<string, unknown> = {}) => apiFetch<EnrollmentReport>(`${BASE}/reports/enrollment${qs(params)}`),
+  attendance:  (params: Record<string, unknown> = {}) => apiFetch<AttendanceReport>(`${BASE}/reports/attendance${qs(params)}`),
+  performance: (params: Record<string, unknown> = {}) => apiFetch<PerformanceReport>(`${BASE}/reports/performance${qs(params)}`),
+  workload:    (params: Record<string, unknown> = {}) => apiFetch<WorkloadReport[]>(`${BASE}/reports/workload${qs(params)}`),
 };
 
 export const hodLeaveApi = {
@@ -395,7 +402,7 @@ export const hodAuditApi = {
 };
 
 export const hodSemestersApi = {
-  list: () => apiFetch<Semester[]>(`${BASE}/semesters`),
+  list: (params: Record<string, unknown> = {}) => apiFetch<Semester[]>(`${BASE}/semesters${qs(params)}`),
   listDetailed: (params: Record<string, unknown> = {}) => 
     apiFetch<DetailedSemester[]>(`${BASE}/semesters${qs({ ...params, detailed: 'true' })}`),
 };
@@ -651,6 +658,6 @@ export interface DHDepartmentReports {
 }
 
 export const hodDeptReportsApi = {
-  get: () => apiFetch<DHDepartmentReports>(`${BASE}/reports/department-summary`),
+  get: (params: Record<string, unknown> = {}) => apiFetch<DHDepartmentReports>(`${BASE}/reports/department-summary${qs(params)}`),
 };
 

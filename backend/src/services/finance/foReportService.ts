@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma';
 
-export async function getFinancialSummaryReport(period?: string) {
+export async function getFinancialSummaryReport(period?: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const now = new Date();
   const yearStart = new Date(now.getFullYear(), 0, 1);
   const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
@@ -8,8 +8,19 @@ export async function getFinancialSummaryReport(period?: string) {
   const last7Start = new Date(now);
   last7Start.setDate(last7Start.getDate() - 7);
 
+  const accountWhere: any = {};
+  const txWhere: any = { transactionDate: { gte: yearStart }, status: 'POSTED' };
+  const prevTxWhere: any = { transactionDate: { gte: lastYearStart, lte: lastYearSameDate }, status: 'POSTED' };
+
+  if (programType) {
+    accountWhere.studentRecord = { programType };
+    txWhere.financialAccount = { studentRecord: { programType } };
+    prevTxWhere.financialAccount = { studentRecord: { programType } };
+  }
+
   const [accounts, transactions, prevYearTransactions, currentAcademicYear] = await Promise.all([
     prisma.financialAccount.findMany({
+      where: accountWhere,
       select: {
         balance: true,
         studentRecord: {
@@ -21,14 +32,11 @@ export async function getFinancialSummaryReport(period?: string) {
       },
     }),
     prisma.financialTransaction.findMany({
-      where:   { transactionDate: { gte: yearStart }, status: 'POSTED' },
+      where:   txWhere,
       orderBy: { transactionDate: 'desc' },
     }),
     prisma.financialTransaction.findMany({
-      where: {
-        transactionDate: { gte: lastYearStart, lte: lastYearSameDate },
-        status: 'POSTED',
-      },
+      where: prevTxWhere,
       select: { type: true, amount: true },
     }),
     prisma.academicYear.findFirst({
@@ -181,9 +189,14 @@ export async function getFinancialSummaryReport(period?: string) {
   };
 }
 
-export async function getAgedReceivablesReport() {
+export async function getAgedReceivablesReport(programType?: 'TVET' | 'SHORT_PROGRAM') {
+  const where: any = { balance: { gt: 0 } };
+  if (programType) {
+    where.studentRecord = { programType };
+  }
+
   const accounts = await prisma.financialAccount.findMany({
-    where: { balance: { gt: 0 } },
+    where,
     include: {
       studentRecord: {
         include: {

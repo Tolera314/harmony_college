@@ -217,7 +217,7 @@ interface AdmissionsResponse {
   admissions: AdmissionStudent[];
 }
 
-const StudentApplicationsTab: React.FC = () => {
+const StudentApplicationsTab: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [subTab, setSubTab] = useState<'pending' | 'approved'>('pending');
   const [data, setData] = useState<AdmissionsResponse | null>(null);
   const [selected, setSelected] = useState<AdmissionStudent | null>(null);
@@ -241,15 +241,16 @@ const StudentApplicationsTab: React.FC = () => {
         limit: 15, 
         search: q, 
         program: pf || undefined,
-        approved: isApproved ? 'true' : 'false'
+        approved: isApproved ? 'true' : 'false',
+        programType,
       })}`);
       setData(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load admissions');
     } finally { setLoading(false); }
-  }, [page, search, programFilter, subTab]);
+  }, [page, search, programFilter, subTab, programType]);
 
-  useEffect(() => { load(); }, [page, subTab]);
+  useEffect(() => { load(); }, [page, subTab, load, programType]);
 
   const handleSearch = (val: string) => {
     setSearch(val); setPage(1);
@@ -568,7 +569,7 @@ const StudentApplicationsTab: React.FC = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT — tab switcher
 // ─────────────────────────────────────────────────────────────────────────────
-export const AdmissionsManagement: React.FC = () => {
+export const AdmissionsManagement: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [activeTab, setActiveTab] = useState<'students' | 'staff'>('students');
 
   const tabs = [
@@ -618,7 +619,7 @@ export const AdmissionsManagement: React.FC = () => {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
         >
-          {activeTab === 'students' ? <StudentApplicationsTab /> : <StaffInvitationsTab />}
+          {activeTab === 'students' ? <StudentApplicationsTab programType={programType} /> : <StaffInvitationsTab />}
         </motion.div>
       </AnimatePresence>
 

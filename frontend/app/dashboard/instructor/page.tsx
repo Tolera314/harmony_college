@@ -189,8 +189,8 @@ export default function InstructorDashboardPage() {
     switch (activeTab) {
       case 'overview':       return <InOverviewView profile={profile} dashData={dashData} setActiveTab={setActiveTab} programType={academicProgramType} onProgramTypeChange={handleProgramTypeChange} />;
       case 'my_classes':     return <InMyClassesView setActiveTab={setActiveTab} programType={academicProgramType} />;
-      case 'schedule':       return <InScheduleView setActiveTab={setActiveTab} />;
-      case 'attendance':     return <InAttendanceView />;
+      case 'schedule':       return <InScheduleView setActiveTab={setActiveTab} programType={academicProgramType} />;
+      case 'attendance':     return <InAttendanceView programType={academicProgramType} />;
       case 'students':       return <InStudentsView programType={academicProgramType} />;
       case 'grades':         return <InGradesView programType={academicProgramType} />;
       case 'assignments':    return <InAssignmentsView programType={academicProgramType} />;
@@ -239,15 +239,14 @@ export default function InstructorDashboardPage() {
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
           <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
-            {/* Academic Context Switcher Banner if Instructor has responsibilities across both TVET & Short Program */}
-            {dashData?.academicContext?.hasTVET && dashData?.academicContext?.hasShortProgram && (
-              <div className="mb-6 p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-bold">Academic Assignment Context:</span>
-                  <span className="text-xs text-zinc-300">
-                    Currently viewing <strong className="text-white">{academicProgramType === 'TVET' ? 'TVET' : 'Short Program'}</strong> responsibilities
-                  </span>
-                </div>
+            {/* Academic Context Switcher Banner: kept permanently visible for role-based separation */}
+            <div className="mb-6 p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-bold">Academic Assignment Context:</span>
+                <span className="text-xs text-zinc-300">
+                  Currently viewing <strong className="text-white">{academicProgramType === 'TVET' ? 'TVET' : 'Short Program'}</strong> responsibilities
+                </span>
+              </div>
                 <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-xl">
                   <button
                     type="button"
@@ -273,7 +272,6 @@ export default function InstructorDashboardPage() {
                   </button>
                 </div>
               </div>
-            )}
 
             {dashLoading && activeTab === 'overview' ? (
               <SkeletonPage />

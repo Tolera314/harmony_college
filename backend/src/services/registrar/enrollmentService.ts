@@ -64,15 +64,19 @@ export interface EnrollmentListQuery {
   page: number; limit: number;
   search?: string; offeringId?: string;
   studentId?: string; status?: EnrollmentStatus;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
 export async function listEnrollments(q: EnrollmentListQuery) {
-  const { page, limit, search, offeringId, studentId, status } = q;
+  const { page, limit, search, offeringId, studentId, status, programType } = q;
   const skip = (page - 1) * limit;
   const where: any = {};
   if (status) where.status = status;
   if (offeringId) where.courseOfferingId = offeringId;
   if (studentId) where.studentRecordId = studentId;
+  if (programType) {
+    where.courseOffering = { ...where.courseOffering, programType };
+  }
   if (search) {
     where.OR = [
       { studentRecord: { studentId: { contains: search, mode: 'insensitive' } } },
@@ -159,6 +163,9 @@ export async function forceAddEnrollment(data: {
 
   if (!student) throw new Error('Student record not found');
   if (!offering) throw new Error('Course offering not found');
+  if (student.programType !== offering.programType) {
+    throw new Error(`Cannot enroll: Student program type (${student.programType}) does not match course offering program type (${offering.programType}).`);
+  }
   if (offering.semester?.isClosed) {
     throw new Error(`Cannot enroll: Academic period "${offering.semester.name}" is closed.`);
   }
@@ -271,6 +278,9 @@ export async function addEnrollment(data: {
 
   if (!student) throw new Error('Student not found');
   if (!offering) throw new Error('Course offering not found');
+  if (student.programType !== offering.programType) {
+    throw new Error(`Cannot enroll: Student program type (${student.programType}) does not match course offering program type (${offering.programType}).`);
+  }
   if (offering.semester?.isClosed) {
     throw new Error(`Cannot enroll: Academic period "${offering.semester.name}" is closed.`);
   }

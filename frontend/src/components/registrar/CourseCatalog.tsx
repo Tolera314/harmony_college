@@ -22,7 +22,7 @@ import {
 // authorized departments.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const CourseCatalog: React.FC = () => {
+export const CourseCatalog: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [data, setData]           = useState<CoursesListResponse | null>(null);
   const [meta, setMeta]           = useState<CourseMeta | null>(null);
   const [loading, setLoading]     = useState(true);
@@ -37,17 +37,17 @@ export const CourseCatalog: React.FC = () => {
   const load = useCallback(async (pg = page, q = search, dept = deptFilter) => {
     setLoading(true); setError(null);
     try {
-      const res = await coursesApi.list({ page: pg, limit: 15, search: q, departmentId: dept || undefined });
+      const res = await coursesApi.list({ page: pg, limit: 15, search: q, departmentId: dept || undefined, programType });
       setData(res);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load courses');
     } finally { setLoading(false); }
-  }, [page, search, deptFilter]);
+  }, [page, search, deptFilter, programType]);
 
   useEffect(() => {
     load();
-    coursesApi.getMeta().then(setMeta).catch(() => {});
-  }, [page]);
+    coursesApi.getMeta({ programType }).then(setMeta).catch(() => {});
+  }, [page, load, programType]);
 
   const handleSearch = (val: string) => {
     setSearch(val); setPage(1);

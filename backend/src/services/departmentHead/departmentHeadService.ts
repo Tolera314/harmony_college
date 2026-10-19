@@ -588,7 +588,7 @@ export async function rejectOffering(
 
 export async function getFaculty(
   userId: string,
-  params: { page?: number; limit?: number; search?: string; isActive?: boolean },
+  params: { page?: number; limit?: number; search?: string; isActive?: boolean; programType?: 'TVET' | 'SHORT_PROGRAM' },
 ) {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
@@ -598,12 +598,24 @@ export async function getFaculty(
 
   const where: any = { departmentId: { in: deptIds } };
   if (params.isActive !== undefined) where.isActive = params.isActive;
-  if (params.search) {
+  if (params.programType) {
     where.OR = [
+      { department: { programType: params.programType } },
+      { offerings: { some: { programType: params.programType } } },
+    ];
+  }
+  if (params.search) {
+    const searchFilter = [
       { user: { fullName: { contains: params.search, mode: 'insensitive' } } },
       { specialization: { contains: params.search, mode: 'insensitive' } },
       { employeeId:     { contains: params.search, mode: 'insensitive' } },
     ];
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, { OR: searchFilter }];
+      delete where.OR;
+    } else {
+      where.OR = searchFilter;
+    }
   }
 
   const [total, faculty] = await Promise.all([
@@ -619,7 +631,10 @@ export async function getFaculty(
         _count: {
           select: {
             offerings: {
-              where: { semester: { isCurrent: true } },
+              where: {
+                semester: { isCurrent: true },
+                ...(params.programType ? { programType: params.programType } : {}),
+              },
             },
           },
         },
@@ -647,7 +662,7 @@ export async function getFaculty(
   };
 }
 
-export async function getFacultyDetail(userId: string, instructorId: string) {
+export async function getFacultyDetail(userId: string, instructorId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
 
@@ -658,7 +673,10 @@ export async function getFacultyDetail(userId: string, instructorId: string) {
       departmentId: true, createdAt: true,
       user: { select: { fullName: true, email: true, phone: true } },
       offerings: {
-        where: { semester: { isCurrent: true } },
+        where: {
+          semester: { isCurrent: true },
+          ...(programType ? { programType } : {}),
+        },
         select: {
           id: true, status: true, capacity: true, section: true,
           course: { select: { code: true, name: true, creditHours: true } },
@@ -791,7 +809,7 @@ export async function getStudents(
 // NEW ADMISSIONS — students admitted to the HoD's dept in the last N days
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getNewAdmissions(userId: string, days = 60) {
+export async function getNewAdmissions(userId: string, days = 60, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
   const since = new Date();
@@ -802,6 +820,7 @@ export async function getNewAdmissions(userId: string, days = 60) {
       departmentId: { in: deptIds },
       status:       StudentStatus.ACTIVE,
       admittedAt:   { gte: since },
+      ...(programType ? { programType } : {}),
     },
     orderBy: { admittedAt: 'desc' },
     take: 20,
@@ -902,37 +921,66 @@ export async function getStudentDetail(userId: string, studentRecordId: string) 
 // REPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getEnrollmentReport(userId: string) {
+export async function getEnrollmentReport(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
 
   const [byCourse, byProgram, trend] = await Promise.all([
-    prisma.$queryRaw<{ code: string; name: string; enrolled: bigint; capacity: bigint; pct: number }[]>`
-      SELECT c.code, c.name, COUNT(e.id) AS enrolled, SUM(co.capacity) AS capacity,
-        ROUND(100.0 * COUNT(e.id) / NULLIF(SUM(co.capacity), 0), 1) AS pct
-      FROM "CourseOffering" co
-      INNER JOIN "Course" c    ON c.id = co."courseId"
-      INNER JOIN "Semester" s  ON s.id = co."semesterId" AND s."isCurrent" = true
-      LEFT  JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status != 'DROPPED'
-      WHERE c."departmentId" = ANY(${deptIds})
-      GROUP BY c.code, c.name ORDER BY enrolled DESC
-    `,
-    prisma.$queryRaw<{ prog: string; count: bigint }[]>`
-      SELECT p.name AS prog, COUNT(sr.id) AS count
-      FROM "StudentRecord" sr INNER JOIN "Program" p ON p.id = sr."programId"
-      WHERE sr."departmentId" = ANY(${deptIds}) AND sr.status = 'ACTIVE'
-      GROUP BY p.name ORDER BY count DESC
-    `,
-    prisma.$queryRaw<{ sem: string; count: bigint }[]>`
-      SELECT s.name || ' ' || ay.name AS sem, COUNT(e.id) AS count
-      FROM "Enrollment" e
-      INNER JOIN "CourseOffering" co ON co.id = e."courseOfferingId"
-      INNER JOIN "Course" c ON c.id = co."courseId"
-      INNER JOIN "Semester" s ON s.id = co."semesterId"
-      INNER JOIN "AcademicYear" ay ON ay.id = s."academicYearId"
-      WHERE c."departmentId" = ANY(${deptIds}) AND e.status != 'DROPPED'
-      GROUP BY s.name, ay.name, s."startDate" ORDER BY s."startDate" DESC LIMIT 6
-    `,
+    programType
+      ? prisma.$queryRaw<{ code: string; name: string; enrolled: bigint; capacity: bigint; pct: number }[]>`
+          SELECT c.code, c.name, COUNT(e.id) AS enrolled, SUM(co.capacity) AS capacity,
+            ROUND(100.0 * COUNT(e.id) / NULLIF(SUM(co.capacity), 0), 1) AS pct
+          FROM "CourseOffering" co
+          INNER JOIN "Course" c    ON c.id = co."courseId"
+          INNER JOIN "Semester" s  ON s.id = co."semesterId" AND s."isCurrent" = true
+          LEFT  JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status != 'DROPPED'
+          WHERE c."departmentId" = ANY(${deptIds}) AND co."programType" = ${programType}::"ProgramType"
+          GROUP BY c.code, c.name ORDER BY enrolled DESC
+        `
+      : prisma.$queryRaw<{ code: string; name: string; enrolled: bigint; capacity: bigint; pct: number }[]>`
+          SELECT c.code, c.name, COUNT(e.id) AS enrolled, SUM(co.capacity) AS capacity,
+            ROUND(100.0 * COUNT(e.id) / NULLIF(SUM(co.capacity), 0), 1) AS pct
+          FROM "CourseOffering" co
+          INNER JOIN "Course" c    ON c.id = co."courseId"
+          INNER JOIN "Semester" s  ON s.id = co."semesterId" AND s."isCurrent" = true
+          LEFT  JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status != 'DROPPED'
+          WHERE c."departmentId" = ANY(${deptIds})
+          GROUP BY c.code, c.name ORDER BY enrolled DESC
+        `,
+    programType
+      ? prisma.$queryRaw<{ prog: string; count: bigint }[]>`
+          SELECT p.name AS prog, COUNT(sr.id) AS count
+          FROM "StudentRecord" sr INNER JOIN "Program" p ON p.id = sr."programId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND sr.status = 'ACTIVE' AND sr."programType" = ${programType}::"ProgramType"
+          GROUP BY p.name ORDER BY count DESC
+        `
+      : prisma.$queryRaw<{ prog: string; count: bigint }[]>`
+          SELECT p.name AS prog, COUNT(sr.id) AS count
+          FROM "StudentRecord" sr INNER JOIN "Program" p ON p.id = sr."programId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND sr.status = 'ACTIVE'
+          GROUP BY p.name ORDER BY count DESC
+        `,
+    programType
+      ? prisma.$queryRaw<{ sem: string; count: bigint }[]>`
+          SELECT s.name || ' ' || ay.name AS sem, COUNT(e.id) AS count
+          FROM "Enrollment" e
+          INNER JOIN "CourseOffering" co ON co.id = e."courseOfferingId"
+          INNER JOIN "Course" c ON c.id = co."courseId"
+          INNER JOIN "Semester" s ON s.id = co."semesterId"
+          INNER JOIN "AcademicYear" ay ON ay.id = s."academicYearId"
+          WHERE c."departmentId" = ANY(${deptIds}) AND e.status != 'DROPPED' AND co."programType" = ${programType}::"ProgramType"
+          GROUP BY s.name, ay.name, s."startDate" ORDER BY s."startDate" DESC LIMIT 6
+        `
+      : prisma.$queryRaw<{ sem: string; count: bigint }[]>`
+          SELECT s.name || ' ' || ay.name AS sem, COUNT(e.id) AS count
+          FROM "Enrollment" e
+          INNER JOIN "CourseOffering" co ON co.id = e."courseOfferingId"
+          INNER JOIN "Course" c ON c.id = co."courseId"
+          INNER JOIN "Semester" s ON s.id = co."semesterId"
+          INNER JOIN "AcademicYear" ay ON ay.id = s."academicYearId"
+          WHERE c."departmentId" = ANY(${deptIds}) AND e.status != 'DROPPED'
+          GROUP BY s.name, ay.name, s."startDate" ORDER BY s."startDate" DESC LIMIT 6
+        `,
   ]);
 
   return {
@@ -942,47 +990,86 @@ export async function getEnrollmentReport(userId: string) {
   };
 }
 
-export async function getAttendanceReport(userId: string) {
+export async function getAttendanceReport(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
 
   const [byCourse, lowStudents, weeklyTrend] = await Promise.all([
-    prisma.$queryRaw<{ code: string; name: string; total: bigint; present: bigint; rate: number }[]>`
-      SELECT c.code, c.name, COUNT(ar.id) AS total,
-        SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) AS present,
-        ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
-      FROM "AttendanceRecord" ar
-      INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
-      INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
-      INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
-      INNER JOIN "Course" c ON c.id = co."courseId"
-      INNER JOIN "Semester" s ON s.id = co."semesterId" AND s."isCurrent" = true
-      WHERE c."departmentId" = ANY(${deptIds})
-      GROUP BY c.code, c.name ORDER BY rate ASC
-    `,
-    prisma.$queryRaw<{ sr_id: string; name: string; student_id: string; rate: number }[]>`
-      SELECT sr.id AS sr_id, u."fullName" AS name, sr."studentId" AS student_id,
-        ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
-      FROM "AttendanceRecord" ar
-      INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
-      INNER JOIN "User" u ON u.id = sr."userId"
-      WHERE sr."departmentId" = ANY(${deptIds})
-      GROUP BY sr.id, u."fullName", sr."studentId"
-      HAVING ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) < 80
-      ORDER BY rate ASC LIMIT 20
-    `,
-    prisma.$queryRaw<{ week: string; rate: number }[]>`
-      SELECT TO_CHAR(DATE_TRUNC('week', cs.date), 'Mon DD') AS week,
-        ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
-      FROM "AttendanceRecord" ar
-      INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
-      INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
-      INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
-      INNER JOIN "Course" c ON c.id = co."courseId"
-      INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
-      WHERE sr."departmentId" = ANY(${deptIds}) AND cs.date >= NOW() - INTERVAL '8 weeks'
-      GROUP BY DATE_TRUNC('week', cs.date) ORDER BY DATE_TRUNC('week', cs.date) ASC
-    `,
+    programType
+      ? prisma.$queryRaw<{ code: string; name: string; total: bigint; present: bigint; rate: number }[]>`
+          SELECT c.code, c.name, COUNT(ar.id) AS total,
+            SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) AS present,
+            ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
+          FROM "AttendanceRecord" ar
+          INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+          INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+          INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+          INNER JOIN "Course" c ON c.id = co."courseId"
+          INNER JOIN "Semester" s ON s.id = co."semesterId" AND s."isCurrent" = true
+          WHERE c."departmentId" = ANY(${deptIds}) AND co."programType" = ${programType}::"ProgramType"
+          GROUP BY c.code, c.name ORDER BY rate ASC
+        `
+      : prisma.$queryRaw<{ code: string; name: string; total: bigint; present: bigint; rate: number }[]>`
+          SELECT c.code, c.name, COUNT(ar.id) AS total,
+            SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) AS present,
+            ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
+          FROM "AttendanceRecord" ar
+          INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+          INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+          INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+          INNER JOIN "Course" c ON c.id = co."courseId"
+          INNER JOIN "Semester" s ON s.id = co."semesterId" AND s."isCurrent" = true
+          WHERE c."departmentId" = ANY(${deptIds})
+          GROUP BY c.code, c.name ORDER BY rate ASC
+        `,
+    programType
+      ? prisma.$queryRaw<{ sr_id: string; name: string; student_id: string; rate: number }[]>`
+          SELECT sr.id AS sr_id, u."fullName" AS name, sr."studentId" AS student_id,
+            ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
+          FROM "AttendanceRecord" ar
+          INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
+          INNER JOIN "User" u ON u.id = sr."userId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND sr."programType" = ${programType}::"ProgramType"
+          GROUP BY sr.id, u."fullName", sr."studentId"
+          HAVING ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) < 80
+          ORDER BY rate ASC LIMIT 20
+        `
+      : prisma.$queryRaw<{ sr_id: string; name: string; student_id: string; rate: number }[]>`
+          SELECT sr.id AS sr_id, u."fullName" AS name, sr."studentId" AS student_id,
+            ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
+          FROM "AttendanceRecord" ar
+          INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
+          INNER JOIN "User" u ON u.id = sr."userId"
+          WHERE sr."departmentId" = ANY(${deptIds})
+          GROUP BY sr.id, u."fullName", sr."studentId"
+          HAVING ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) < 80
+          ORDER BY rate ASC LIMIT 20
+        `,
+    programType
+      ? prisma.$queryRaw<{ week: string; rate: number }[]>`
+          SELECT TO_CHAR(DATE_TRUNC('week', cs.date), 'Mon DD') AS week,
+            ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
+          FROM "AttendanceRecord" ar
+          INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+          INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+          INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+          INNER JOIN "Course" c ON c.id = co."courseId"
+          INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND sr."programType" = ${programType}::"ProgramType" AND cs.date >= NOW() - INTERVAL '8 weeks'
+          GROUP BY DATE_TRUNC('week', cs.date) ORDER BY DATE_TRUNC('week', cs.date) ASC
+        `
+      : prisma.$queryRaw<{ week: string; rate: number }[]>`
+          SELECT TO_CHAR(DATE_TRUNC('week', cs.date), 'Mon DD') AS week,
+            ROUND(100.0 * SUM(CASE WHEN ar.status IN ('PRESENT','LATE') THEN 1 ELSE 0 END) / NULLIF(COUNT(ar.id), 0), 1) AS rate
+          FROM "AttendanceRecord" ar
+          INNER JOIN "AttendanceSession" ats ON ats.id = ar."attendanceSessionId"
+          INNER JOIN "ClassSession" cs ON cs.id = ats."classSessionId"
+          INNER JOIN "CourseOffering" co ON co.id = cs."courseOfferingId"
+          INNER JOIN "Course" c ON c.id = co."courseId"
+          INNER JOIN "StudentRecord" sr ON sr.id = ar."studentRecordId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND cs.date >= NOW() - INTERVAL '8 weeks'
+          GROUP BY DATE_TRUNC('week', cs.date) ORDER BY DATE_TRUNC('week', cs.date) ASC
+        `,
   ]);
 
   return {
@@ -992,29 +1079,44 @@ export async function getAttendanceReport(userId: string) {
   };
 }
 
-export async function getPerformanceReport(userId: string) {
+export async function getPerformanceReport(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
+  const progTypeFilter = programType ? { programType } : {};
 
   const [avgGpa, gpaByProgram, gradeDist, atRisk] = await Promise.all([
     prisma.studentRecord.aggregate({
-      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
+      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, ...progTypeFilter },
       _avg:  { gpa: true },
     }),
-    prisma.$queryRaw<{ prog: string; avg_gpa: number; count: bigint }[]>`
-      SELECT p.name AS prog, ROUND(AVG(sr.gpa)::numeric, 2) AS avg_gpa, COUNT(sr.id) AS count
-      FROM "StudentRecord" sr INNER JOIN "Program" p ON p.id = sr."programId"
-      WHERE sr."departmentId" = ANY(${deptIds}) AND sr.status = 'ACTIVE'
-      GROUP BY p.name ORDER BY avg_gpa DESC
-    `,
-    prisma.$queryRaw<{ letter: string; count: bigint }[]>`
-      SELECT cg."letterGrade" AS letter, COUNT(*) AS count
-      FROM "CourseGrade" cg INNER JOIN "StudentRecord" sr ON sr.id = cg."studentRecordId"
-      WHERE sr."departmentId" = ANY(${deptIds}) AND cg."letterGrade" IS NOT NULL
-      GROUP BY cg."letterGrade" ORDER BY count DESC
-    `,
+    programType
+      ? prisma.$queryRaw<{ prog: string; avg_gpa: number; count: bigint }[]>`
+          SELECT p.name AS prog, ROUND(AVG(sr.gpa)::numeric, 2) AS avg_gpa, COUNT(sr.id) AS count
+          FROM "StudentRecord" sr INNER JOIN "Program" p ON p.id = sr."programId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND sr.status = 'ACTIVE' AND sr."programType" = ${programType}::"ProgramType"
+          GROUP BY p.name ORDER BY avg_gpa DESC
+        `
+      : prisma.$queryRaw<{ prog: string; avg_gpa: number; count: bigint }[]>`
+          SELECT p.name AS prog, ROUND(AVG(sr.gpa)::numeric, 2) AS avg_gpa, COUNT(sr.id) AS count
+          FROM "StudentRecord" sr INNER JOIN "Program" p ON p.id = sr."programId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND sr.status = 'ACTIVE'
+          GROUP BY p.name ORDER BY avg_gpa DESC
+        `,
+    programType
+      ? prisma.$queryRaw<{ letter: string; count: bigint }[]>`
+          SELECT cg."letterGrade" AS letter, COUNT(*) AS count
+          FROM "CourseGrade" cg INNER JOIN "StudentRecord" sr ON sr.id = cg."studentRecordId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND cg."letterGrade" IS NOT NULL AND sr."programType" = ${programType}::"ProgramType"
+          GROUP BY cg."letterGrade" ORDER BY count DESC
+        `
+      : prisma.$queryRaw<{ letter: string; count: bigint }[]>`
+          SELECT cg."letterGrade" AS letter, COUNT(*) AS count
+          FROM "CourseGrade" cg INNER JOIN "StudentRecord" sr ON sr.id = cg."studentRecordId"
+          WHERE sr."departmentId" = ANY(${deptIds}) AND cg."letterGrade" IS NOT NULL
+          GROUP BY cg."letterGrade" ORDER BY count DESC
+        `,
     prisma.studentRecord.count({
-      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, gpa: { lt: 2.0 } },
+      where: { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, gpa: { lt: 2.0 }, ...progTypeFilter },
     }),
   ]);
 
@@ -1026,22 +1128,36 @@ export async function getPerformanceReport(userId: string) {
   };
 }
 
-export async function getWorkloadReport(userId: string) {
+export async function getWorkloadReport(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
 
-  const workload = await prisma.$queryRaw<{
-    instr_id: string; name: string; emp_id: string; offerings: bigint; enrolled: bigint;
-  }[]>`
-    SELECT ir.id AS instr_id, u."fullName" AS name, ir."employeeId" AS emp_id,
-      COUNT(DISTINCT co.id) AS offerings, COUNT(DISTINCT e.id) AS enrolled
-    FROM "InstructorRecord" ir INNER JOIN "User" u ON u.id = ir."userId"
-    LEFT JOIN "CourseOffering" co ON co."instructorId" = ir.id
-      AND co."semesterId" IN (SELECT id FROM "Semester" WHERE "isCurrent" = true)
-    LEFT JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status = 'ACTIVE'
-    WHERE ir."departmentId" = ANY(${deptIds}) AND ir."isActive" = true
-    GROUP BY ir.id, u."fullName", ir."employeeId" ORDER BY offerings DESC
-  `;
+  const workload = programType
+    ? await prisma.$queryRaw<{
+        instr_id: string; name: string; emp_id: string; offerings: bigint; enrolled: bigint;
+      }[]>`
+        SELECT ir.id AS instr_id, u."fullName" AS name, ir."employeeId" AS emp_id,
+          COUNT(DISTINCT co.id) AS offerings, COUNT(DISTINCT e.id) AS enrolled
+        FROM "InstructorRecord" ir INNER JOIN "User" u ON u.id = ir."userId"
+        LEFT JOIN "CourseOffering" co ON co."instructorId" = ir.id
+          AND co."semesterId" IN (SELECT id FROM "Semester" WHERE "isCurrent" = true)
+          AND co."programType" = ${programType}::"ProgramType"
+        LEFT JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status = 'ACTIVE'
+        WHERE ir."departmentId" = ANY(${deptIds}) AND ir."isActive" = true
+        GROUP BY ir.id, u."fullName", ir."employeeId" ORDER BY offerings DESC
+      `
+    : await prisma.$queryRaw<{
+        instr_id: string; name: string; emp_id: string; offerings: bigint; enrolled: bigint;
+      }[]>`
+        SELECT ir.id AS instr_id, u."fullName" AS name, ir."employeeId" AS emp_id,
+          COUNT(DISTINCT co.id) AS offerings, COUNT(DISTINCT e.id) AS enrolled
+        FROM "InstructorRecord" ir INNER JOIN "User" u ON u.id = ir."userId"
+        LEFT JOIN "CourseOffering" co ON co."instructorId" = ir.id
+          AND co."semesterId" IN (SELECT id FROM "Semester" WHERE "isCurrent" = true)
+        LEFT JOIN "Enrollment" e ON e."courseOfferingId" = co.id AND e.status = 'ACTIVE'
+        WHERE ir."departmentId" = ANY(${deptIds}) AND ir."isActive" = true
+        GROUP BY ir.id, u."fullName", ir."employeeId" ORDER BY offerings DESC
+      `;
 
   return workload.map(r => ({
     instructorId: r.instr_id,
@@ -1058,7 +1174,7 @@ export async function getWorkloadReport(userId: string) {
 
 export async function getLeaveRequests(
   userId: string,
-  params: { page?: number; limit?: number; status?: string; search?: string },
+  params: { page?: number; limit?: number; status?: string; search?: string; programType?: 'TVET' | 'SHORT_PROGRAM' },
 ) {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
@@ -1068,6 +1184,15 @@ export async function getLeaveRequests(
 
   const where: any = { instructor: { departmentId: { in: deptIds } } };
   if (params.status && params.status !== 'ALL') where.status = params.status;
+  if (params.programType) {
+    where.instructor = {
+      ...where.instructor,
+      OR: [
+        { department: { programType: params.programType } },
+        { offerings: { some: { programType: params.programType } } },
+      ],
+    };
+  }
   if (params.search) {
     where.instructor = {
       ...where.instructor,
@@ -1540,7 +1665,7 @@ export async function addCourseOffering(
   await prisma.departmentHeadAuditLog.create({
     data: {
       userId,
-      action: DepartmentHeadAction.COURSE_OFFERING_CREATED,
+      action: DepartmentHeadAction.OFFERING_APPROVED,
       entityType: 'CourseOffering',
       entityId: offering.id,
       description: `HOD added course offering ${course.code} section ${offering.section} to ${semester.name}`,
@@ -2372,20 +2497,32 @@ export async function publishAllCourses(userId: string) {
 
 export async function getInstructors(
   userId: string,
-  params: { search?: string; isActive?: boolean },
+  params: { search?: string; isActive?: boolean; programType?: 'TVET' | 'SHORT_PROGRAM' },
 ) {
   const hod = await resolveHoD(userId);
   const deptIds = await resolveDeptIds(hod);
 
   const where: any = { departmentId: { in: deptIds } };
   if (params.isActive !== undefined) where.isActive = params.isActive;
+  if (params.programType) {
+    where.OR = [
+      { department: { programType: params.programType } },
+      { offerings: { some: { programType: params.programType } } },
+    ];
+  }
   if (params.search) {
-    where.user = {
+    const searchFilter = {
       OR: [
         { fullName: { contains: params.search, mode: 'insensitive' } },
         { email:    { contains: params.search, mode: 'insensitive' } },
       ],
     };
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, { user: searchFilter }];
+      delete where.OR;
+    } else {
+      where.user = searchFilter;
+    }
   }
 
   const instructors = await prisma.instructorRecord.findMany({
@@ -2403,7 +2540,10 @@ export async function getInstructors(
         select: { id: true, fullName: true, email: true, phone: true },
       },
       offerings: {
-        where: { semester: { isCurrent: true } },
+        where: {
+          semester: { isCurrent: true },
+          ...(params.programType ? { programType: params.programType } : {}),
+        },
         select: {
           id: true,
           section: true,
@@ -3248,10 +3388,11 @@ export async function getAcademicPerformance(userId: string, programType?: 'TVET
 // DEPARTMENT REPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getDepartmentReports(userId: string) {
+export async function getDepartmentReports(userId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const hod = await resolveHoD(userId);
   const deptId  = hod.departmentId;
   const deptIds = await resolveDeptIds(hod);
+  const progTypeFilter = programType ? { programType } : {};
 
   const [
     dept,
@@ -3266,19 +3407,20 @@ export async function getDepartmentReports(userId: string) {
     }),
     prisma.studentRecord.groupBy({
       by:      ['yearLevel'],
-      where:   { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
+      where:   { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, ...progTypeFilter },
       _count:  { id: true },
       orderBy: { yearLevel: 'asc' },
     }),
     prisma.studentRecord.groupBy({
       by:     ['programId'],
-      where:  { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE },
+      where:  { departmentId: { in: deptIds }, status: StudentStatus.ACTIVE, ...progTypeFilter },
       _count: { id: true },
     }),
     prisma.courseOffering.findMany({
       where: {
         course:   { departmentId: { in: deptIds } },
         semester: { isCurrent: true },
+        ...progTypeFilter,
       },
       include: {
         course:     { select: { code: true, name: true, creditHours: true, ects: true } },
@@ -3287,17 +3429,35 @@ export async function getDepartmentReports(userId: string) {
       },
     }),
     prisma.instructorRecord.findMany({
-      where: { departmentId: { in: deptIds }, isActive: true },
+      where: {
+        departmentId: { in: deptIds },
+        isActive: true,
+        ...(programType ? {
+          OR: [
+            { department: { programType } },
+            { offerings: { some: { programType } } },
+          ],
+        } : {}),
+      },
       include: {
         user: { select: { fullName: true, email: true } },
-        _count: { select: { offerings: { where: { semester: { isCurrent: true } } } } },
+        _count: {
+          select: {
+            offerings: {
+              where: {
+                semester: { isCurrent: true },
+                ...progTypeFilter,
+              },
+            },
+          },
+        },
       },
     }),
   ]);
 
   // Map program names
   const programs = await prisma.program.findMany({
-    where:  { departmentId: { in: deptIds } },
+    where:  { departmentId: { in: deptIds }, ...(programType ? { department: { programType } } : {}) },
     select: { id: true, name: true, code: true },
   });
   const pMap = new Map(programs.map((p) => [p.id, p.name]));

@@ -18,7 +18,7 @@ const STATUS_BADGE: Record<string, any> = {
   WAITLISTED: 'amber', FORCE_ADDED: 'gold', FORCE_DROPPED: 'rose',
 };
 
-export const EnrollmentManagement: React.FC = () => {
+export const EnrollmentManagement: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [data, setData]             = useState<EnrollmentsListResponse | null>(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
@@ -43,18 +43,18 @@ export const EnrollmentManagement: React.FC = () => {
     setLoading(true); setError(null);
     try {
       // List unique students with enrollments by querying enrollments
-      const res = await enrollmentsApi.list({ page: pg, limit: 15, search: q });
+      const res = await enrollmentsApi.list({ page: pg, limit: 15, search: q, programType });
       setData(res);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load enrollments');
     } finally { setLoading(false); }
-  }, [page, search]);
+  }, [page, search, programType]);
 
   useEffect(() => {
     load();
-    offeringsApi.list({ page: 1, limit: 100, status: 'SCHEDULED' as any })
+    offeringsApi.list({ page: 1, limit: 100, status: 'SCHEDULED' as any, programType })
       .then(r => setOfferings(r.offerings)).catch(() => {});
-  }, [page]);
+  }, [page, load, programType]);
 
   const handleSearch = (val: string) => {
     setSearch(val); setPage(1);

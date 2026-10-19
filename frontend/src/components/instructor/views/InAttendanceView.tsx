@@ -102,8 +102,11 @@ function QRPattern({ seed }: { seed: number }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-export const InAttendanceView: React.FC = () => {
+interface InAttendanceViewProps {
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}
+
+export const InAttendanceView: React.FC<InAttendanceViewProps> = ({ programType }) => {
   const { onAttendanceRecord, onAttendanceClosed, joinAttendanceRoom, leaveAttendanceRoom } = useSocket();
 
   const [view,             setView]            = useState<'qr' | 'manual' | 'history'>('qr');
@@ -154,15 +157,16 @@ export const InAttendanceView: React.FC = () => {
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true); setSessionsError(null);
     try {
-      const data = await apiFetch<TodayClassSession[]>(`${API}/sessions/today`);
+      const q = programType ? `?programType=${programType}` : '';
+      const data = await apiFetch<TodayClassSession[]>(`${API}/sessions/today${q}`);
       setClassSessions(data);
       setSelectedIdx(0);
     } catch (e) {
       setSessionsError(e instanceof Error ? e.message : 'Failed to load sessions');
     } finally { setSessionsLoading(false); }
-  }, []);
+  }, [programType]);
 
-  useEffect(() => { loadSessions(); }, []);
+  useEffect(() => { loadSessions(); }, [loadSessions]);
 
   // ── 2. Load roster whenever we have an AttendanceSession ─────────────────
   const loadRoster = useCallback(async (sessionId: string) => {

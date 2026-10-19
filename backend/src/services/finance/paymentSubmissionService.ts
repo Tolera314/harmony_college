@@ -110,6 +110,7 @@ export async function submitPaymentEvidence(input: {
 
 export async function listPendingSubmissions(params: {
   search?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   page?: number;
   limit?: number;
 }) {
@@ -118,6 +119,10 @@ export async function listPendingSubmissions(params: {
   const skip  = (page - 1) * limit;
 
   const where: any = { status: 'PENDING_REVIEW' };
+
+  if (params.programType) {
+    where.studentRecord = { programType: params.programType };
+  }
 
   if (params.search) {
     where.OR = [

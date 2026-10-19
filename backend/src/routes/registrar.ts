@@ -158,12 +158,7 @@ router.get('/departments', async (req: AuthRequest, res) => {
         } : null,
         // Aggregate counts across parent + all children
         programs: p.programs,
-        _count: {
-          studentRecords: p._count.studentRecords + p.children.reduce((s, c) => s + c._count.studentRecords, 0),
-          courses:        p._count.courses        + p.children.reduce((s, c) => s + c._count.courses, 0),
-          instructors:    p._count.instructors    + p.children.reduce((s, c) => s + c._count.instructors, 0),
-          programs:       p._count.programs       + p.children.reduce((s, c) => s + c._count.programs, 0),
-        },
+        _count: p._count,
         // Children branches (SP depts) — academic data stays separate
         branches: p.children.map(c => ({
           id:          c.id,
@@ -500,13 +495,18 @@ router.get('/courses', async (req: AuthRequest, res) => {
       search:       qp.search,
       departmentId: qp.departmentId,
       status:       qp.status as CourseStatus | undefined,
+      programType:  qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
 
-router.get('/courses/meta', async (_req, res) => {
+router.get('/courses/meta', async (req: AuthRequest, res) => {
   try {
-    const [depts, progs] = await Promise.all([courses.listDepartments(), courses.listPrograms()]);
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const [depts, progs] = await Promise.all([
+      courses.listDepartments(programType),
+      courses.listPrograms(undefined, programType),
+    ]);
     ok(res, { departments: depts, programs: progs });
   } catch (e) { fail(res, e); }
 });
@@ -1201,10 +1201,11 @@ router.get('/offerings', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
-router.get('/offerings/meta', async (_req, res) => {
+router.get('/offerings/meta', async (req, res) => {
   try {
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
     const [sems, rooms, instrs] = await Promise.all([
-      offerings.listSemesters(), offerings.listRooms(), offerings.listInstructors(),
+      offerings.listSemesters(programType), offerings.listRooms(), offerings.listInstructors(),
     ]);
     ok(res, { semesters: sems, rooms, instructors: instrs });
   } catch (e) { fail(res, e); }
@@ -1257,10 +1258,11 @@ router.get('/enrollments', async (req: AuthRequest, res) => {
     const qp = q(req); const { page, limit } = pageParams(qp);
     ok(res, await enrollments.listEnrollments({
       page, limit,
-      search:     qp.search,
-      offeringId: qp.offeringId,
-      studentId:  qp.studentId,
-      status:     qp.status as EnrollmentStatus | undefined,
+      search:      qp.search,
+      offeringId:  qp.offeringId,
+      studentId:   qp.studentId,
+      status:      qp.status as EnrollmentStatus | undefined,
+      programType: qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
@@ -1537,7 +1539,10 @@ router.patch('/announcements/:id', async (req: AuthRequest, res) => {
 router.get('/transcripts', async (req: AuthRequest, res) => {
   try {
     const qp = q(req); const { page, limit } = pageParams(qp);
-    ok(res, await transcripts.listTranscriptRequests({ page, limit, search: qp.search, status: qp.status }));
+    ok(res, await transcripts.listTranscriptRequests({
+      page, limit, search: qp.search, status: qp.status,
+      programType: qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+    }));
   } catch (e) { fail(res, e); }
 });
 
@@ -1580,7 +1585,10 @@ router.patch('/transcripts/:id/issue', async (req: AuthRequest, res) => {
 router.get('/graduation', async (req: AuthRequest, res) => {
   try {
     const qp = q(req); const { page, limit } = pageParams(qp);
-    ok(res, await graduation.listGraduationAudits({ page, limit, search: qp.search, status: qp.status }));
+    ok(res, await graduation.listGraduationAudits({
+      page, limit, search: qp.search, status: qp.status,
+      programType: qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+    }));
   } catch (e) { fail(res, e); }
 });
 
@@ -1610,7 +1618,10 @@ router.patch('/graduation/:id/reject', async (req: AuthRequest, res) => {
 router.get('/certificates', async (req: AuthRequest, res) => {
   try {
     const qp = q(req); const { page, limit } = pageParams(qp);
-    ok(res, await certificates.listCertificates({ page, limit, search: qp.search, status: qp.status }));
+    ok(res, await certificates.listCertificates({
+      page, limit, search: qp.search, status: qp.status,
+      programType: qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+    }));
   } catch (e) { fail(res, e); }
 });
 
@@ -2329,20 +2340,30 @@ router.get('/reports/enrollments', async (req: AuthRequest, res) => {
     ok(res, await reports.getEnrollmentReport({
       academicYearId: qp.academicYearId, semesterId: qp.semesterId,
       departmentId: qp.departmentId, programId: qp.programId,
+      programType: qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
 
-router.get('/reports/admissions', async (_req, res) => {
-  try { ok(res, await reports.getAdmissionsReport()); } catch (e) { fail(res, e); }
+router.get('/reports/admissions', async (req: AuthRequest, res) => {
+  try {
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await reports.getAdmissionsReport(programType));
+  } catch (e) { fail(res, e); }
 });
 
-router.get('/reports/graduation', async (_req, res) => {
-  try { ok(res, await reports.getGraduationReport()); } catch (e) { fail(res, e); }
+router.get('/reports/graduation', async (req: AuthRequest, res) => {
+  try {
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await reports.getGraduationReport(programType));
+  } catch (e) { fail(res, e); }
 });
 
 router.get('/reports/course-utilization', async (req: AuthRequest, res) => {
-  try { ok(res, await reports.getCourseUtilizationReport(q(req).semesterId)); } catch (e) { fail(res, e); }
+  try {
+    const qp = q(req);
+    ok(res, await reports.getCourseUtilizationReport(qp.semesterId, qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined));
+  } catch (e) { fail(res, e); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2354,7 +2375,12 @@ router.get('/timetable', async (req: AuthRequest, res) => {
   try {
     const qp = q(req);
     const where: any = { status: { in: ['PUBLISHED', 'DRAFT'] } };
-    if (qp.semesterId)   where.courseOffering = { semesterId: qp.semesterId };
+    const courseOfferingWhere: any = {};
+    if (qp.semesterId)   courseOfferingWhere.semesterId = qp.semesterId;
+    if (qp.programType)  courseOfferingWhere.programType = qp.programType;
+    if (Object.keys(courseOfferingWhere).length > 0) {
+      where.courseOffering = courseOfferingWhere;
+    }
     if (qp.roomId)       where.roomId = qp.roomId;
     if (qp.instructorId) where.instructorId = qp.instructorId;
     if (qp.status)       where.status = qp.status;  // allow explicit override
@@ -2382,12 +2408,16 @@ router.get('/timetable/conflicts', async (req: AuthRequest, res) => {
   try {
     const qp = q(req);
     const semesterId = qp.semesterId;
+    const programType = qp.programType;
+    const courseOfferingWhere: any = {};
+    if (semesterId) courseOfferingWhere.semesterId = semesterId;
+    if (programType) courseOfferingWhere.programType = programType;
 
     // Use the service overlap-aware logic rather than the old raw SQL exact-match query
     const slots = await prisma.timetableSlot.findMany({
       where: {
         status: { in: ['PUBLISHED', 'DRAFT'] },
-        ...(semesterId ? { courseOffering: { semesterId } } : {}),
+        ...(Object.keys(courseOfferingWhere).length > 0 ? { courseOffering: courseOfferingWhere } : {}),
       },
       include: {
         courseOffering: {
@@ -2739,15 +2769,18 @@ router.get('/onboardings', async (req: AuthRequest, res) => {
       ],
     } : {};
 
+    const programType = qp.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
     const where: any = {
       role: 'STUDENT',
       ...searchFilter,
-      // Only show students who haven't been payment-verified yet
-      // OR students with no profile at all (just registered)
-      OR: [
-        { studentProfile: { paymentVerifiedByFinance: false } },
-        { studentProfile: { is: null } },
-      ],
+      ...(programType
+        ? { studentProfile: { programType, paymentVerifiedByFinance: false } }
+        : {
+            OR: [
+              { studentProfile: { paymentVerifiedByFinance: false } },
+              { studentProfile: { is: null } },
+            ],
+          }),
     };
 
     const [total, users] = await Promise.all([
@@ -2903,6 +2936,7 @@ router.get('/admissions-ready', async (req: AuthRequest, res) => {
     const skip = (page - 1) * limit;
 
     const where: any = { paymentVerifiedByFinance: true };
+    if (qp.programType) where.programType = qp.programType;
     if (qp.search) {
       where.user = {
         OR: [
@@ -3338,18 +3372,11 @@ export default router;
  */
 router.delete('/semesters/:id', requireRole(['REGISTRAR']), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
 
-    // Check if semester exists and has course offerings
+    // Check if semester exists
     const semester = await prisma.semester.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            offerings: true,
-          },
-        },
-      },
     });
 
     if (!semester) {
@@ -3357,9 +3384,13 @@ router.delete('/semesters/:id', requireRole(['REGISTRAR']), async (req: AuthRequ
       return;
     }
 
-    if (semester._count.offerings > 0) {
+    const offeringCount = await prisma.courseOffering.count({
+      where: { semesterId: id },
+    });
+
+    if (offeringCount > 0) {
       res.status(400).json({ 
-        error: `Cannot delete semester with ${semester._count.offerings} course offering(s). Delete or reassign courses first.` 
+        error: `Cannot delete semester with ${offeringCount} course offering(s). Delete or reassign courses first.` 
       });
       return;
     }

@@ -126,12 +126,17 @@ router.get('/faculty', async (req: AuthRequest, res) => {
       limit:    q.limit    ? parseInt(q.limit, 10) : 20,
       search:   q.search,
       isActive: q.isActive !== undefined ? q.isActive === 'true' : undefined,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
 
 router.get('/faculty/:id', async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getFacultyDetail(req.user!.userId, pid(req))); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getFacultyDetail(req.user!.userId, pid(req), programType));
+  }
   catch (e) { fail(res, e); }
 });
 
@@ -158,7 +163,8 @@ router.get('/students/new-admissions', async (req: AuthRequest, res) => {
   try {
     const q = qp(req);
     const days = q.days ? parseInt(q.days, 10) : 60;
-    ok(res, await svc.getNewAdmissions(req.user!.userId, days));
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getNewAdmissions(req.user!.userId, days, programType));
   } catch (e) { fail(res, e); }
 });
 
@@ -172,22 +178,38 @@ router.get('/students/:id', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/reports/enrollment',   async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getEnrollmentReport(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getEnrollmentReport(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 
 router.get('/reports/attendance',   async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getAttendanceReport(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getAttendanceReport(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 
 router.get('/reports/performance',  async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getPerformanceReport(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getPerformanceReport(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 
 router.get('/reports/workload',     async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getWorkloadReport(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getWorkloadReport(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 
@@ -203,6 +225,7 @@ router.get('/leave-requests', async (req: AuthRequest, res) => {
       limit:  q.limit ? parseInt(q.limit, 10) : 20,
       status: q.status,
       search: q.search,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
@@ -378,12 +401,19 @@ router.get('/semesters', async (req: AuthRequest, res) => {
             id: true,
             section: true,
             status: true,
-            course: { select: { id: true, code: true, name: true, creditHours: true, ects: true } },
+            capacity: true,
+            course: { select: { id: true, code: true, name: true, creditHours: true, ects: true, programType: true } },
             instructor: {
               select: {
                 id: true,
                 user: { select: { fullName: true } },
               },
+            },
+            room: {
+              select: { id: true, name: true, building: true },
+            },
+            timetables: {
+              select: { dayOfWeek: true, startTime: true, endTime: true },
             },
             _count: { select: { enrollments: true } },
           },
@@ -577,6 +607,7 @@ router.get('/instructors', async (req: AuthRequest, res) => {
     ok(res, await svc.getInstructors(req.user!.userId, {
       search:   q.search,
       isActive: q.isActive !== undefined ? q.isActive === 'true' : undefined,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
     }));
   } catch (e) { fail(res, e); }
 });
@@ -693,7 +724,11 @@ router.get('/academic-performance', async (req: AuthRequest, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get('/reports/department-summary', async (req: AuthRequest, res) => {
-  try { ok(res, await svc.getDepartmentReports(req.user!.userId)); }
+  try {
+    const q = qp(req);
+    const programType = q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    ok(res, await svc.getDepartmentReports(req.user!.userId, programType));
+  }
   catch (e) { fail(res, e); }
 });
 

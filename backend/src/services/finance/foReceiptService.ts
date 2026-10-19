@@ -63,6 +63,7 @@ async function resolveCashier(actorUserId?: string): Promise<{ cashierId: string
 
 export async function listReceipts(params: {
   search?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   page?:   number;
   limit?:  number;
 }, actorUserId?: string) {
@@ -74,6 +75,14 @@ export async function listReceipts(params: {
     receiptId: { not: null },
     status:    'POSTED',
   };
+
+  if (params.programType) {
+    where.financialAccount = {
+      studentRecord: {
+        programType: params.programType,
+      },
+    };
+  }
 
   if (params.search) {
     where.OR = [

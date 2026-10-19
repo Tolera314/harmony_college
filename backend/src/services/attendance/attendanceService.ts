@@ -199,7 +199,7 @@ export async function generateClassSessions(
 }
 
 /** Get today's class sessions for an instructor. */
-export async function getTodaySessionsForInstructor(instructorUserId: string) {
+export async function getTodaySessionsForInstructor(instructorUserId: string, programType?: 'TVET' | 'SHORT_PROGRAM') {
   const now = new Date();
   const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
   const endOfDay   = new Date(now); endOfDay.setHours(23, 59, 59, 999);
@@ -213,7 +213,10 @@ export async function getTodaySessionsForInstructor(instructorUserId: string) {
   return prisma.classSession.findMany({
     where: {
       date: { gte: startOfDay, lte: endOfDay },
-      courseOffering: { instructorId: instructor.id },
+      courseOffering: {
+        instructorId: instructor.id,
+        ...(programType ? { programType: programType as any } : {}),
+      },
     },
     include: {
       courseOffering: {

@@ -35,7 +35,11 @@ function toReconciliationStatus(
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
-export async function listReconciliationEntries(params: { status?: string; search?: string }) {
+export async function listReconciliationEntries(params: {
+  status?: string;
+  search?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+}) {
   // Map UI status to DB status
   const dbStatusMap: Record<string, string[]> = {
     Matched:         ['POSTED'],
@@ -45,6 +49,14 @@ export async function listReconciliationEntries(params: { status?: string; searc
   };
 
   const where: any = {};
+
+  if (params.programType) {
+    where.financialAccount = {
+      studentRecord: {
+        programType: params.programType,
+      },
+    };
+  }
 
   if (params.status && params.status !== 'All') {
     const mapped = dbStatusMap[params.status];

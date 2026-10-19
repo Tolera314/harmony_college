@@ -89,9 +89,10 @@ type View = 'week' | 'day' | 'list';
 
 interface InScheduleViewProps {
   setActiveTab: (tab: InstructorNavTab) => void;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
-export const InScheduleView: React.FC<InScheduleViewProps> = ({ setActiveTab }) => {
+export const InScheduleView: React.FC<InScheduleViewProps> = ({ setActiveTab, programType }) => {
   const { connected, onMyScheduleChanged } = useSocket();
 
   const [weekSlots,     setWeekSlots]     = useState<WeekSlot[]>([]);
@@ -105,9 +106,10 @@ export const InScheduleView: React.FC<InScheduleViewProps> = ({ setActiveTab }) 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
+      const q = programType ? `?programType=${programType}` : '';
       const [ws, ts] = await Promise.all([
-        apiFetch<WeekSlot[]>('/api/instructor/schedule'),
-        apiFetch<TodaySession[]>('/api/instructor/schedule/today'),
+        apiFetch<WeekSlot[]>(`/api/instructor/schedule${q}`),
+        apiFetch<TodaySession[]>(`/api/instructor/schedule/today${q}`),
       ]);
       setWeekSlots(ws);
       setTodaySessions(ts);
@@ -115,7 +117,7 @@ export const InScheduleView: React.FC<InScheduleViewProps> = ({ setActiveTab }) 
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load schedule');
     } finally { setLoading(false); }
-  }, []);
+  }, [programType]);
 
   useEffect(() => { load(); }, [load]);
 

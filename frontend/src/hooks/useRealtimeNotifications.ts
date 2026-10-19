@@ -76,9 +76,21 @@ const playNotificationSound = () => {
 
 // Unified notification API (works for all roles)
 const fetchNotifications = async (): Promise<{ notifications: Notification[]; unreadCount: number; total: number }> => {
-  const res = await fetch('/api/notifications', { credentials: 'include' });
-  if (!res.ok) throw new Error('Failed to fetch notifications');
-  return res.json();
+  try {
+    const res = await fetch('/api/notifications', { credentials: 'include' });
+    if (!res.ok) {
+      // If unauthorized (401), return empty state instead of throwing
+      if (res.status === 401) {
+        return { notifications: [], unreadCount: 0, total: 0 };
+      }
+      throw new Error('Failed to fetch notifications');
+    }
+    return res.json();
+  } catch (err) {
+    // Return empty state if network error or fetch fails
+    console.warn('[Notifications] Fetch failed:', err);
+    return { notifications: [], unreadCount: 0, total: 0 };
+  }
 };
 
 const markNotificationRead = async (id: string): Promise<void> => {
@@ -136,6 +148,9 @@ export function useRealtimeNotifications(
       const message = err instanceof Error ? err.message : 'Failed to load notifications';
       setError(message);
       console.error('[Notifications] Fetch error:', err);
+      // Set empty state on error
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setIsLoading(false);
     }
@@ -153,10 +168,9 @@ export function useRealtimeNotifications(
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
       console.error('[Notifications] Mark read error:', err);
-      // Revert on error
-      await refresh();
+      // Silently fail - don't refresh to avoid cascading errors
     }
-  }, [refresh]);
+  }, []);
 
   // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
@@ -168,10 +182,9 @@ export function useRealtimeNotifications(
       setUnreadCount(0);
     } catch (err) {
       console.error('[Notifications] Mark all read error:', err);
-      // Revert on error
-      await refresh();
+      // Silently fail - don't refresh to avoid cascading errors
     }
-  }, [refresh]);
+  }, []);
 
   // Toggle sound preference
   const toggleSound = useCallback(() => {

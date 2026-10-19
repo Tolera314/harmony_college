@@ -371,7 +371,7 @@ const DeptCard: React.FC<DeptCardProps> = ({ dept, onEdit, onAssignHod, onToggle
 
 type Panel = 'create' | { kind: 'edit'; dept: DepartmentCard } | { kind: 'hod'; dept: DepartmentCard };
 
-export const RegistrarDepartmentsView: React.FC = () => {
+export const RegistrarDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [departments, setDepartments] = useState<DepartmentCard[]>([]);
   const [eligible,    setEligible]    = useState<EligibleHod[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -383,12 +383,12 @@ export const RegistrarDepartmentsView: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [depts, hods] = await Promise.all([departmentMgmtApi.list(), departmentMgmtApi.getEligibleHods()]);
+      const [depts, hods] = await Promise.all([departmentMgmtApi.list(programType), departmentMgmtApi.getEligibleHods()]);
       setDepartments(depts);
       setEligible(hods);
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load departments'); }
     finally { setLoading(false); }
-  }, []);
+  }, [programType]);
 
   useEffect(() => { load(); }, [load]);
 

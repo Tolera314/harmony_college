@@ -9,7 +9,7 @@ import { SkeletonTable, EmptyState, ErrorState } from '../ui/States';
 import { SlidePanel } from '../ui/SlidePanel';
 import { certificatesApi, studentsApi } from '@/src/lib/registrarApi';
 
-export const DigitalCertificates: React.FC = () => {
+export const DigitalCertificates: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [data, setData]         = useState<any>(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
@@ -33,13 +33,13 @@ export const DigitalCertificates: React.FC = () => {
   const load = useCallback(async (pg = page, q = search, st = statusFilter) => {
     setLoading(true); setError(null);
     try {
-      const res = await certificatesApi.list({ page: pg, limit: 15, ...(q && { search: q }), ...(st && { status: st }) });
+      const res = await certificatesApi.list({ page: pg, limit: 15, ...(q && { search: q }), ...(st && { status: st }), programType });
       setData(res);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to load'); }
     finally { setLoading(false); }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, programType]);
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => { load(); }, [page, load, programType]);
 
   const handleSearch = (val: string) => {
     setSearch(val);

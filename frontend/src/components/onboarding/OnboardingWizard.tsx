@@ -9,7 +9,7 @@ import {
   Flag, Calendar, GraduationCap, Phone,
   Info, Star, Trophy, Camera, Music, Palette,
   Globe, Stethoscope, Film, Headphones,
-  Quote, Shield, Clock, Award, CreditCard
+  Quote, Shield, Clock, Award, CreditCard, Mail
 } from 'lucide-react';
 import { OnboardingBackground } from './OnboardingBackground';
 import { OnboardingProgress } from './OnboardingProgress';
@@ -28,6 +28,7 @@ import {
   type OnboardingState,
 } from '@/src/lib/onboardingStore';
 import { HARMONY_PROGRAMS } from '@/src/lib/harmonyPrograms';
+import { validateEthiopianPhone, formatFullName, validateFullName } from '@/src/lib/validationUtils';
 
 // ── College Context Data ──────────────────────────────────────────────────────
 
@@ -419,13 +420,14 @@ const MOTIVATIONAL: Record<number, string> = {
 
 // Reusable field components
 function WizardInput({
-  id, label, type = 'text', value, onChange, error, required, icon: Icon, children,
+  id, label, type = 'text', value, onChange, error, required, icon: Icon, children, onBlur,
 }: {
   id: string; label: string; type?: string;
   value: string; onChange: (v: string) => void;
   error?: string; required?: boolean;
   icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   children?: React.ReactNode;
+  onBlur?: () => void;
 }) {
   return (
     <div className="space-y-1.5">
@@ -442,6 +444,7 @@ function WizardInput({
             type={type}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onBlur={onBlur}
             aria-invalid={!!error}
             required={required}
             className={`w-full py-3 rounded-xl border text-sm font-sans transition-colors focus:outline-none ${Icon ? 'pl-10 pr-4' : 'px-4'}`}
@@ -494,8 +497,79 @@ function StepPersonal({ profile, errors, onChange }: {
   errors: Partial<Record<keyof ProfileData, string>>;
   onChange: (key: keyof ProfileData, val: string) => void;
 }) {
+  const handleNameChange = (value: string) => {
+    // Smart formatting: capitalize when space is pressed (word completed)
+    if (value.endsWith(' ')) {
+      const formatted = formatFullName(value);
+      onChange('fullName', formatted);
+    } else {
+      onChange('fullName', value);
+    }
+  };
+  
+  const handleNameBlur = () => {
+    // Format name when user leaves the field - final cleanup
+    if (profile.fullName) {
+      const formatted = formatFullName(profile.fullName);
+      onChange('fullName', formatted);
+    }
+  };
+
   return (
     <div className="space-y-5">
+      {/* Full Name Field */}
+      <WizardInput 
+        id="fullName" 
+        label="Full Name" 
+        value={profile.fullName || ''}
+        onChange={handleNameChange}
+        onBlur={handleNameBlur}
+        required 
+        error={errors.fullName} 
+        icon={User} 
+      />
+
+      {/* Phone and Email */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <WizardInput 
+          id="phone" 
+          label="Phone Number" 
+          type="tel"
+          value={profile.phone || ''}
+          onChange={(v) => {
+            // Smart phone number length limit based on format
+            const cleaned = v.replace(/\s/g, '');
+            
+            let limited;
+            if (cleaned.startsWith('+251')) {
+              // +251 format: limit to 13 characters
+              limited = cleaned.slice(0, 13);
+            } else if (cleaned.startsWith('09')) {
+              // 09 format: limit to 10 digits
+              limited = cleaned.slice(0, 10);
+            } else {
+              // For incomplete input, allow up to 13 chars
+              limited = cleaned.slice(0, 13);
+            }
+            
+            onChange('phone', limited);
+          }}
+          required 
+          error={errors.phone} 
+          icon={Phone} 
+        />
+        <WizardInput 
+          id="email" 
+          label="Email Address" 
+          type="email"
+          value={profile.email || ''}
+          onChange={(v) => onChange('email', v)} 
+          required 
+          error={errors.email} 
+          icon={Mail} 
+        />
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <WizardSelect id="nationality" label="Nationality" value={profile.nationality}
           onChange={(v) => onChange('nationality', v)} required error={errors.nationality}
@@ -703,7 +777,25 @@ function StepEmergency({ profile, errors, onChange }: {
         <WizardInput id="emergencyName" label="Contact Full Name" value={profile.emergencyName}
           onChange={(v) => onChange('emergencyName', v)} required error={errors.emergencyName} icon={User} />
         <WizardInput id="emergencyPhone" label="Emergency Phone Number" type="tel" value={profile.emergencyPhone}
-          onChange={(v) => onChange('emergencyPhone', v)} required error={errors.emergencyPhone} icon={Phone} />
+          onChange={(v) => {
+            // Smart emergency phone number length limit based on format
+            const cleaned = v.replace(/\s/g, '');
+            
+            let limited;
+            if (cleaned.startsWith('+251')) {
+              // +251 format: limit to 13 characters
+              limited = cleaned.slice(0, 13);
+            } else if (cleaned.startsWith('09')) {
+              // 09 format: limit to 10 digits
+              limited = cleaned.slice(0, 10);
+            } else {
+              // For incomplete input, allow up to 13 chars
+              limited = cleaned.slice(0, 13);
+            }
+            
+            onChange('emergencyPhone', limited);
+          }}
+          required error={errors.emergencyPhone} icon={Phone} />
       </div>
       <WizardInput id="emergencyNotes" label="Notes (Optional)" value={profile.emergencyNotes}
         onChange={(v) => onChange('emergencyNotes', v)}
@@ -1134,6 +1226,33 @@ export function OnboardingWizard() {
   const validateStep = (): boolean => {
     const errs: typeof errors = {};
     if (wizardStep === 1) {
+      // Validate full name
+      if (profile.fullName) {
+        const nameValidation = validateFullName(profile.fullName);
+        if (!nameValidation.valid) {
+          errs.fullName = nameValidation.error;
+        }
+      } else {
+        errs.fullName = 'Full name is required.';
+      }
+
+      // Validate phone
+      if (profile.phone) {
+        const phoneValidation = validateEthiopianPhone(profile.phone);
+        if (!phoneValidation.valid) {
+          errs.phone = phoneValidation.error;
+        }
+      } else {
+        errs.phone = 'Phone number is required.';
+      }
+
+      // Validate email
+      if (!profile.email) {
+        errs.email = 'Email address is required.';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) {
+        errs.email = 'Enter a valid email address.';
+      }
+
       if (!profile.nationality) errs.nationality = 'Required.';
       if (!profile.dob)         errs.dob         = 'Required.';
       if (!profile.gender)      errs.gender      = 'Select a gender.';
@@ -1154,7 +1273,15 @@ export function OnboardingWizard() {
     }
     if (wizardStep === 4) {
       if (!profile.emergencyName)  errs.emergencyName  = 'Required.';
-      if (!profile.emergencyPhone) errs.emergencyPhone = 'Required.';
+      // Validate emergency phone with same rules
+      if (profile.emergencyPhone) {
+        const phoneValidation = validateEthiopianPhone(profile.emergencyPhone);
+        if (!phoneValidation.valid) {
+          errs.emergencyPhone = phoneValidation.error;
+        }
+      } else {
+        errs.emergencyPhone = 'Emergency phone number is required.';
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;

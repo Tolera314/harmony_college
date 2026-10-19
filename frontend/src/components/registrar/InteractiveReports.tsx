@@ -33,7 +33,7 @@ async function fetchBelowThreshold(courseOfferingId: string, threshold = 75) {
   return res.json();
 }
 
-export const InteractiveReports: React.FC = () => {
+export const InteractiveReports: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
   const [enrollData, setEnrollData]     = useState<any>(null);
   const [admissData, setAdmissData]     = useState<any>(null);
   const [gradData, setGradData]         = useState<any>(null);
@@ -58,27 +58,27 @@ export const InteractiveReports: React.FC = () => {
     setLoading(true); setError(null);
     try {
       const [e, a, g, u, meta] = await Promise.all([
-        reportsApi.enrollments({ ...(sem && { semesterId: sem }) }),
-        reportsApi.admissions(),
-        reportsApi.graduation(),
-        reportsApi.courseUtilization(sem || undefined),
-        offeringsApi.getMeta(),
+        reportsApi.enrollments({ ...(sem && { semesterId: sem }), programType }),
+        reportsApi.admissions({ programType }),
+        reportsApi.graduation({ programType }),
+        reportsApi.courseUtilization(sem || undefined, programType),
+        offeringsApi.getMeta({ programType }),
       ]);
       setEnrollData(e); setAdmissData(a); setGradData(g); setUtilData(u);
       setSemesters(meta.semesters);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to load reports'); }
     finally { setLoading(false); }
-  }, [semesterFilter]);
+  }, [semesterFilter, programType]);
 
   // Load offerings for attendance course filter
   const loadOfferings = useCallback(async () => {
     try {
-      const res = await offeringsApi.list({ limit: 200, ...(attendSem && { semesterId: attendSem }) });
+      const res = await offeringsApi.list({ limit: 200, ...(attendSem && { semesterId: attendSem }), programType });
       setOfferings(res.offerings ?? []);
     } catch { /* ignore */ }
-  }, [attendSem]);
+  }, [attendSem, programType]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
   useEffect(() => { loadOfferings(); }, [attendSem]);
 
   const loadAttendance = useCallback(async (page = attendPage) => {

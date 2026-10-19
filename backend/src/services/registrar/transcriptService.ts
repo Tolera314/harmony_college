@@ -3,10 +3,14 @@ import { TranscriptRequestStatus } from '@prisma/client';
 
 export async function listTranscriptRequests(q: {
   page: number; limit: number; search?: string; status?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
 }) {
   const skip = (q.page - 1) * q.limit;
   const where: any = {};
   if (q.status) where.status = q.status;
+  if (q.programType) {
+    where.studentRecord = { ...where.studentRecord, programType: q.programType };
+  }
   if (q.search) {
     where.OR = [
       { studentRecord: { user: { fullName: { contains: q.search, mode: 'insensitive' } } } },
@@ -43,7 +47,7 @@ export async function getTranscriptData(studentRecordId: string) {
         include: {
           courseOffering: {
             include: {
-              course: { select: { code: true, name: true, creditHours: true } },
+              course: { select: { code: true, name: true, creditHours: true, ects: true } },
               semester: { include: { academicYear: { select: { name: true } } } },
             },
           },
@@ -55,18 +59,37 @@ export async function getTranscriptData(studentRecordId: string) {
   });
   if (!student) return null;
 
-  // Group by semester
-  const semesterMap: Record<string, { semesterName: string; academicYear: string; courses: any[] }> = {};
+  const isShortProgram = student.programType === 'SHORT_PROGRAM';
+
+  // Group by semester or training period
+  const semesterMap: Record<string, {
+    periodType: 'SEMESTER' | 'TRAINING_PERIOD';
+    semesterName: string;
+    academicYear: string;
+    duration?: string | null;
+    courses: any[];
+  }> = {};
+
   for (const enroll of student.enrollments) {
     const sem = enroll.courseOffering.semester;
-    const key = `${sem.academicYear.name} — ${sem.name}`;
-    if (!semesterMap[key]) semesterMap[key] = { semesterName: sem.name, academicYear: sem.academicYear.name, courses: [] };
+    const key = isShortProgram ? sem.name : `${sem.academicYear.name} — ${sem.name}`;
+    if (!semesterMap[key]) {
+      semesterMap[key] = {
+        periodType: isShortProgram ? 'TRAINING_PERIOD' : 'SEMESTER',
+        semesterName: sem.name,
+        academicYear: isShortProgram ? (student.shortProgramDuration ? `${student.shortProgramDuration} Duration` : 'Short Program Term') : sem.academicYear.name,
+        duration: isShortProgram ? student.shortProgramDuration : null,
+        courses: [],
+      };
+    }
     semesterMap[key].courses.push({
       code: enroll.courseOffering.course.code,
       name: enroll.courseOffering.course.name,
       creditHours: enroll.courseOffering.course.creditHours,
+      ects: enroll.courseOffering.course.ects,
       grade: enroll.grade?.letterGrade ?? 'IP',
       gradePoints: enroll.grade?.gradePoints ?? null,
+      qualityPoints: enroll.grade?.qualityPoints ?? null,
       status: enroll.status,
     });
   }
@@ -79,6 +102,8 @@ export async function getTranscriptData(studentRecordId: string) {
       phone: student.user.phone,
       program: student.program.name,
       department: student.department.name,
+      programType: student.programType,
+      shortProgramDuration: student.shortProgramDuration,
       yearLevel: student.yearLevel,
       gpa: student.gpa,
       totalCredits: student.totalCredits,

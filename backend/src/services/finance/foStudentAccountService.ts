@@ -5,6 +5,7 @@ export interface ListAccountsQueryParams {
   departmentId?: string;
   paymentStatus?: string;
   riskLevel?: string;
+  programType?: 'TVET' | 'SHORT_PROGRAM';
   page?: number;
   limit?: number;
 }
@@ -59,6 +60,10 @@ export async function listStudentAccounts(params: ListAccountsQueryParams) {
 
   if (params.departmentId) {
     where.departmentId = params.departmentId;
+  }
+
+  if (params.programType) {
+    where.programType = params.programType;
   }
 
   const [total, students] = await Promise.all([
