@@ -824,7 +824,7 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
             style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
           >
             <option value="all">All Courses</option>
-            {localCourses.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
+            {localCourses.map((c, idx) => <option key={c.id || `course-${idx}`} value={c.id}>{c.code}</option>)}
           </select>
         </div>
 

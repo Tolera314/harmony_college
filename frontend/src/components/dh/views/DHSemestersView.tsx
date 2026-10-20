@@ -767,6 +767,110 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
         </div>
       )}
 
+      {/* My Department Courses Section */}
+      <div className="mt-8 space-y-4">
+        <DHPageHeader
+          title="My Department Courses"
+          subtitle={`${courses.length} course${courses.length !== 1 ? 's' : ''} in your department`}
+          icon={<BookOpen className="w-5 h-5" />}
+        />
+
+        {courses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 px-4 text-center border border-(--border-default) rounded-2xl bg-(--hover-overlay)">
+            <BookOpen className="w-12 h-12 text-(--text-faint) mb-4" />
+            <p className="text-(--text-secondary) text-sm">No courses found. Click "Add Course" to create one.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-(--border-default) rounded-2xl bg-(--hover-overlay) backdrop-blur-xl">
+            <table className="w-full text-left text-xs sm:text-sm font-sans min-w-[960px]">
+              <thead className="bg-(--hover-overlay) border-b border-(--border-default)">
+                <tr>
+                  {['Code', 'Course Name', 'Credits', 'ECTS', 'Program Type', 'Status', 'Actions'].map(h => (
+                    <th key={h} className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-wider text-(--text-muted) font-semibold">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-(--border-subtle)">
+                {courses.map((course) => (
+                  <motion.tr
+                    key={course.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="hover:bg-(--hover-overlay) transition-colors"
+                  >
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-xs font-bold text-(--brand-gold)">
+                        {course.code}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-(--text-secondary) truncate max-w-[200px] block">{course.name}</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-xs text-(--text-secondary)">{course.creditHours}</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-xs text-(--text-secondary)">{course.ects}</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <Badge variant={course.programType === 'TVET' ? 'glass' : 'amber'} className="text-[10px]">
+                        {course.programType === 'TVET' ? 'TVET' : 'Short'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {course.isPublished ? (
+                        <Badge variant="emerald" className="text-[10px]">Published</Badge>
+                      ) : (
+                        <Badge variant="amber" className="text-[10px]">Draft</Badge>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleEditCourse(course)}
+                          className="p-1.5 rounded-lg hover:bg-(--hover-overlay) text-(--text-muted) hover:text-(--brand-gold) transition-colors"
+                          title="Edit Course"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(course)}
+                          className="p-1.5 rounded-lg hover:bg-red-500/15 text-(--text-muted) hover:text-red-500 transition-colors"
+                          title="Delete Course"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        {course.isPublished ? (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => handleUnpublishSingleCourse(course)}
+                            disabled={courseLoading}
+                            className="text-[10px]"
+                          >
+                            Unpublish
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => handlePublishSingleCourse(course)}
+                            disabled={courseLoading}
+                            className="text-[10px]"
+                          >
+                            Publish
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Detail panel */}
       <SlidePanel isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.course?.code || ''} — ${selected.course?.name || ''}` : ''} subtitle="Course Offering Details" width="max-w-2xl">
         {selected && (
@@ -800,7 +904,7 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                 </div>
               </div>
             )}
-            {selected.timetables.length > 0 && (
+            {selected?.timetables?.length > 0 && (
               <div className="p-4 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-2">Schedule</p>
                 {selected.timetables.map((t: { dayOfWeek: number; startTime: string; endTime: string }, i: number) => (
@@ -808,7 +912,7 @@ export const DHSemestersView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' 
                 ))}
               </div>
             )}
-            {selected.course.prerequisites.length > 0 && (
+            {selected?.course?.prerequisites?.length > 0 && (
               <div className="p-3 bg-(--hover-overlay) rounded-xl border border-(--border-subtle)">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-(--text-faint) mb-2">Prerequisites</p>
                 {selected.course.prerequisites.map((p: { prerequisite: { code: string } }, i: number) => (

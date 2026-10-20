@@ -438,7 +438,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {selectedCourse && (
           <div className="space-y-6">
             <div className="flex items-center gap-4 p-4 rounded-2xl border" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}>
-              <img src={selectedCourse.instructorPhoto} alt={selectedCourse.instructor} className="w-14 h-14 rounded-full object-cover border-2 shrink-0" style={{ borderColor: 'var(--accent-gold-border)' }} />
+              {selectedCourse.instructorPhoto ? (
+                <img src={selectedCourse.instructorPhoto} alt={selectedCourse.instructor} className="w-14 h-14 rounded-full object-cover border-2 shrink-0" style={{ borderColor: 'var(--accent-gold-border)' }} />
+              ) : (
+                <div className="w-14 h-14 rounded-full border-2 shrink-0 flex items-center justify-center font-serif font-bold text-lg" style={{ borderColor: 'var(--accent-gold-border)', backgroundColor: 'var(--accent-gold-subtle)', color: 'var(--brand-gold)' }}>
+                  {selectedCourse.instructor?.charAt(0) || '?'}
+                </div>
+              )}
               <div>
                 <h4 className="font-sans font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{selectedCourse.instructor}</h4>
                 <p className="font-sans text-xs" style={{ color: 'var(--text-secondary)' }}>{selectedCourse.instructorTitle}</p>

@@ -886,6 +886,25 @@ export async function getStudentDetail(userId: string, studentRecordId: string) 
     throw new Error('Not authorized: this student does not belong to your department.');
   }
 
+  // Calculate GPA from grades
+  let calculatedGpa = 0;
+  let totalQualityPoints = 0;
+  let totalCreditHours = 0;
+
+  for (const enrollment of student.enrollments) {
+    if (enrollment.grade?.gradePoints !== null && enrollment.grade?.gradePoints !== undefined && enrollment.grade?.creditHours) {
+      const gradePoints = Number(enrollment.grade.gradePoints);
+      const creditHours = Number(enrollment.grade.creditHours);
+      
+      totalQualityPoints += gradePoints * creditHours;
+      totalCreditHours += creditHours;
+    }
+  }
+
+  if (totalCreditHours > 0) {
+    calculatedGpa = totalQualityPoints / totalCreditHours;
+  }
+
   // Attendance summary
   const attendanceSummary = await prisma.$queryRaw<{
     total: bigint; present: bigint; absent: bigint; late: bigint; excused: bigint;
@@ -906,6 +925,7 @@ export async function getStudentDetail(userId: string, studentRecordId: string) 
 
   return {
     ...student,
+    gpa: calculatedGpa, // Use calculated GPA instead of stored value
     attendance: {
       total,
       present:         Number(att?.present ?? 0),

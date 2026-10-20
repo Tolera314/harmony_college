@@ -170,7 +170,7 @@ export async function getEnrolledCourses(studentRecordId: string) {
       studentRecordId,
       status: { in: ['ACTIVE', 'FORCE_ADDED', 'COMPLETED'] },
       courseOffering: {
-        status: 'ACTIVE',
+        status: { in: ['ACTIVE', 'SCHEDULED'] }, // Only show published courses
         course: {
           status: 'ACTIVE',
           departmentId: { in: deptIds },

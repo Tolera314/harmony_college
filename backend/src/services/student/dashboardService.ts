@@ -118,7 +118,7 @@ export async function getStudentDashboard(userId: string) {
         studentRecordId: studentRecord.id,
         status: { in: ['ACTIVE', 'FORCE_ADDED'] },
         courseOffering: {
-          status: 'ACTIVE',
+          status: { in: ['ACTIVE', 'SCHEDULED'] }, // Only show published courses
           course: {
             status: 'ACTIVE',
             departmentId: { in: deptIds },
