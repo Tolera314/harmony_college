@@ -414,7 +414,7 @@ export const DHCourseAssignmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_P
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-(--border-subtle)">
-                    {['Course', 'Section', 'Semester', 'Students', 'Instructor', 'Status', 'Action'].map(h => (
+                    {['Code', 'Course Name', 'Section', 'Semester', 'Students', 'Instructor', 'Status', 'Action'].map(h => (
                       <th
                         key={h}
                         className="px-4 py-3 text-left font-sans text-xs font-semibold text-(--text-faint) uppercase tracking-wide whitespace-nowrap"
@@ -429,8 +429,11 @@ export const DHCourseAssignmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_P
                     <tr key={a.offeringId} className="hover:bg-(--hover-overlay) transition-colors">
 
                       <td className="px-4 py-3">
-                        <p className="font-sans text-sm font-semibold text-(--text-primary)">{a.course.code}</p>
-                        <p className="font-sans text-xs text-(--text-faint) max-w-[160px] truncate">{a.course.name}</p>
+                        <span className="font-mono text-sm font-bold text-(--brand-gold)">{a.course.code}</span>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <p className="font-sans text-sm text-(--text-primary) max-w-[200px] truncate">{a.course.name}</p>
                       </td>
 
                       <td className="px-4 py-3">

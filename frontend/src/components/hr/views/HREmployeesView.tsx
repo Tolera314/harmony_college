@@ -20,6 +20,7 @@ import { SlidePanel }       from '../../ui/SlidePanel';
 import { ConfirmModal }     from '../../ui/ConfirmModal';
 import { SkeletonPage, ErrorState, InlineError } from '../../ui/States';
 import { EmployeeFormPanel } from '../EmployeeFormPanel';
+import { formatFullName }   from '../../../lib/validationUtils';
 
 // ── HR-allowed invite roles (NO ADMIN, SUPER_ADMIN, STUDENT) ──────────────────
 const HR_INVITE_ROLES = [
@@ -698,7 +699,18 @@ export const HREmployeesView: React.FC = () => {
               label="Full Name *"
               required
               value={invForm.fullName}
-              onChange={e => setInvForm({ ...invForm, fullName: e.target.value })}
+              onChange={e => {
+                const val = e.target.value;
+                // Smart formatting: capitalize when space is pressed (word completed)
+                const formatted = val.endsWith(' ') ? formatFullName(val) : val;
+                setInvForm({ ...invForm, fullName: formatted });
+              }}
+              onBlur={() => {
+                // Final cleanup on blur
+                if (invForm.fullName) {
+                  setInvForm({ ...invForm, fullName: formatFullName(invForm.fullName) });
+                }
+              }}
               placeholder="e.g. Dr. Almaz Worku"
             />
           </div>

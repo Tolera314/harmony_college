@@ -70,37 +70,10 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({
                 {instructor.department.name} · Active Faculty
               </div>
 
-              {/* Academic Context Switcher or Badge */}
-              {hasBothContexts ? (
-                <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-black/60 border border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => onProgramTypeChange?.('TVET')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      programType === 'TVET'
-                        ? 'bg-[#E9C349] text-black font-bold shadow'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    [ TVET ]
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onProgramTypeChange?.('SHORT_PROGRAM')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      programType === 'SHORT_PROGRAM'
-                        ? 'bg-[#E9C349] text-black font-bold shadow'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    [ Short Program ]
-                  </button>
-                </div>
-              ) : (
-                <span className="px-3 py-1 rounded-full text-[11px] font-mono font-semibold bg-white/5 border border-white/10 text-zinc-300 uppercase tracking-wider">
-                  {programType === 'SHORT_PROGRAM' ? 'Short Program Faculty' : 'TVET Faculty'}
-                </span>
-              )}
+              {/* Program Type Badge (non-interactive - main toggle is in header) */}
+              <span className="px-3 py-1 rounded-full text-[11px] font-mono font-semibold bg-white/5 border border-white/10 text-zinc-300 uppercase tracking-wider">
+                {programType === 'SHORT_PROGRAM' ? 'Short Program Faculty' : 'TVET Faculty'}
+              </span>
             </div>
 
             <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-(--text-primary)">

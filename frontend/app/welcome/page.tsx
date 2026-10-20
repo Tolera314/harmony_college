@@ -23,6 +23,9 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface BackendProfile {
+  fullName?:             string | null;
+  phone?:                string | null;
+  email?:                string | null;
   dob?:                  string | null;
   gender?:               string | null;
   nationality?:          string | null;
@@ -46,6 +49,9 @@ interface BackendProfile {
 
 function mapToProfileData(bp: BackendProfile | null): ProfileData {
   return {
+    fullName:             bp?.fullName             ?? '',
+    phone:                bp?.phone                ?? '',
+    email:                bp?.email                ?? '',
     nationality:          bp?.nationality          ?? '',
     dob:                  bp?.dob ? bp.dob.split('T')[0] : '',
     gender:               bp?.gender              ?? '',

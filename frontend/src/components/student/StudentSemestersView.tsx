@@ -21,9 +21,12 @@ export const StudentSemestersView: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      console.log('[StudentSemestersView] Fetching semesters...');
       const data = await studentDashApi.getSemesters();
+      console.log('[StudentSemestersView] Received semesters:', data);
       setSemesters(data);
     } catch (e) {
+      console.error('[StudentSemestersView] Error loading semesters:', e);
       setError(e instanceof Error ? e.message : 'Failed to load semesters');
     } finally {
       setLoading(false);
@@ -72,76 +75,70 @@ export const StudentSemestersView: React.FC = () => {
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: index * 0.05, ease: 'easeOut' }}
-            className="border border-(--border-default) rounded-xl p-4 bg-(--hover-overlay) backdrop-blur-xl hover:border-(--brand-gold) transition-colors"
+            className="border border-(--border-default) rounded-xl overflow-hidden bg-(--hover-overlay) backdrop-blur-xl hover:border-(--brand-gold) transition-colors"
           >
             {/* Header */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-(--brand-gold)" />
-                <div>
-                  <h4 className="font-sans text-sm font-semibold text-(--text-primary)">
-                    {semester.name}
-                  </h4>
-                  <p className="text-xs text-(--text-faint)">{semester.academicYear.name}</p>
+            <div className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-6 h-6 text-(--brand-gold)" />
+                  <div>
+                    <h4 className="font-sans text-base font-semibold text-(--text-primary)">
+                      {semester.name}
+                    </h4>
+                    <p className="text-xs text-(--text-faint)">{semester.academicYear.name}</p>
+                  </div>
                 </div>
-              </div>
-              {semester.isCurrent && (
-                <Badge variant="emerald">Current</Badge>
-              )}
-            </div>
-
-            {/* Dates Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              <div className="flex items-start gap-2">
-                <Clock className="w-4 h-4 text-(--text-muted) mt-0.5" />
-                <div>
-                  <p className="text-[10px] uppercase font-mono tracking-wider text-(--text-muted)">
-                    Semester Period
-                  </p>
-                  <p className="text-xs text-(--text-secondary) font-medium">
-                    {formatDate(semester.startDate)} — {formatDate(semester.endDate)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-(--text-muted) mt-0.5" />
-                <div>
-                  <p className="text-[10px] uppercase font-mono tracking-wider text-(--text-muted)">
-                    Registration
-                  </p>
-                  <p className="text-xs text-(--text-secondary) font-medium">
-                    {formatDate(semester.registrationStart)} — {formatDate(semester.registrationEnd)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Info */}
-            <div className="flex items-center gap-4 pt-3 border-t border-(--border-subtle)">
-              <div className="flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-(--text-muted)" />
-                <span className="text-xs text-(--text-secondary)">
-                  {semester._count.offerings} {semester._count.offerings === 1 ? 'Course' : 'Courses'} Available
-                </span>
-              </div>
-              {semester.durationWeeks && (
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-(--text-muted)" />
-                  <span className="text-xs text-(--text-secondary)">
-                    {semester.durationWeeks} weeks
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Add/Drop Deadline */}
-            {semester.isCurrent && (
-              <div className="mt-3 pt-3 border-t border-(--border-subtle)">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-(--status-warning) animate-pulse" />
+                  {semester.isCurrent && <Badge variant="emerald">Current</Badge>}
+                  <Badge variant={semester.programType === 'TVET' ? 'glass' : 'amber'}>
+                    {semester.programType === 'TVET' ? 'TVET' : 'Short Program'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Quick Stats Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-(--text-muted)" />
+                  <div>
+                    <p className="text-[10px] uppercase font-mono tracking-wider text-(--text-muted)">Duration</p>
+                    <p className="text-xs text-(--text-secondary) font-medium">
+                      {formatDate(semester.startDate)} — {formatDate(semester.endDate)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-(--text-muted)" />
+                  <div>
+                    <p className="text-[10px] uppercase font-mono tracking-wider text-(--text-muted)">Courses</p>
+                    <p className="text-xs text-(--text-secondary) font-medium">
+                      {semester._count.offerings} {semester._count.offerings === 1 ? 'course' : 'courses'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-(--text-muted)" />
+                  <div>
+                    <p className="text-[10px] uppercase font-mono tracking-wider text-(--text-muted)">Registration</p>
+                    <p className="text-xs text-(--text-secondary) font-medium">
+                      {formatDate(semester.registrationStart)} — {formatDate(semester.registrationEnd)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Add/Drop Deadline (only for current semester) */}
+            {semester.isCurrent && (
+              <div className="px-4 pb-4 pt-0">
+                <div className="p-3 bg-(--brand-gold)/10 border border-(--brand-gold)/20 rounded-xl flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-(--brand-gold) animate-pulse" />
                   <p className="text-xs text-(--text-secondary)">
-                    <span className="font-semibold">Add/Drop Deadline:</span> {formatDate(semester.addDropDeadline)}
+                    <span className="font-semibold text-(--brand-gold)">Add/Drop Deadline:</span>{' '}
+                    {formatDate(semester.addDropDeadline)}
                   </p>
                 </div>
               </div>

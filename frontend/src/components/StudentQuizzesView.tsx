@@ -383,9 +383,9 @@ export const StudentQuizzesView: React.FC<StudentQuizzesViewProps> = ({ enrolled
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5 flex-wrap">
-            {courses.map(c => (
+            {courses.map((c, idx) => (
               <button
-                key={c.id}
+                key={c.id || `course-${idx}`}
                 onClick={() => setSelectedCourseId(c.id)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
                   selectedCourseId === c.id 

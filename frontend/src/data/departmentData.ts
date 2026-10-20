@@ -108,20 +108,7 @@ export const faculty: Faculty[] = [
 ];
 
 // ── Courses ───────────────────────────────────────────────────────────────────
-export const courses: Course[] = [
-  { id: 'c01', code: 'FILM402', title: 'Advanced Digital Cinematography & Directing', facultyId: 'f01', semester: 'Fall 2024', credits: 4, roomId: 'r01', capacity: 40, registered: 38, status: 'Active', schedule: 'Mon, Wed 09:00–11:30', description: 'Advanced RED & ARRI camera operations, dramatic scene directing and color grading.' },
-  { id: 'c02', code: 'FILM301', title: 'Narrative Screenwriting & Story Development', facultyId: 'f01', semester: 'Fall 2024', credits: 3, roomId: 'r05', capacity: 25, registered: 23, status: 'Active', schedule: 'Tue, Thu 14:00–15:30', description: 'Three-act structure, character arc, dialogue writing and script formatting.' },
-  { id: 'c03', code: 'AUDIO301', title: 'Cubase Audio Engineering & Music Production', facultyId: 'f02', semester: 'Fall 2024', credits: 4, roomId: 'r02', capacity: 30, registered: 28, status: 'Active', schedule: 'Mon, Wed 13:00–15:00', description: 'Multi-track recording, spatial acoustics, vocal tuning and stereo mastering.' },
-  { id: 'c04', code: 'AUDIO201', title: 'Sound Design for Film & Television', facultyId: 'f02', semester: 'Spring 2025', credits: 3, roomId: 'r02', capacity: 30, registered: 0, status: 'Pending Approval', schedule: 'Tue, Thu 10:00–11:30', description: 'Foley art, ADR, surround sound mixing for narrative and documentary film.' },
-  { id: 'c05', code: 'DESN440', title: 'Graphic Design & Digital Marketing Strategy', facultyId: 'f03', semester: 'Fall 2024', credits: 4, roomId: 'r04', capacity: 35, registered: 34, status: 'Active', schedule: 'Mon, Wed 15:00–17:00', description: 'Brand identity, UI/UX principles, social media strategy and content production.' },
-  { id: 'c06', code: 'DESN201', title: 'Typography & Visual Communication', facultyId: 'f03', semester: 'Fall 2024', credits: 3, roomId: 'r04', capacity: 35, registered: 30, status: 'Active', schedule: 'Fri 09:00–12:00', description: 'Type anatomy, grid systems, hierarchy and print vs digital layout design.' },
-  { id: 'c07', code: 'THEA310', title: 'Advanced Acting & Stage Direction', facultyId: 'f04', semester: 'Fall 2024', credits: 4, roomId: 'r03', capacity: 45, registered: 42, status: 'Active', schedule: 'Tue, Thu 08:00–10:00', description: 'Stanislavski method, physical theatre, improvisation and ensemble performance.' },
-  { id: 'c08', code: 'THEA201', title: 'Introduction to Theatre Arts & Performance', facultyId: 'f04', semester: 'Fall 2024', credits: 3, roomId: 'r03', capacity: 80, registered: 71, status: 'Active', schedule: 'Mon, Wed 08:00–09:30', description: 'History of theatre, script reading, voice training and basic stagecraft.' },
-  { id: 'c09', code: 'MDIA250', title: 'Media Studies & Cultural Theory', facultyId: 'f05', semester: 'Fall 2024', credits: 3, roomId: 'r05', capacity: 25, registered: 22, status: 'Active', schedule: 'Fri 13:00–16:00', description: 'Critical theory, representation, media ownership and digital culture discourse.' },
-  { id: 'c10', code: 'JOUR401', title: 'Broadcast Journalism & Media Ethics', facultyId: 'f06', semester: 'Fall 2024', credits: 3, roomId: 'r06', capacity: 20, registered: 18, status: 'Active', schedule: 'Tue, Thu 13:00–14:30', description: 'Live reporting, news writing, ethical frameworks and media law principles.' },
-  { id: 'c11', code: 'ANIM350', title: 'Motion Graphics & 2D Animation', facultyId: 'f10', semester: 'Spring 2025', credits: 4, roomId: 'r04', capacity: 35, registered: 0, status: 'Pending Approval', schedule: 'Mon, Wed 11:00–13:00', description: 'After Effects, character rigging, motion path timing and kinetic typography.' },
-  { id: 'c12', code: 'PHOT210', title: 'Digital Photography & Post-Processing', facultyId: 'f07', semester: 'Fall 2024', credits: 3, roomId: 'r04', capacity: 35, registered: 29, status: 'Active', schedule: 'Thu 09:00–12:00', description: 'DSLR/mirrorless controls, studio lighting setups and Lightroom/Photoshop workflows.' },
-];
+export const courses: Course[] = [];
 
 // ── Students ──────────────────────────────────────────────────────────────────
 export const students: DeptStudent[] = [
@@ -233,14 +220,7 @@ export const enrollmentTrend: EnrollmentPoint[] = [
   { semester: 'Fall 24', count: 248 },
 ];
 
-export const gpaByCourseTrend: GPAPoint[] = [
-  { course: 'FILM402', avgGpa: 3.72 },
-  { course: 'AUDIO301', avgGpa: 3.55 },
-  { course: 'DESN440', avgGpa: 3.41 },
-  { course: 'THEA310', avgGpa: 3.30 },
-  { course: 'THEA201', avgGpa: 3.10 },
-  { course: 'MDIA250', avgGpa: 3.62 },
-];
+export const gpaByCourseTrend: GPAPoint[] = [];
 
 export const attendanceTrend: AttendancePoint[] = [
   { week: 'Wk 1', rate: 96 },

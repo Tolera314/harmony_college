@@ -238,41 +238,56 @@ export default function InstructorDashboardPage() {
             onOpenSearch={() => setSearchOpen(true)}
             onMobileMenuToggle={() => setMobileMenuOpen(true)}
           />
-          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-8 pb-24 md:pb-8">
-            {/* Academic Context Switcher Banner: kept permanently visible for role-based separation */}
-            <div className="mb-6 p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-bold">Academic Assignment Context:</span>
-                <span className="text-xs text-zinc-300">
-                  Currently viewing <strong className="text-white">{academicProgramType === 'TVET' ? 'TVET' : 'Short Program'}</strong> responsibilities
-                </span>
-              </div>
-                <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => handleProgramTypeChange('TVET')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      academicProgramType === 'TVET'
-                        ? 'bg-[#E9C349] text-black shadow-md font-bold'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    [ TVET ]
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleProgramTypeChange('SHORT_PROGRAM')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      academicProgramType === 'SHORT_PROGRAM'
-                        ? 'bg-[#E9C349] text-black shadow-md font-bold'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    [ Short Program ]
-                  </button>
-                </div>
-              </div>
 
+          {/* TVET / Short Program Toggle Switch - Always Visible */}
+          <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col gap-1.5">
+              {dashData?.academicContext && (dashData.academicContext.hasTVET && dashData.academicContext.hasShortProgram) ? (
+                <>
+                  {/* Toggle when instructor has both contexts */}
+                  <div className="flex items-center gap-1 p-1 rounded-2xl bg-(--bg-secondary) border border-(--border-default) shadow-sm">
+                    <button
+                      onClick={() => handleProgramTypeChange('TVET')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                        academicProgramType === 'TVET'
+                          ? 'bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black shadow-md scale-[1.02]'
+                          : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                      }`}
+                    >
+                      🎓 TVET
+                    </button>
+                    <button
+                      onClick={() => handleProgramTypeChange('SHORT_PROGRAM')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                        academicProgramType === 'SHORT_PROGRAM'
+                          ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md scale-[1.02]'
+                          : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                      }`}
+                    >
+                      ⏱ Short Program
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">
+                    {academicProgramType === 'TVET' ? 'Viewing TVET academic data' : 'Viewing Short Program academic data'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  {/* Badge when instructor has only one context */}
+                  <div className="flex items-center gap-1 p-1 rounded-2xl bg-(--bg-secondary) border border-(--border-default) shadow-sm">
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black shadow-md">
+                      {academicProgramType === 'TVET' ? '🎓 TVET' : '⏱ Short Program'}
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">
+                    {academicProgramType === 'TVET' ? 'TVET Faculty Assignment' : 'Short Program Faculty Assignment'}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <main id="main-content" className="flex-1 px-4 sm:px-6 lg:px-8 pt-2 pb-24 md:pb-8">
             {dashLoading && activeTab === 'overview' ? (
               <SkeletonPage />
             ) : (

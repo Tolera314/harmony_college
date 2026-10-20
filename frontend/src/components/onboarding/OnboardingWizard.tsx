@@ -771,12 +771,42 @@ function StepEmergency({ profile, errors, onChange }: {
   errors: Partial<Record<keyof ProfileData, string>>;
   onChange: (key: keyof ProfileData, val: string) => void;
 }) {
+  const handleEmergencyNameChange = (value: string) => {
+    // Smart formatting: capitalize when space is pressed (word completed)
+    if (value.endsWith(' ')) {
+      const formatted = formatFullName(value);
+      onChange('emergencyName', formatted);
+    } else {
+      onChange('emergencyName', value);
+    }
+  };
+  
+  const handleEmergencyNameBlur = () => {
+    // Format name when user leaves the field - final cleanup
+    if (profile.emergencyName) {
+      const formatted = formatFullName(profile.emergencyName);
+      onChange('emergencyName', formatted);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <WizardInput id="emergencyName" label="Contact Full Name" value={profile.emergencyName}
-          onChange={(v) => onChange('emergencyName', v)} required error={errors.emergencyName} icon={User} />
-        <WizardInput id="emergencyPhone" label="Emergency Phone Number" type="tel" value={profile.emergencyPhone}
+        <WizardInput 
+          id="emergencyName" 
+          label="Contact Full Name" 
+          value={profile.emergencyName}
+          onChange={handleEmergencyNameChange}
+          onBlur={handleEmergencyNameBlur}
+          required 
+          error={errors.emergencyName} 
+          icon={User} 
+        />
+        <WizardInput 
+          id="emergencyPhone" 
+          label="Emergency Phone" 
+          type="tel" 
+          value={profile.emergencyPhone}
           onChange={(v) => {
             // Smart emergency phone number length limit based on format
             const cleaned = v.replace(/\s/g, '');
@@ -795,7 +825,10 @@ function StepEmergency({ profile, errors, onChange }: {
             
             onChange('emergencyPhone', limited);
           }}
-          required error={errors.emergencyPhone} icon={Phone} />
+          required 
+          error={errors.emergencyPhone} 
+          icon={Phone} 
+        />
       </div>
       <WizardInput id="emergencyNotes" label="Notes (Optional)" value={profile.emergencyNotes}
         onChange={(v) => onChange('emergencyNotes', v)}
@@ -1040,6 +1073,9 @@ export function OnboardingWizard() {
         const bp = pd.profile;
         if (bp) {
           existingProfile = {
+            fullName:             bp.fullName             ?? pd.user?.fullName ?? '',
+            phone:                bp.phone                ?? pd.user?.phone    ?? '',
+            email:                bp.email                ?? pd.user?.email    ?? '',
             nationality:          bp.nationality          ?? '',
             dob:                  bp.dob ? bp.dob.split('T')[0] : '',
             gender:               bp.gender              ?? '',

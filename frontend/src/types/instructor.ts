@@ -1,6 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Instructor Dashboard — Type Definitions
-// Instructor = Dr. Marcus Vance (f01), teaching FILM402 + FILM301
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type InstructorNavTab =
@@ -159,7 +158,7 @@ export interface CourseMaterial {
 }
 
 // ── Announcement ──────────────────────────────────────────────────────────────
-export type AnnouncementAudience = 'All Courses' | 'FILM402' | 'FILM301';
+export type AnnouncementAudience = 'All Courses' | (string & {});
 export type AnnouncementStatus = 'Published' | 'Draft' | 'Scheduled' | 'Pinned';
 
 export interface Announcement {
