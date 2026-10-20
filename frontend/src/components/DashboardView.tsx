@@ -176,7 +176,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Button variant="primary" onClick={() => setActiveTab('my_courses')} icon={<BookOpen className="w-4 h-4" />}>My Courses</Button>
                 <Button variant="secondary" onClick={() => setActiveTab('timetable')} icon={<CalendarDays className="w-4 h-4" />}>My Timetable</Button>
                 <Button variant="secondary" onClick={() => setActiveTab('assignments')} icon={<ClipboardList className="w-4 h-4" />}>Assignments</Button>
-                <Button variant="secondary" onClick={() => setActiveTab('grades')} icon={<GraduationCap className="w-4 h-4" />}>View Transcript</Button>
               </div>
             </div>
             <div

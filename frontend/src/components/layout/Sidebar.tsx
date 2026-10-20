@@ -57,10 +57,7 @@ const defaultStudentNavItems: GenericNavItem<NavTab>[] = [
   { id: 'timetable',    label: 'My Timetable',         icon: <CalendarDays className="w-5 h-5" /> },
   { id: 'assignments',  label: 'Assignments',          icon: <ClipboardList className="w-5 h-5" />, badge: '3 Due', badgeVariant: 'amber' },
   { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-5 h-5" /> },
-  { id: 'grades',       label: 'Grades & Transcript',  icon: <GraduationCap className="w-5 h-5" /> },
-  { id: 'gpa_simulator', label: 'GPA Simulator',       icon: <Calculator className="w-5 h-5" /> },
   { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-5 h-5" /> },
-  { id: 'degree_audit', label: 'Degree Audit',         icon: <BarChart3 className="w-5 h-5" />, badge: '85%' },
   { id: 'profile',      label: 'My Profile',           icon: <UserCircle className="w-5 h-5" /> },
 ];
 
