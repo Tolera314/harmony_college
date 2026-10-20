@@ -52,11 +52,8 @@ export type NavTab =
   | 'assignments'
   | 'quizzes'
   | 'attendance'
-  | 'grades'
-  | 'gpa_simulator'
   | 'financials'
   | 'notifications'
-  | 'degree_audit'
   | 'settings'
   | 'profile';
 

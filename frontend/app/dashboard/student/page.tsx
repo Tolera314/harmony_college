@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  NavTab, StudentProfile, Course, GradeRecord,
-  FinancialTransaction, RequirementCategory, TimetableEvent, AlertItem,
+  NavTab, StudentProfile, Course,
+  FinancialTransaction, TimetableEvent, AlertItem,
 } from '@/src/types';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
@@ -11,10 +11,7 @@ import { MobileNav } from '@/src/components/layout/MobileNav';
 import { DashboardView } from '@/src/components/DashboardView';
 import { MyCoursesView } from '@/src/components/MyCoursesView';
 import { MyTimetableView } from '@/src/components/MyTimetableView';
-import { GradesView } from '@/src/components/GradesView';
-import { GpaSimulatorView } from '@/src/components/GpaSimulatorView';
 import { FinancialsView } from '@/src/components/FinancialsView';
-import { DegreeAuditView } from '@/src/components/DegreeAuditView';
 import { SettingsView } from '@/src/components/SettingsView';
 import { StudentAssignmentsView } from '@/src/components/StudentAssignmentsView';
 import { StudentQuizzesView } from '@/src/components/StudentQuizzesView';
@@ -35,9 +32,7 @@ import {
   studentDashApi,
   type DashboardData,
   type CourseDetail,
-  type GradeHistory,
   type FinancialSummary,
-  type DegreeAudit,
 } from '@/src/lib/studentApi';
 import { useSocket } from '@/src/context/SocketContext';
 import { toEthiopianTimeRange } from '@/src/lib/utils';
@@ -45,7 +40,7 @@ import { toEthiopianTimeRange } from '@/src/lib/utils';
 // ── Tabs that require a complete profile ──────────────────────────────────────
 const LOCKED_TABS: NavTab[] = [
   'registration', 'financials',
-  'assignments', 'quizzes', 'gpa_simulator',
+  'assignments', 'quizzes',
 ];
 // These tabs are locked until student completes their profile
 
@@ -133,24 +128,6 @@ function mapApiCourse(c: CourseDetail, assignments: any[]): Course {
   };
 }
 
-// ── Map API grade → frontend GradeRecord ─────────────────────────────────────
-function mapApiGrade(r: any): GradeRecord {
-  return {
-    id: r.id,
-    courseCode: r.courseCode,
-    courseTitle: r.courseTitle,
-    term: r.term,
-    credits: r.ects ?? r.credits,
-    creditHours: r.creditHours ?? 3,
-    ects: r.ects ?? r.credits,
-    finalMark: r.finalMark,
-    grade: r.grade,
-    numericGpa: r.gradePoints,
-    qualityPoints: r.qualityPoints,
-    instructor: r.instructor,
-  };
-}
-
 // ── Map API transaction → frontend FinancialTransaction ──────────────────────
 function mapApiTransaction(tx: any): FinancialTransaction {
   return {
@@ -214,24 +191,12 @@ export default function StudentDashboardPage() {
   // ── Real data state ───────────────────────────────────────────────────────
   const [dashboardData, setDashboardData]     = useState<DashboardData | null>(null);
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
-  const [gradeData, setGradeData]             = useState<GradeHistory | null>(null);
   const [financialData, setFinancialData]     = useState<FinancialSummary | null>(null);
-  const [degreeData, setDegreeData]           = useState<DegreeAudit | null>(null);
   const [timetable, setTimetable]             = useState<TimetableEvent[]>([]);
   const [alerts, setAlerts]                   = useState<AlertItem[]>([]);
   const [dataLoaded, setDataLoaded]           = useState<Record<string, boolean>>({});
 
   const markLoaded = (key: string) => setDataLoaded(prev => ({ ...prev, [key]: true }));
-
-  // ── Grade push notification via socket ────────────────────────────────────
-  useEffect(() => {
-    const unsub = onGradePosted(ev => {
-      showToast(`Grade posted: ${ev.courseCode} — ${ev.grade} (${ev.gradePoints.toFixed(1)} pts)`, 'success');
-      // Invalidate grades cache so next visit to Grades tab fetches fresh data
-      setDataLoaded(prev => ({ ...prev, grades: false }));
-    });
-    return unsub;
-  }, [onGradePosted, showToast]);
 
   // ── Session auth + dashboard bootstrap ───────────────────────────────────
   useEffect(() => {
@@ -319,49 +284,18 @@ export default function StudentDashboardPage() {
   }, []);
 
   // ── Lazy-load per-tab data ────────────────────────────────────────────────
-  const loadGrades = useCallback(async () => {
-    if (dataLoaded['grades']) return;
-    try { const g = await studentDashApi.getGrades(); setGradeData(g); markLoaded('grades'); } catch { }
-  }, [dataLoaded]);
-
   const loadFinancials = useCallback(async () => {
     if (dataLoaded['financials']) return;
     try { const f = await studentDashApi.getFinancials(); setFinancialData(f); markLoaded('financials'); } catch { }
   }, [dataLoaded]);
 
-  const loadDegreeAudit = useCallback(async () => {
-    if (dataLoaded['degree_audit']) return;
-    try { const d = await studentDashApi.getDegreeAudit(); setDegreeData(d); markLoaded('degree_audit'); } catch { }
-  }, [dataLoaded]);
-
   // ── Derived data ──────────────────────────────────────────────────────────
-  const grades: GradeRecord[] = gradeData ? gradeData.records.map(mapApiGrade) : [];
-
   const transactions: FinancialTransaction[] = financialData
     ? financialData.transactions.map(mapApiTransaction)
     : [];
 
   const financialProfile: StudentProfile = financialData
     ? { ...profile, accountBalance: financialData.balance, clearedTerm: financialData.clearedForTerm ?? profile.clearedTerm }
-    : profile;
-
-  const degreeRequirements: RequirementCategory[] = degreeData
-    ? degreeData.categories.map(cat => ({
-        title: cat.title,
-        requiredCredits: cat.requiredCredits,
-        completedCredits: cat.completedCredits,
-        courses: cat.courses.map(c => ({
-          code: c.code,
-          title: c.title,
-          credits: c.credits,
-          status: c.status as any,
-          grade: c.grade,
-        })),
-      }))
-    : [];
-
-  const degreeProfile: StudentProfile = degreeData
-    ? { ...profile, cumulativeGpa: degreeData.progress.cumulativeGPA, completedCredits: degreeData.progress.completedCredits, totalRequiredCredits: degreeData.progress.totalRequired }
     : profile;
 
   const isProfileIncomplete = onboardingCompletion < 100;
@@ -384,7 +318,6 @@ export default function StudentDashboardPage() {
     }
     setTabLoading(true);
     if (tab === 'my_courses' || tab === 'registration') loadCourses();
-    if (tab === 'grades' || tab === 'gpa_simulator') loadGrades();
     if (tab === 'financials') loadFinancials();
     setTimeout(() => { setActiveTab(tab); setTabLoading(false); }, 120);
   };
@@ -410,7 +343,6 @@ export default function StudentDashboardPage() {
     { id: 'assignments',  label: 'Assignments',          icon: <ClipboardList className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'quizzes',      label: 'Quizzes & Exams',      icon: <HelpCircle className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'attendance',   label: 'My Attendance',        icon: <CalendarCheck className="w-4 h-4" /> },
-    { id: 'gpa_simulator', label: 'GPA Simulator',       icon: <Calculator className="w-4 h-4" />, locked: isProfileIncomplete },
     { id: 'financials',   label: 'Financials & Tuition', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'notifications', label: 'Notifications',       icon: <Bell className="w-4 h-4" /> },
     { id: 'profile',      label: 'My Profile',           icon: <UserCircle className="w-4 h-4" /> },
@@ -437,7 +369,6 @@ export default function StudentDashboardPage() {
               timetable={timetable}
               alerts={alerts}
               setActiveTab={handleTabChange}
-              degreeCompletionPct={degreeData?.progress.completionPercentage}
               upcomingEvents={dashboardData?.upcomingEvents ?? []}
             />
             
@@ -481,15 +412,6 @@ export default function StudentDashboardPage() {
         return <StudentQuizzesView enrolledCourses={enrolledCourses} />;
       case 'attendance':
         return <StudentAttendanceView />;
-      case 'gpa_simulator':
-        return (
-          <GpaSimulatorView
-            profile={profile}
-            enrolledCourses={enrolledCourses}
-            gradeData={gradeData}
-            grades={grades}
-          />
-        );
       case 'financials':
         return <FinancialsView profile={financialProfile} transactions={transactions} />;
       case 'notifications':
