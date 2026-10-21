@@ -168,7 +168,15 @@ export default function FinanceOfficerPage() {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
       case 'overview':            return <FOOverviewView setActiveTab={setActiveTab} programType={programType} profile={profile} />;
-      case 'tuition_setup':       return <FOTuitionSetupView programType={programType} />;
+      case 'tuition_setup':       return (
+        <FOTuitionSetupView
+          programType={programType}
+          onProgramTypeChange={(pt) => {
+            setProgramType(pt);
+            localStorage.setItem('fo_program_type', pt);
+          }}
+        />
+      );
       case 'payment_submissions': return <FOPaymentSubmissionsView programType={programType} />;
       case 'student_accounts':    return <FOStudentAccountsView programType={programType} />;
       case 'payments':            return <FOPaymentsView programType={programType} />;
@@ -313,7 +321,7 @@ export default function FinanceOfficerPage() {
               <div className="flex-1 overflow-y-auto p-3 space-y-1">
                 {[
                   { id: 'overview', label: 'Dashboard Overview' },
-                  { id: 'tuition_setup', label: 'Tuition Setup' },
+                  { id: 'tuition_setup', label: 'Monthly Fee Setup' },
                   { id: 'payment_submissions', label: 'Payment Submissions' },
                   { id: 'student_accounts', label: 'Student Accounts' },
                   { id: 'payments', label: 'Payments' },

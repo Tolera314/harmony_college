@@ -476,13 +476,37 @@ router.get('/audit-logs', async (req: AuthRequest, res: Response): Promise<void>
   }
 });
 
-// ── TUITION CONFIGURATION ─────────────────────────────────────────────────────
+// ── PROGRAMS FOR MONTHLY FEE SETUP ────────────────────────────────────────────
+router.get('/programs', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const q = req.query as Record<string, string | undefined>;
+    const programs = await tuitionConfigService.getProgramsForFeeSetup(
+      q.academicContext as 'TVET' | 'SHORT_PROGRAM' | undefined
+    );
+    ok(res, programs);
+  } catch (err) { fail(res, err); }
+});
+
+router.get('/registered-students', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const q = req.query as Record<string, string | undefined>;
+    const students = await tuitionConfigService.getRegisteredStudentsForFeeSetup(
+      q.academicContext as 'TVET' | 'SHORT_PROGRAM' | undefined
+    );
+    ok(res, students);
+  } catch (err) { fail(res, err); }
+});
+
+// ── TUITION & MONTHLY FEE CONFIGURATION ───────────────────────────────────────
 router.get('/tuition-configs', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const q = req.query as Record<string, string | undefined>;
     const data = await tuitionConfigService.listConfigs({
       academicContext: q.academicContext as any,
       departmentId:    q.departmentId,
+      programId:       q.programId,
+      status:          q.status,
+      billingMonth:    q.billingMonth,
       isActive:        q.isActive === 'false' ? false : q.isActive === 'true' ? true : undefined,
     });
     ok(res, data);
@@ -499,31 +523,88 @@ router.get('/tuition-configs/:id', async (req: AuthRequest, res: Response): Prom
 
 router.post('/tuition-configs', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { academicContext, departmentId, programId, durationMonths, academicYearLabel, monthlyAmount, effectiveDate, description } = req.body;
-    if (!academicContext || !departmentId || !monthlyAmount || monthlyAmount <= 0) {
-      res.status(400).json({ error: 'academicContext, departmentId, and monthlyAmount (>0) are required.' });
+    const {
+      academicContext,
+      departmentId,
+      programId,
+      durationMonths,
+      academicYearLabel,
+      billingMonth,
+      monthlyAmount,
+      dueDate,
+      paymentInstructions,
+      status,
+      description,
+    } = req.body;
+
+    if (!academicContext || !programId || !monthlyAmount || monthlyAmount <= 0) {
+      res.status(400).json({ error: 'academicContext, programId, and monthlyAmount (>0) are required.' });
       return;
     }
+
     const data = await tuitionConfigService.createConfig({
       academicContext,
       departmentId,
-      programId:        programId || undefined,
+      programId,
       durationMonths:   durationMonths ? parseInt(durationMonths, 10) : undefined,
       academicYearLabel: academicYearLabel || undefined,
+      billingMonth:     billingMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
       monthlyAmount:    Number(monthlyAmount),
-      effectiveDate:    effectiveDate ? new Date(effectiveDate) : undefined,
+      dueDate:          dueDate ? new Date(dueDate) : new Date(),
+      paymentInstructions: paymentInstructions || undefined,
+      status:           status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED',
       description,
-      createdByUserId: req.user!.userId,
+      createdByUserId:  req.user!.userId,
     });
+
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,
       actorName:   await resolveActorName(req),
-      action:      `Created tuition config: ${academicContext} / ETB ${monthlyAmount}/month`,
-      module:      'Tuition Configuration',
+      action:      `${data.status === 'DRAFT' ? 'Drafted' : 'Published'} monthly fee setup: ${academicContext} / ETB ${monthlyAmount}/month for ${data.billingLabel}`,
+      module:      'Monthly Fee Setup',
       amount:      Number(monthlyAmount),
       status:      'Success',
     });
     ok(res, data, 201);
+  } catch (err) { fail(res, err, 400); }
+});
+
+router.post('/tuition-configs/:id/publish', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const data = await tuitionConfigService.publishConfig(id);
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName:   await resolveActorName(req),
+      action:      `Published fee config ${id} for ${data.billingMonth}`,
+      module:      'Monthly Fee Setup',
+      amount:      data.monthlyAmount,
+      status:      'Success',
+    });
+    ok(res, data);
+  } catch (err) { fail(res, err, 400); }
+});
+
+router.post('/tuition-configs/:id/revise', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { monthlyAmount, dueDate, paymentInstructions, description } = req.body;
+    const data = await tuitionConfigService.reviseConfig(id, {
+      monthlyAmount: monthlyAmount ? Number(monthlyAmount) : undefined,
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      paymentInstructions,
+      description,
+      revisedByUserId: req.user!.userId,
+    });
+    await foAuditService.logFinanceAction({
+      actorUserId: req.user!.userId,
+      actorName:   await resolveActorName(req),
+      action:      `Revised fee config ${id} to ETB ${data.monthlyAmount}/month (rev ${data.revision})`,
+      module:      'Monthly Fee Setup',
+      amount:      data.monthlyAmount,
+      status:      'Success',
+    });
+    ok(res, data);
   } catch (err) { fail(res, err, 400); }
 });
 
@@ -573,6 +654,7 @@ router.get('/payment-submissions', async (req: AuthRequest, res: Response): Prom
     const data = await paymentSubmissionService.listPendingSubmissions({
       search: q.search,
       programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+      status: q.status as any,
       page:   q.page ? parseInt(q.page, 10) : 1,
       limit:  q.limit ? parseInt(q.limit, 10) : 20,
     });
@@ -603,14 +685,14 @@ router.post('/payment-submissions/:id/reject', async (req: AuthRequest, res: Res
   try {
     const id = req.params.id as string;
     const { rejectionReason } = req.body;
-    if (!rejectionReason) {
+    if (!rejectionReason || !rejectionReason.trim()) {
       res.status(400).json({ error: 'rejectionReason is required.' });
       return;
     }
     const data = await paymentSubmissionService.rejectSubmission({
       submissionId:     id,
       reviewedByUserId: req.user!.userId,
-      rejectionReason,
+      rejectionReason:  rejectionReason.trim(),
     });
     await foAuditService.logFinanceAction({
       actorUserId: req.user!.userId,

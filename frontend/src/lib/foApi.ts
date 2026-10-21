@@ -208,14 +208,25 @@ export async function updateSettings(data: Record<string, unknown>) {
   });
 }
 
-// ── Tuition Configurations ───────────────────────────────────────────────────
+// ── Programs & Registered Students for Monthly Fee Setup ─────────────────────
+export async function getFeePrograms(academicContext?: 'TVET' | 'SHORT_PROGRAM') {
+  return apiFetch<any[]>(`/programs${qs({ academicContext })}`);
+}
+
+export async function getRegisteredStudents(academicContext?: 'TVET' | 'SHORT_PROGRAM') {
+  return apiFetch<any[]>(`/registered-students${qs({ academicContext })}`);
+}
+
+// ── Tuition & Monthly Fee Configurations ──────────────────────────────────────
 export async function getTuitionConfigs(params?: {
   academicContext?: string;
   departmentId?: string;
   programId?: string;
+  status?: string;
+  billingMonth?: string;
   isActive?: boolean;
 }) {
-  return apiFetch<any>(`/tuition-configs${qs(params || {})}`);
+  return apiFetch<any[]>(`/tuition-configs${qs(params || {})}`);
 }
 
 export async function getTuitionConfig(id: string) {
@@ -224,15 +235,39 @@ export async function getTuitionConfig(id: string) {
 
 export async function createTuitionConfig(data: {
   academicContext: 'TVET' | 'SHORT_PROGRAM';
-  departmentId: string;
-  programId?: string;
+  programId: string;
+  departmentId?: string;
+  billingMonth: string;
+  monthlyAmount: number;
+  dueDate: string;
+  paymentInstructions?: string;
+  status?: 'DRAFT' | 'PUBLISHED';
   durationMonths?: number;
   academicYearLabel?: string;
-  monthlyAmount: number;
-  effectiveDate?: string;
   description?: string;
 }) {
   return apiFetch<any>('/tuition-configs', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function publishTuitionConfig(id: string) {
+  return apiFetch<any>(`/tuition-configs/${id}/publish`, {
+    method: 'POST',
+  });
+}
+
+export async function reviseTuitionConfig(
+  id: string,
+  data: {
+    monthlyAmount?: number;
+    dueDate?: string;
+    paymentInstructions?: string;
+    description?: string;
+  }
+) {
+  return apiFetch<any>(`/tuition-configs/${id}/revise`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -242,6 +277,9 @@ export async function updateTuitionConfig(
   id: string,
   data: Partial<{
     monthlyAmount: number;
+    dueDate: string;
+    paymentInstructions: string;
+    status: 'DRAFT' | 'PUBLISHED';
     isActive: boolean;
     effectiveDate: string;
     description: string;
@@ -265,6 +303,7 @@ export async function deleteTuitionConfig(id: string) {
 export async function getPaymentSubmissions(params?: {
   search?: string;
   programType?: 'TVET' | 'SHORT_PROGRAM';
+  status?: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'ALL';
   page?: number;
   limit?: number;
 }) {

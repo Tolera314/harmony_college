@@ -1,13 +1,23 @@
 /**
  * Monthly Installment Service — Harmony College
- * Manages the creation and status of monthly payment installments for each student.
- * Generates installment schedules upon student registration / admin creation.
- * Automatically updates statuses (DUE, OVERDUE) based on dates.
+ * Manages the creation, status, countdown, and balances of monthly payment installments for students.
+ * Enforces that students only see published fees for their actual enrolled program.
+ * Calculates countdowns from actual stored deadlines and enforces overdue logic.
  */
 import { prisma }                from '../../lib/prisma';
 import { ProgramType }           from '@prisma/client';
-import { findApplicableConfig }  from './tuitionConfigService';
+import { formatBillingLabel, syncInstallmentsForConfig } from './tuitionConfigService';
 import { createNotification }    from '../notificationService';
+
+export const SUPPORTED_PAYMENT_METHODS = [
+  'Commercial Bank of Ethiopia (CBE)',
+  'Awash Bank',
+  'Cooperative Bank',
+  'Telebirr',
+];
+
+export const DEFAULT_PAYMENT_INSTRUCTIONS =
+  'Please deposit or transfer your monthly tuition using CBE (Acc: 1000123456789), Awash Bank (Acc: 01320987654300), Cooperative Bank of Oromia (Acc: 10000456789), or Telebirr (Merchant ID: 889900). Include your full name and Student ID as the transfer reference, and upload the payment confirmation receipt.';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -17,27 +27,26 @@ function monthKey(date: Date): string {
   return `${y}-${m}`;
 }
 
-function monthLabel(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+// ── Status sync: update DUE / OVERDUE for open installments ───────────────────
+
+export async function syncInstallmentStatuses(): Promise<{ updated: number }> {
+  const now = new Date();
+
+  // Mark UPCOMING -> OVERDUE or DUE based on dueDate
+  // If dueDate < now and status is UPCOMING or DUE -> OVERDUE
+  const overdue = await prisma.monthlyInstallment.updateMany({
+    where: {
+      status: { in: ['UPCOMING', 'DUE'] },
+      dueDate: { lt: now },
+    },
+    data: { status: 'OVERDUE' },
+  });
+
+  return { updated: overdue.count };
 }
 
-/**
- * Parse shortProgramDuration string (e.g. "2 Months") → number of months.
- * Returns null if not parseable.
- */
-function parseDurationMonths(duration: string | null): number | null {
-  if (!duration) return null;
-  const n = parseInt(duration, 10);
-  return isNaN(n) ? null : n;
-}
+// ── Core: generate installments for student (legacy / admission helper) ───────
 
-// ── Core: generate installments for a student ─────────────────────────────────
-
-/**
- * Creates or ensures monthly installments exist for the student from the current
- * month through the end of their program duration.
- * Safe to call multiple times — idempotent (upsert on billingMonth).
- */
 export async function generateInstallmentsForStudent(studentRecordId: string): Promise<{
   created: number;
   alreadyExisted: number;
@@ -45,211 +54,280 @@ export async function generateInstallmentsForStudent(studentRecordId: string): P
   configFound: boolean;
 }> {
   const sr = await prisma.studentRecord.findUnique({
-    where:  { id: studentRecordId },
-    include: {
-      financialAccount: true,
-      program:          { select: { id: true } },
-      department:       { select: { id: true } },
-    },
+    where: { id: studentRecordId },
+    include: { financialAccount: true, program: true },
   });
 
   if (!sr) throw new Error('Student record not found.');
 
-  // Ensure financial account exists
-  let account = sr.financialAccount;
-  if (!account) {
-    account = await prisma.financialAccount.create({
-      data: { studentRecordId },
-    });
-  }
-
-  const durationMonths = parseDurationMonths(sr.shortProgramDuration);
-  const config = await findApplicableConfig({
-    academicContext: sr.programType,
-    departmentId:    sr.departmentId,
-    programId:       sr.programId,
-    durationMonths,
+  // Find all active published configs for this student's program
+  const configs = await prisma.tuitionConfiguration.findMany({
+    where: {
+      academicContext: sr.programType,
+      programId: sr.programId,
+      status: 'PUBLISHED',
+      isActive: true,
+    },
+    orderBy: { billingMonth: 'asc' },
   });
-
-  if (!config) {
-    // No config configured yet — skip silently, FO must configure first
-    return { created: 0, alreadyExisted: 0, monthlyAmount: null, configFound: false };
-  }
-
-  // Determine billing period
-  const admittedAt  = sr.admittedAt ?? new Date();
-  const startDate   = new Date(admittedAt.getFullYear(), admittedAt.getMonth(), 1);
-  const totalMonths = durationMonths ?? 12; // default 12 months if TVET / not specified
 
   let created = 0;
   let alreadyExisted = 0;
 
-  for (let i = 0; i < totalMonths; i++) {
-    const billingDate = new Date(startDate);
-    billingDate.setMonth(billingDate.getMonth() + i);
-    const key   = monthKey(billingDate);
-    const label = monthLabel(billingDate);
-
-    // Due on the 5th of the billing month
-    const dueDate = new Date(billingDate.getFullYear(), billingDate.getMonth(), 5);
-
-    const now = new Date();
-    let status: 'UPCOMING' | 'DUE' | 'OVERDUE' = 'UPCOMING';
-    if (dueDate < now) {
-      const daysPast = Math.floor((now.getTime() - dueDate.getTime()) / 86400000);
-      status = daysPast > 14 ? 'OVERDUE' : 'DUE';
-    }
-
-    const existing = await prisma.monthlyInstallment.findUnique({
-      where: { studentRecordId_billingMonth: { studentRecordId, billingMonth: key } },
-    });
-
-    if (existing) {
-      alreadyExisted++;
-    } else {
-      await prisma.monthlyInstallment.create({
-        data: {
-          financialAccountId: account.id,
-          studentRecordId,
-          tuitionConfigId:    config.id,
-          academicContext:    sr.programType,
-          billingMonth:       key,
-          billingLabel:       label,
-          dueDate,
-          expectedAmount:     config.monthlyAmount,
-          status,
-        },
-      });
-      created++;
-    }
+  for (const cfg of configs) {
+    const res = await syncInstallmentsForConfig(cfg.id);
+    created += res;
   }
 
-  return { created, alreadyExisted, monthlyAmount: config.monthlyAmount, configFound: true };
-}
-
-// ── Status sync: update DUE / OVERDUE for all open installments ───────────────
-
-export async function syncInstallmentStatuses(): Promise<{ updated: number }> {
-  const now = new Date();
-  const overdueThreshold = new Date(now);
-  overdueThreshold.setDate(overdueThreshold.getDate() - 14);
-
-  // Mark UPCOMING → DUE (dueDate < now, within last 14 days)
-  const due = await prisma.monthlyInstallment.updateMany({
-    where: {
-      status:  'UPCOMING',
-      dueDate: { lt: now, gte: overdueThreshold },
-    },
-    data: { status: 'DUE' },
-  });
-
-  // Mark UPCOMING or DUE → OVERDUE (dueDate > 14 days ago)
-  const overdue = await prisma.monthlyInstallment.updateMany({
-    where: {
-      status:  { in: ['UPCOMING', 'DUE'] },
-      dueDate: { lt: overdueThreshold },
-    },
-    data: { status: 'OVERDUE' },
-  });
-
-  return { updated: due.count + overdue.count };
+  return {
+    created,
+    alreadyExisted,
+    monthlyAmount: configs[0]?.monthlyAmount ?? null,
+    configFound: configs.length > 0,
+  };
 }
 
 // ── Student view: get installments for a student ──────────────────────────────
 
 export async function getStudentInstallments(studentRecordId: string) {
-  // Sync statuses first
+  // Sync overdue statuses first
   await syncInstallmentStatuses();
 
-  const installments = await prisma.monthlyInstallment.findMany({
-    where: { studentRecordId },
+  const sr = await prisma.studentRecord.findUnique({
+    where: { id: studentRecordId },
     include: {
+      department: { select: { id: true, name: true, code: true, programType: true } },
+      program: { select: { id: true, name: true, code: true } },
+      financialAccount: true,
+    },
+  });
+
+  if (!sr) throw new Error('Student record not found.');
+
+  // Ensure any newly published fees for this student's program are synced
+  const publishedConfigs = await prisma.tuitionConfiguration.findMany({
+    where: {
+      academicContext: sr.programType,
+      programId: sr.programId,
+      status: 'PUBLISHED',
+      isActive: true,
+    },
+  });
+
+  for (const cfg of publishedConfigs) {
+    await syncInstallmentsForConfig(cfg.id);
+  }
+
+  // Fetch only installments associated with this student
+  // Students must see ONLY fees associated with their actual program enrollment and category.
+  // Draft fees must never be visible to students!
+  const installments = await prisma.monthlyInstallment.findMany({
+    where: {
+      studentRecordId,
+      academicContext: sr.programType,
+      OR: [
+        // Linked to a published config
+        { tuitionConfig: { status: 'PUBLISHED', isActive: true, programId: sr.programId } },
+        // Or if already paid, preserve the historical installment record
+        { status: 'PAID' },
+      ],
+    },
+    include: {
+      tuitionConfig: {
+        select: {
+          id: true,
+          monthlyAmount: true,
+          dueDate: true,
+          paymentInstructions: true,
+          status: true,
+          revision: true,
+          billingMonth: true,
+          program: { select: { id: true, name: true, code: true } },
+        },
+      },
       submissions: {
         orderBy: { createdAt: 'desc' },
-        take: 1,
         select: {
-          id: true, status: true, evidenceUrl: true, evidenceFileName: true,
-          paymentMethod: true, referenceNumber: true, paymentDate: true,
-          rejectionReason: true, amount: true, createdAt: true,
+          id: true,
+          status: true,
+          amount: true,
+          paymentDate: true,
+          paymentMethod: true,
+          referenceNumber: true,
+          evidenceUrl: true,
+          evidenceFileName: true,
+          note: true,
+          rejectionReason: true,
+          reviewedAt: true,
+          createdAt: true,
         },
       },
       receipt: {
         select: {
-          id: true, receiptNumber: true, amountPaid: true, paymentDate: true,
-          paymentMethod: true, billingLabel: true, approvedAt: true,
+          id: true,
+          receiptNumber: true,
+          amountPaid: true,
+          paymentDate: true,
+          paymentMethod: true,
+          referenceNumber: true,
+          billingMonth: true,
+          billingLabel: true,
+          approvedAt: true,
         },
       },
     },
     orderBy: { billingMonth: 'asc' },
   });
 
-  const sr = await prisma.studentRecord.findUnique({
-    where: { id: studentRecordId },
-    include: {
-      department: { select: { name: true } },
-    },
+  const now = new Date();
+
+  const formattedInstallments = installments.map((inst, idx) => {
+    const isPaid = inst.status === 'PAID';
+    const latestSubmission = inst.submissions[0];
+    const hasApprovedReceipt = !!inst.receipt;
+
+    // Balance calculation:
+    // Monthly fee = expectedAmount
+    // Paid amount = sum of approved receipts/payments for this installment
+    const paidAmount = isPaid ? inst.expectedAmount : (hasApprovedReceipt ? inst.receipt!.amountPaid : 0);
+    const outstandingBalance = Math.max(0, inst.expectedAmount - paidAmount);
+
+    // Compute status reliably server-side:
+    // When deadline passes and payment remains unpaid, show overdue status!
+    // A fully paid fee must NOT remain marked as unpaid or overdue.
+    let computedStatus = inst.status;
+    if (isPaid) {
+      computedStatus = 'PAID';
+    } else if (latestSubmission && latestSubmission.status === 'PENDING_REVIEW') {
+      computedStatus = 'PENDING_REVIEW';
+    } else if (latestSubmission && latestSubmission.status === 'REJECTED' && inst.status === 'REJECTED') {
+      computedStatus = 'REJECTED';
+    } else if (inst.dueDate < now) {
+      computedStatus = 'OVERDUE';
+    } else {
+      const diffDays = Math.ceil((inst.dueDate.getTime() - now.getTime()) / 86400000);
+      computedStatus = diffDays <= 7 ? 'DUE' : 'UPCOMING';
+    }
+
+    const instructions = inst.tuitionConfig?.paymentInstructions || DEFAULT_PAYMENT_INSTRUCTIONS;
+
+    return {
+      ...inst,
+      monthLabel: inst.billingLabel || formatBillingLabel(inst.billingMonth),
+      monthIndex: idx + 1,
+      status: computedStatus,
+      paidAmount,
+      outstandingBalance,
+      paymentInstructions: instructions,
+      paymentSubmissions: inst.submissions,
+      latestSubmission: latestSubmission ?? null,
+      receipts: inst.receipt ? [inst.receipt] : [],
+      programName: sr.program?.name,
+      programCode: sr.program?.code,
+    };
   });
 
-  const formattedInstallments = installments.map((inst, idx) => ({
-    ...inst,
-    monthLabel: inst.billingLabel,
-    monthIndex: idx + 1,
-    paidAmount: inst.status === 'PAID' ? inst.expectedAmount : 0,
-    paymentSubmissions: inst.submissions,
-    receipts: inst.receipt ? [inst.receipt] : [],
-  }));
+  // Next unpaid installment for the primary countdown banner
+  // Priority: OVERDUE > DUE > REJECTED > PENDING_REVIEW > UPCOMING
+  const unpaidList = formattedInstallments.filter((i) => i.status !== 'PAID');
+  const nextDue =
+    unpaidList.find((i) => i.status === 'OVERDUE') ||
+    unpaidList.find((i) => i.status === 'DUE') ||
+    unpaidList.find((i) => i.status === 'REJECTED') ||
+    unpaidList.find((i) => i.status === 'PENDING_REVIEW') ||
+    unpaidList[0] ||
+    null;
 
-  // Find next unpaid installment
-  const nextDue = formattedInstallments.find(i =>
-    ['DUE', 'OVERDUE', 'UPCOMING', 'PENDING_REVIEW', 'REJECTED'].includes(i.status) && i.status !== 'PAID'
-  );
-
-  const now = new Date();
   let countdown: {
     daysLeft: number;
+    hoursLeft: number;
+    minutesLeft: number;
+    secondsLeft: number;
+    diffSeconds: number;
     isOverdue: boolean;
     isDueToday: boolean;
     label: string;
     statusBadge: string;
     dueDate: string;
+    targetDate: string;
     amount: number;
   } | null = null;
 
   if (nextDue) {
     const diffMs = nextDue.dueDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffMs / 86400000);
-    const isOverdue = diffDays < 0;
-    const isDueToday = diffDays === 0;
-    const daysLeft = Math.abs(diffDays);
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const isOverdue = diffSeconds < 0;
+    const absSeconds = Math.abs(diffSeconds);
 
-    let label = `${daysLeft} ${daysLeft === 1 ? 'DAY' : 'DAYS'}`;
-    if (isDueToday) label = 'PAYMENT DUE TODAY';
-    else if (isOverdue) label = `${daysLeft} ${daysLeft === 1 ? 'DAY' : 'DAYS'} OVERDUE`;
+    const daysLeft = Math.floor(absSeconds / 86400);
+    const hoursLeft = Math.floor((absSeconds % 86400) / 3600);
+    const minutesLeft = Math.floor((absSeconds % 3600) / 60);
+    const secondsLeft = absSeconds % 60;
+    const isDueToday = !isOverdue && daysLeft === 0;
+
+    let label = `${daysLeft}d ${hoursLeft}h ${minutesLeft}m`;
+    if (isDueToday) {
+      label = `DUE TODAY (${hoursLeft}h ${minutesLeft}m remaining)`;
+    } else if (isOverdue) {
+      label = `${daysLeft}d ${hoursLeft}h OVERDUE`;
+    }
 
     countdown = {
       daysLeft,
+      hoursLeft,
+      minutesLeft,
+      secondsLeft,
+      diffSeconds,
       isOverdue,
       isDueToday,
       label,
       statusBadge: nextDue.status,
       dueDate: nextDue.dueDate.toISOString(),
-      amount: nextDue.expectedAmount,
+      targetDate: nextDue.dueDate.toISOString(),
+      amount: nextDue.outstandingBalance,
     };
   }
 
+  // Aggregate balance calculations:
+  const totalExpected = formattedInstallments.reduce((sum, i) => sum + i.expectedAmount, 0);
+  const totalPaid = formattedInstallments.reduce((sum, i) => sum + i.paidAmount, 0);
+  const totalOutstanding = Math.max(0, totalExpected - totalPaid);
+
+  // All approved receipts for this student
+  const allReceipts = await prisma.paymentReceipt.findMany({
+    where: { studentRecordId },
+    orderBy: { approvedAt: 'desc' },
+  });
+
+  // All payment submissions history
+  const allSubmissions = await prisma.paymentSubmission.findMany({
+    where: { studentRecordId },
+    include: {
+      installment: { select: { billingLabel: true, billingMonth: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
   return {
     installments: formattedInstallments,
-    nextDue: nextDue ?? null,
+    nextDue,
     countdown,
-    totalExpected: installments.reduce((s, i) => s + i.expectedAmount, 0),
-    totalPaid:     installments.filter(i => i.status === 'PAID').reduce((s, i) => s + i.expectedAmount, 0),
-    totalOutstanding: installments
-      .filter(i => i.status !== 'PAID')
-      .reduce((s, i) => s + i.expectedAmount, 0),
-    hasConfig: installments.length > 0,
-    departmentName: sr?.department?.name,
-    programType: sr?.programType,
-    shortProgramDuration: sr?.shortProgramDuration ?? undefined,
+    totalExpected,
+    totalPaid,
+    totalOutstanding,
+    hasConfig: formattedInstallments.length > 0,
+    departmentName: sr.department?.name,
+    programName: sr.program?.name,
+    programCode: sr.program?.code,
+    programType: sr.programType,
+    shortProgramDuration: sr.shortProgramDuration ?? undefined,
+    paymentMethods: SUPPORTED_PAYMENT_METHODS,
+    receipts: allReceipts,
+    paymentHistory: allSubmissions.map((s) => ({
+      ...s,
+      billingLabel: s.installment.billingLabel,
+      billingMonth: s.installment.billingMonth,
+    })),
   };
 }
 
@@ -258,9 +336,8 @@ export async function getStudentInstallments(studentRecordId: string) {
 export async function sendPaymentReminders(): Promise<{ sent: number }> {
   const now = new Date();
   const dueSoon = new Date(now);
-  dueSoon.setDate(dueSoon.getDate() + 3); // 3 days ahead
+  dueSoon.setDate(dueSoon.getDate() + 3);
 
-  // Find installments due soon or overdue with no pending submission
   const installments = await prisma.monthlyInstallment.findMany({
     where: {
       status: { in: ['DUE', 'OVERDUE', 'UPCOMING'] },
@@ -278,21 +355,18 @@ export async function sendPaymentReminders(): Promise<{ sent: number }> {
   let sent = 0;
   for (const inst of installments) {
     const userId = inst.studentRecord.user.id;
-    const name   = inst.studentRecord.user.fullName;
-    const daysOverdue = Math.max(0, Math.round(
-      (now.getTime() - inst.dueDate.getTime()) / 86400000
-    ));
-
+    const daysOverdue = Math.max(0, Math.round((now.getTime() - inst.dueDate.getTime()) / 86400000));
     const isOverdue = inst.status === 'OVERDUE';
+
     await createNotification({
       userId,
-      title:     isOverdue ? '⚠️ Payment Overdue' : '💳 Payment Reminder',
-      message:   isOverdue
-        ? `Your tuition payment for ${inst.billingLabel} is ${daysOverdue} days overdue. Amount: ETB ${inst.expectedAmount.toLocaleString()}. Please submit your payment evidence immediately.`
+      title: isOverdue ? '⚠️ Tuition Payment Overdue' : '💳 Tuition Payment Reminder',
+      message: isOverdue
+        ? `Your tuition payment for ${inst.billingLabel} is ${daysOverdue} days overdue. Amount: ETB ${inst.expectedAmount.toLocaleString()}. Please submit your payment receipt immediately.`
         : `Your tuition payment for ${inst.billingLabel} is due on ${inst.dueDate.toLocaleDateString()}. Amount: ETB ${inst.expectedAmount.toLocaleString()}.`,
-      type:      isOverdue ? 'WARNING' : 'INFO',
-      module:    'FINANCE',
-      entityId:  inst.id,
+      type: isOverdue ? 'WARNING' : 'INFO',
+      module: 'FINANCE',
+      entityId: inst.id,
       actionTab: 'financials',
     }).catch(() => {});
     sent++;

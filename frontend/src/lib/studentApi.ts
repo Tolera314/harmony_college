@@ -230,26 +230,37 @@ export interface MonthlyInstallmentItem {
   dueDate: string;
   expectedAmount: number;
   paidAmount: number;
+  outstandingBalance?: number;
+  paymentInstructions?: string | null;
+  programName?: string;
+  programCode?: string;
   status: 'UPCOMING' | 'DUE' | 'PENDING_REVIEW' | 'PAID' | 'REJECTED' | 'OVERDUE';
   academicContext: 'TVET' | 'SHORT_PROGRAM';
   academicYearLabel: string | null;
   paymentDate: string | null;
   paymentSubmissions: PaymentSubmissionItem[];
+  latestSubmission?: PaymentSubmissionItem | null;
   receipts: PaymentReceiptItem[];
   tuitionConfig?: {
     monthlyAmount: number;
     description: string | null;
     durationMonths: number | null;
+    paymentInstructions?: string | null;
   } | null;
 }
 
 export interface InstallmentCountdown {
   daysLeft: number;
+  hoursLeft?: number;
+  minutesLeft?: number;
+  secondsLeft?: number;
+  diffSeconds?: number;
   isOverdue: boolean;
   isDueToday: boolean;
   label: string;
   statusBadge: string;
   dueDate: string;
+  targetDate?: string;
   amount: number;
 }
 
@@ -262,8 +273,13 @@ export interface InstallmentScheduleResponse {
   totalOutstanding: number;
   hasConfig: boolean;
   departmentName?: string;
+  programName?: string;
+  programCode?: string;
   programType?: string;
   shortProgramDuration?: string;
+  paymentMethods?: string[];
+  receipts?: PaymentReceiptItem[];
+  paymentHistory?: any[];
 }
 
 export interface PaymentEvidenceSubmission {

@@ -1140,19 +1140,27 @@ model TuitionConfiguration {
   programId         String?
   durationMonths    Int?
   academicYearLabel String?
-  monthlyAmount     Float
-  effectiveDate     DateTime             @default(now())
-  isActive          Boolean              @default(true)
-  description       String?
-  createdByUserId   String
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  billingMonth        String?
+  dueDate             DateTime?
+  paymentInstructions String?
+  status              String               @default("PUBLISHED")
+  revision            Int                  @default(1)
+  monthlyAmount       Float
+  effectiveDate       DateTime             @default(now())
+  isActive            Boolean              @default(true)
+  description         String?
+  createdByUserId     String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   installments      MonthlyInstallment[]
   department        Department           @relation(fields: [departmentId], references: [id])
   program           Program?             @relation(fields: [programId], references: [id])
 
   @@index([academicContext])
   @@index([departmentId])
+  @@index([programId])
+  @@index([billingMonth])
+  @@index([status])
   @@index([isActive])
 }
 
