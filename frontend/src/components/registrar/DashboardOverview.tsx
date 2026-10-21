@@ -123,7 +123,6 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
           { label: 'Approve Admissions', icon: FileCheck, tab: 'admissions' },
           { label: 'Create Course',      icon: PlusCircle, action: onOpenCreateCourse },
           { label: 'Transcripts',        icon: FileText,   tab: 'transcripts' },
-          { label: 'Post Announcement',  icon: Send,       tab: 'announcements' },
         ].map((act, i) => (
           <button
             key={i}

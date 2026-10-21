@@ -11,8 +11,6 @@ export type InstructorNavTab =
   | 'grades'
   | 'assignments'
   | 'quizzes'
-  | 'materials'
-  | 'announcements'
   | 'reports'
   | 'notifications'
   | 'audit_log'
@@ -157,23 +155,8 @@ export interface CourseMaterial {
   scheduledAt?: string;
 }
 
-// ── Announcement ──────────────────────────────────────────────────────────────
-export type AnnouncementAudience = 'All Courses' | (string & {});
-export type AnnouncementStatus = 'Published' | 'Draft' | 'Scheduled' | 'Pinned';
-
-export interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  audience: AnnouncementAudience;
-  status: AnnouncementStatus;
-  publishedAt: string;
-  views: number;
-  isPinned: boolean;
-}
-
 // ── Instructor Notification ───────────────────────────────────────────────────
-export type InstructorNotifType = 'grade' | 'attendance' | 'schedule' | 'enrollment' | 'announcement' | 'system';
+export type InstructorNotifType = 'grade' | 'attendance' | 'schedule' | 'enrollment' | 'system';
 
 export interface InstructorNotification {
   id: string;

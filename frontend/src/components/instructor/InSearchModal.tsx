@@ -39,8 +39,6 @@ const QUICK_LINKS: { tab: InstructorNavTab; label: string; icon: React.ReactNode
   { tab: 'grades',        label: 'Grades',         icon: <ClipboardList className="w-4 h-4" />   },
   { tab: 'assignments',   label: 'Assignments',    icon: <ClipboardCheck className="w-4 h-4" />  },
   { tab: 'students',      label: 'Students',       icon: <GraduationCap className="w-4 h-4" />   },
-  { tab: 'materials',     label: 'Materials',      icon: <FolderOpen className="w-4 h-4" />      },
-  { tab: 'announcements', label: 'Announcements',  icon: <Megaphone className="w-4 h-4" />       },
   { tab: 'reports',       label: 'Reports',        icon: <BarChart3 className="w-4 h-4" />       },
   { tab: 'notifications', label: 'Notifications',  icon: <Bell className="w-4 h-4" />            },
   { tab: 'audit_log',     label: 'Audit Log',      icon: <FileText className="w-4 h-4" />        },
