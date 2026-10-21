@@ -285,8 +285,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {activeCourses.map((course) => (
-                <Card key={course.id} onClick={() => setSelectedCourse(course)} className="flex flex-col cursor-pointer group">
+              {activeCourses.map((course, idx) => (
+                <Card key={course.id || `course-${idx}`} onClick={() => setSelectedCourse(course)} className="flex flex-col cursor-pointer group">
                   <div className="p-1 flex-1 space-y-4">
                     <div className="flex justify-between items-start gap-2">
                       <div>

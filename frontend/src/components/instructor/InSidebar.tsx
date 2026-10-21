@@ -48,8 +48,6 @@ export const InSidebar: React.FC<InSidebarProps> = ({
     },
     { id: 'assignments',    label: 'Assignments',      icon: <ClipboardCheck className="w-5 h-5" /> },
     { id: 'quizzes',        label: 'Quizzes & Exams',  icon: <HelpCircle className="w-5 h-5" /> },
-    { id: 'materials',      label: 'Course Materials', icon: <FolderOpen className="w-5 h-5" /> },
-    { id: 'announcements',  label: 'Announcements',    icon: <Megaphone className="w-5 h-5" /> },
     { id: 'reports',        label: 'Reports',          icon: <BarChart3 className="w-5 h-5" /> },
     {
       id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" />,

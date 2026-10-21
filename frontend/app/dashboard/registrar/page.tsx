@@ -34,8 +34,6 @@ const TranscriptServices     = dynamic(() => import('@/src/components/registrar/
 const GraduationAuditing     = dynamic(() => import('@/src/components/registrar/GraduationAuditing').then(m => m.GraduationAuditing), { ssr: false });
 const DigitalCertificates    = dynamic(() => import('@/src/components/registrar/DigitalCertificates').then(m => m.DigitalCertificates), { ssr: false });
 const InteractiveReports     = dynamic(() => import('@/src/components/registrar/InteractiveReports').then(m => m.InteractiveReports), { ssr: false });
-const AcademicCalendarView   = dynamic(() => import('@/src/components/registrar/AcademicCalendarView').then(m => m.AcademicCalendarView), { ssr: false });
-const AnnouncementsManager   = dynamic(() => import('@/src/components/registrar/AnnouncementsManager').then(m => m.AnnouncementsManager), { ssr: false });
 const AuditLogsTimeline      = dynamic(() => import('@/src/components/registrar/AuditLogsTimeline').then(m => m.AuditLogsTimeline), { ssr: false });
 const RegistrarSettings          = dynamic(() => import('@/src/components/registrar/RegistrarSettings').then(m => m.RegistrarSettings), { ssr: false });
 const RegistrarDepartmentsView   = dynamic(() => import('@/src/components/registrar/RegistrarDepartmentsView').then(m => m.RegistrarDepartmentsView), { ssr: false });
@@ -46,7 +44,7 @@ const AcademicPeriodsView        = dynamic(() => import('@/src/components/regist
 type RegistrarTab =
   | 'dashboard' | 'departments' | 'academic_periods' | 'students' | 'student_grades' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
-  | 'reports' | 'calendar' | 'announcements' | 'audit_logs' | 'settings' | 'messages';
+  | 'reports' | 'audit_logs' | 'settings' | 'messages';
 
 interface MenuItem { id: RegistrarTab; label: string; icon: React.ComponentType<any> }
 
@@ -62,8 +60,6 @@ const MENU_ITEMS: MenuItem[] = [
   { id: 'transcripts',  label: 'Transcripts',         icon: FileText },
   { id: 'graduation',   label: 'Graduation Auditing', icon: GraduationCap },
   { id: 'certificates', label: 'Digital Certificates',icon: ShieldCheck },
-  { id: 'calendar',     label: 'Academic Calendar',   icon: Calendar },
-  { id: 'announcements',label: 'Announcements',       icon: Send },
   { id: 'audit_logs',   label: 'Audit Logs',          icon: ShieldAlert },
 ];
 
@@ -88,8 +84,6 @@ function notifTab(n: RegistrarNotification): RegistrarTab {
   if (action.startsWith('TRANSCRIPT'))  return 'transcripts';
   if (action.startsWith('GRADUATION'))  return 'graduation';
   if (action.startsWith('CERTIFICATE')) return 'certificates';
-  if (action.startsWith('ANNOUNCEMENT'))return 'announcements';
-  if (action.startsWith('CALENDAR'))    return 'calendar';
   return 'audit_logs';
 }
 
@@ -251,8 +245,6 @@ export default function RegistrarDashboardPage() {
       case 'graduation':   return <GraduationAuditing programType={registrarProgramType} />;
       case 'certificates': return <DigitalCertificates programType={registrarProgramType} />;
       case 'reports':      return <InteractiveReports programType={registrarProgramType} />;
-      case 'calendar':     return <AcademicCalendarView />;
-      case 'announcements':return <AnnouncementsManager />;
       case 'audit_logs':   return <AuditLogsTimeline />;
       case 'settings':     return <RegistrarSettings initialTab="account" />;
       case 'messages':     return <MessagingView />;

@@ -273,7 +273,6 @@ export const InOverviewView: React.FC<InOverviewViewProps> = ({
                 { label: 'Take Attendance',   tab: 'attendance'   as InstructorNavTab, color: 'var(--status-success)'  },
                 { label: 'Enter Grades',      tab: 'grades'       as InstructorNavTab, color: 'var(--brand-gold)'     },
                 { label: 'New Assignment',    tab: 'assignments'  as InstructorNavTab, color: 'var(--status-info)'    },
-                { label: 'New Announcement',  tab: 'announcements' as InstructorNavTab, color: 'var(--status-warning)' },
                 { label: 'My Classes',        tab: 'my_classes'   as InstructorNavTab, color: 'var(--brand-gold)'     },
                 { label: 'Reports',           tab: 'reports'      as InstructorNavTab, color: 'var(--text-secondary)' },
               ].map(item => (

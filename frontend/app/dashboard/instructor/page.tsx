@@ -15,8 +15,6 @@ import { InStudentsView }      from '@/src/components/instructor/views/InStudent
 import { InGradesView }        from '@/src/components/instructor/views/InGradesView';
 import { InAssignmentsView }   from '@/src/components/instructor/views/InAssignmentsView';
 import { InQuizzesView }       from '@/src/components/instructor/views/InQuizzesView';
-import { InMaterialsView }     from '@/src/components/instructor/views/InMaterialsView';
-import { InAnnouncementsView } from '@/src/components/instructor/views/InAnnouncementsView';
 import { InReportsView }       from '@/src/components/instructor/views/InReportsView';
 import { InNotificationsView } from '@/src/components/instructor/views/InNotificationsView';
 import { InAuditLogView }      from '@/src/components/instructor/views/InAuditLogView';
@@ -165,8 +163,6 @@ export default function InstructorDashboardPage() {
     { id: 'grades',         label: 'Grades' },
     { id: 'assignments',    label: 'Assignments' },
     { id: 'quizzes',        label: 'Quizzes & Exams' },
-    { id: 'materials',      label: 'Course Materials' },
-    { id: 'announcements',  label: 'Announcements' },
     { id: 'reports',        label: 'Reports' },
     { id: 'notifications',  label: 'Notifications' },
     { id: 'audit_log',      label: 'Audit Log' },
@@ -195,8 +191,6 @@ export default function InstructorDashboardPage() {
       case 'grades':         return <InGradesView programType={academicProgramType} />;
       case 'assignments':    return <InAssignmentsView programType={academicProgramType} />;
       case 'quizzes':        return <InQuizzesView programType={academicProgramType} />;
-      case 'materials':      return <InMaterialsView programType={academicProgramType} />;
-      case 'announcements':  return <InAnnouncementsView />;
       case 'reports':        return <InReportsView programType={academicProgramType} />;
       case 'notifications':  return (
           <InNotificationsView
