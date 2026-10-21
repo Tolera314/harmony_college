@@ -458,7 +458,7 @@ router.post('/financials/installments/:installmentId/submit', async (req: AuthRe
       paymentDate:     z.string().min(1),
       paymentMethod:   z.string().min(1),
       referenceNumber: z.string().optional(),
-      evidenceUrl:     z.string().url(),
+      evidenceUrl:     z.string().min(1),
       evidenceFileName: z.string().optional(),
       note:            z.string().max(500).optional(),
     });

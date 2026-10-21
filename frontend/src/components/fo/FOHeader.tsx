@@ -23,7 +23,7 @@ interface FOHeaderProps {
 
 const tabLabels: Record<FONavTab, string> = {
   overview:            'Dashboard Overview',
-  tuition_setup:       'Tuition & Fee Setup',
+  tuition_setup:       'Monthly Fee Setup',
   payment_submissions: 'Payment Submissions',
   student_accounts:    'Student Accounts',
   payments:            'Payments',

@@ -209,7 +209,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
                 onClick={() => setActiveTab('tuition_setup')}
                 icon={<Landmark className="w-4 h-4" />}
               >
-                Tuition Setup
+                Monthly Fee Setup
               </Button>
               {kpis.pendingReconciliation > 0 && (
                 <Button variant="outline" size="sm" onClick={() => setActiveTab('reconciliation')} icon={<RefreshCw className="w-4 h-4" />}>
