@@ -260,11 +260,19 @@ export async function postCharge(
   chargeData: { amount: number; description: string; category: string },
   actorUserId: string,
 ) {
-  let account = await prisma.financialAccount.findUnique({ where: { studentRecordId } });
+  let account = await prisma.financialAccount.findUnique({ 
+    where: { studentRecordId },
+    include: { studentRecord: { select: { programType: true } } },
+  });
 
   if (!account) {
+    const studentRecord = await prisma.studentRecord.findUnique({
+      where: { id: studentRecordId },
+      select: { programType: true },
+    });
     account = await prisma.financialAccount.create({
       data: { studentRecordId, balance: 0 },
+      include: { studentRecord: { select: { programType: true } } },
     });
   }
 
@@ -278,6 +286,8 @@ export async function postCharge(
         amount:             Math.abs(chargeData.amount),   // positive = charge
         description:        chargeData.description,
         category:           chargeData.category || 'Fee',
+        financialCategory:  chargeData.category === 'Tuition' ? 'STUDENT_TUITION' : 'STUDENT_FEE',
+        programType:        account.studentRecord.programType,
         receiptId,
         status:             'POSTED',
       },
@@ -301,11 +311,19 @@ export async function postCredit(
   creditData: { amount: number; description: string; category: string },
   actorUserId: string,
 ) {
-  let account = await prisma.financialAccount.findUnique({ where: { studentRecordId } });
+  let account = await prisma.financialAccount.findUnique({ 
+    where: { studentRecordId },
+    include: { studentRecord: { select: { programType: true } } },
+  });
 
   if (!account) {
+    const studentRecord = await prisma.studentRecord.findUnique({
+      where: { id: studentRecordId },
+      select: { programType: true },
+    });
     account = await prisma.financialAccount.create({
       data: { studentRecordId, balance: 0 },
+      include: { studentRecord: { select: { programType: true } } },
     });
   }
 
@@ -319,6 +337,8 @@ export async function postCredit(
         amount:             -Math.abs(creditData.amount),   // negative = credit
         description:        creditData.description,
         category:           creditData.category || 'Scholarship',
+        financialCategory:  'OTHER', // Scholarships/grants are categorized as OTHER for now
+        programType:        account.studentRecord.programType,
         receiptId,
         status:             'POSTED',
       },

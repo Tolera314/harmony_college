@@ -67,7 +67,12 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
   // Build programType filter for different models
   const accountProgramTypeFilter = programType ? { studentRecord: { programType } } : {};
   const transactionProgramTypeFilter = programType 
-    ? { financialAccount: { studentRecord: { programType } } } 
+    ? { 
+        OR: [
+          { financialAccount: { studentRecord: { programType } } },
+          { programType } // For transactions without financialAccount (registration fees, staff salaries)
+        ]
+      } 
     : {};
 
   // ── Parallel DB queries ───────────────────────────────────────────────────
@@ -82,6 +87,8 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
     recentTransactionsRaw,
     highRiskAccounts,
     currentAcademicYear,
+    registrationFeeRevenue,
+    staffSalaryExpenses,
   ] = await Promise.all([
     // All accounts (for outstanding balance sum + overdue count)
     prisma.financialAccount.findMany({
@@ -215,6 +222,30 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
       where: { isCurrent: true },
       select: { name: true },
     }).catch(() => null),
+
+    // Registration fee revenue (year to date)
+    prisma.financialTransaction.aggregate({
+      where: {
+        financialCategory: 'REGISTRATION_FEE',
+        status: 'POSTED',
+        transactionDate: { gte: yearStart },
+        ...transactionProgramTypeFilter,
+      },
+      _sum: { amount: true },
+      _count: true,
+    }),
+
+    // Staff salary expenses (year to date)
+    prisma.financialTransaction.aggregate({
+      where: {
+        financialCategory: 'STAFF_SALARY',
+        status: 'POSTED',
+        transactionDate: { gte: yearStart },
+        ...transactionProgramTypeFilter,
+      },
+      _sum: { amount: true },
+      _count: true,
+    }),
   ]);
 
   // ── KPI calculations ─────────────────────────────────────────────────────
@@ -223,6 +254,12 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
   const last30Collections   = Math.abs(last30Payments._sum.amount   ?? 0);
   const todayVsYesterdayPct = pctChange(todaysCollections, yesterdaysCollections);
   const averageDailyRevenue = last30Collections / 30;
+
+  // Registration fee revenue and staff salary expenses
+  const totalRegistrationFees = Math.abs(registrationFeeRevenue._sum.amount ?? 0);
+  const registrationFeeCount = registrationFeeRevenue._count ?? 0;
+  const totalStaffSalaries = Math.abs(staffSalaryExpenses._sum.amount ?? 0);
+  const staffSalaryCount = staffSalaryExpenses._count ?? 0;
 
   // Outstanding = sum of all positive account balances
   let totalOutstanding = 0;
@@ -339,12 +376,12 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
 
   // ── Recent transactions (normalized) ────────────────────────────────────
   const recentTransactions = recentTransactionsRaw.map((tx) => {
-    const student   = tx.financialAccount.studentRecord;
+    const student   = tx.financialAccount?.studentRecord;
     const dateObj   = new Date(tx.transactionDate);
     return {
       id:              tx.id,
-      studentName:     student.user.fullName,
-      studentId:       student.studentId ?? '',
+      studentName:     student?.user.fullName ?? 'N/A',
+      studentId:       student?.studentId ?? 'N/A',
       type:            tx.type,
       description:     tx.description,
       amount:          Math.abs(tx.amount),
@@ -371,7 +408,7 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
 
   return {
     kpis: {
-      totalRevenue:              totalRevenueSemester,
+      totalRevenue:              totalRevenueSemester + totalRegistrationFees, // Include registration fees in total revenue
       totalRevenueSemester,
       totalCollections:          totalRevenueSemester,
       totalOutstanding,
@@ -382,6 +419,12 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
       todayVsYesterdayPct,
       averageDailyRevenue,
       recentTransactionsCount:   last7Transactions,
+      // NEW: Central finance KPIs
+      totalRegistrationFees,
+      registrationFeeCount,
+      totalStaffSalaries,
+      staffSalaryCount,
+      netRevenue:                totalRevenueSemester + totalRegistrationFees - totalStaffSalaries,
     },
     academicYearLabel,
     monthlyRevenue,

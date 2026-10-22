@@ -14,11 +14,17 @@ export async function getFinancialSummaryReport(period?: string, programType?: '
 
   if (programType) {
     accountWhere.studentRecord = { programType };
-    txWhere.financialAccount = { studentRecord: { programType } };
-    prevTxWhere.financialAccount = { studentRecord: { programType } };
+    txWhere.OR = [
+      { financialAccount: { studentRecord: { programType } } },
+      { programType } // For transactions without financialAccount (registration fees, staff salaries)
+    ];
+    prevTxWhere.OR = [
+      { financialAccount: { studentRecord: { programType } } },
+      { programType }
+    ];
   }
 
-  const [accounts, transactions, prevYearTransactions, currentAcademicYear] = await Promise.all([
+  const [accounts, transactions, prevYearTransactions, currentAcademicYear, registrationFees, staffSalaries] = await Promise.all([
     prisma.financialAccount.findMany({
       where: accountWhere,
       select: {
@@ -43,11 +49,31 @@ export async function getFinancialSummaryReport(period?: string, programType?: '
       where: { isCurrent: true },
       select: { name: true },
     }).catch(() => null),
+    // Registration fee revenue
+    prisma.financialTransaction.aggregate({
+      where: {
+        ...txWhere,
+        financialCategory: 'REGISTRATION_FEE',
+      },
+      _sum: { amount: true },
+      _count: true,
+    }),
+    // Staff salary expenses
+    prisma.financialTransaction.aggregate({
+      where: {
+        ...txWhere,
+        financialCategory: 'STAFF_SALARY',
+      },
+      _sum: { amount: true },
+      _count: true,
+    }),
   ]);
 
   let totalOutstanding  = 0;
   let totalRevenue      = 0;
   let totalCollections  = 0;
+  const totalRegistrationFees = Math.abs(registrationFees._sum.amount ?? 0);
+  const totalStaffSalaries = Math.abs(staffSalaries._sum.amount ?? 0);
 
   const deptMap:   Record<string, { revenue: number; outstanding: number; code: string }> = {};
   const monthMap:  Record<string, { revenue: number; target: number; collections: number }> = {};
@@ -168,8 +194,14 @@ export async function getFinancialSummaryReport(period?: string, programType?: '
     monthlyRevenue,
     departments,
     methodBreakdown,
+    // NEW: Central finance summary
+    totalRegistrationFees,
+    registrationFeeCount:  registrationFees._count,
+    totalStaffSalaries,
+    staffSalaryCount:      staffSalaries._count,
+    netRevenue:            totalRevenue + totalRegistrationFees - totalStaffSalaries,
     kpis: {
-      totalRevenue,
+      totalRevenue:          totalRevenue + totalRegistrationFees, // Include registration fees in total revenue
       totalRevenueSemester:  totalRevenue,
       totalCollections,
       totalOutstanding,
@@ -185,6 +217,10 @@ export async function getFinancialSummaryReport(period?: string, programType?: '
         .reduce((s, t) => s + Math.abs(t.amount), 0),
       averageDailyRevenue:   totalCollections / Math.max(1, monthlyRevenue.length * 30),
       overdueAccounts:       accounts.filter((a) => a.balance > 15000).length,
+      // NEW: Central finance KPIs
+      totalRegistrationFees,
+      totalStaffSalaries,
+      netRevenue:            totalRevenue + totalRegistrationFees - totalStaffSalaries,
     },
   };
 }

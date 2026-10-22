@@ -258,10 +258,28 @@ export async function approveSubmission(input: {
     // 4. Record a FinancialTransaction credit on the student's account
     let fa = await tx.financialAccount.findUnique({
       where: { studentRecordId: submission.studentRecordId },
+      include: {
+        studentRecord: {
+          select: {
+            programType: true,
+          },
+        },
+      },
     });
     if (!fa) {
+      const studentRecord = await tx.studentRecord.findUnique({
+        where: { id: submission.studentRecordId },
+        select: { programType: true },
+      });
       fa = await tx.financialAccount.create({
         data: { studentRecordId: submission.studentRecordId },
+        include: {
+          studentRecord: {
+            select: {
+              programType: true,
+            },
+          },
+        },
       });
     }
 
@@ -274,6 +292,8 @@ export async function approveSubmission(input: {
           amount: -submission.amount, // negative = credit to student account
           description: `Monthly tuition payment — ${submission.installment.billingLabel}`,
           category: 'Tuition',
+          financialCategory: 'STUDENT_TUITION', // NEW: structured category
+          programType: fa.studentRecord.programType, // NEW: for TVET/Short Program filtering
           receiptId: receipt.receiptNumber,
           referenceId: submission.referenceNumber ?? null,
           status: 'POSTED',

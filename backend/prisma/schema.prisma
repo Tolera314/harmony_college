@@ -8,39 +8,40 @@ datasource db {
 }
 
 model User {
-  id                   String                    @id @default(uuid())
-  fullName             String
-  email                String?                   @unique
-  phone                String?                   @unique
+  id                     String                    @id @default(uuid())
+  fullName               String
+  email                  String?                   @unique
+  phone                  String?                   @unique
   /// bcrypt hash of the user's password. Optional for OAuth-only users. NEVER store plaintext.
-  passwordHash         String?
-  role                 Role                      @default(STUDENT)
-  status               AccountStatus             @default(PENDING_VERIFICATION)
-  emailVerified        Boolean                   @default(false)
-  phoneVerified        Boolean                   @default(false)
-  profileCompleted     Boolean                   @default(false)
-  profileCompletion    Int                       @default(0)
-  failedLoginAttempts  Int                       @default(0)
-  lastLoginAt          DateTime?
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
-  application          Application?
-  auditLogs            AuditLog[]
-  conversations        ConversationParticipant[]
-  dhAuditLogs          DepartmentHeadAuditLog[]
-  departmentHeadRecord DepartmentHeadRecord?
-  hrEmployee           HREmployee?
-  instructorRecord     InstructorRecord?
-  messages             Message[]
-  oauthAccounts        OAuthAccount[]
-  passwordResetTokens  PasswordResetToken[]
-  registrarLogs        RegistrarAuditLog[]
-  sessions             Session[]
-  acceptedInvitation   StaffInvitation?          @relation("AcceptedInvitation")
-  sentInvitations      StaffInvitation[]         @relation("SentInvitations")
-  studentProfile       StudentProfile?
-  studentRecord        StudentRecord?
-  verificationTokens   VerificationToken[]
+  passwordHash           String?
+  role                   Role                      @default(STUDENT)
+  status                 AccountStatus             @default(PENDING_VERIFICATION)
+  emailVerified          Boolean                   @default(false)
+  phoneVerified          Boolean                   @default(false)
+  profileCompleted       Boolean                   @default(false)
+  profileCompletion      Int                       @default(0)
+  failedLoginAttempts    Int                       @default(0)
+  lastLoginAt            DateTime?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  application            Application?
+  auditLogs              AuditLog[]
+  conversations          ConversationParticipant[]
+  dhAuditLogs            DepartmentHeadAuditLog[]
+  departmentHeadRecord   DepartmentHeadRecord?
+  hrEmployee             HREmployee?
+  instructorRecord       InstructorRecord?
+  messages               Message[]
+  oauthAccounts          OAuthAccount[]
+  passwordResetTokens    PasswordResetToken[]
+  registrarLogs          RegistrarAuditLog[]
+  sessions               Session[]
+  acceptedInvitation     StaffInvitation?          @relation("AcceptedInvitation")
+  sentInvitations        StaffInvitation[]         @relation("SentInvitations")
+  studentProfile         StudentProfile?
+  studentRecord          StudentRecord?
+  verificationTokens     VerificationToken[]
+  registrationFeePayment RegistrationFeePayment?
 
   @@index([role])
   @@index([status])
@@ -126,8 +127,8 @@ model AuditLog {
 }
 
 model StudentProfile {
-  id                       String      @id @default(uuid())
-  userId                   String      @unique
+  id                       String                  @id @default(uuid())
+  userId                   String                  @unique
   dob                      DateTime?
   gender                   String?
   nationality              String?
@@ -146,18 +147,18 @@ model StudentProfile {
   emergencyRelationship    String?
   emergencyPhone           String?
   emergencyNotes           String?
-  createdAt                DateTime    @default(now())
-  updatedAt                DateTime    @updatedAt
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
   /// Department chosen on the /onboarding/about page (pre-enrollment preference).
   selectedDepartmentId     String?
   /// Set to true once the student picks a department on /onboarding/about.
-  departmentSelected       Boolean     @default(false)
+  departmentSelected       Boolean                 @default(false)
   /// Set to true once the student confirms registration fee payment on /onboarding/about.
-  registrationFeePaid      Boolean     @default(false)
+  registrationFeePaid      Boolean                 @default(false)
   registrationFeePaidAt    DateTime?
   paymentVerifiedAt        DateTime?
   /// Set to true once a Finance Officer verifies the student's registration fee payment.
-  paymentVerifiedByFinance Boolean     @default(false)
+  paymentVerifiedByFinance Boolean                 @default(false)
   paymentVerifiedByUserId  String?
   nationalId               String?
   programType              String?
@@ -165,9 +166,11 @@ model StudentProfile {
   notifiedAt               DateTime?
   notifiedBy               String?
   /// Registrar notification tracking
-  notifiedByRegistrar      Boolean     @default(false)
-  selectedDepartment       Department? @relation(fields: [selectedDepartmentId], references: [id])
-  user                     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifiedByRegistrar      Boolean                 @default(false)
+  registrationFeePaymentId String?                 @unique
+  selectedDepartment       Department?             @relation(fields: [selectedDepartmentId], references: [id])
+  user                     User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registrationFeePayment   RegistrationFeePayment? @relation(fields: [registrationFeePaymentId], references: [id], onDelete: SetNull)
 
   @@index([paymentVerifiedByFinance])
 }
@@ -1113,20 +1116,30 @@ model FinancialAccount {
 }
 
 model FinancialTransaction {
-  id                 String           @id @default(uuid())
-  financialAccountId String
-  type               TransactionType
-  amount             Float
-  description        String
-  category           String
-  receiptId          String?          @unique
-  status             String           @default("POSTED")
-  referenceId        String?
-  transactionDate    DateTime         @default(now())
-  createdAt          DateTime         @default(now())
-  financialAccount   FinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+  id                       String                  @id @default(uuid())
+  financialAccountId       String?
+  type                     TransactionType
+  amount                   Float
+  description              String
+  category                 String // Legacy field, kept for compatibility
+  financialCategory        FinancialCategory // New: structured category
+  programType              ProgramType? // TVET or SHORT_PROGRAM for filtering
+  staffPaymentId           String?                 @unique
+  registrationFeePaymentId String?                 @unique
+  receiptId                String?                 @unique
+  status                   String                  @default("POSTED")
+  referenceId              String?
+  transactionDate          DateTime                @default(now())
+  createdAt                DateTime                @default(now())
+  financialAccount         FinancialAccount?       @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+  staffPayment             StaffPayment?           @relation(fields: [staffPaymentId], references: [id])
+  registrationFeePayment   RegistrationFeePayment? @relation(fields: [registrationFeePaymentId], references: [id])
 
   @@index([financialAccountId])
+  @@index([financialCategory])
+  @@index([programType])
+  @@index([staffPaymentId])
+  @@index([registrationFeePaymentId])
   @@index([transactionDate])
   @@index([type])
 }
@@ -1134,12 +1147,12 @@ model FinancialTransaction {
 /// Tuition fee configuration per academic context, department/program, and duration.
 /// Finance Officers create and manage these to set the monthly amount per student group.
 model TuitionConfiguration {
-  id                String               @id @default(uuid())
-  academicContext   ProgramType
-  departmentId      String
-  programId         String?
-  durationMonths    Int?
-  academicYearLabel String?
+  id                  String               @id @default(uuid())
+  academicContext     ProgramType
+  departmentId        String
+  programId           String?
+  durationMonths      Int?
+  academicYearLabel   String?
   billingMonth        String?
   dueDate             DateTime?
   paymentInstructions String?
@@ -1152,9 +1165,9 @@ model TuitionConfiguration {
   createdByUserId     String
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-  installments      MonthlyInstallment[]
-  department        Department           @relation(fields: [departmentId], references: [id])
-  program           Program?             @relation(fields: [programId], references: [id])
+  installments        MonthlyInstallment[]
+  department          Department           @relation(fields: [departmentId], references: [id])
+  program             Program?             @relation(fields: [programId], references: [id])
 
   @@index([academicContext])
   @@index([departmentId])
@@ -1242,6 +1255,29 @@ model PaymentReceipt {
 
   @@index([studentRecordId])
   @@index([approvedAt])
+}
+
+/// Registration fee payment record - links student registration to financial system
+model RegistrationFeePayment {
+  id               String                @id @default(uuid())
+  userId           String                @unique
+  amount           Float
+  paymentDate      DateTime
+  paymentMethod    String?
+  referenceNumber  String?
+  evidenceUrl      String?
+  verifiedByUserId String?
+  verifiedAt       DateTime?
+  status           String                @default("PENDING")
+  notes            String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentProfile   StudentProfile?
+  transaction      FinancialTransaction?
+
+  @@index([userId])
+  @@index([status])
 }
 
 model AdvisorAppointment {
@@ -1673,26 +1709,29 @@ model HRContractRenewal {
 
 /// Monthly staff salary payment record tracked by Finance Officer
 model StaffPayment {
-  id                   String      @id @default(uuid())
+  id                   String                @id @default(uuid())
   employeeId           String
   payrollMonth         String
   payrollYear          Int
   assignedSalary       Float
-  status               String      @default("PENDING")
+  status               String                @default("PENDING")
   paymentDate          DateTime?
   paymentMethod        String?
   transactionReference String?
   notes                String?
   paidByUserId         String?
   paidByName           String?
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-  employee             HREmployee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  transactionId        String?               @unique
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  employee             HREmployee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  transaction          FinancialTransaction?
 
   @@unique([employeeId, payrollMonth, payrollYear])
   @@index([employeeId])
   @@index([status])
   @@index([payrollYear])
+  @@index([transactionId])
 }
 
 model StaffInvitation {
@@ -2010,6 +2049,16 @@ enum TransactionType {
   PAYMENT
   REFUND
   PENALTY
+  REGISTRATION // New: Registration fee income
+  SALARY // New: Staff salary disbursement
+}
+
+enum FinancialCategory {
+  STUDENT_TUITION // Monthly tuition payments
+  STUDENT_FEE // Other student fees (penalties, etc.)
+  REGISTRATION_FEE // One-time registration fee
+  STAFF_SALARY // Monthly staff salary disbursements
+  OTHER // Other transactions
 }
 
 enum PaymentInstallmentStatus {
@@ -2171,4 +2220,3 @@ enum HRAuditStatus {
   WARNING
   FAILED
 }
-

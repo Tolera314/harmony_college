@@ -226,14 +226,14 @@ export async function listTransactions(q: AdminFinanceTransactionListQuery) {
     referenceId: t.referenceId,
     transactionDate: t.transactionDate.toISOString(),
     createdAt: t.createdAt.toISOString(),
-    student: {
+    student: t.financialAccount ? {
       id: t.financialAccount.studentRecord.id,
       studentId: t.financialAccount.studentRecord.studentId,
       fullName: t.financialAccount.studentRecord.user.fullName,
       email: t.financialAccount.studentRecord.user.email,
       department: t.financialAccount.studentRecord.department,
       program: t.financialAccount.studentRecord.program,
-    },
+    } : null,
   }));
 
   return {
@@ -291,6 +291,24 @@ export async function postTransaction(input: PostTransactionInput, adminUserId: 
     }
 
     // 3. Create FinancialTransaction
+    // Get programType from studentRecord
+    const studentRecord = await tx.studentRecord.findUnique({
+      where: { id: input.studentRecordId },
+      select: { programType: true },
+    });
+
+    // Determine financialCategory based on transaction type
+    let financialCategory: 'STUDENT_TUITION' | 'STUDENT_FEE' | 'REGISTRATION_FEE' | 'STAFF_SALARY' | 'OTHER';
+    if (input.type === 'TUITION') {
+      financialCategory = 'STUDENT_TUITION';
+    } else if (input.type === 'FEE') {
+      financialCategory = 'STUDENT_FEE';
+    } else if (input.type === 'PAYMENT') {
+      financialCategory = 'STUDENT_TUITION'; // Default assumption for payments
+    } else {
+      financialCategory = 'OTHER';
+    }
+
     const createdTx = await tx.financialTransaction.create({
       data: {
         financialAccountId: account.id,
@@ -298,6 +316,8 @@ export async function postTransaction(input: PostTransactionInput, adminUserId: 
         amount,
         description: input.description.trim(),
         category: input.category || String(input.type),
+        financialCategory,
+        programType: studentRecord?.programType ?? null,
         receiptId,
         status: 'POSTED',
         referenceId: input.referenceId?.trim() ?? null,
@@ -371,6 +391,10 @@ export async function reverseTransaction(transactionId: string, reason: string, 
     });
 
     // 2. Recalculate FinancialAccount balance from POSTED transactions
+    if (!existingTx.financialAccountId) {
+      throw new Error('Transaction has no associated financial account.');
+    }
+
     const activeTxs = await tx.financialTransaction.findMany({
       where: { financialAccountId: existingTx.financialAccountId, status: 'POSTED' },
       select: { amount: true },
@@ -379,7 +403,7 @@ export async function reverseTransaction(transactionId: string, reason: string, 
     const newBalance = activeTxs.reduce((sum, item) => sum + item.amount, 0);
 
     const updatedAccount = await tx.financialAccount.update({
-      where: { id: existingTx.financialAccountId },
+      where: { id: existingTx.financialAccountId! },
       data: {
         balance: Math.round(newBalance * 100) / 100,
         lastUpdatedAt: new Date(),
@@ -395,7 +419,7 @@ export async function reverseTransaction(transactionId: string, reason: string, 
         metadata: {
           event: 'ADMIN_FINANCIAL_TRANSACTION_REVERSED',
           transactionId,
-          studentRecordId: existingTx.financialAccount.studentRecordId,
+          studentRecordId: existingTx.financialAccount?.studentRecordId ?? null,
           reversedAmount: existingTx.amount,
           reversalReason: reason.trim(),
           newBalance: updatedAccount.balance,
