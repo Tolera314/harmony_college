@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { FONavTab, FONotification, FOProfile } from '@/src/types/finance';
-import { foProfile, foNotifications as initialNotifs, reconciliationEntries, financeStudents } from '@/src/data/financeData';
+import { foProfile, foNotifications as initialNotifs, financeStudents } from '@/src/data/financeData';
 import { FOSidebar }           from '@/src/components/fo/FOSidebar';
 import { FOHeader }            from '@/src/components/fo/FOHeader';
 import { FOMobileNav }         from '@/src/components/fo/FOMobileNav';
@@ -11,19 +11,17 @@ import { FOLogoutModal }       from '@/src/components/fo/FOLogoutModal';
 import { FOOverviewView }        from '@/src/components/fo/views/FOOverviewView';
 import { FOTuitionSetupView }    from '@/src/components/fo/views/FOTuitionSetupView';
 import { FOPaymentSubmissionsView } from '@/src/components/fo/views/FOPaymentSubmissionsView';
-import { FOStudentAccountsView } from '@/src/components/fo/views/FOStudentAccountsView';
 import { FORegistrationPaymentsView } from '@/src/components/fo/views/FORegistrationPaymentsView';
-import { FOPaymentsView }        from '@/src/components/fo/views/FOPaymentsView';
 import { FOReceiptsView }        from '@/src/components/fo/views/FOReceiptsView';
-import { FOOutstandingView }     from '@/src/components/fo/views/FOOutstandingView';
+import { FOStudentPaymentsView } from '@/src/components/fo/views/FOStudentPaymentsView';
 import { FOReportsView }         from '@/src/components/fo/views/FOReportsView';
-import { FOReconciliationView }  from '@/src/components/fo/views/FOReconciliationView';
 import { FONotificationsView }   from '@/src/components/fo/views/FONotificationsView';
 import { FOAuditLogView }        from '@/src/components/fo/views/FOAuditLogView';
 import { FOSettingsView }        from '@/src/components/fo/views/FOSettingsView';
 import { MessagingView }               from '@/src/components/messaging/MessagingView';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
 import { AnimatePresence, motion } from 'motion/react';
+import { ToggleLeft, ToggleRight } from 'lucide-react';
 import { useRealtimeNotifications } from '@/src/hooks/useRealtimeNotifications';
 
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '@/src/lib/foApi';
@@ -49,7 +47,6 @@ export default function FinanceOfficerPage() {
   const [logoutOpen,         setLogoutOpen]    = useState(false);
   const [tabLoading,         setTabLoading]    = useState(false);
   const [mobileMenuOpen,     setMobileMenuOpen] = useState(false);
-  const [pendingReconciliation, setPendingRecon] = useState(0);
   const [overdueCount,       setOverdueCount]  = useState(0);
   const [programType,        setProgramType]   = useState<'TVET' | 'SHORT_PROGRAM'>('TVET');
   const { toast, show: showToast, hide: hideToast } = useToast();
@@ -178,13 +175,10 @@ export default function FinanceOfficerPage() {
         />
       );
       case 'payment_submissions': return <FOPaymentSubmissionsView programType={programType} />;
-      case 'student_accounts':    return <FOStudentAccountsView programType={programType} />;
-      case 'payments':            return <FOPaymentsView programType={programType} />;
       case 'registration_payments': return <FORegistrationPaymentsView programType={programType} />;
       case 'receipts':         return <FOReceiptsView programType={programType} />;
-      case 'outstanding':      return <FOOutstandingView programType={programType} />;
+      case 'outstanding':      return <FOStudentPaymentsView programType={programType} />;
       case 'reports':          return <FOReportsView programType={programType} />;
-      case 'reconciliation':   return <FOReconciliationView programType={programType} />;
       case 'notifications':    return (
         <FONotificationsView
           notifications={notifications}
@@ -214,7 +208,6 @@ export default function FinanceOfficerPage() {
           setActiveTab={setActiveTab}
           profile={profile}
           unreadCount={unreadCount}
-          pendingReconciliation={pendingReconciliation}
           overdueCount={overdueCount}
           onLogout={() => setLogoutOpen(true)}
         />
@@ -235,35 +228,41 @@ export default function FinanceOfficerPage() {
           />
 
           {/* Program Type Toggle */}
-          <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-2">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/10 backdrop-blur-sm max-w-fit">
-              <span className="text-xs font-mono uppercase tracking-wider text-[#E9C349] font-semibold">Program:</span>
-              <button
-                onClick={() => {
-                  setProgramType('TVET');
-                  localStorage.setItem('fo_program_type', 'TVET');
-                }}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  programType === 'TVET'
-                    ? 'bg-[#E9C349] text-black shadow-md'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                🎓 TVET
-              </button>
-              <button
-                onClick={() => {
-                  setProgramType('SHORT_PROGRAM');
-                  localStorage.setItem('fo_program_type', 'SHORT_PROGRAM');
-                }}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  programType === 'SHORT_PROGRAM'
-                    ? 'bg-[#E9C349] text-black shadow-md'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                🎓 Short Program
-              </button>
+          <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-(--bg-secondary) border border-(--border-default) shadow-sm">
+                <button
+                  onClick={() => {
+                    setProgramType('TVET');
+                    localStorage.setItem('fo_program_type', 'TVET');
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    programType === 'TVET'
+                      ? 'bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black shadow-md scale-[1.02]'
+                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                  }`}
+                >
+                  {programType === 'TVET' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                  🎓 TVET
+                </button>
+                <button
+                  onClick={() => {
+                    setProgramType('SHORT_PROGRAM');
+                    localStorage.setItem('fo_program_type', 'SHORT_PROGRAM');
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    programType === 'SHORT_PROGRAM'
+                      ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md scale-[1.02]'
+                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                  }`}
+                >
+                  {programType === 'SHORT_PROGRAM' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                  ⏱ Short Program
+                </button>
+              </div>
+              <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">
+                {programType === 'TVET' ? 'Viewing TVET financial data' : 'Viewing Short Program financial data'}
+              </span>
             </div>
           </div>
 
@@ -323,12 +322,10 @@ export default function FinanceOfficerPage() {
                   { id: 'overview', label: 'Dashboard Overview' },
                   { id: 'tuition_setup', label: 'Monthly Fee Setup' },
                   { id: 'payment_submissions', label: 'Payment Submissions' },
-                  { id: 'student_accounts', label: 'Student Accounts' },
-                  { id: 'payments', label: 'Payments' },
+                  { id: 'registration_payments', label: 'Reg. Fee Verification' },
                   { id: 'receipts', label: 'Receipts' },
-                  { id: 'outstanding', label: 'Outstanding Accounts' },
+                  { id: 'outstanding', label: 'Student Payments' },
                   { id: 'reports', label: 'Financial Reports' },
-                  { id: 'reconciliation', label: 'Payment Reconciliation' },
                   { id: 'notifications', label: 'Notifications' },
                   { id: 'audit_log', label: 'Audit Log' },
                   { id: 'settings', label: 'Settings' },

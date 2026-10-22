@@ -16,7 +16,6 @@ interface FOSidebarProps {
   setActiveTab: (tab: FONavTab) => void;
   profile: FOProfile;
   unreadCount: number;
-  pendingReconciliation: number;
   overdueCount: number;
   onLogout: () => void;
 }
@@ -30,25 +29,19 @@ type NavItem = {
 };
 
 export const FOSidebar: React.FC<FOSidebarProps> = ({
-  activeTab, setActiveTab, profile, unreadCount, pendingReconciliation, overdueCount, onLogout,
+  activeTab, setActiveTab, profile, unreadCount, overdueCount, onLogout,
 }) => {
   const navItems: NavItem[] = [
     { id: 'overview',            label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'tuition_setup',       label: 'Monthly Fee Setup',    icon: <Landmark className="w-5 h-5" /> },
     { id: 'payment_submissions', label: 'Payment Submissions',  icon: <CreditCard className="w-5 h-5" /> },
-    { id: 'student_accounts',    label: 'Student Accounts',     icon: <Users className="w-5 h-5" /> },
-    { id: 'payments',            label: 'Payments',             icon: <CreditCard className="w-5 h-5" /> },
     { id: 'registration_payments', label: 'Reg. Fee Verification', icon: <ClipboardList className="w-5 h-5" /> },
     { id: 'receipts',            label: 'Receipts',             icon: <Receipt className="w-5 h-5" /> },
     {
-      id: 'outstanding', label: 'Outstanding Accounts', icon: <AlertTriangle className="w-5 h-5" />,
+      id: 'outstanding', label: 'Student Payments', icon: <AlertTriangle className="w-5 h-5" />,
       badge: overdueCount > 0 ? String(overdueCount) : undefined, badgeVariant: 'rose',
     },
     { id: 'reports',          label: 'Financial Reports',    icon: <BarChart3 className="w-5 h-5" /> },
-    {
-      id: 'reconciliation', label: 'Reconciliation', icon: <RefreshCw className="w-5 h-5" />,
-      badge: pendingReconciliation > 0 ? String(pendingReconciliation) : undefined, badgeVariant: 'amber',
-    },
     {
       id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" />,
       badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeVariant: 'gold',

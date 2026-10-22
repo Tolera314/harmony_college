@@ -31,6 +31,30 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
   return apiFetch<any>(`/overview${params}`);
 }
 
+// ── Student Payments (Consolidated View) ──────────────────────────────────────
+export async function getStudentPayments(params?: {
+  programType?: 'TVET' | 'SHORT_PROGRAM';
+  billingMonth?: string;
+  billingYear?: string;
+  programId?: string;
+  departmentId?: string;
+  paymentStatus?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  return apiFetch<any>(`/student-payments${qs(params || {})}`);
+}
+
+export async function getStudentPaymentDetail(studentRecordId: string) {
+  return apiFetch<any>(`/student-payments/${studentRecordId}`);
+}
+
+export async function getStudentPaymentsPrograms(programType?: 'TVET' | 'SHORT_PROGRAM') {
+  const params = programType ? `?programType=${programType}` : '';
+  return apiFetch<any>(`/student-payments-programs${params}`);
+}
+
 // ── Student Accounts ──────────────────────────────────────────────────────────
 export async function getStudentAccounts(params?: {
   search?: string;
@@ -142,30 +166,6 @@ export async function sendPaymentReminder(studentRecordId: string, message?: str
   });
 }
 
-// ── Gateway Reconciliation ─────────────────────────────────────────────────────
-export async function getReconciliationEntries(params?: { status?: string; search?: string; programType?: 'TVET' | 'SHORT_PROGRAM' }) {
-  return apiFetch<any>(`/reconciliation${qs(params || {})}`);
-}
-
-export async function matchReconciliation(id: string, matchedReceiptId?: string) {
-  return apiFetch<any>(`/reconciliation/${id}/match`, {
-    method: 'POST',
-    body: JSON.stringify({ matchedReceiptId }),
-  });
-}
-
-export async function flagReconciliation(id: string, notes?: string) {
-  return apiFetch<any>(`/reconciliation/${id}/flag`, {
-    method: 'POST',
-    body: JSON.stringify({ notes }),
-  });
-}
-
-export async function runAutoMatchReconciliation() {
-  return apiFetch<any>('/reconciliation/auto-match', {
-    method: 'POST',
-  });
-}
 
 // ── Financial Reports ─────────────────────────────────────────────────────────
 export async function getFinancialSummaryReport(period?: string, programType?: 'TVET' | 'SHORT_PROGRAM') {

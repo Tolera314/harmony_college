@@ -1,4 +1,4 @@
-﻿import { prisma }              from '../../lib/prisma';
+import { prisma }              from '../../lib/prisma';
 import { createNotification } from '../notificationService';
 
 /**
@@ -86,10 +86,9 @@ export async function sendPaymentReminder(
 function mapType(
   type:       string | null,
   entityType: string | null,
-): 'payment_received' | 'payment_overdue' | 'reconciliation_failed' | 'large_payment' | 'system' | 'reminder' {
+): 'payment_received' | 'payment_overdue' | 'large_payment' | 'system' | 'reminder' {
   if (type === 'SUCCESS')               return 'payment_received';
   if (type === 'WARNING')               return 'payment_overdue';
-  if (type === 'ERROR')                 return 'reconciliation_failed';
   if (entityType === 'FinancialAccount') return 'payment_overdue';
   return 'system';
 }

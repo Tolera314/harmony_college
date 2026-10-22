@@ -921,14 +921,10 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({ profile }) => {
         ) : payModalInstallment ? (
           <form onSubmit={handleSubmitPayment} className="space-y-5 text-xs font-sans">
             {/* Clear Disclaimer: Uploading proof does NOT mean approved */}
-            <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold">
-                <Info className="w-4 h-4 shrink-0" />
-                <span>Verification Disclaimer</span>
-              </div>
-              <p className="text-[11px] leading-relaxed">
-                Uploading payment proof does <strong>not</strong> mean your payment has been approved or credited.
-                The Finance Office will verify the transaction with bank records before issuing an official receipt.
+            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-2">
+              <Info className="w-4 h-4 shrink-0" />
+              <p className="text-[11px] font-medium">
+                Upload proof does not guarantee approval. Finance Office will verify before issuing receipt.
               </p>
             </div>
 
@@ -951,15 +947,13 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({ profile }) => {
             </div>
 
             {/* Configured Payment Instructions from Finance Officer */}
-            <div className="p-3.5 rounded-xl border border-(--brand-gold)/20 bg-(--hover-overlay) space-y-1.5">
+            <div className="p-3.5 rounded-xl border border-(--brand-gold)/20 bg-(--hover-overlay) space-y-2">
               <p className="font-mono text-[11px] font-bold uppercase text-(--brand-gold) flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5" />
-                Payment Instructions (From Finance Office)
+                Payment Options
               </p>
-              <p className="text-[11px] text-(--text-secondary) leading-relaxed">
-                {payModalInstallment.paymentInstructions ||
-                  payModalInstallment.tuitionConfig?.paymentInstructions ||
-                  'Transfer funds to CBE, Awash Bank, Cooperative Bank, or Telebirr using your Student ID as reference.'}
+              <p className="text-xs text-(--text-muted)">
+                Include Student ID in memo & upload receipt
               </p>
             </div>
 

@@ -233,22 +233,18 @@ describe('Finance Officer API Suite (/api/finance-officer)', () => {
     expect(unverifyRes.body.paymentVerifiedByFinance).toBe(false);
   });
 
-  it('12. Finance Officer can list transactions, receipts, and reconciliation entries', async () => {
-    const [txRes, recRes, reconRes] = await Promise.all([
+  it('12. Finance Officer can list transactions and receipts', async () => {
+    const [txRes, recRes] = await Promise.all([
       request(testApp)
         .get('/api/finance-officer/transactions')
         .set('Cookie', foCookies),
       request(testApp)
         .get('/api/finance-officer/receipts')
         .set('Cookie', foCookies),
-      request(testApp)
-        .get('/api/finance-officer/reconciliation')
-        .set('Cookie', foCookies),
     ]);
 
     expect(txRes.status).toBe(200);
     expect(recRes.status).toBe(200);
-    expect(reconRes.status).toBe(200);
   });
 
   it('13. Finance Officer can fetch financial reports, audit logs, and settings', async () => {

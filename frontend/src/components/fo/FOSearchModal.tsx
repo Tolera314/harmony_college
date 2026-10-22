@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
-import { Search, X, Users, CreditCard, Receipt, BarChart3, RefreshCw, Loader2 } from 'lucide-react';
+import { Search, X, Users, CreditCard, Receipt, BarChart3, Loader2 } from 'lucide-react';
 import { FONavTab } from '../../types/finance';
 import { getStudentAccounts, getReceipts, getTransactions } from '../../lib/foApi';
 
@@ -61,7 +61,7 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
             id:    `stu-${s.id}`,
             label: `${s.name} — ${s.studentId ?? ''}`,
             sub:   `${s.programName ?? ''} · ${s.paymentStatus ?? ''} · ETB ${(s.outstanding ?? 0).toLocaleString()} outstanding`,
-            tab:   'student_accounts',
+            tab:   'outstanding',
             icon:  <Users className="w-4 h-4" />,
           }));
         }
@@ -83,7 +83,7 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
             id:    `txn-${t.id}`,
             label: `${t.referenceId ?? t.receiptId ?? t.id.slice(0, 8)}`,
             sub:   `${t.financialAccount?.studentRecord?.user?.fullName ?? 'Unknown'} · ETB ${Math.abs(t.amount ?? 0).toLocaleString()}`,
-            tab:   'payments',
+            tab:   'payment_submissions',
             icon:  <CreditCard className="w-4 h-4" />,
           }));
         }
@@ -102,11 +102,9 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
   const handleSelect = (r: Result) => { onNavigate(r.tab); onClose(); };
 
   const quickLinks: { tab: FONavTab; label: string; icon: React.ReactNode }[] = [
-    { tab: 'student_accounts', label: 'Student Accounts', icon: <Users className="w-4 h-4" /> },
-    { tab: 'payments',         label: 'Payments',         icon: <CreditCard className="w-4 h-4" /> },
+    { tab: 'payment_submissions', label: 'Payment Submissions', icon: <CreditCard className="w-4 h-4" /> },
     { tab: 'receipts',         label: 'Receipts',         icon: <Receipt className="w-4 h-4" /> },
     { tab: 'reports',          label: 'Reports',          icon: <BarChart3 className="w-4 h-4" /> },
-    { tab: 'reconciliation',   label: 'Reconciliation',   icon: <RefreshCw className="w-4 h-4" /> },
   ];
 
   return (

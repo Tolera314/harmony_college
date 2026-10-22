@@ -119,7 +119,6 @@ export const FOAuditLogView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }
     'All',
     'Student Accounts',
     'Admissions & Verifications',
-    'Reconciliation',
     'Payments & Collections',
     'Payment Gateways',
   ];

@@ -408,28 +408,6 @@ function RegistrationFeeSummaryCard() {
               ))}
             </div>
 
-            <div className="p-4 rounded-xl space-y-2.5"
-              style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-subtle)' }}>
-              <p className="text-[10px] font-mono uppercase tracking-wider font-semibold"
-                style={{ color: 'var(--text-faint)' }}>Fee Calculation</p>
-              {[
-                { label: `Verified payments  (${summary.verifiedCount} × ETB ${REG_FEE})`, value: `ETB ${summary.totalCollected.toLocaleString()}`, color: 'var(--status-success)' },
-                { label: `Pending review     (${summary.pendingCount}  × ETB ${REG_FEE})`, value: `ETB ${summary.totalPending.toLocaleString()}`,   color: '#EAB308' },
-                { label: `Total expected     (${summary.paidCount}     × ETB ${REG_FEE})`, value: `ETB ${summary.totalExpected.toLocaleString()}`,   color: 'var(--text-primary)', bold: true },
-              ].map((row: any) => (
-                <div key={row.label} className={`flex items-center justify-between ${row.bold ? 'pt-2 border-t' : ''}`}
-                  style={row.bold ? { borderColor: 'var(--border-subtle)' } : {}}>
-                  <span className="font-mono text-xs" style={{ color: 'var(--text-muted)', whiteSpace: 'pre' }}>
-                    {row.label}
-                  </span>
-                  <span className={`font-mono text-sm ${row.bold ? 'font-bold' : 'font-semibold'}`}
-                    style={{ color: row.color }}>
-                    {row.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <p className="font-sans text-xs" style={{ color: 'var(--text-muted)' }}>Verification progress</p>

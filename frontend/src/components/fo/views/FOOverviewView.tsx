@@ -68,7 +68,6 @@ const ZERO_KPIS = {
   overdueAccounts: 0,
   todaysCollections: 0,
   averageDailyRevenue: 0,
-  pendingReconciliation: 0,
   receiptsIssued: 0,
   recentTransactionsCount: 0,
 };
@@ -192,7 +191,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
             <div className="flex flex-wrap gap-3 pt-1">
               {overdue.length > 0 && (
                 <Button variant="primary" size="sm" onClick={() => setActiveTab('outstanding')} icon={<AlertTriangle className="w-4 h-4" />}>
-                  {overdue.length} High-Risk Account{overdue.length !== 1 ? 's' : ''}
+                  {overdue.length} Student{overdue.length !== 1 ? 's' : ''} Need{overdue.length === 1 ? 's' : ''} Attention
                 </Button>
               )}
               <Button
@@ -211,11 +210,6 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
               >
                 Monthly Fee Setup
               </Button>
-              {kpis.pendingReconciliation > 0 && (
-                <Button variant="outline" size="sm" onClick={() => setActiveTab('reconciliation')} icon={<RefreshCw className="w-4 h-4" />}>
-                  {kpis.pendingReconciliation} Pending Reconciliations
-                </Button>
-              )}
               <Button variant="secondary" size="sm" onClick={() => setActiveTab('reports')} icon={<BarChart3 className="w-4 h-4" />}>
                 Reports
               </Button>
@@ -235,7 +229,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
 
       {/* KPI Grid */}
       <section>
-        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <KPICard
             label="Total Revenue — Semester"
             value={`ETB ${fmtETB(kpis.totalRevenueSemester)}`}
@@ -261,16 +255,6 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
             sparkline={[80, 88, 95, 110, 120]}
             onClick={() => setActiveTab('receipts')}
           />
-          <KPICard
-            label="Pending Reconciliation"
-            value={kpis.pendingReconciliation}
-            icon={<RefreshCw className="w-5 h-5" />}
-            trend={kpis.pendingReconciliation > 0 ? 'down' : 'neutral'}
-            trendLabel="Requires review"
-            accent={kpis.pendingReconciliation > 0}
-            sparkline={[2, 3, 1, 4, 5]}
-            onClick={() => setActiveTab('reconciliation')}
-          />
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
@@ -280,7 +264,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
             icon={<CreditCard className="w-5 h-5" />}
             trend="up" trendLabel="+12% vs yesterday"
             sparkline={[310, 380, 290, 460, 520]}
-            onClick={() => setActiveTab('payments')}
+            onClick={() => setActiveTab('payment_submissions')}
           />
           <KPICard
             label="Avg Daily Revenue"
@@ -305,7 +289,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
             icon={<Users className="w-5 h-5" />}
             trend="neutral" trendLabel="Last 7 days"
             sparkline={[30, 35, 38, 40, 42]}
-            onClick={() => setActiveTab('payments')}
+            onClick={() => setActiveTab('payment_submissions')}
           />
         </div>
       </section>
@@ -388,7 +372,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
         <Card hoverable={false} className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-serif text-lg font-bold text-(--text-primary)">Recent Transactions</h3>
-            <Button variant="ghost" size="sm" onClick={() => setActiveTab('payments')}>View all</Button>
+            <Button variant="ghost" size="sm" onClick={() => setActiveTab('payment_submissions')}>View all</Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-sans">
@@ -462,7 +446,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
               >
                 <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
                   n.read ? 'bg-(--active-overlay)' :
-                  n.type === 'payment_overdue' || n.type === 'reconciliation_failed' ? 'bg-rose-400' :
+                  n.type === 'payment_overdue' ? 'bg-rose-400' :
                   n.type === 'large_payment' || n.type === 'payment_received' ? 'bg-emerald-400' : 'bg-[#E9C349]'
                 }`} />
                 <div className="flex-1 min-w-0">
