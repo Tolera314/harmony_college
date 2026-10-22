@@ -105,7 +105,10 @@ export async function getVerifiedRegistrationPayments(query: Record<string, stri
 }
 
 export async function verifyRegistrationPayment(userId: string, verifierUserId: string) {
-  let profile = await prisma.studentProfile.findUnique({ where: { userId } });
+  let profile = await prisma.studentProfile.findUnique({ 
+    where: { userId },
+    include: { user: { select: { application: { select: { registrationScreenshotUrl: true } } } } },
+  });
   if (!profile) {
     profile = await prisma.studentProfile.create({
       data: {
@@ -114,21 +117,67 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
         registrationFeePaidAt: new Date(),
         paymentVerifiedByFinance: false,
       },
+      include: { user: { select: { application: { select: { registrationScreenshotUrl: true } } } } },
     });
   }
   if (profile.paymentVerifiedByFinance) throw new Error('Payment is already verified.');
 
-  const updated = await prisma.studentProfile.update({
-    where: { userId },
-    data: {
-      registrationFeePaid: true,
-      registrationFeePaidAt: profile.registrationFeePaidAt ?? new Date(),
-      paymentVerifiedByFinance: true,
-      paymentVerifiedAt: new Date(),
-      paymentVerifiedByUserId: verifierUserId,
-    },
-    select: PROFILE_SELECT,
+  // Create RegistrationFeePayment record + FinancialTransaction in atomic transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Create or update RegistrationFeePayment
+    const registrationFee = await tx.registrationFeePayment.upsert({
+      where: { userId },
+      update: {
+        verifiedByUserId: verifierUserId,
+        verifiedAt: new Date(),
+        status: 'VERIFIED',
+      },
+      create: {
+        userId,
+        amount: 500, // Standard registration fee amount (ETB)
+        paymentDate: profile.registrationFeePaidAt ?? new Date(),
+        paymentMethod: 'Bank Transfer', // Default assumption
+        evidenceUrl: profile.user?.application?.registrationScreenshotUrl ?? null,
+        verifiedByUserId: verifierUserId,
+        verifiedAt: new Date(),
+        status: 'VERIFIED',
+      },
+    });
+
+    // 2. Create FinancialTransaction for registration fee
+    const transaction = await tx.financialTransaction.create({
+      data: {
+        type: 'REGISTRATION',
+        amount: -registrationFee.amount, // negative = revenue to college
+        description: 'Registration fee payment',
+        category: 'Registration Fee',
+        financialCategory: 'REGISTRATION_FEE',
+        programType: (profile.programType as 'TVET' | 'SHORT_PROGRAM' | null) ?? null,
+        registrationFeePaymentId: registrationFee.id,
+        receiptId: `REG-${userId.substring(0, 8).toUpperCase()}`,
+        referenceId: registrationFee.referenceNumber ?? null,
+        status: 'POSTED',
+      },
+    });
+
+    // 3. Update StudentProfile with verification and link to RegistrationFeePayment
+    const updated = await tx.studentProfile.update({
+      where: { userId },
+      data: {
+        registrationFeePaid: true,
+        registrationFeePaidAt: profile.registrationFeePaidAt ?? new Date(),
+        paymentVerifiedByFinance: true,
+        paymentVerifiedAt: new Date(),
+        paymentVerifiedByUserId: verifierUserId,
+        registrationFeePaymentId: registrationFee.id,
+      },
+      select: PROFILE_SELECT,
+    });
+
+    return { updated, registrationFee, transaction };
   });
+
+  const updated = result.updated;
 
   // ── Dual-approval gate ────────────────────────────────────────────────────
   // Check if the Registrar has already approved this student's application.
@@ -311,6 +360,8 @@ export async function recordStudentPayment(
       amount: -Math.abs(paymentData.amount),
       description: paymentData.description || `Payment via ${paymentData.paymentMethod}`,
       category: paymentData.category || 'Payment',
+      financialCategory: 'STUDENT_TUITION', // Default to tuition for manual payments
+      programType: account.studentRecord.programType,
       receiptId,
       referenceId: paymentData.referenceNumber || null,
       status: 'POSTED',
@@ -429,7 +480,7 @@ export async function reverseTransaction(transactionId: string, reason: string, 
     const newBalance = activeTxs.reduce((sum, item) => sum + item.amount, 0);
 
     const updatedAccount = await tx.financialAccount.update({
-      where: { id: existingTx.financialAccountId },
+      where: { id: existingTx.financialAccountId! },
       data: {
         balance: Math.round(newBalance * 100) / 100,
         lastUpdatedAt: new Date(),
@@ -445,7 +496,7 @@ export async function reverseTransaction(transactionId: string, reason: string, 
           metadata: {
             event: 'FO_TRANSACTION_REVERSED',
             transactionId,
-            studentRecordId: existingTx.financialAccount.studentRecordId,
+            studentRecordId: existingTx.financialAccount?.studentRecordId ?? null,
             reversedAmount: existingTx.amount,
             reversalReason: reason.trim(),
             newBalance: updatedAccount.balance,

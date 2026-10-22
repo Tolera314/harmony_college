@@ -698,4 +698,96 @@ router.put('/settings', async (req: AuthRequest, res: Response): Promise<void> =
   }
 });
 
+// ── CENTRAL FINANCE MANAGEMENT (Step 1) ──────────────────────────────────────
+// Unified financial data source endpoints
+router.get('/financial-summary', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const centralFinanceService = await import('../services/finance/centralFinanceService');
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const data = await centralFinanceService.getCompleteFinancialSummary({ programType });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/financial-summary]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/financial-transactions', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const centralFinanceService = await import('../services/finance/centralFinanceService');
+    const q = req.query as Record<string, string | undefined>;
+    const page = q.page ? parseInt(q.page, 10) : 1;
+    const limit = q.limit ? parseInt(q.limit, 10) : 50;
+    const offset = (page - 1) * limit;
+    
+    const data = await centralFinanceService.getTransactionHistory({
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+      category: q.category,
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+      limit,
+      offset,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/financial-transactions]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/financial-category-breakdown', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const centralFinanceService = await import('../services/finance/centralFinanceService');
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const data = await centralFinanceService.getCategoryBreakdown({ programType });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/financial-category-breakdown]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/financial-monthly-trends', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const centralFinanceService = await import('../services/finance/centralFinanceService');
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const monthsBack = req.query.monthsBack ? parseInt(req.query.monthsBack as string, 10) : 12;
+    
+    // Calculate start and end dates based on monthsBack
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - monthsBack);
+    
+    const data = await centralFinanceService.getMonthlyTrends({ programType, startDate, endDate });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/financial-monthly-trends]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/financial-outstanding', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const centralFinanceService = await import('../services/finance/centralFinanceService');
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const data = await centralFinanceService.getTotalOutstanding(programType);
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/financial-outstanding]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/revenue-expectation', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const centralFinanceService = await import('../services/finance/centralFinanceService');
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const data = await centralFinanceService.getRevenueExpectationSummary({ programType });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/revenue-expectation]', err);
+    fail(res, err);
+  }
+});
+
 export default router;

@@ -87,6 +87,12 @@ export async function processPayment(data: {
   const receiptId = generateReceiptId();
 
   const tx = await prisma.$transaction(async txn => {
+    // Get programType from studentRecord
+    const studentRecord = await txn.studentRecord.findUnique({
+      where: { id: data.studentRecordId },
+      select: { programType: true },
+    });
+
     const transaction = await txn.financialTransaction.create({
       data: {
         financialAccountId: account!.id,
@@ -94,6 +100,8 @@ export async function processPayment(data: {
         amount: -data.amount, // negative = credit to student account
         description: `Online Payment — ${data.cardHolder ?? 'Card Payment'}`,
         category: 'Payment',
+        financialCategory: 'STUDENT_TUITION', // Online payments are assumed to be tuition
+        programType: studentRecord?.programType ?? null,
         receiptId,
         referenceId: data.cardLastFour ? `****${data.cardLastFour}` : null,
         status: 'POSTED',

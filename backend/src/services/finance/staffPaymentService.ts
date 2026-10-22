@@ -203,6 +203,7 @@ export async function getStaffPaymentDetail(paymentId: string) {
  * Record salary payment
  * Updates status to PAID and records payment details
  * This represents the actual confirmed payment
+ * ALSO creates a FinancialTransaction record for central reporting
  */
 export async function recordPayment(params: {
   paymentId: string;
@@ -225,22 +226,55 @@ export async function recordPayment(params: {
 
   const existing = await prisma.staffPayment.findUnique({
     where: { id: paymentId },
+    include: {
+      employee: {
+        select: {
+          fullName: true,
+          employeeCode: true,
+        },
+      },
+    },
   });
 
   if (!existing) throw new Error('Staff payment not found');
   if (existing.status === 'PAID') throw new Error('Payment already recorded as paid');
 
-  const updated = await prisma.staffPayment.update({
+  // Create both StaffPayment update AND FinancialTransaction atomically
+  const [updated, transaction] = await prisma.$transaction([
+    // Update staff payment status
+    prisma.staffPayment.update({
+      where: { id: paymentId },
+      data: {
+        status: 'PAID',
+        paymentDate,
+        paymentMethod,
+        transactionReference,
+        notes,
+        paidByUserId,
+        paidByName,
+      },
+    }),
+    
+    // Create central FinancialTransaction record
+    prisma.financialTransaction.create({
+      data: {
+        type: 'SALARY',
+        amount: existing.assignedSalary, // Positive = expense (money out)
+        description: `Staff Salary - ${existing.employee.fullName} (${existing.employee.employeeCode}) - ${existing.payrollMonth} ${existing.payrollYear}`,
+        category: 'Staff Salary', // Legacy string field
+        financialCategory: 'STAFF_SALARY',
+        status: 'POSTED',
+        referenceId: transactionReference || null,
+        transactionDate: paymentDate,
+        staffPaymentId: existing.id,
+      },
+    }),
+  ]);
+
+  // Link the transaction back to the staff payment
+  await prisma.staffPayment.update({
     where: { id: paymentId },
-    data: {
-      status: 'PAID',
-      paymentDate,
-      paymentMethod,
-      transactionReference,
-      notes,
-      paidByUserId,
-      paidByName,
-    },
+    data: { transactionId: transaction.id },
   });
 
   return updated;
