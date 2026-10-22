@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE } from '@/src/lib/motion';
 import { Search, X, Users, CreditCard, Receipt, BarChart3, Loader2 } from 'lucide-react';
 import { FONavTab } from '../../types/finance';
-import { getStudentAccounts, getReceipts, getTransactions } from '../../lib/foApi';
+import { getStudentAccounts, getTransactions } from '../../lib/foApi';
 
 interface Result {
   id: string;
@@ -39,7 +39,6 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Debounced live search against real API
   const doSearch = useCallback((q: string) => {
     clearTimeout(timerRef.current);
     if (q.length < 2) { setResults([]); return; }
@@ -47,9 +46,8 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
     timerRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const [studentsData, receiptsData, txnsData] = await Promise.allSettled([
+        const [studentsData, txnsData] = await Promise.allSettled([
           getStudentAccounts({ search: q, limit: 5 }),
-          getReceipts({ search: q, limit: 5 }),
           getTransactions({ search: q, limit: 5 }),
         ]);
 
@@ -63,17 +61,6 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
             sub:   `${s.programName ?? ''} · ${s.paymentStatus ?? ''} · ETB ${(s.outstanding ?? 0).toLocaleString()} outstanding`,
             tab:   'outstanding',
             icon:  <Users className="w-4 h-4" />,
-          }));
-        }
-
-        if (receiptsData.status === 'fulfilled') {
-          const rcpts: any[] = (receiptsData.value as any)?.receipts ?? [];
-          rcpts.forEach((r: any) => combined.push({
-            id:    `rec-${r.id}`,
-            label: `${r.receiptNumber}`,
-            sub:   `${r.studentName} · ETB ${(r.amount ?? 0).toLocaleString()} · ${r.date ?? ''}`,
-            tab:   'receipts',
-            icon:  <Receipt className="w-4 h-4" />,
           }));
         }
 
@@ -103,8 +90,8 @@ export const FOSearchModal: React.FC<FOSearchModalProps> = ({ isOpen, onClose, o
 
   const quickLinks: { tab: FONavTab; label: string; icon: React.ReactNode }[] = [
     { tab: 'payment_submissions', label: 'Payment Submissions', icon: <CreditCard className="w-4 h-4" /> },
-    { tab: 'receipts',         label: 'Receipts',         icon: <Receipt className="w-4 h-4" /> },
-    { tab: 'reports',          label: 'Reports',          icon: <BarChart3 className="w-4 h-4" /> },
+    { tab: 'outstanding',         label: 'Student Payments',    icon: <Users className="w-4 h-4" /> },
+    { tab: 'reports',             label: 'Reports',             icon: <BarChart3 className="w-4 h-4" /> },
   ];
 
   return (

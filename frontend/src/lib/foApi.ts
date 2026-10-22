@@ -145,14 +145,6 @@ export async function reverseTransaction(transactionId: string, reason: string) 
   });
 }
 
-// ── Receipts ──────────────────────────────────────────────────────────────────
-export async function getReceipts(params?: { search?: string; programType?: 'TVET' | 'SHORT_PROGRAM'; page?: number; limit?: number }) {
-  return apiFetch<any>(`/receipts${qs(params || {})}`);
-}
-
-export async function getReceiptDetail(receiptId: string) {
-  return apiFetch<any>(`/receipts/${receiptId}`);
-}
 
 // ── Outstanding & Reminders ───────────────────────────────────────────────────
 export async function getOutstandingAccounts(params?: { search?: string; programType?: 'TVET' | 'SHORT_PROGRAM'; page?: number; limit?: number }) {

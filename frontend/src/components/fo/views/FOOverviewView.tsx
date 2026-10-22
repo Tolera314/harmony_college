@@ -253,7 +253,7 @@ export const FOOverviewView: React.FC<FOOverviewViewProps> = ({ setActiveTab, pr
             icon={<Receipt className="w-5 h-5" />}
             trend="up" trendLabel="This semester"
             sparkline={[80, 88, 95, 110, 120]}
-            onClick={() => setActiveTab('receipts')}
+            onClick={() => setActiveTab('payment_submissions')}
           />
         </div>
 

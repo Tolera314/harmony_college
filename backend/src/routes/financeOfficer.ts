@@ -10,7 +10,6 @@ import { Role } from '../types/auth';
 import * as foOverviewService from '../services/finance/foOverviewService';
 import * as foStudentAccountService from '../services/finance/foStudentAccountService';
 import * as foPaymentService from '../services/finance/foPaymentService';
-import * as foReceiptService from '../services/finance/foReceiptService';
 import * as foReportService from '../services/finance/foReportService';
 import * as foAuditService from '../services/finance/foAuditService';
 import * as foNotificationService from '../services/finance/foNotificationService';
@@ -330,34 +329,6 @@ router.post('/transactions/:id/reverse', async (req: AuthRequest, res: Response)
   } catch (err) {
     console.error('[FO/transactions/reverse]', err);
     fail(res, err, 400);
-  }
-});
-
-// ── RECEIPTS ──────────────────────────────────────────────────────────────────
-router.get('/receipts', async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const query = req.query as Record<string, string | undefined>;
-    const data = await foReceiptService.listReceipts({
-      search: query.search,
-      programType: query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
-      page: query.page ? parseInt(query.page, 10) : 1,
-      limit: query.limit ? parseInt(query.limit, 10) : 20,
-    }, req.user?.userId);
-    ok(res, data);
-  } catch (err) {
-    console.error('[FO/receipts]', err);
-    fail(res, err);
-  }
-});
-
-router.get('/receipts/:id', async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const id = String(req.params.id);
-    const data = await foReceiptService.getReceiptDetail(id, req.user?.userId);
-    ok(res, data);
-  } catch (err) {
-    console.error('[FO/receipts/:id]', err);
-    fail(res, err, 404);
   }
 });
 
