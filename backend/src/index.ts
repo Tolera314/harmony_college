@@ -20,6 +20,7 @@ import departmentHeadRouter from './routes/departmentHead';
 import hrRouter             from './routes/hr';
 import studentOnboarding    from './routes/studentOnboarding';
 import financeOfficerRouter from './routes/financeOfficer';
+import staffPaymentsRouter from './routes/staffPayments';
 import aiRouter             from './routes/ai';
 import adminRouter          from './routes/admin';
 import { adminInvitationsRouter } from './routes/adminInvitations';
@@ -87,6 +88,7 @@ app.use('/api/hr',                 hrRouter);
 app.use('/api/admin/invitations',  adminInvitationsRouter);
 app.use('/api/admin',              adminRouter);
 app.use('/api/finance-officer',    financeOfficerRouter);
+app.use('/api/staff-payments',     staffPaymentsRouter);
 app.use('/api/attendance',         attendanceRouter);
 app.use('/api/ai',                 aiRouter);
 

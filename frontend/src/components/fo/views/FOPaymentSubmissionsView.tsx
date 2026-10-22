@@ -20,6 +20,9 @@ import {
   Calendar,
   Layers,
   Filter,
+  Printer,
+  Share2,
+  QrCode,
 } from 'lucide-react';
 import { FOPageHeader } from '../FOPageHeader';
 import { Card } from '../../ui/Card';
@@ -62,6 +65,72 @@ function formatDateTime(dateStr?: string | Date) {
   });
 }
 
+// ── Print Receipt Helper ───────────────────────────────────────────────────────
+function printOfficialReceipt(receipt: any, studentName: string, studentId: string, programName: string): void {
+  const PRINT_ID = '__hc_receipt_print__';
+  const STYLE_ID = '__hc_receipt_style__';
+  document.getElementById(PRINT_ID)?.remove();
+  document.getElementById(STYLE_ID)?.remove();
+
+  const wrapper = document.createElement('div');
+  wrapper.id = PRINT_ID;
+  wrapper.innerHTML = `
+    <div style="font-family:'Segoe UI',Roboto,Helvetica,sans-serif;color:#111;background:#fff;max-width:480px;margin:0 auto;padding:32px 24px;border:1px solid #eee;border-radius:12px">
+      <div style="text-align:center;border-bottom:2px solid #E9C349;padding-bottom:16px;margin-bottom:16px">
+        <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;border:2px solid #E9C349;margin:0 auto 8px">
+          <img src="/logo2.jpg" alt="Harmony College" style="width:100%;height:100%;object-fit:cover" />
+        </div>
+        <div style="font-family:Georgia,serif;font-size:20px;font-weight:bold;letter-spacing:0.5px">HARMONY COLLEGE</div>
+        <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-top:2px;font-family:monospace">Finance &amp; Treasury Office</div>
+        <div style="font-family:monospace;font-size:12px;color:#B38E19;font-weight:bold;margin-top:8px;letter-spacing:1px;background:#FFFBF0;padding:4px 12px;border-radius:6px;display:inline-block">OFFICIAL RECEIPT: ${receipt.receiptNumber}</div>
+      </div>
+      <table style="width:100%;font-size:11px;margin-bottom:16px" cellpadding="0" cellspacing="0">
+        ${[
+          ['Student Name', studentName],
+          ['Student ID', studentId],
+          ['Academic Program', programName],
+          ['Payment Period', receipt.billingLabel || receipt.billingMonth || '—'],
+          ['Amount Paid', `ETB ${(receipt.amountPaid ?? 0).toLocaleString()}`],
+          ['Payment Method', receipt.paymentMethod || 'Bank Transfer'],
+          ['Bank Ref / Tx ID', receipt.referenceNumber || 'N/A'],
+          ['Approved Date', formatDate(receipt.approvedAt)],
+        ].map(([l,v]) => `<tr><td style="padding:4px 0;color:#666;font-family:monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;width:130px">${l}</td><td style="padding:4px 0;font-weight:600;color:#111">${v}</td></tr>`).join('')}
+      </table>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;margin-bottom:16px">
+        <span style="font-size:13px;font-weight:bold;color:#374151">TOTAL AMOUNT PAID</span>
+        <span style="font-family:monospace;font-size:22px;font-weight:bold;color:#111827">ETB ${(receipt.amountPaid ?? 0).toLocaleString()}</span>
+      </div>
+      <div style="text-align:center;padding:12px;background:#FFFDF5;border:1px solid #FEF08A;border-radius:10px;margin-bottom:16px">
+        <div style="font-family:monospace;font-size:10px;color:#854D0E;font-weight:bold">HC-VERIFY-${receipt.receiptNumber}</div>
+        <div style="font-size:9px;color:#A16207;margin-top:2px">Digital QR Security Verification Code</div>
+      </div>
+      <p style="font-size:9px;color:#9CA3AF;text-align:center;font-style:italic">
+        This is an official computer-generated receipt issued by Harmony College Finance System.
+      </p>
+    </div>`;
+
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    @media print {
+      body > *:not(#${PRINT_ID}) { display: none !important; visibility: hidden !important; }
+      #${PRINT_ID} { display: block !important; visibility: visible !important; position: fixed !important; inset: 0 !important; z-index: 999999 !important; background: white !important; padding: 20px !important; }
+      @page { margin: 10mm; size: A5 portrait; }
+    }
+    #${PRINT_ID} { display: none; }
+  `;
+
+  document.head.appendChild(style);
+  document.body.appendChild(wrapper);
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      document.getElementById(PRINT_ID)?.remove();
+      document.getElementById(STYLE_ID)?.remove();
+    }, 1500);
+  }, 150);
+}
+
 export function FOPaymentSubmissionsView({ programType: initialProgramType }: { programType?: 'TVET' | 'SHORT_PROGRAM' }) {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any | null>(null);
@@ -83,6 +152,10 @@ export function FOPaymentSubmissionsView({ programType: initialProgramType }: { 
 
   // Success Receipt Preview Modal (after approval)
   const [approvedReceipt, setApprovedReceipt] = useState<any | null>(null);
+
+  // Viewing receipt for an already-approved submission
+  const [viewingReceipt, setViewingReceipt] = useState<{ receipt: any; sub: any } | null>(null);
+  const [shareMsg, setShareMsg] = useState('');
 
   const { toast, show: showToast, hide: hideToast } = useToast();
 
@@ -464,6 +537,16 @@ export function FOPaymentSubmissionsView({ programType: initialProgramType }: { 
                               </button>
                             </>
                           )}
+                          {isApproved && sub.receipt && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={<Receipt className="w-3.5 h-3.5 text-(--brand-gold)" />}
+                              onClick={() => setViewingReceipt({ receipt: sub.receipt, sub })}
+                            >
+                              Receipt
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -729,6 +812,98 @@ export function FOPaymentSubmissionsView({ programType: initialProgramType }: { 
               <Button variant="primary" onClick={() => setApprovedReceipt(null)}>
                 Done
               </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── OFFICIAL RECEIPT VIEW MODAL (for already-approved submissions) ── */}
+      <Modal
+        isOpen={!!viewingReceipt}
+        onClose={() => { setViewingReceipt(null); setShareMsg(''); }}
+        title=""
+        maxWidth="max-w-md"
+      >
+        {viewingReceipt && (
+          <div className="space-y-5">
+            {/* Receipt Visual Header */}
+            <div className="text-center space-y-1 pb-4 border-b border-(--border-subtle)">
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-(--brand-gold) mx-auto mb-2 shadow-md">
+                <img src="/logo2.jpg" alt="Harmony College" className="w-full h-full object-cover" />
+              </div>
+              <p className="font-serif text-lg font-bold text-(--text-primary)">Harmony College</p>
+              <p className="font-sans text-xs text-(--text-muted)">Finance &amp; Treasury Office</p>
+              <p className="font-mono text-xs text-(--brand-gold) mt-2 font-bold tracking-wider bg-(--accent-gold-subtle) py-1 px-3 rounded-lg inline-block">
+                {viewingReceipt.receipt.receiptNumber}
+              </p>
+            </div>
+
+            {/* Transaction & Student Info */}
+            <div className="space-y-2.5 text-xs font-sans">
+              {[
+                ['Student Name',    viewingReceipt.sub.student?.user?.fullName ?? '—'],
+                ['Student ID',      viewingReceipt.sub.student?.studentId ?? '—'],
+                ['Academic Program', viewingReceipt.sub.student?.program?.name || viewingReceipt.sub.student?.department?.name || '—'],
+                ['Payment Period',  viewingReceipt.receipt.billingLabel || viewingReceipt.receipt.billingMonth || '—'],
+                ['Payment Method',  viewingReceipt.receipt.paymentMethod || viewingReceipt.sub.paymentMethod || 'Bank Transfer'],
+                ['Reference Code',  viewingReceipt.receipt.referenceNumber || viewingReceipt.sub.referenceNumber || 'N/A'],
+                ['Approval Date',   formatDateTime(viewingReceipt.receipt.approvedAt)],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between items-center">
+                  <span className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">{label}</span>
+                  <span className="font-medium text-right text-(--text-primary) ml-4">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Total Paid Banner */}
+            <div className="flex justify-between items-center p-3.5 rounded-xl bg-(--hover-overlay) border border-(--border-subtle)">
+              <span className="font-serif text-sm font-bold text-(--text-primary)">TOTAL PAID</span>
+              <span className="font-mono text-xl font-bold text-(--brand-gold)">
+                {fmtETB(viewingReceipt.receipt.amountPaid ?? viewingReceipt.sub.amount)}
+              </span>
+            </div>
+
+            {/* QR Verification Box */}
+            <div className="flex items-center gap-3.5 p-3 rounded-xl bg-(--accent-gold-subtle) border border-(--accent-gold-border)">
+              <div className="w-12 h-12 bg-(--bg-base) rounded-lg flex items-center justify-center shrink-0">
+                <QrCode className="w-7 h-7 text-(--brand-gold)" />
+              </div>
+              <div>
+                <p className="font-mono text-[10px] text-(--text-faint) uppercase tracking-wider">Security Verification</p>
+                <p className="font-mono text-xs text-(--brand-gold) font-bold">HC-VERIFY-{viewingReceipt.receipt.receiptNumber}</p>
+              </div>
+            </div>
+
+            {shareMsg && (
+              <p className="font-sans text-xs text-emerald-400 text-center font-medium">{shareMsg}</p>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => printOfficialReceipt(
+                  viewingReceipt.receipt,
+                  viewingReceipt.sub.student?.user?.fullName ?? '',
+                  viewingReceipt.sub.student?.studentId ?? '',
+                  viewingReceipt.sub.student?.program?.name || viewingReceipt.sub.student?.department?.name || '',
+                )}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold font-sans transition-all text-(--bg-base)"
+                style={{ background: 'linear-gradient(135deg, var(--brand-gold-dark), var(--brand-gold))' }}
+              >
+                <Printer className="w-4 h-4" /> Print PDF Voucher
+              </button>
+
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(`${window.location.origin}/dashboard/finance-officer`);
+                  setShareMsg('✓ Link copied to clipboard');
+                  setTimeout(() => setShareMsg(''), 2500);
+                }}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold font-sans border transition-all hover:bg-(--hover-overlay) text-(--text-secondary) border-(--border-default)"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}

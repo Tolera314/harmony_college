@@ -12,8 +12,8 @@ import { FOOverviewView }        from '@/src/components/fo/views/FOOverviewView'
 import { FOTuitionSetupView }    from '@/src/components/fo/views/FOTuitionSetupView';
 import { FOPaymentSubmissionsView } from '@/src/components/fo/views/FOPaymentSubmissionsView';
 import { FORegistrationPaymentsView } from '@/src/components/fo/views/FORegistrationPaymentsView';
-import { FOReceiptsView }        from '@/src/components/fo/views/FOReceiptsView';
 import { FOStudentPaymentsView } from '@/src/components/fo/views/FOStudentPaymentsView';
+import { FOStaffPaymentsView } from '@/src/components/fo/views/FOStaffPaymentsView';
 import { FOReportsView }         from '@/src/components/fo/views/FOReportsView';
 import { FONotificationsView }   from '@/src/components/fo/views/FONotificationsView';
 import { FOAuditLogView }        from '@/src/components/fo/views/FOAuditLogView';
@@ -176,8 +176,8 @@ export default function FinanceOfficerPage() {
       );
       case 'payment_submissions': return <FOPaymentSubmissionsView programType={programType} />;
       case 'registration_payments': return <FORegistrationPaymentsView programType={programType} />;
-      case 'receipts':         return <FOReceiptsView programType={programType} />;
       case 'outstanding':      return <FOStudentPaymentsView programType={programType} />;
+      case 'staff_payments':   return <FOStaffPaymentsView />;
       case 'reports':          return <FOReportsView programType={programType} />;
       case 'notifications':    return (
         <FONotificationsView
@@ -323,7 +323,6 @@ export default function FinanceOfficerPage() {
                   { id: 'tuition_setup', label: 'Monthly Fee Setup' },
                   { id: 'payment_submissions', label: 'Payment Submissions' },
                   { id: 'registration_payments', label: 'Reg. Fee Verification' },
-                  { id: 'receipts', label: 'Receipts' },
                   { id: 'outstanding', label: 'Student Payments' },
                   { id: 'reports', label: 'Financial Reports' },
                   { id: 'notifications', label: 'Notifications' },

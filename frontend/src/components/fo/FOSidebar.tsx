@@ -3,8 +3,8 @@
 import React from 'react';
 import { FONavTab, FOProfile } from '../../types/finance';
 import {
-  LayoutDashboard, Users, CreditCard, Receipt, AlertTriangle,
-  BarChart3, RefreshCw, Bell, ClipboardList, Settings, LogOut, Landmark,
+  LayoutDashboard, Users, CreditCard, AlertTriangle,
+  BarChart3, Bell, ClipboardList, Settings, LogOut, Landmark,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ChatSidebarButton } from '../chat/ChatSidebarButton';
@@ -36,11 +36,11 @@ export const FOSidebar: React.FC<FOSidebarProps> = ({
     { id: 'tuition_setup',       label: 'Monthly Fee Setup',    icon: <Landmark className="w-5 h-5" /> },
     { id: 'payment_submissions', label: 'Payment Submissions',  icon: <CreditCard className="w-5 h-5" /> },
     { id: 'registration_payments', label: 'Reg. Fee Verification', icon: <ClipboardList className="w-5 h-5" /> },
-    { id: 'receipts',            label: 'Receipts',             icon: <Receipt className="w-5 h-5" /> },
     {
       id: 'outstanding', label: 'Student Payments', icon: <AlertTriangle className="w-5 h-5" />,
       badge: overdueCount > 0 ? String(overdueCount) : undefined, badgeVariant: 'rose',
     },
+    { id: 'staff_payments',      label: 'Staff Payments',       icon: <Users className="w-5 h-5" /> },
     { id: 'reports',          label: 'Financial Reports',    icon: <BarChart3 className="w-5 h-5" /> },
     {
       id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" />,

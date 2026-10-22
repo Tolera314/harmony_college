@@ -1411,6 +1411,7 @@ model HREmployee {
   payslips            HRPayslip[]
   performanceReviews  HRPerformanceReview[]
   salaryHistory       HRSalaryHistory[]
+  staffPayments       StaffPayment[]
 
   @@index([status])
   @@index([departmentId])
@@ -1668,6 +1669,30 @@ model HRContractRenewal {
   employee         HREmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
+}
+
+/// Monthly staff salary payment record tracked by Finance Officer
+model StaffPayment {
+  id                   String      @id @default(uuid())
+  employeeId           String
+  payrollMonth         String
+  payrollYear          Int
+  assignedSalary       Float
+  status               String      @default("PENDING")
+  paymentDate          DateTime?
+  paymentMethod        String?
+  transactionReference String?
+  notes                String?
+  paidByUserId         String?
+  paidByName           String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  employee             HREmployee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, payrollMonth, payrollYear])
+  @@index([employeeId])
+  @@index([status])
+  @@index([payrollYear])
 }
 
 model StaffInvitation {
