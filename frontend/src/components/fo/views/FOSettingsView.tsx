@@ -64,7 +64,6 @@ export const FOSettingsView: React.FC = () => {
     telebirrMerchantId: 'MERCHANT-HC-9021',
     chapaPublicKey: 'CHAPUBK_TEST-xxxxxx',
     bankAccountDetails: 'CBE Account: 1000188992001 (Harmony College Main Operating)',
-    autoReconciliationEnabled: true,
     overdueAlertThresholdDays: 30,
   });
 
@@ -78,7 +77,6 @@ export const FOSettingsView: React.FC = () => {
     paymentReceived: true,
     paymentOverdue: true,
     installmentDue: true,
-    reconciliationFailed: true,
     largePayment: true,
     systemAlerts: false,
     reminders: true,
@@ -139,7 +137,6 @@ export const FOSettingsView: React.FC = () => {
           telebirrMerchantId: s.telebirrMerchantId || financialPolicy.telebirrMerchantId,
           chapaPublicKey: s.chapaPublicKey || financialPolicy.chapaPublicKey,
           bankAccountDetails: s.bankAccountDetails || financialPolicy.bankAccountDetails,
-          autoReconciliationEnabled: s.autoReconciliationEnabled ?? financialPolicy.autoReconciliationEnabled,
           overdueAlertThresholdDays: s.overdueAlertThresholdDays ?? financialPolicy.overdueAlertThresholdDays,
         });
 
@@ -416,33 +413,6 @@ export const FOSettingsView: React.FC = () => {
                     className="w-full bg-(--hover-overlay) border border-(--border-default) rounded-xl px-4 py-2.5 font-sans text-sm text-(--text-primary) outline-none focus:border-(--brand-gold)/50 transition-colors"
                   />
                 </div>
-
-                {/* Auto reconciliation toggle */}
-                <div className="flex items-center justify-between p-4 bg-(--hover-overlay) border border-(--border-subtle) rounded-xl">
-                  <div>
-                    <p className="font-sans text-sm font-medium text-(--text-primary)">Automated Gateway Matching</p>
-                    <p className="font-sans text-xs text-(--text-faint) mt-0.5">
-                      Automatically reconcile incoming Telebirr & Chapa transactions matching student reference IDs
-                    </p>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setFinancialPolicy({
-                        ...financialPolicy,
-                        autoReconciliationEnabled: !financialPolicy.autoReconciliationEnabled,
-                      })
-                    }
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      financialPolicy.autoReconciliationEnabled ? 'bg-[#E9C349]' : 'bg-(--hover-overlay)'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
-                        financialPolicy.autoReconciliationEnabled ? 'left-6' : 'left-1'
-                      }`}
-                    />
-                  </button>
-                </div>
               </div>
 
               <div className="pt-2">
@@ -649,7 +619,6 @@ export const FOSettingsView: React.FC = () => {
                   { key: 'paymentReceived',     label: 'Student Payment Recorded',  desc: 'Alert when a cash or gateway payment is posted' },
                   { key: 'paymentOverdue',      label: 'Account Overdue Alerts',    desc: 'Alert when a student balance passes due date threshold' },
                   { key: 'installmentDue',      label: 'Installment Deadlines',     desc: 'Reminders for upcoming fee payment installments' },
-                  { key: 'reconciliationFailed', label: 'Reconciliation Discrepancies', desc: 'Alert when a gateway transaction requires manual review' },
                   { key: 'largePayment',         label: 'Large Payments (> ETB 10,000)', desc: 'High-value transaction security notifications' },
                   { key: 'systemAlerts',         label: 'System Maintenance',       desc: 'Portal updates and scheduled maintenance' },
                   { key: 'reminders',            label: 'Task Reminders',            desc: 'Pending registration fee verification reminders' },

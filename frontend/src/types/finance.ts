@@ -6,13 +6,10 @@ export type FONavTab =
   | 'overview'
   | 'tuition_setup'
   | 'payment_submissions'
-  | 'student_accounts'
-  | 'payments'
   | 'registration_payments'
   | 'receipts'
   | 'outstanding'
   | 'reports'
-  | 'reconciliation'
   | 'notifications'
   | 'audit_log'
   | 'settings'
@@ -139,31 +136,11 @@ export interface ReceiptLineItem {
   amount: number;
 }
 
-// ── Reconciliation Entry ──────────────────────────────────────────────────────
-export type ReconciliationStatus = 'Matched' | 'Unmatched' | 'Failed' | 'Pending Review';
-export type GatewaySource = 'Chapa' | 'Telebirr' | 'Bank Transfer' | 'Manual';
-
-export interface ReconciliationEntry {
-  id: string;
-  gatewayTxnId: string;
-  studentId: string | null;
-  studentName: string | null;
-  source: GatewaySource;
-  amount: number;
-  status: ReconciliationStatus;
-  date: string;
-  time: string;
-  matchedReceiptId: string | null;
-  failureReason?: string;
-  reviewNotes?: string;
-}
-
 // ── FO Notification ───────────────────────────────────────────────────────────
 export type FONotifType =
   | 'payment_received'
   | 'payment_overdue'
   | 'installment_due'
-  | 'reconciliation_failed'
   | 'large_payment'
   | 'system'
   | 'reminder';

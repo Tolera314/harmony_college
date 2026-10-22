@@ -11,7 +11,6 @@ import * as foOverviewService from '../services/finance/foOverviewService';
 import * as foStudentAccountService from '../services/finance/foStudentAccountService';
 import * as foPaymentService from '../services/finance/foPaymentService';
 import * as foReceiptService from '../services/finance/foReceiptService';
-import * as foReconciliationService from '../services/finance/foReconciliationService';
 import * as foReportService from '../services/finance/foReportService';
 import * as foAuditService from '../services/finance/foAuditService';
 import * as foNotificationService from '../services/finance/foNotificationService';
@@ -19,6 +18,7 @@ import * as foSettingsService from '../services/finance/foSettingsService';
 import * as tuitionConfigService from '../services/finance/tuitionConfigService';
 import * as installmentService from '../services/finance/installmentService';
 import * as paymentSubmissionService from '../services/finance/paymentSubmissionService';
+import * as studentPaymentsService from '../services/finance/studentPaymentsService';
 
 const router = Router();
 const FO_ROLES = [Role.FINANCE_OFFICER, Role.ADMIN, Role.SUPER_ADMIN];
@@ -45,7 +45,7 @@ async function resolveActorName(req: AuthRequest): Promise<string> {
   }
 }
 
-// ── OVERVIEW / DASHBOARD ANITICS ──────────────────────────────────────────────
+// ── OVERVIEW / DASHBOARD ANALYTICS ──────────────────────────────────────────────
 router.get('/overview', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
@@ -53,6 +53,50 @@ router.get('/overview', async (req: AuthRequest, res: Response): Promise<void> =
     ok(res, data);
   } catch (err) {
     console.error('[FO/overview]', err);
+    fail(res, err);
+  }
+});
+
+// ── STUDENT PAYMENTS (CONSOLIDATED VIEW) ──────────────────────────────────────
+router.get('/student-payments', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const q = req.query as Record<string, string | undefined>;
+    const data = await studentPaymentsService.getStudentPaymentsSummary({
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+      billingMonth: q.billingMonth,
+      billingYear: q.billingYear,
+      programId: q.programId,
+      departmentId: q.departmentId,
+      paymentStatus: q.paymentStatus,
+      search: q.search,
+      page: q.page ? parseInt(q.page, 10) : 1,
+      limit: q.limit ? parseInt(q.limit, 10) : 50,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/student-payments]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/student-payments/:studentRecordId', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const studentRecordId = String(req.params.studentRecordId);
+    const data = await studentPaymentsService.getStudentPaymentDetails(studentRecordId);
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/student-payments/:id]', err);
+    fail(res, err, 404);
+  }
+});
+
+router.get('/student-payments-programs', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const programType = req.query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined;
+    const data = await studentPaymentsService.getProgramsForFilter(programType);
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/student-payments-programs]', err);
     fail(res, err);
   }
 });
@@ -350,56 +394,6 @@ router.post('/reminders/send', async (req: AuthRequest, res: Response): Promise<
   }
 });
 
-// ── RECONCILIATION ─────────────────────────────────────────────────────────────
-router.get('/reconciliation', async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const query = req.query as Record<string, string | undefined>;
-    const data = await foReconciliationService.listReconciliationEntries({
-      status: query.status,
-      search: query.search,
-      programType: query.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
-    });
-    ok(res, data);
-  } catch (err) {
-    console.error('[FO/reconciliation]', err);
-    fail(res, err);
-  }
-});
-
-// Auto-match reconciliation endpoint removed - function doesn't exist
-// router.post('/reconciliation/auto-match', async (req: AuthRequest, res: Response): Promise<void> => {
-//   try {
-//     const result = await foReconciliationService.matchReconciliation(req.user!.userId);
-//     ok(res, result);
-//   } catch (err) {
-//     console.error('[FO/reconciliation/auto-match]', err);
-//     fail(res, err, 400);
-//   }
-// });
-
-router.post('/reconciliation/:id/match', async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const id = String(req.params.id);
-    const { matchedReceiptId } = req.body;
-    const result = await foReconciliationService.matchReconciliation(id, matchedReceiptId || 'REC-AUTO-MATCH', req.user!.userId);
-    ok(res, result);
-  } catch (err) {
-    console.error('[FO/reconciliation/match]', err);
-    fail(res, err, 400);
-  }
-});
-
-router.post('/reconciliation/:id/flag', async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const id = String(req.params.id);
-    const { notes } = req.body;
-    const result = await foReconciliationService.flagReconciliation(id, notes || 'Flagged for review', req.user!.userId);
-    ok(res, result);
-  } catch (err) {
-    console.error('[FO/reconciliation/flag]', err);
-    fail(res, err, 400);
-  }
-});
 
 // ── REPORTS ───────────────────────────────────────────────────────────────────
 router.get('/reports/summary', async (req: AuthRequest, res: Response): Promise<void> => {

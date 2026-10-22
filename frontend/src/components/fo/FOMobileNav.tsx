@@ -18,9 +18,8 @@ export const FOMobileNav: React.FC<FOMobileNavProps> = ({
 }) => {
   const items: { id: FONavTab; label: string; icon: React.ReactNode; dot?: boolean }[] = [
     { id: 'overview',         label: 'Dash',     icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'student_accounts', label: 'Accounts', icon: <Users className="w-5 h-5" /> },
-    { id: 'payments',         label: 'Payments', icon: <CreditCard className="w-5 h-5" /> },
-    { id: 'outstanding',      label: 'Overdue',  icon: <AlertTriangle className="w-5 h-5" />, dot: overdueCount > 0 },
+    { id: 'payment_submissions', label: 'Payments', icon: <CreditCard className="w-5 h-5" /> },
+    { id: 'outstanding',      label: 'Students',  icon: <AlertTriangle className="w-5 h-5" />, dot: overdueCount > 0 },
     { id: 'reports',          label: 'Reports',  icon: <BarChart3 className="w-5 h-5" /> },
     { id: 'notifications',    label: 'Alerts',   icon: <Bell className="w-5 h-5" />, dot: unreadCount > 0 },
   ];

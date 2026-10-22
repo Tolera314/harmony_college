@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type {
   FOProfile, Department, Program, FinanceStudent, Transaction,
-  Receipt, ReconciliationEntry, FONotification, FOAuditEntry,
+  Receipt, FONotification, FOAuditEntry,
   MonthlyRevenue, PaymentMethodBreakdown,
   DailyCollection, OutstandingTrend, InstallmentPlan,
 } from '../types/finance';
@@ -194,45 +194,21 @@ export const receipts: Receipt[] = [
   }
 })();
 
-// ── Reconciliation Entries ────────────────────────────────────────────────────
-export const reconciliationEntries: ReconciliationEntry[] = [
-  {id:'re001',gatewayTxnId:'CHP-TXN-88441',studentId:'fs03',studentName:'Hana Wolde',source:'Chapa',amount:14_500,status:'Matched',date:'2024-09-02',time:'08:43',matchedReceiptId:'rc005'},
-  {id:'re002',gatewayTxnId:'CHP-TXN-88442',studentId:'fs03',studentName:'Hana Wolde',source:'Chapa',amount:1_200,status:'Matched',date:'2024-09-02',time:'08:48',matchedReceiptId:'rc006'},
-  {id:'re003',gatewayTxnId:'TLB-TXN-55210',studentId:'fs02',studentName:'Biruk Teshome',source:'Telebirr',amount:6_000,status:'Matched',date:'2024-09-20',time:'14:02',matchedReceiptId:'rc003'},
-  {id:'re004',gatewayTxnId:'TLB-TXN-55211',studentId:'fs02',studentName:'Biruk Teshome',source:'Telebirr',amount:4_000,status:'Matched',date:'2024-10-10',time:'10:28',matchedReceiptId:'rc004'},
-  {id:'re005',gatewayTxnId:'BNK-TXN-10200',studentId:'fs05',studentName:'Liya Girma',source:'Bank Transfer',amount:16_000,status:'Matched',date:'2024-09-01',time:'09:58',matchedReceiptId:'rc009'},
-  {id:'re006',gatewayTxnId:'CHP-TXN-91100',studentId:null,studentName:null,source:'Chapa',amount:18_000,status:'Unmatched',date:'2024-10-12',time:'11:05',matchedReceiptId:null,failureReason:'Student ID not found in system. Reference: UNKNOWN-9900.'},
-  {id:'re007',gatewayTxnId:'TLB-TXN-60030',studentId:null,studentName:null,source:'Telebirr',amount:7_500,status:'Unmatched',date:'2024-10-11',time:'09:20',matchedReceiptId:null,failureReason:'Duplicate transaction detected. Original: TLB-TXN-60029.'},
-  {id:'re008',gatewayTxnId:'CHP-TXN-89900',studentId:'fs08',studentName:'Robel Bekele',source:'Chapa',amount:18_000,status:'Matched',date:'2024-09-08',time:'11:42',matchedReceiptId:'rc014'},
-  {id:'re009',gatewayTxnId:'BNK-TXN-10500',studentId:'fs11',studentName:'Selamawit Desta',source:'Bank Transfer',amount:22_000,status:'Matched',date:'2024-09-06',time:'10:28',matchedReceiptId:'rc019'},
-  {id:'re010',gatewayTxnId:'CHP-TXN-92000',studentId:null,studentName:null,source:'Chapa',amount:500,status:'Failed',date:'2024-10-13',time:'14:30',matchedReceiptId:null,failureReason:'Payment gateway timeout. Transaction rolled back.'},
-  {id:'re011',gatewayTxnId:'TLB-TXN-61100',studentId:'fs06',studentName:'Dawit Mekonnen',source:'Telebirr',amount:9_450,status:'Matched',date:'2024-09-15',time:'09:28',matchedReceiptId:'rc011'},
-  {id:'re012',gatewayTxnId:'BNK-TXN-10800',studentId:'fs15',studentName:'Bethlehem Girma',source:'Bank Transfer',amount:22_000,status:'Matched',date:'2024-09-07',time:'08:28',matchedReceiptId:'rc023'},
-  {id:'re013',gatewayTxnId:'CHP-TXN-93400',studentId:null,studentName:null,source:'Chapa',amount:12_000,status:'Pending Review',date:'2024-10-14',time:'16:00',matchedReceiptId:null,reviewNotes:'Amount does not match any outstanding balance. Under manual review.'},
-  {id:'re014',gatewayTxnId:'TLB-TXN-62000',studentId:'fs20',studentName:'Abebe Tesfaye',source:'Telebirr',amount:6_900,status:'Matched',date:'2024-09-18',time:'13:28',matchedReceiptId:'rc030'},
-  {id:'re015',gatewayTxnId:'BNK-TXN-11000',studentId:'fs14',studentName:'Ezra Habtamu',source:'Bank Transfer',amount:10_000,status:'Matched',date:'2024-10-01',time:'08:58',matchedReceiptId:'rc022'},
-  {id:'re016',gatewayTxnId:'CHP-TXN-94500',studentId:null,studentName:null,source:'Chapa',amount:3_200,status:'Unmatched',date:'2024-10-15',time:'10:45',matchedReceiptId:null,failureReason:'No matching student invoice. Possible wrong student ID entered.'},
-  {id:'re017',gatewayTxnId:'TLB-TXN-63100',studentId:'fs18',studentName:'Naol Bekele',source:'Telebirr',amount:8_100,status:'Matched',date:'2024-10-05',time:'09:58',matchedReceiptId:'rc027'},
-  {id:'re018',gatewayTxnId:'BNK-TXN-11200',studentId:'fs19',studentName:'Tsehay Alemu',source:'Bank Transfer',amount:20_000,status:'Matched',date:'2024-09-09',time:'08:58',matchedReceiptId:'rc028'},
-  {id:'re019',gatewayTxnId:'CHP-TXN-95000',studentId:null,studentName:null,source:'Chapa',amount:15_000,status:'Failed',date:'2024-10-16',time:'11:20',matchedReceiptId:null,failureReason:'Chapa API returned error code 402. Insufficient funds or card declined.'},
-  {id:'re020',gatewayTxnId:'TLB-TXN-64000',studentId:'fs09',studentName:'Mekdes Alemu',source:'Telebirr',amount:11_800,status:'Matched',date:'2024-09-25',time:'10:13',matchedReceiptId:'rc016'},
-];
-
 // ── Notifications ─────────────────────────────────────────────────────────────
 export const foNotifications: FONotification[] = [
-  {id:'fn001',type:'payment_received',title:'Payment Received',message:'Selam Alemayehu (HC-2024-8832) paid ETB 12,000 via Bank Transfer for Fall 2024 tuition.',timestamp:'2024-09-05 09:14',read:true,tab:'payments',amount:12_000,studentId:'fs01'},
+  {id:'fn001',type:'payment_received',title:'Payment Received',message:'Selam Alemayehu (HC-2024-8832) paid ETB 12,000 via Bank Transfer for Fall 2024 tuition.',timestamp:'2024-09-05 09:14',read:true,tab:'payment_submissions',amount:12_000,studentId:'fs01'},
   {id:'fn002',type:'payment_overdue',title:'Overdue Account — Critical',message:'Yonas Kebede (HC-2022-5520) has an outstanding balance of ETB 12,500. 45 days overdue.',timestamp:'2024-10-15 08:00',read:false,tab:'outstanding',amount:12_500,studentId:'fs04'},
   {id:'fn003',type:'payment_overdue',title:'Overdue Account — Critical',message:'Henok Mulugeta (HC-2024-8761) has not made any payment this semester. ETB 23,300 outstanding.',timestamp:'2024-10-15 08:01',read:false,tab:'outstanding',amount:23_300,studentId:'fs12'},
-  {id:'fn004',type:'reconciliation_failed',title:'Reconciliation Failed',message:'Chapa gateway transaction CHP-TXN-91100 (ETB 18,000) could not be matched to any student.',timestamp:'2024-10-12 11:10',read:false,tab:'reconciliation',amount:18_000},
-  {id:'fn005',type:'large_payment',title:'Large Payment Recorded',message:'MBA tuition payment of ETB 22,000 received from Selamawit Desta (HC-2022-4980).',timestamp:'2024-09-06 10:35',read:true,tab:'payments',amount:22_000,studentId:'fs11'},
-  {id:'fn006',type:'installment_due',title:'Installment Due Today',message:'Biruk Teshome (HC-2023-7641) has an installment of ETB 4,000 due today.',timestamp:'2024-10-10 08:00',read:true,tab:'student_accounts',amount:4_000,studentId:'fs02'},
-  {id:'fn007',type:'reconciliation_failed',title:'Gateway Error',message:'Chapa API error on transaction CHP-TXN-95000 (ETB 15,000). Error code 402.',timestamp:'2024-10-16 11:25',read:false,tab:'reconciliation',amount:15_000},
+  {id:'fn004',type:'system',title:'System Alert',message:'Gateway connection verified successfully.',timestamp:'2024-10-12 11:10',read:true,tab:'overview'},
+  {id:'fn005',type:'large_payment',title:'Large Payment Recorded',message:'MBA tuition payment of ETB 22,000 received from Selamawit Desta (HC-2022-4980).',timestamp:'2024-09-06 10:35',read:true,tab:'payment_submissions',amount:22_000,studentId:'fs11'},
+  {id:'fn006',type:'installment_due',title:'Installment Due Today',message:'Biruk Teshome (HC-2023-7641) has an installment of ETB 4,000 due today.',timestamp:'2024-10-10 08:00',read:true,tab:'outstanding',amount:4_000,studentId:'fs02'},
+  {id:'fn007',type:'system',title:'Gateway Notice',message:'Telebirr network latency stabilized.',timestamp:'2024-10-16 11:25',read:true,tab:'overview'},
   {id:'fn008',type:'payment_overdue',title:'Overdue Account — Critical',message:'Samuel Teklu (HC-2023-7050) has ETB 23,750 outstanding. 62 days overdue.',timestamp:'2024-10-15 08:02',read:false,tab:'outstanding',amount:23_750,studentId:'fs16'},
-  {id:'fn009',type:'payment_received',title:'Installment Received',message:'Ezra Habtamu (HC-2025-1290) paid ETB 10,000 installment via Telebirr.',timestamp:'2024-10-01 09:05',read:true,tab:'payments',amount:10_000,studentId:'fs14'},
-  {id:'fn010',type:'system',title:'End-of-Day Summary',message:"Today's collections: ETB 48,200 across 12 transactions. 3 pending reconciliations.",timestamp:'2024-10-15 18:00',read:false,tab:'overview'},
-  {id:'fn011',type:'installment_due',title:'Installment Reminder',message:'Naol Bekele (HC-2025-1500) second installment of ETB 8,100 is due in 3 days.',timestamp:'2024-10-12 09:00',read:false,tab:'student_accounts',amount:8_100,studentId:'fs18'},
-  {id:'fn012',type:'reconciliation_failed',title:'Unmatched Transaction',message:'Telebirr transaction TLB-TXN-60030 (ETB 7,500) flagged as possible duplicate.',timestamp:'2024-10-11 09:25',read:true,tab:'reconciliation',amount:7_500},
-  {id:'fn013',type:'payment_received',title:'Payment Received',message:'Bethlehem Girma paid full tuition ETB 22,000 via Bank Transfer.',timestamp:'2024-09-07 08:35',read:true,tab:'payments',amount:22_000,studentId:'fs15'},
+  {id:'fn009',type:'payment_received',title:'Installment Received',message:'Ezra Habtamu (HC-2025-1290) paid ETB 10,000 installment via Telebirr.',timestamp:'2024-10-01 09:05',read:true,tab:'payment_submissions',amount:10_000,studentId:'fs14'},
+  {id:'fn010',type:'system',title:'End-of-Day Summary',message:"Today's collections: ETB 48,200 across 12 transactions.",timestamp:'2024-10-15 18:00',read:false,tab:'overview'},
+  {id:'fn011',type:'installment_due',title:'Installment Reminder',message:'Naol Bekele (HC-2025-1500) second installment of ETB 8,100 is due in 3 days.',timestamp:'2024-10-12 09:00',read:false,tab:'outstanding',amount:8_100,studentId:'fs18'},
+  {id:'fn012',type:'system',title:'System Check',message:'Daily transaction batch processed.',timestamp:'2024-10-11 09:25',read:true,tab:'overview'},
+  {id:'fn013',type:'payment_received',title:'Payment Received',message:'Bethlehem Girma paid full tuition ETB 22,000 via Bank Transfer.',timestamp:'2024-09-07 08:35',read:true,tab:'payment_submissions',amount:22_000,studentId:'fs15'},
   {id:'fn014',type:'reminder',title:'Monthly Report Due',message:'September 2024 financial report is due for submission by end of week.',timestamp:'2024-10-14 09:00',read:false,tab:'reports'},
   {id:'fn015',type:'payment_overdue',title:'Overdue Reminder Sent',message:'Automated reminder sent to 4 students with overdue balances.',timestamp:'2024-10-13 10:00',read:true,tab:'outstanding'},
 ];
@@ -243,8 +219,8 @@ export const foAuditLog: FOAuditEntry[] = [
   {id:'al002',date:'2024-10-15',time:'09:22',officerId:'fin01',officerName:'Ato Kebede Worku',studentId:'fs01',studentName:'Selam Alemayehu',action:'Receipt Generated',module:'Receipts',amount:12_000,previousValue:null,newValue:'Receipt HC-RCP-2024-001',status:'Success',ipAddress:'192.168.1.10'},
   {id:'al003',date:'2024-10-14',time:'11:30',officerId:'fin02',officerName:'W/t Meron Alemu',studentId:'fs04',studentName:'Yonas Kebede',action:'Payment Reminder Sent',module:'Outstanding',amount:null,previousValue:null,newValue:'Reminder email sent',status:'Success',ipAddress:'192.168.1.12'},
   {id:'al004',date:'2024-10-14',time:'14:00',officerId:'fin01',officerName:'Ato Kebede Worku',studentId:'fs02',studentName:'Biruk Teshome',action:'Installment Plan Created',module:'Student Accounts',amount:17_150,previousValue:'No plan',newValue:'3 installments: 6000+4000+7150',status:'Success',ipAddress:'192.168.1.10'},
-  {id:'al005',date:'2024-10-13',time:'10:05',officerId:'fin02',officerName:'W/t Meron Alemu',studentId:null,studentName:null,action:'Reconciliation Run',module:'Reconciliation',amount:null,previousValue:'20 unmatched',newValue:'15 matched, 5 unmatched',status:'Success',ipAddress:'192.168.1.12'},
-  {id:'al006',date:'2024-10-12',time:'11:12',officerId:'fin01',officerName:'Ato Kebede Worku',studentId:null,studentName:null,action:'Unmatched Transaction Flagged',module:'Reconciliation',amount:18_000,previousValue:'Unmatched',newValue:'Flagged for review',status:'Warning',ipAddress:'192.168.1.10'},
+  {id:'al005',date:'2024-10-13',time:'10:05',officerId:'fin02',officerName:'W/t Meron Alemu',studentId:null,studentName:null,action:'Financial Batch Verified',module:'Payments',amount:null,previousValue:'Pending review',newValue:'Verified',status:'Success',ipAddress:'192.168.1.12'},
+  {id:'al006',date:'2024-10-12',time:'11:12',officerId:'fin01',officerName:'Ato Kebede Worku',studentId:null,studentName:null,action:'Account Alert Checked',module:'Outstanding',amount:18_000,previousValue:'Pending',newValue:'Reviewed',status:'Warning',ipAddress:'192.168.1.10'},
   {id:'al007',date:'2024-10-11',time:'09:00',officerId:'fin02',officerName:'W/t Meron Alemu',studentId:'fs09',studentName:'Mekdes Alemu',action:'Fine Recorded',module:'Student Accounts',amount:300,previousValue:'Fines: 0',newValue:'Fines: 300',status:'Success',ipAddress:'192.168.1.12'},
   {id:'al008',date:'2024-10-10',time:'10:30',officerId:'fin01',officerName:'Ato Kebede Worku',studentId:'fs02',studentName:'Biruk Teshome',action:'Installment Payment',module:'Payments',amount:4_000,previousValue:'Outstanding: 11150',newValue:'Outstanding: 7150',status:'Success',ipAddress:'192.168.1.10'},
   {id:'al009',date:'2024-10-09',time:'16:00',officerId:'fin01',officerName:'Ato Kebede Worku',studentId:null,studentName:null,action:'Report Generated',module:'Reports',amount:null,previousValue:null,newValue:'September 2024 Revenue Report',status:'Success',ipAddress:'192.168.1.10'},
@@ -268,7 +244,6 @@ export const foKpis = {
   overdueAccounts:       4,
   receiptsIssued:        120,
   todaysCollections:     520_000,
-  pendingReconciliation: 5,
   averageDailyRevenue:   358_000,
   recentTransactionsCount: 42,
 };

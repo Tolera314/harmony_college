@@ -21,7 +21,6 @@ export interface FOSettingsData {
   telebirrMerchantId: string;
   chapaPublicKey: string;
   bankAccountDetails: string;
-  autoReconciliationEnabled: boolean;
   overdueAlertThresholdDays: number;
 
   // Preferences & Appearance
@@ -52,7 +51,6 @@ let settingsStore: FOSettingsData = {
   telebirrMerchantId: 'MERCHANT-HC-9021',
   chapaPublicKey: 'CHAPUBK_TEST-xxxxxx',
   bankAccountDetails: 'CBE Account: 1000188992001 (Harmony College Main Operating)',
-  autoReconciliationEnabled: true,
   overdueAlertThresholdDays: 30,
 
   emailNotificationsEnabled: true,

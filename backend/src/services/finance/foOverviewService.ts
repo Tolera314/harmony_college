@@ -78,7 +78,6 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
     last30Payments,
     last7Transactions,
     yearTransactions,
-    pendingCount,
     receiptsCount,
     recentTransactionsRaw,
     highRiskAccounts,
@@ -161,13 +160,6 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
       orderBy: { transactionDate: 'desc' },
     }),
 
-    // Pending reconciliation = PENDING status transactions
-    prisma.financialTransaction.count({
-      where: { 
-        status: 'PENDING',
-        ...transactionProgramTypeFilter,
-      },
-    }),
 
     // Receipts issued = transactions with a receiptId and POSTED status
     prisma.financialTransaction.count({
@@ -385,13 +377,11 @@ export async function getOverviewData(programType?: 'TVET' | 'SHORT_PROGRAM') {
       totalOutstanding,
       overdueAccounts,
       receiptsIssued:            receiptsCount,
-      pendingReconciliation:     pendingCount,
       todaysCollections,
       yesterdaysCollections,
       todayVsYesterdayPct,
       averageDailyRevenue,
       recentTransactionsCount:   last7Transactions,
-      pendingReconciliationCount: pendingCount,
     },
     academicYearLabel,
     monthlyRevenue,
