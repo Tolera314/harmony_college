@@ -790,4 +790,206 @@ router.get('/revenue-expectation', async (req: AuthRequest, res: Response): Prom
   }
 });
 
+// ── OPERATIONAL EXPENSES (Step 2) ────────────────────────────────────────────
+router.get('/expense-categories', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const categories = await expenseService.listExpenseCategories();
+    ok(res, categories);
+  } catch (err) {
+    console.error('[FO/expense-categories]', err);
+    fail(res, err);
+  }
+});
+
+router.post('/expense-categories', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const category = await expenseService.createExpenseCategory({
+      name: req.body.name,
+      description: req.body.description,
+      createdByUserId: req.user!.userId,
+    });
+    ok(res, category, 201);
+  } catch (err) {
+    console.error('[FO/expense-categories/create]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.get('/expenses', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const q = req.query as Record<string, string | undefined>;
+    const data = await expenseService.listExpenses({
+      status: q.status as any,
+      categoryId: q.categoryId,
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+      month: q.month,
+      year: q.year ? parseInt(q.year, 10) : undefined,
+      search: q.search,
+      page: q.page ? parseInt(q.page, 10) : 1,
+      limit: q.limit ? parseInt(q.limit, 10) : 20,
+    });
+    ok(res, data);
+  } catch (err) {
+    console.error('[FO/expenses]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/expenses/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const expense = await expenseService.getExpenseById(String(req.params.id));
+    ok(res, expense);
+  } catch (err) {
+    console.error('[FO/expenses/:id]', err);
+    fail(res, err, 404);
+  }
+});
+
+router.post('/expenses', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const actorName = await resolveActorName(req);
+    const expense = await expenseService.createExpense({
+      title: req.body.title,
+      description: req.body.description,
+      categoryId: req.body.categoryId,
+      amount: parseFloat(req.body.amount),
+      currency: req.body.currency,
+      expenseDate: new Date(req.body.expenseDate),
+      dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
+      payee: req.body.payee,
+      invoiceNumber: req.body.invoiceNumber,
+      referenceNumber: req.body.referenceNumber,
+      attachmentUrl: req.body.attachmentUrl,
+      attachmentFileName: req.body.attachmentFileName,
+      notes: req.body.notes,
+      createdByUserId: req.user!.userId,
+      createdByName: actorName,
+    });
+    ok(res, expense, 201);
+  } catch (err) {
+    console.error('[FO/expenses/create]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.put('/expenses/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const actorName = await resolveActorName(req);
+    const expense = await expenseService.updateExpense(
+      String(req.params.id),
+      {
+        title: req.body.title,
+        description: req.body.description,
+        categoryId: req.body.categoryId,
+        amount: req.body.amount ? parseFloat(req.body.amount) : undefined,
+        expenseDate: req.body.expenseDate ? new Date(req.body.expenseDate) : undefined,
+        dueDate: req.body.dueDate !== undefined
+          ? (req.body.dueDate ? new Date(req.body.dueDate) : undefined)
+          : undefined,
+        payee: req.body.payee,
+        invoiceNumber: req.body.invoiceNumber,
+        referenceNumber: req.body.referenceNumber,
+        attachmentUrl: req.body.attachmentUrl,
+        attachmentFileName: req.body.attachmentFileName,
+        notes: req.body.notes,
+      },
+      req.user!.userId,
+      actorName
+    );
+    ok(res, expense);
+  } catch (err) {
+    console.error('[FO/expenses/update]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.post('/expenses/:id/approve', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const actorName = await resolveActorName(req);
+    const expense = await expenseService.approveExpense({
+      expenseId: String(req.params.id),
+      approvedByUserId: req.user!.userId,
+      approvedByName: actorName,
+    });
+    ok(res, expense);
+  } catch (err) {
+    console.error('[FO/expenses/approve]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.post('/expenses/:id/reject', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const actorName = await resolveActorName(req);
+    const expense = await expenseService.rejectExpense({
+      expenseId: String(req.params.id),
+      rejectedByUserId: req.user!.userId,
+      rejectedByName: actorName,
+      rejectionReason: req.body.rejectionReason,
+    });
+    ok(res, expense);
+  } catch (err) {
+    console.error('[FO/expenses/reject]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.post('/expenses/:id/record-payment', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const actorName = await resolveActorName(req);
+    const result = await expenseService.recordPayment({
+      expenseId: String(req.params.id),
+      paymentMethod: req.body.paymentMethod,
+      paymentReference: req.body.paymentReference,
+      notes: req.body.notes,
+      paidByUserId: req.user!.userId,
+      paidByName: actorName,
+    });
+    ok(res, result);
+  } catch (err) {
+    console.error('[FO/expenses/record-payment]', err);
+    fail(res, err, 400);
+  }
+});
+
+router.get('/expense-summary', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const q = req.query as Record<string, string | undefined>;
+    const summary = await expenseService.getExpenseSummary({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+    });
+    ok(res, summary);
+  } catch (err) {
+    console.error('[FO/expense-summary]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/expense-category-breakdown', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const expenseService = await import('../services/finance/expenseService');
+    const q = req.query as Record<string, string | undefined>;
+    const breakdown = await expenseService.getExpensesByCategory({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+    });
+    ok(res, breakdown);
+  } catch (err) {
+    console.error('[FO/expense-category-breakdown]', err);
+    fail(res, err);
+  }
+});
+
 export default router;

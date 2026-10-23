@@ -1126,6 +1126,7 @@ model FinancialTransaction {
   programType              ProgramType? // TVET or SHORT_PROGRAM for filtering
   staffPaymentId           String?                 @unique
   registrationFeePaymentId String?                 @unique
+  expenseId                String?                 @unique
   receiptId                String?                 @unique
   status                   String                  @default("POSTED")
   referenceId              String?
@@ -1134,12 +1135,14 @@ model FinancialTransaction {
   financialAccount         FinancialAccount?       @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
   staffPayment             StaffPayment?           @relation(fields: [staffPaymentId], references: [id])
   registrationFeePayment   RegistrationFeePayment? @relation(fields: [registrationFeePaymentId], references: [id])
+  expense                  Expense?
 
   @@index([financialAccountId])
   @@index([financialCategory])
   @@index([programType])
   @@index([staffPaymentId])
   @@index([registrationFeePaymentId])
+  @@index([expenseId])
   @@index([transactionDate])
   @@index([type])
 }
@@ -1734,6 +1737,117 @@ model StaffPayment {
   @@index([transactionId])
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// OPERATIONAL EXPENSE MANAGEMENT (Step 2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Expense category master data - dynamically managed by Finance Officers
+model ExpenseCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  expenses    Expense[]
+
+  @@index([isActive])
+}
+
+/// Operational expense record with approval and payment tracking
+model Expense {
+  id                     String                  @id @default(uuid())
+  title                  String
+  description            String?
+  categoryId             String
+  amount                 Float
+  currency               String                  @default("ETB")
+  expenseDate            DateTime                @default(now())
+  dueDate                DateTime?
+  payee                  String? // Supplier/vendor name
+  invoiceNumber          String?
+  referenceNumber        String?
+  attachmentUrl          String? // Receipt/invoice attachment
+  attachmentFileName     String?
+  status                 ExpenseStatus           @default(PENDING)
+  notes                  String?
+  createdByUserId        String
+  createdByName          String?
+  approvedByUserId       String?
+  approvedByName         String?
+  approvedAt             DateTime?
+  rejectedByUserId       String?
+  rejectedByName         String?
+  rejectedAt             DateTime?
+  rejectionReason        String?
+  paidByUserId           String?
+  paidByName             String?
+  paidAt                 DateTime?
+  paymentMethod          String?
+  paymentReference       String?
+  financialTransactionId String?                 @unique
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  category               ExpenseCategory         @relation(fields: [categoryId], references: [id])
+  financialTransaction   FinancialTransaction?   @relation(fields: [financialTransactionId], references: [id])
+  paymentHistory         ExpensePaymentHistory[]
+  auditLogs              ExpenseAuditLog[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([expenseDate])
+  @@index([dueDate])
+  @@index([createdByUserId])
+  @@index([financialTransactionId])
+}
+
+/// Payment history for expenses (supports corrections and reversals)
+model ExpensePaymentHistory {
+  id                String   @id @default(uuid())
+  expenseId         String
+  action            String // PAYMENT, REVERSAL, CORRECTION
+  amount            Float
+  paymentMethod     String?
+  paymentReference  String?
+  transactionId     String?
+  performedByUserId String
+  performedByName   String?
+  reason            String? // For reversals/corrections
+  performedAt       DateTime @default(now())
+  expense           Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
+  @@index([performedAt])
+}
+
+/// Audit log for expense lifecycle events
+model ExpenseAuditLog {
+  id          String   @id @default(uuid())
+  expenseId   String
+  action      String // CREATED, APPROVED, REJECTED, PAID, REVERSED, UPDATED
+  userId      String
+  userName    String?
+  oldValues   Json? // Previous state before change
+  newValues   Json? // New state after change
+  note        String?
+  ipAddress   String?
+  performedAt DateTime @default(now())
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
+  @@index([performedAt])
+  @@index([action])
+}
+
+enum ExpenseStatus {
+  PENDING // Recorded, awaiting approval
+  APPROVED // Approved, awaiting payment
+  PAID // Payment recorded
+  REJECTED // Rejected by approver
+  OVERDUE // Approved but past due date and unpaid
+  CANCELLED // Cancelled before payment
+}
+
 model StaffInvitation {
   id               String      @id @default(uuid())
   email            String
@@ -2058,6 +2172,7 @@ enum FinancialCategory {
   STUDENT_FEE // Other student fees (penalties, etc.)
   REGISTRATION_FEE // One-time registration fee
   STAFF_SALARY // Monthly staff salary disbursements
+  OPERATIONAL_EXPENSE // College operational expenses
   OTHER // Other transactions
 }
 
