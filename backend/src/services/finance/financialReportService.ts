@@ -289,6 +289,7 @@ export async function getRevenueBreakdown(
 
 /**
  * Get operational expense breakdown by category
+ * Uses FinancialTransaction table for consistency with other reports
  */
 export async function getExpenseBreakdown(
   params: DateFilterParams
@@ -296,31 +297,36 @@ export async function getExpenseBreakdown(
   const { startDate, endDate } = params;
 
   const where: any = {
-    status: 'PAID', // Only paid expenses
+    status: 'POSTED',
+    financialCategory: 'OPERATIONAL_EXPENSE' as FinancialCategory,
   };
 
   if (startDate || endDate) {
-    where.paidAt = {};
-    if (startDate) where.paidAt.gte = startDate;
-    if (endDate) where.paidAt.lte = endDate;
+    where.transactionDate = {};
+    if (startDate) where.transactionDate.gte = startDate;
+    if (endDate) where.transactionDate.lte = endDate;
   }
 
-  const expenses = await prisma.expense.findMany({
+  const transactions = await prisma.financialTransaction.findMany({
     where,
     include: {
-      category: true,
+      expense: {
+        include: {
+          category: true,
+        },
+      },
     },
   });
 
   // Group by category
   const categoryMap: Record<string, { amount: number; count: number }> = {};
 
-  expenses.forEach((exp) => {
-    const catName = exp.category.name;
+  transactions.forEach((tx) => {
+    const catName = tx.expense?.category.name || 'Uncategorized';
     if (!categoryMap[catName]) {
       categoryMap[catName] = { amount: 0, count: 0 };
     }
-    categoryMap[catName].amount += exp.amount;
+    categoryMap[catName].amount += Math.abs(tx.amount);
     categoryMap[catName].count += 1;
   });
 

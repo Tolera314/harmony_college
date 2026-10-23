@@ -122,6 +122,21 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
   }
   if (profile.paymentVerifiedByFinance) throw new Error('Payment is already verified.');
 
+  // Check if a financial transaction already exists for THIS user's registration fee
+  const existingRegistrationPayment = await prisma.registrationFeePayment.findUnique({
+    where: { userId },
+    include: {
+      financialTransactions: {
+        where: { status: 'POSTED' },
+        take: 1,
+      },
+    },
+  });
+
+  if (existingRegistrationPayment && existingRegistrationPayment.financialTransactions.length > 0) {
+    throw new Error('Registration fee payment already verified. Financial transaction exists.');
+  }
+
   // Create RegistrationFeePayment record + FinancialTransaction in atomic transaction
   const result = await prisma.$transaction(async (tx) => {
     // 1. Create or update RegistrationFeePayment
@@ -467,44 +482,84 @@ export async function reverseTransaction(transactionId: string, reason: string, 
   if (existingTx.status === 'REVERSED') throw new Error('Transaction is already reversed.');
 
   return prisma.$transaction(async (tx) => {
+    // 1. Mark transaction as REVERSED
     const updatedTx = await tx.financialTransaction.update({
       where: { id: transactionId },
       data: { status: 'REVERSED' },
     });
 
-    const activeTxs = await tx.financialTransaction.findMany({
-      where: { financialAccountId: existingTx.financialAccountId, status: 'POSTED' },
-      select: { amount: true },
-    });
+    // 2. Revert related installment and submission if this was a tuition payment
+    if (existingTx.receiptId) {
+      const receipt = await tx.paymentReceipt.findFirst({
+        where: { receiptNumber: existingTx.receiptId },
+        include: { submission: true, installment: true },
+      });
 
-    const newBalance = activeTxs.reduce((sum, item) => sum + item.amount, 0);
-
-    const updatedAccount = await tx.financialAccount.update({
-      where: { id: existingTx.financialAccountId! },
-      data: {
-        balance: Math.round(newBalance * 100) / 100,
-        lastUpdatedAt: new Date(),
-      },
-    });
-
-    try {
-      await tx.auditLog.create({
-        data: {
-          userId: actorUserId,
-          action: 'PROFILE_COMPLETED' as any,
-          ipAddress: ipAddress ?? null,
-          metadata: {
-            event: 'FO_TRANSACTION_REVERSED',
-            transactionId,
-            studentRecordId: existingTx.financialAccount?.studentRecordId ?? null,
-            reversedAmount: existingTx.amount,
-            reversalReason: reason.trim(),
-            newBalance: updatedAccount.balance,
+      if (receipt) {
+        // Revert installment status back to DUE
+        await tx.monthlyInstallment.update({
+          where: { id: receipt.installmentId },
+          data: {
+            status: 'DUE',
+            receiptId: null,
+            activeSubmissionId: null,
           },
+        });
+
+        // Revert submission status to REJECTED with reversal reason
+        await tx.paymentSubmission.update({
+          where: { id: receipt.submissionId },
+          data: {
+            status: 'REJECTED',
+            rejectionReason: `Payment reversed by Finance Officer: ${reason.trim()}`,
+            reviewedAt: new Date(),
+            reviewedByUserId: actorUserId,
+          },
+        });
+      }
+    }
+
+    // 3. Recalculate balance if this was a student account transaction
+    if (existingTx.financialAccountId) {
+      const activeTxs = await tx.financialTransaction.findMany({
+        where: { financialAccountId: existingTx.financialAccountId, status: 'POSTED' },
+        select: { amount: true },
+      });
+
+      const newBalance = activeTxs.reduce((sum, item) => sum + item.amount, 0);
+
+      const updatedAccount = await tx.financialAccount.update({
+        where: { id: existingTx.financialAccountId },
+        data: {
+          balance: Math.round(newBalance * 100) / 100,
+          lastUpdatedAt: new Date(),
         },
       });
-    } catch { /* ignore audit errors if enum mismatch */ }
 
-    return { transaction: updatedTx, account: updatedAccount };
+      // 4. Create audit log
+      try {
+        await tx.auditLog.create({
+          data: {
+            userId: actorUserId,
+            action: 'PROFILE_COMPLETED' as any,
+            ipAddress: ipAddress ?? null,
+            metadata: {
+              event: 'FO_TRANSACTION_REVERSED',
+              transactionId,
+              studentRecordId: existingTx.financialAccount?.studentRecordId ?? null,
+              reversedAmount: existingTx.amount,
+              reversalReason: reason.trim(),
+              newBalance: updatedAccount.balance,
+              installmentReverted: !!existingTx.receiptId,
+            },
+          },
+        });
+      } catch { /* ignore audit errors if enum mismatch */ }
+
+      return { transaction: updatedTx, account: updatedAccount };
+    }
+
+    // For non-account transactions (staff, expenses), just return the reversed transaction
+    return { transaction: updatedTx, account: null };
   });
 }
