@@ -126,14 +126,11 @@ export async function verifyRegistrationPayment(userId: string, verifierUserId: 
   const existingRegistrationPayment = await prisma.registrationFeePayment.findUnique({
     where: { userId },
     include: {
-      financialTransactions: {
-        where: { status: 'POSTED' },
-        take: 1,
-      },
+      transaction: true,
     },
   });
 
-  if (existingRegistrationPayment && existingRegistrationPayment.financialTransactions.length > 0) {
+  if (existingRegistrationPayment?.transaction && existingRegistrationPayment.transaction.status === 'POSTED') {
     throw new Error('Registration fee payment already verified. Financial transaction exists.');
   }
 
