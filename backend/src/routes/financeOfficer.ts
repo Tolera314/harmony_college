@@ -992,4 +992,148 @@ router.get('/expense-category-breakdown', async (req: AuthRequest, res: Response
   }
 });
 
+// ── FINANCIAL DASHBOARD & REPORTS (Step 3) ───────────────────────────────────
+router.get('/dashboard-summary', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const summary = await reportService.getDashboardSummary({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+    });
+    ok(res, summary);
+  } catch (err) {
+    console.error('[FO/dashboard-summary]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/revenue-breakdown', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const breakdown = await reportService.getRevenueBreakdown({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+    });
+    ok(res, breakdown);
+  } catch (err) {
+    console.error('[FO/revenue-breakdown]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/expense-breakdown-report', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const breakdown = await reportService.getExpenseBreakdown({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+    });
+    ok(res, breakdown);
+  } catch (err) {
+    console.error('[FO/expense-breakdown-report]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/monthly-trends-report', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const monthsBack = q.monthsBack ? parseInt(q.monthsBack, 10) : 12;
+    const trends = await reportService.getMonthlyTrends(
+      {
+        startDate: q.startDate ? new Date(q.startDate) : undefined,
+        endDate: q.endDate ? new Date(q.endDate) : undefined,
+        programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+      },
+      monthsBack
+    );
+    ok(res, trends);
+  } catch (err) {
+    console.error('[FO/monthly-trends-report]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/reports/student-collections', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const report = await reportService.getStudentCollectionReport({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+    });
+    ok(res, report);
+  } catch (err) {
+    console.error('[FO/reports/student-collections]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/reports/staff-salaries', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const report = await reportService.getStaffSalaryReport({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+    });
+    ok(res, report);
+  } catch (err) {
+    console.error('[FO/reports/staff-salaries]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/reports/operational-expenses', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const report = await reportService.getOperationalExpenseReport({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+    });
+    ok(res, report);
+  } catch (err) {
+    console.error('[FO/reports/operational-expenses]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/reports/outstanding-balances', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const report = await reportService.getOutstandingBalanceReport({
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+    });
+    ok(res, report);
+  } catch (err) {
+    console.error('[FO/reports/outstanding-balances]', err);
+    fail(res, err);
+  }
+});
+
+router.get('/reports/consolidated-summary', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const reportService = await import('../services/finance/financialReportService');
+    const q = req.query as Record<string, string | undefined>;
+    const report = await reportService.getConsolidatedFinancialSummary({
+      startDate: q.startDate ? new Date(q.startDate) : undefined,
+      endDate: q.endDate ? new Date(q.endDate) : undefined,
+      programType: q.programType as 'TVET' | 'SHORT_PROGRAM' | undefined,
+    });
+    ok(res, report);
+  } catch (err) {
+    console.error('[FO/reports/consolidated-summary]', err);
+    fail(res, err);
+  }
+});
+
 export default router;

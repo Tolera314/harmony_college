@@ -214,19 +214,52 @@ export async function approveSubmission(input: {
     throw new Error(`Cannot approve submission with status: ${submission.status}. Only pending submissions can be approved.`);
   }
 
+  // Check if installment is already PAID (prevents duplicate payments)
+  const installment = await prisma.monthlyInstallment.findUnique({
+    where: { id: submission.installmentId },
+  });
+  if (!installment) throw new Error('Installment not found.');
+  if (installment.status === 'PAID') {
+    throw new Error('This installment has already been paid and verified. Cannot approve duplicate payment.');
+  }
+
+  // Validate full payment (reject partial payments)
+  if (submission.amount < installment.expectedAmount) {
+    throw new Error(
+      `Partial payment not allowed. Full payment of ETB ${installment.expectedAmount.toLocaleString()} required. Submitted: ETB ${submission.amount.toLocaleString()}.`
+    );
+  }
+
   const receiptNumber = await generateReceiptNumber();
 
   // Atomic transaction: approve submission + create receipt + update installment + update account balance
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Mark submission approved
-    const updatedSubmission = await tx.paymentSubmission.update({
-      where: { id: submission.id },
+    // 1. Mark submission approved (use updateMany with status condition for atomicity)
+    const updated = await tx.paymentSubmission.updateMany({
+      where: {
+        id: submission.id,
+        status: 'PENDING_REVIEW', // Atomic check: only update if still pending
+      },
       data: {
         status: 'APPROVED',
         reviewedByUserId: input.reviewedByUserId,
         reviewedAt: new Date(),
       },
     });
+
+    if (updated.count === 0) {
+      throw new Error('Payment submission cannot be approved. It may have already been processed or has invalid status.');
+    }
+
+    // Fetch the updated submission for return
+    const updatedSubmission = await tx.paymentSubmission.findUnique({
+      where: { id: submission.id },
+      include: { installment: true },
+    });
+
+    if (!updatedSubmission) {
+      throw new Error('Failed to retrieve approved submission.');
+    }
 
     // 2. Create official receipt
     const receipt = await tx.paymentReceipt.create({
