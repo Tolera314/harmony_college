@@ -17,6 +17,7 @@ import {
   type ProfileData,
   saveOnboardingState,
 } from '@/src/lib/onboardingStore';
+import { RegistrationReminderPopup } from '@/src/components/welcome/RegistrationReminderPopup';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Map backend StudentProfile → frontend ProfileData shape
@@ -295,9 +296,19 @@ export default function WelcomePage() {
   };
 
   return (
-    <WelcomePortalLayout activeTab={activeTab} setActiveTab={setActiveTab} state={state}>
-      {renderTab()}
-    </WelcomePortalLayout>
+    <>
+      {/* Registration Reminder Popup (only shows if student has unread reminder) */}
+      {state.account.userId && (
+        <RegistrationReminderPopup
+          userId={state.account.userId}
+          fullName={state.account.fullName}
+        />
+      )}
+      
+      <WelcomePortalLayout activeTab={activeTab} setActiveTab={setActiveTab} state={state}>
+        {renderTab()}
+      </WelcomePortalLayout>
+    </>
   );
 }
 
