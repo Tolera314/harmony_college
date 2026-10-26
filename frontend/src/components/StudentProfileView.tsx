@@ -80,6 +80,7 @@ const EMPTY_PROFILE: ProfileData = {
 
 const PROGRAMS = HARMONY_PROGRAMS as readonly string[];
 const SEMESTERS = ['Semester I', 'Semester II', 'Semester III', 'Summer / Kiremt'];
+const TERMS = ['Term 1', 'Term 2', 'Term 3', 'Summer / Kiremt'];
 
 // ── Required fields (must match backend profileCompletion.ts exactly) ─────────
 // We do NOT compute completion locally. The percentage is ALWAYS the backend's
@@ -252,7 +253,13 @@ function StepAcademic({ p, errors, set }: { p: ProfileData; errors: Record<strin
           </div>
         </div>
 
-        <SelectField id="semester" label="Semester" value={p.semester} onChange={v => set('semester', v)} options={SEMESTERS} />
+        <SelectField 
+          id="semester" 
+          label={p.programType === 'Short Program' ? 'Term' : 'Semester'} 
+          value={p.semester} 
+          onChange={v => set('semester', v)} 
+          options={p.programType === 'Short Program' ? TERMS : SEMESTERS} 
+        />
       </div>
 
       {/* Required Academic Results (No Optional tag) */}

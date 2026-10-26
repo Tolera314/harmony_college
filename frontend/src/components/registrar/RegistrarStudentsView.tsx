@@ -51,6 +51,21 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
   const [suspendTarget, setSuspendTarget] = useState<StudentListItem | null>(null);
   const [suspendLoading, setSuspendLoading] = useState(false);
 
+  // Reminder popup state
+  const [reminderPopup, setReminderPopup] = useState<{
+    isOpen: boolean;
+    student: StudentListItem | null;
+    loading: boolean;
+    success: boolean;
+    message: string;
+  }>({
+    isOpen: false,
+    student: null,
+    loading: false,
+    success: false,
+    message: '',
+  });
+
   // Load students & departments filtered strictly by programType
   const load = useCallback(async (q = search, st = statusFilter, incomplete = profileIncompleteFilter) => {
     setLoading(true);
@@ -134,6 +149,39 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
 
   const toggleDeptCollapse = (deptId: string) => {
     setCollapsedDepts(prev => ({ ...prev, [deptId]: !prev[deptId] }));
+  };
+
+  const handleSendReminder = async () => {
+    if (!reminderPopup.student) return;
+    
+    setReminderPopup(prev => ({ ...prev, loading: true, message: '', success: false }));
+    
+    try {
+      const response = await studentsApi.sendProfileReminder(reminderPopup.student.id);
+      setReminderPopup(prev => ({
+        ...prev,
+        loading: false,
+        success: true,
+        message: `Profile completion reminder successfully sent to ${reminderPopup.student?.user.fullName}. The student will receive an in-app notification.`,
+      }));
+    } catch (err: any) {
+      setReminderPopup(prev => ({
+        ...prev,
+        loading: false,
+        success: false,
+        message: err.message || 'Failed to send reminder. Please try again.',
+      }));
+    }
+  };
+
+  const closeReminderPopup = () => {
+    setReminderPopup({
+      isOpen: false,
+      student: null,
+      loading: false,
+      success: false,
+      message: '',
+    });
   };
 
   // Group students by Department
@@ -495,14 +543,15 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
                                   <div className="flex items-center justify-end gap-1.5">
                                     {isIncomplete && (
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation();
-                                          try {
-                                            await studentsApi.sendProfileReminder(student.id);
-                                            alert(`Profile completion reminder sent to ${student.user.fullName}`);
-                                          } catch (err: any) {
-                                            alert(err.message || 'Failed to send reminder');
-                                          }
+                                          setReminderPopup({
+                                            isOpen: true,
+                                            student: student,
+                                            loading: false,
+                                            success: false,
+                                            message: '',
+                                          });
                                         }}
                                         className="px-2 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 transition-colors text-[10px] font-semibold"
                                         title="Send profile completion reminder"
@@ -743,6 +792,113 @@ export const RegistrarStudentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PRO
         onConfirm={handleSuspend}
         onClose={() => setSuspendTarget(null)}
       />
+
+      {/* Send Reminder Popup Modal */}
+      <AnimatePresence>
+        {reminderPopup.isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeReminderPopup}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ ...DURATION.fast, ...EASE.out }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md z-50"
+            >
+              <div className="bg-[#0F0F10] border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/10 bg-gradient-to-br from-amber-500/10 to-transparent">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-base font-bold text-white">Send Profile Reminder</h3>
+                        <p className="text-xs text-zinc-400 mt-0.5">Notify student to complete their profile</p>
+                      </div>
+                    </div>
+                    <button onClick={closeReminderPopup} className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="px-6 py-5 space-y-4">
+                  {reminderPopup.student && (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                      <div className="w-12 h-12 rounded-xl bg-[#E9C349]/20 border border-[#E9C349]/40 flex items-center justify-center font-serif font-bold text-lg text-[#E9C349] shrink-0">
+                        {reminderPopup.student.user.fullName[0]}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-white text-sm truncate">{reminderPopup.student.user.fullName}</p>
+                        <p className="text-xs text-zinc-400 font-mono truncate">{reminderPopup.student.studentId}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-white/10">
+                            <div className="h-full bg-amber-500 transition-all" style={{ width: `${(reminderPopup.student as any).profileCompletion || 0}%` }} />
+                          </div>
+                          <span className="font-mono text-xs font-bold text-amber-400">{(reminderPopup.student as any).profileCompletion || 0}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {!reminderPopup.message && !reminderPopup.loading && (
+                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                      <p className="text-sm text-amber-200 leading-relaxed">
+                        This will send an <strong>in-app notification</strong> to the student, reminding them to complete their profile. 
+                        The notification will appear in their dashboard with a direct link to the profile page.
+                      </p>
+                    </div>
+                  )}
+                  {reminderPopup.message && (
+                    <div className={`p-4 rounded-xl border ${reminderPopup.success ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'}`}>
+                      <div className="flex items-start gap-2.5">
+                        {reminderPopup.success ? (
+                          <svg className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                        <p className={`text-sm leading-relaxed ${reminderPopup.success ? 'text-emerald-200' : 'text-rose-200'}`}>{reminderPopup.message}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="px-6 py-4 border-t border-white/10 bg-white/5 flex justify-end gap-3">
+                  <Button variant="secondary" size="sm" onClick={closeReminderPopup} disabled={reminderPopup.loading}>
+                    {reminderPopup.success ? 'Close' : 'Cancel'}
+                  </Button>
+                  {!reminderPopup.success && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSendReminder}
+                      disabled={reminderPopup.loading}
+                      icon={reminderPopup.loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : (
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                      )}
+                    >
+                      {reminderPopup.loading ? 'Sending...' : 'Send Reminder'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
+

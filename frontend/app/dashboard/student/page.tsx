@@ -18,6 +18,7 @@ import { StudentQuizzesView } from '@/src/components/StudentQuizzesView';
 import { StudentAttendanceView } from '@/src/components/StudentAttendanceView';
 import { StudentProfileView } from '@/src/components/StudentProfileView';
 import { StudentSemestersView } from '@/src/components/student/StudentSemestersView';
+import { NotificationsView } from '@/src/components/NotificationsView';
 import { ToastContainer, useToast, SessionExpiredOverlay, SkeletonPage } from '@/src/components/ui/States';
 import { ProfileCompletionBanner, LockedFeatureCard } from '@/src/components/onboarding/ProfileCompletionBanner';
 import { AnimatePresence, motion } from 'motion/react';
@@ -415,24 +416,7 @@ export default function StudentDashboardPage() {
       case 'financials':
         return <FinancialsView profile={financialProfile} transactions={transactions} />;
       case 'notifications':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                Notifications
-              </h1>
-              <p className="font-sans text-sm" style={{ color: 'var(--text-muted)' }}>
-                Stay updated with important announcements and messages
-              </p>
-            </div>
-            <div className="p-8 rounded-2xl border text-center" style={{ backgroundColor: 'var(--hover-overlay)', borderColor: 'var(--border-default)' }}>
-              <Bell className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-faint)' }} />
-              <p className="font-sans text-sm" style={{ color: 'var(--text-muted)' }}>
-                No new notifications at this time
-              </p>
-            </div>
-          </div>
-        );
+        return <NotificationsView />;
       case 'settings':
         return <SettingsView profile={profile} setProfile={setProfile} />;
       case 'profile':

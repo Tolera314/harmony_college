@@ -713,9 +713,14 @@ function StepAcademic({ profile, errors, onChange }: {
             </span>
           </div>
         </div>
-        <WizardSelect id="semester" label="Semester" value={profile.semester}
-          onChange={(v) => onChange('semester', v)} icon={BookOpen}
-          options={['Semester I', 'Semester II', 'Semester III', 'Summer / Kiremt']} />
+        <WizardSelect 
+          id="semester" 
+          label={profile.programType === 'Short Program' ? 'Term' : 'Semester'} 
+          value={profile.semester}
+          onChange={(v) => onChange('semester', v)} 
+          icon={BookOpen}
+          options={profile.programType === 'Short Program' ? ['Term 1', 'Term 2', 'Term 3', 'Summer / Kiremt'] : ['Semester I', 'Semester II', 'Semester III', 'Summer / Kiremt']} 
+        />
       </div>
 
       {/* Required academic results — no Optional label */}
@@ -863,7 +868,7 @@ function StepReview({ state, profilePic, onEdit }: {
       { label: 'Program Type', value: profile.programType || '—' },
       { label: 'Duration', value: profile.programType === 'Short Program' ? (profile.shortProgramDuration || '—') : 'N/A' },
       { label: 'Academic Year', value: profile.academicYear },
-      { label: 'Semester', value: profile.semester },
+      { label: profile.programType === 'Short Program' ? 'Term' : 'Semester', value: profile.semester },
       { label: 'Matric Result', value: profile.matricResult || '—' },
       { label: 'Ministry Result', value: profile.ministryResult || '—' },
     ]},
