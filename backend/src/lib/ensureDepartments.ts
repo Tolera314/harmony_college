@@ -1,6 +1,21 @@
+/**
+ * Department Seed Data
+ * 
+ * This file seeds initial departments into the database on application startup.
+ * After seeding, the database is the single source of truth for departments.
+ * 
+ * Registrar-created departments appear automatically throughout the application
+ * via API endpoints without requiring code changes or redeployment.
+ * 
+ * The REAL_DEPARTMENTS array below is for SEEDING ONLY — it provides the initial
+ * set of departments when the database is empty. Once seeded, all department
+ * management happens through the Registrar UI and database.
+ */
+
 import { prisma } from './prisma';
 import { ProgramType, CourseStatus, OfferingStatus } from '@prisma/client';
 
+// ── SEED DATA ONLY — Database is the source of truth after initial setup ──
 export const REAL_DEPARTMENTS = [
   { name: 'Photography & Videography', tvetCode: 'PHOTO-T', spCode: 'PHOTO-SP', description: 'Photography, Videography & Visual Storytelling' },
   { name: 'Theatrical Art & Filmmaking', tvetCode: 'FILM-T', spCode: 'FILM-SP', description: 'Theatre, Acting, Directing & Filmmaking' },

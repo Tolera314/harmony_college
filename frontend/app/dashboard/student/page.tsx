@@ -172,6 +172,7 @@ export default function StudentDashboardPage() {
   const [tabLoading, setTabLoading]           = useState(false);
   const [sessionExpired]                      = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen]   = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [onboardingCompletion, setOnboardingCompletion] = useState(0);
   const [applicationNumber, setApplicationNumber]       = useState('');
   const { toast, show: showToast, hide: hideToast } = useToast();
@@ -436,7 +437,15 @@ export default function StudentDashboardPage() {
       <SessionExpiredOverlay isVisible={sessionExpired} onSignIn={() => { window.location.href = '/signin'; }} />
 
       <div className="min-h-screen flex overflow-hidden" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
-        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} profile={profile} onLogout={handleLogout} showChat={false} />
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={handleTabChange} 
+          profile={profile} 
+          onLogout={handleLogout} 
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          showChat={false} 
+        />
 
         <div className="md:pl-20 xl:pl-64 flex flex-col min-h-screen flex-1 transition-all duration-300 overflow-y-auto max-w-full">
           <Header
