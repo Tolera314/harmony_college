@@ -24,6 +24,11 @@ export const foProfile: FOProfile = {
 };
 
 // ── Departments ───────────────────────────────────────────────────────────────
+// NOTE: These are MOCK INTERNAL ORGANIZATIONAL departments for Finance views
+// (not academic departments). Academic departments should be fetched from
+// /api/departments endpoint. This mock data includes financial aggregates
+// (studentCount, totalRevenue, outstandingBalance) that don't exist on the
+// Department model and would require backend aggregation queries.
 export const departments: Department[] = [
   { id: 'd01', name: 'Photography & Visual Media', code: 'PHOTO', college: 'College of Arts & Creative Industries', headName: 'Ato Biruk Tadesse', studentCount: 280, totalRevenue: 4_200_000, outstandingBalance: 320_000 },
   { id: 'd02', name: 'Theatrical Art & Filmmaking', code: 'FILM', college: 'College of Arts & Creative Industries', headName: 'Dr. Natnael Bekele', studentCount: 312, totalRevenue: 4_680_000, outstandingBalance: 386_500 },

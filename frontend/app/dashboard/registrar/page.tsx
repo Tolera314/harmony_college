@@ -16,6 +16,7 @@ import { Header } from '@/src/components/layout/Header';
 import { MobileNav, GenericMobileNavItem } from '@/src/components/layout/MobileNav';
 import { DHLogoutModal } from '@/src/components/dh/DHLogoutModal';
 import { ToastContainer, useToast, SkeletonPage } from '@/src/components/ui/States';
+import { NotificationsView } from '@/src/components/NotificationsView';
 import dynamic from 'next/dynamic';
 import { settingsApi, notificationsApi, registrarNotifApi, type RegistrarProfile, type RegistrarNotification } from '@/src/lib/registrarApi';
 
@@ -44,7 +45,7 @@ const AcademicPeriodsView        = dynamic(() => import('@/src/components/regist
 type RegistrarTab =
   | 'dashboard' | 'departments' | 'academic_periods' | 'students' | 'student_grades' | 'onboardings' | 'admissions' | 'enrollments' | 'catalog' | 'offerings'
   | 'timetable' | 'registration' | 'transcripts' | 'graduation' | 'certificates'
-  | 'reports' | 'audit_logs' | 'settings' | 'messages';
+  | 'reports' | 'audit_logs' | 'notifications' | 'settings' | 'messages';
 
 interface MenuItem { id: RegistrarTab; label: string; icon: React.ComponentType<any> }
 
@@ -246,6 +247,7 @@ export default function RegistrarDashboardPage() {
       case 'certificates': return <DigitalCertificates programType={registrarProgramType} />;
       case 'reports':      return <InteractiveReports programType={registrarProgramType} />;
       case 'audit_logs':   return <AuditLogsTimeline />;
+      case 'notifications': return <NotificationsView />;
       case 'settings':     return <RegistrarSettings initialTab="account" />;
       case 'messages':     return <MessagingView />;
       default:             return null;

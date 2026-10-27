@@ -64,6 +64,7 @@ export default function InstructorDashboardPage() {
   const [searchOpen,     setSearchOpen]   = useState(false);
   const [logoutOpen,     setLogoutOpen]   = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Real data
   const [dashData,       setDashData]     = useState<DashboardData | null>(null);

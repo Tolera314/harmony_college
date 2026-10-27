@@ -23,6 +23,9 @@ export const hrProfile: HROfficerProfile = {
 };
 
 // ── Departments ────────────────────────────────────────────────────────────
+// NOTE: These are INTERNAL ORGANIZATIONAL departments (HR, Finance, IT, etc.)
+// for staff management, NOT academic departments for students.
+// Academic departments are fetched from /api/departments or /api/hr/academic-departments.
 export const departments: Department[] = [
   { id: 'd01', name: 'Theatrical Art & Digital Media', head: 'Dr. Natnael Bekele', headId: 'e01', employeeCount: 12, budget: 1_800_000 },
   { id: 'd02', name: 'Computer Science & Engineering',  head: 'Prof. James Adeyemi',headId: 'e06', employeeCount: 18, budget: 2_400_000 },

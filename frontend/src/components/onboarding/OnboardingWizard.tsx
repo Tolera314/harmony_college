@@ -27,7 +27,7 @@ import {
   type ProfileData,
   type OnboardingState,
 } from '@/src/lib/onboardingStore';
-import { HARMONY_PROGRAMS } from '@/src/lib/harmonyPrograms';
+// import { HARMONY_PROGRAMS } from '@/src/lib/harmonyPrograms'; // DEPRECATED — now fetched dynamically from API
 import { validateEthiopianPhone, formatFullName, validateFullName } from '@/src/lib/validationUtils';
 
 // ── College Context Data ──────────────────────────────────────────────────────
@@ -400,7 +400,8 @@ function OnboardingContextPanel({
   );
 }
 
-const PROGRAMS: string[] = [...HARMONY_PROGRAMS];
+// PROGRAMS now fetched dynamically from API based on selected programType
+// const PROGRAMS: string[] = [...HARMONY_PROGRAMS]; // DEPRECATED — was hardcoded
 
 const WIZARD_STEPS = [
   { id: 1, label: 'Personal',   sublabel: 'Info'     },
@@ -617,23 +618,26 @@ function StepPersonal({ profile, errors, onChange }: {
 }
 
 // Step 2 — Academic Information
-function StepAcademic({ profile, errors, onChange }: {
+function StepAcademic({ profile, errors, onChange, departments, loadingDepartments }: {
   profile: ProfileData;
   errors: Partial<Record<keyof ProfileData, string>>;
   onChange: (key: keyof ProfileData, val: string) => void;
+  departments: string[];
+  loadingDepartments: boolean;
 }) {
   const programOptions = React.useMemo(() => {
-    if (profile.program && !PROGRAMS.includes(profile.program)) {
-      return [profile.program, ...PROGRAMS];
+    if (profile.program && !departments.includes(profile.program)) {
+      return [profile.program, ...departments];
     }
-    return PROGRAMS;
-  }, [profile.program]);
+    return departments;
+  }, [profile.program, departments]);
 
   return (
     <div className="space-y-5">
       <WizardSelect id="program" label="Program" value={profile.program}
         onChange={(v) => onChange('program', v)} required error={errors.program}
-        icon={GraduationCap} options={programOptions} />
+        icon={GraduationCap} 
+        options={loadingDepartments ? ['Loading departments...'] : programOptions.length > 0 ? programOptions : ['No departments available']} />
 
       {/* Mandatory Program Type */}
       <div className="space-y-2">
@@ -713,9 +717,14 @@ function StepAcademic({ profile, errors, onChange }: {
             </span>
           </div>
         </div>
-        <WizardSelect id="semester" label="Semester" value={profile.semester}
-          onChange={(v) => onChange('semester', v)} icon={BookOpen}
-          options={['Semester I', 'Semester II', 'Semester III', 'Summer / Kiremt']} />
+        <WizardSelect 
+          id="semester" 
+          label={profile.programType === 'Short Program' ? 'Term' : 'Semester'} 
+          value={profile.semester}
+          onChange={(v) => onChange('semester', v)} 
+          icon={BookOpen}
+          options={profile.programType === 'Short Program' ? ['Term 1', 'Term 2', 'Term 3', 'Summer / Kiremt'] : ['Semester I', 'Semester II', 'Semester III', 'Summer / Kiremt']} 
+        />
       </div>
 
       {/* Required academic results — no Optional label */}
@@ -863,7 +872,7 @@ function StepReview({ state, profilePic, onEdit }: {
       { label: 'Program Type', value: profile.programType || '—' },
       { label: 'Duration', value: profile.programType === 'Short Program' ? (profile.shortProgramDuration || '—') : 'N/A' },
       { label: 'Academic Year', value: profile.academicYear },
-      { label: 'Semester', value: profile.semester },
+      { label: profile.programType === 'Short Program' ? 'Term' : 'Semester', value: profile.semester },
       { label: 'Matric Result', value: profile.matricResult || '—' },
       { label: 'Ministry Result', value: profile.ministryResult || '—' },
     ]},
@@ -1050,6 +1059,10 @@ export function OnboardingWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  
+  // Dynamic departments fetched from API based on selected programType
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
 
   // File upload states (kept in memory — URLs stored in profile state)
   const [profilePic, setProfilePic] = useState<UploadState>(emptyUpload());
@@ -1138,6 +1151,42 @@ export function OnboardingWizard() {
   if (!mounted) return null;
 
   const profile = onboardingState.profile;
+
+  // ── Fetch departments dynamically when programType changes ────────────────
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      const programType = profile.programType;
+      if (!programType) {
+        setDepartments([]);
+        return;
+      }
+      
+      setLoadingDepartments(true);
+      try {
+        // Map UI programType to API format
+        const apiProgramType = programType === 'Short Program' ? 'SHORT_PROGRAM' : 'TVET';
+        const res = await fetch(`/api/student/onboarding/departments?programType=${apiProgramType}`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const deptNames = data.map((d: { name: string }) => d.name);
+          setDepartments(deptNames);
+        } else {
+          setDepartments([]);
+        }
+      } catch {
+        setDepartments([]);
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+
+    if (mounted) {
+      fetchDepartments();
+    }
+  }, [profile.programType, mounted]);
+
   const setField = (key: keyof ProfileData, val: string) => {
     setOnboardingState((prev) => updateProfile(prev, { [key]: val }));
     if (errors[key]) setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
@@ -1569,7 +1618,7 @@ export function OnboardingWizard() {
                 className="w-full"
               >
                 {wizardStep === 1 && <StepPersonal profile={profile} errors={errors} onChange={setField} />}
-                {wizardStep === 2 && <StepAcademic profile={profile} errors={errors} onChange={setField} />}
+                {wizardStep === 2 && <StepAcademic profile={profile} errors={errors} onChange={setField} departments={departments} loadingDepartments={loadingDepartments} />}
                 {wizardStep === 3 && (
                   <StepDocuments profilePic={profilePic} faydaId={faydaId} transcript={transcript}
                     onProfilePic={handleFileChange('profilePic')} onFaydaId={handleFileChange('faydaId')}

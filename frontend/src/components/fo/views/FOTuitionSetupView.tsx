@@ -1004,7 +1004,6 @@ export function FOTuitionSetupView({
               <input
                 type="number"
                 min="1"
-                step="50"
                 value={monthlyAmount}
                 onChange={(e) => setMonthlyAmount(e.target.value)}
                 className="w-full pl-12 pr-3 py-2 rounded-xl border border-white/20 bg-black/40 text-white font-mono font-bold text-sm focus:outline-none focus:border-[#E9C349]"

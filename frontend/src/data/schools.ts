@@ -1,5 +1,19 @@
 import { School } from '../types';
 
+/**
+ * DEPRECATED: Static school/department data
+ * 
+ * This file contains hardcoded department/program information with detailed
+ * degree structures and tuition that don't exist on the Department model.
+ * 
+ * NEW CODE SHOULD USE:
+ * - fetchPublicDepartments() from lib/publicApi.ts for department listings
+ * - /api/programs endpoint for detailed program information
+ * 
+ * This data is kept for backward compatibility with legacy landing page sections
+ * but should be replaced with dynamic API calls.
+ */
+
 export const schoolsData: School[] = [
   {
     id: 'visual-arts',

@@ -113,6 +113,32 @@ app.get('/api/programs', async (_req, res) => {
   }
 });
 
+// Public departments list (no auth)
+app.get('/api/departments', async (req, res) => {
+  try {
+    const { prisma } = await import('./lib/prisma');
+    const programType = req.query.programType as string | undefined;
+    const where: any = { isActive: true };
+    if (programType === 'SHORT_PROGRAM' || programType === 'TVET') {
+      where.programType = programType;
+    }
+    const departments = await prisma.department.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        description: true,
+        programType: true,
+      },
+    });
+    res.json(departments);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch departments' });
+  }
+});
+
 // Public certificate verification (no auth)
 app.get('/api/verify-certificate/:code', async (req, res) => {
   try {

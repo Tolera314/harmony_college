@@ -15,6 +15,7 @@ import type { PortalTab } from './WelcomePortalLayout';
 import { newsData } from '@/src/data/news';
 import { schoolsData } from '@/src/data/schools';
 import { testimonialsData } from '@/src/data/testimonials';
+import { fetchPublicDepartments, type PublicDepartment } from '@/src/lib/publicApi';
 
 // ── Quick action cards ────────────────────────────────────────────────────────
 const QUICK_ACTIONS: {
@@ -43,7 +44,9 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
   const name = state.account.fullName.split(' ')[0] || 'Student';
 
   const latestNews = newsData.slice(0, 3);
-  const featuredPrograms = schoolsData.slice(0, 4);
+  // Fetch featured departments dynamically from API
+  const [featuredDepartments, setFeaturedDepartments] = useState<PublicDepartment[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
 
   // Load real prereq status from backend
   const [prereqs, setPrereqs] = useState<{
@@ -59,6 +62,21 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setPrereqs(d); })
       .catch(() => {});
+  }, []);
+
+  // Fetch departments from public API for featured programs section
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const depts = await fetchPublicDepartments();
+        setFeaturedDepartments(depts.slice(0, 4));
+      } catch {
+        setFeaturedDepartments([]);
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+    loadDepartments();
   }, []);
 
   // Fully approved = both Finance Officer AND Registrar approved
@@ -387,35 +405,62 @@ export function HomeTab({ state, onNavigate }: HomeTabProps) {
           <button onClick={() => onNavigate('programs')} className="text-xs font-semibold font-sans" style={{ color: 'var(--brand-gold)' }}>View all →</button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {featuredPrograms.map((school, idx) => (
-            <motion.div
-              key={school.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              whileHover={{ y: -2 }}
-              className="group p-5 rounded-2xl cursor-pointer transition-all"
-              style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}
-              onClick={() => onNavigate('programs')}
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}>
-                  <GraduationCap className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold font-serif" style={{ color: 'var(--text-primary)' }}>{school.name}</p>
-                  <p className="text-xs font-sans mt-1 line-clamp-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{school.description}</p>
-                  <div className="flex items-center gap-2 mt-3">
-                    {school.degrees.slice(0, 1).map(d => (
-                      <Badge key={d.name} variant="glass" className="text-[10px]">{d.duration}</Badge>
-                    ))}
-                    <span className="text-[10px] font-mono" style={{ color: 'var(--text-faint)' }}>ETB {school.tuitionPerCredit.toLocaleString()}/credit</span>
+          {loadingDepartments ? (
+            // Loading state
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="p-5 rounded-2xl animate-pulse"
+                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl" style={{ backgroundColor: 'var(--accent-gold-subtle)' }} />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 rounded" style={{ backgroundColor: 'var(--bg-input)', width: '70%' }} />
+                    <div className="h-3 rounded" style={{ backgroundColor: 'var(--bg-input)', width: '90%' }} />
+                    <div className="h-3 rounded" style={{ backgroundColor: 'var(--bg-input)', width: '60%' }} />
                   </div>
                 </div>
-                <ArrowRight className="w-4 h-4 shrink-0 mt-1 transition-transform group-hover:translate-x-1" style={{ color: 'var(--text-faint)' }} />
               </div>
-            </motion.div>
-          ))}
+            ))
+          ) : featuredDepartments.length === 0 ? (
+            // Empty state
+            <div className="col-span-2 p-8 text-center rounded-2xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}>
+              <p className="text-sm font-sans" style={{ color: 'var(--text-muted)' }}>No departments available at this time.</p>
+            </div>
+          ) : (
+            featuredDepartments.map((dept, idx) => (
+              <motion.div
+                key={dept.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                whileHover={{ y: -2 }}
+                className="group p-5 rounded-2xl cursor-pointer transition-all"
+                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)' }}
+                onClick={() => onNavigate('programs')}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--accent-gold-subtle)', border: '1px solid var(--accent-gold-border)' }}>
+                    <GraduationCap className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold font-serif" style={{ color: 'var(--text-primary)' }}>{dept.name}</p>
+                    <p className="text-xs font-sans mt-1 line-clamp-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      {dept.description || 'Explore this department and discover your creative potential.'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Badge variant="glass" className="text-[10px]">{dept.code}</Badge>
+                      <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+                        {dept.programType === 'TVET' ? 'TVET Program' : 'Short Program'}
+                      </span>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 shrink-0 mt-1 transition-transform group-hover:translate-x-1" style={{ color: 'var(--text-faint)' }} />
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </section>
 
