@@ -12,7 +12,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, X, Filter, RefreshCw, ChevronDown, Eye,
-  DollarSign, Clock, AlertTriangle, CheckCircle2,
+  DollarSign, Clock, AlertTriangle, AlertCircle, CheckCircle2,
   Calendar, CreditCard, FileText, Download, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { SlidePanel } from '../../ui/SlidePanel';
@@ -129,6 +129,14 @@ export function FOStudentPaymentsView({ programType: initialProgramType = 'TVET'
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Approval confirmation modal state
+  const [approvalModal, setApprovalModal] = useState<{
+    open: boolean;
+    submissionId: string;
+    amount: number;
+    studentName: string;
+  } | null>(null);
 
   useEffect(() => {
     setProgramType(initialProgramType);
@@ -186,16 +194,22 @@ export function FOStudentPaymentsView({ programType: initialProgramType = 'TVET'
     setStudentDetail(null);
   };
 
-  const handleApprove = async (submissionId: string) => {
-    if (!confirm('Approve this payment submission?')) return;
+  const handleApprove = async (submissionId: string, amount: number, studentName: string) => {
+    // Open confirmation modal instead of browser confirm
+    setApprovalModal({ open: true, submissionId, amount, studentName });
+  };
+
+  const confirmApproval = async () => {
+    if (!approvalModal) return;
     setActionLoading(true);
     try {
-      await approvePaymentSubmission(submissionId);
+      await approvePaymentSubmission(approvalModal.submissionId);
       await loadData();
       if (selectedStudent) {
         const data = await getStudentPaymentDetail(selectedStudent);
         setStudentDetail(data);
       }
+      setApprovalModal(null);
     } catch (err: any) {
       alert(err.message || 'Failed to approve');
     } finally {
@@ -657,7 +671,7 @@ export function FOStudentPaymentsView({ programType: initialProgramType = 'TVET'
                                 variant="primary"
                                 size="sm"
                                 icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                                onClick={() => handleApprove(submission.id)}
+                                onClick={() => handleApprove(submission.id, submission.amount, studentDetail.student.name)}
                                 disabled={actionLoading}
                               >
                                 Approve
@@ -728,6 +742,119 @@ export function FOStudentPaymentsView({ programType: initialProgramType = 'TVET'
           </div>
         )}
       </SlidePanel>
+
+      {/* Approval Confirmation Modal */}
+      <AnimatePresence>
+        {approvalModal?.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+            onClick={() => !actionLoading && setApprovalModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                borderColor: 'var(--border-card)',
+              }}
+            >
+              {/* Header */}
+              <div
+                className="px-6 py-4 border-b flex items-center gap-3"
+                style={{
+                  backgroundColor: 'var(--hover-overlay)',
+                  borderColor: 'var(--border-subtle)',
+                }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{
+                    backgroundColor: 'var(--accent-gold-subtle)',
+                    border: '1px solid var(--accent-gold-border)',
+                  }}
+                >
+                  <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--brand-gold)' }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold font-sans" style={{ color: 'var(--text-primary)' }}>
+                    Approve Payment
+                  </h3>
+                  <p className="text-xs font-sans" style={{ color: 'var(--text-muted)' }}>
+                    Confirm payment submission approval
+                  </p>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="px-6 py-5 space-y-4">
+                <div
+                  className="p-4 rounded-xl border"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    borderColor: 'var(--border-default)',
+                  }}
+                >
+                  <p className="text-sm font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    Approve payment of <span className="font-bold text-(--brand-gold)">ETB {approvalModal.amount.toLocaleString()}</span> for{' '}
+                    <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                      {approvalModal.studentName}
+                    </span>
+                    ?
+                  </p>
+                </div>
+
+                <div
+                  className="p-3 rounded-xl flex items-start gap-2"
+                  style={{
+                    backgroundColor: 'var(--status-info-bg)',
+                    border: '1px solid var(--status-info-border)',
+                  }}
+                >
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--status-info)' }} />
+                  <div className="text-xs font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    This will mark the installment as <strong>PAID</strong>, update their balance, and generate an official receipt.
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div
+                className="px-6 py-4 border-t flex items-center justify-end gap-3"
+                style={{
+                  backgroundColor: 'var(--hover-overlay)',
+                  borderColor: 'var(--border-subtle)',
+                }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setApprovalModal(null)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={actionLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  onClick={confirmApproval}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? 'Approving...' : 'Approve Payment'}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
