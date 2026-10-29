@@ -7,6 +7,7 @@ import {
   Search,
   CheckCircle2,
   XCircle,
+  X,
   Clock,
   Eye,
   FileText,
@@ -150,6 +151,9 @@ export function FOPaymentSubmissionsView({ programType: initialProgramType }: { 
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectError, setRejectError] = useState<string | null>(null);
 
+  // Approval confirmation modal state
+  const [approvingSubmission, setApprovingSubmission] = useState<any | null>(null);
+
   // Success Receipt Preview Modal (after approval)
   const [approvedReceipt, setApprovedReceipt] = useState<any | null>(null);
 
@@ -186,20 +190,20 @@ export function FOPaymentSubmissionsView({ programType: initialProgramType }: { 
 
   // ── Handle Approve ────────────────────────────────────────────────────────
   const handleApprove = async (sub: any) => {
-    if (
-      !window.confirm(
-        `Approve payment of ${fmtETB(sub.amount)} for ${sub.student?.user?.fullName || 'student'}? This will mark the installment PAID, update their balance, and generate an official receipt.`
-      )
-    ) {
-      return;
-    }
+    // Open confirmation modal instead of browser confirm
+    setApprovingSubmission(sub);
+  };
 
+  const confirmApproval = async () => {
+    if (!approvingSubmission) return;
+    
     setActionLoading(true);
     try {
-      const result = await approvePaymentSubmission(sub.id);
+      const result = await approvePaymentSubmission(approvingSubmission.id);
       showToast(`Payment approved successfully. Official Receipt: ${result.receipt.receiptNumber}`, 'success');
       setApprovedReceipt(result.receipt);
       setSelectedSubmission(null);
+      setApprovingSubmission(null);
       await loadData(true);
     } catch (err: any) {
       showToast(err.message || 'Failed to approve payment', 'error');
@@ -681,28 +685,90 @@ export function FOPaymentSubmissionsView({ programType: initialProgramType }: { 
             </div>
 
             {/* Modal Bottom Actions */}
-            <div className="flex items-center justify-between border-t border-(--border-default) pt-3">
-              <Button variant="secondary" onClick={() => setSelectedSubmission(null)}>
+            <div className="flex items-center justify-between pt-5 mt-5" style={{ borderTop: '2px solid var(--border-default)' }}>
+              <button
+                onClick={() => setSelectedSubmission(null)}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold font-sans transition-all flex items-center gap-2"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  borderWidth: '1.5px',
+                  borderStyle: 'solid',
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-secondary)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-hover)';
+                  e.currentTarget.style.backgroundColor = 'var(--hover-overlay)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-default)';
+                  e.currentTarget.style.backgroundColor = 'var(--bg-input)';
+                }}
+              >
+                <X className="w-4 h-4" />
                 Close Preview
-              </Button>
+              </button>
 
               {selectedSubmission.status === 'PENDING_REVIEW' && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    icon={<XCircle className="w-4 h-4 text-rose-500" />}
+                <div className="flex items-center gap-3">
+                  <button
                     onClick={() => openRejectModal(selectedSubmission)}
+                    className="px-5 py-2.5 rounded-xl text-sm font-semibold font-sans transition-all flex items-center gap-2"
+                    style={{
+                      backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                      borderWidth: '1.5px',
+                      borderStyle: 'solid',
+                      borderColor: 'rgba(239, 68, 68, 0.3)',
+                      color: '#EF4444',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#EF4444';
+                      e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                      e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+                    }}
                   >
+                    <XCircle className="w-4 h-4" />
                     Reject Submission
-                  </Button>
-                  <Button
-                    variant="primary"
-                    icon={<CheckCircle2 className="w-4 h-4" />}
+                  </button>
+                  <button
                     onClick={() => handleApprove(selectedSubmission)}
                     disabled={actionLoading}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold font-sans transition-all flex items-center gap-2"
+                    style={{
+                      backgroundColor: 'var(--accent-gold-subtle)',
+                      borderWidth: '1.5px',
+                      borderStyle: 'solid',
+                      borderColor: 'var(--accent-gold-border)',
+                      color: 'var(--brand-gold)',
+                      opacity: actionLoading ? 0.6 : 1,
+                      cursor: actionLoading ? 'not-allowed' : 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!actionLoading) {
+                        e.currentTarget.style.borderColor = 'var(--brand-gold)';
+                        e.currentTarget.style.backgroundColor = 'var(--accent-gold)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--accent-gold-border)';
+                      e.currentTarget.style.backgroundColor = 'var(--accent-gold-subtle)';
+                    }}
                   >
-                    Approve & Issue Official Receipt
-                  </Button>
+                    {actionLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Approve & Issue Official Receipt
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
@@ -908,6 +974,144 @@ export function FOPaymentSubmissionsView({ programType: initialProgramType }: { 
           </div>
         )}
       </Modal>
+
+      {/* ── APPROVAL CONFIRMATION MODAL ── */}
+      <AnimatePresence>
+        {approvingSubmission && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+            onClick={() => !actionLoading && setApprovingSubmission(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '2px solid var(--border-card)',
+              }}
+            >
+              {/* Header */}
+              <div
+                className="px-6 py-4 flex items-center gap-3"
+                style={{
+                  background: 'linear-gradient(135deg, var(--accent-gold-subtle), var(--bg-card))',
+                  borderBottom: '1.5px solid var(--accent-gold-border)',
+                }}
+              >
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{
+                    backgroundColor: 'var(--accent-gold)',
+                    border: '2px solid var(--brand-gold)',
+                  }}
+                >
+                  <CheckCircle2 className="w-6 h-6" style={{ color: 'var(--bg-base)' }} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-sans" style={{ color: 'var(--text-primary)' }}>
+                    Approve Payment
+                  </h3>
+                  <p className="text-xs font-sans mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    Confirm payment submission approval
+                  </p>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="px-6 py-5 space-y-4">
+                <div
+                  className="p-4 rounded-xl"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1.5px solid var(--border-default)',
+                  }}
+                >
+                  <p className="text-sm font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    Approve payment of <span className="font-bold" style={{ color: 'var(--brand-gold)' }}>{fmtETB(approvingSubmission.amount)}</span> for{' '}
+                    <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                      {approvingSubmission.student?.user?.fullName || 'student'}
+                    </span>
+                    ?
+                  </p>
+                </div>
+
+                <div
+                  className="p-3.5 rounded-xl flex items-start gap-2.5"
+                  style={{
+                    backgroundColor: 'var(--status-info-bg)',
+                    border: '1.5px solid var(--status-info-border)',
+                  }}
+                >
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--status-info)' }} />
+                  <div className="text-xs font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    This will mark the installment as <strong>PAID</strong>, update their balance, and generate an official receipt.
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div
+                className="px-6 py-4 flex items-center justify-end gap-3"
+                style={{
+                  backgroundColor: 'var(--hover-overlay)',
+                  borderTop: '1.5px solid var(--border-subtle)',
+                }}
+              >
+                <button
+                  onClick={() => setApprovingSubmission(null)}
+                  disabled={actionLoading}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold font-sans transition-all"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    borderWidth: '1.5px',
+                    borderStyle: 'solid',
+                    borderColor: 'var(--border-default)',
+                    color: 'var(--text-secondary)',
+                    opacity: actionLoading ? 0.5 : 1,
+                    cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmApproval}
+                  disabled={actionLoading}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold font-sans transition-all flex items-center gap-2"
+                  style={{
+                    backgroundColor: 'var(--accent-gold)',
+                    borderWidth: '1.5px',
+                    borderStyle: 'solid',
+                    borderColor: 'var(--brand-gold)',
+                    color: 'var(--bg-base)',
+                    opacity: actionLoading ? 0.7 : 1,
+                    cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {actionLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Approving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Approve Payment
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
