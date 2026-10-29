@@ -516,6 +516,7 @@ export async function acceptStaffInvitation(
         data: { 
           userId: user.id,
           status: 'ACTIVE', // Activate when they accept invitation
+          systemRole: inv.role, // Sync role from invitation
         },
       });
     } else if (inv.departmentId) {

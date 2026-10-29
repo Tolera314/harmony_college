@@ -804,6 +804,10 @@ router.post('/departments/:id/assign-hod', async (req: AuthRequest, res) => {
         data:  { role: Role.DEPARTMENT_HEAD },
       });
 
+      // 5. Sync role to HREmployee (if HR record exists)
+      const { syncUserRoleToHR } = await import('../services/sync/staffRoleSync');
+      await syncUserRoleToHR(userId, Role.DEPARTMENT_HEAD, tx, deptId);
+
       return hodRec;
     });
 
@@ -844,6 +848,10 @@ router.delete('/departments/:id/remove-hod', async (req: AuthRequest, res) => {
             where: { id: activeHod.userId },
             data:  { role: downgradedRole },
           });
+
+          // Sync role downgrade to HREmployee
+          const { syncUserRoleToHR } = await import('../services/sync/staffRoleSync');
+          await syncUserRoleToHR(activeHod.userId, downgradedRole, tx, deptId);
         }
       }
     });

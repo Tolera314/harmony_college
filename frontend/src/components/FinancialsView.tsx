@@ -395,7 +395,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({ profile }) => {
                 ) : (
                   <div>
                     <h1
-                      className={`font-serif text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-mono ${
+                      className={`font-mono text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight ${
                         liveCountdown?.isOverdue ? 'text-rose-500' : 'text-(--text-primary)'
                       }`}
                     >
@@ -413,7 +413,7 @@ export const FinancialsView: React.FC<FinancialsViewProps> = ({ profile }) => {
                         formatDate(nextDue.dueDate)
                       )}
                     </h1>
-                    <p className="font-mono text-xs sm:text-sm font-semibold mt-1.5 text-(--text-secondary)">
+                    <p className="font-sans text-xs sm:text-sm font-medium mt-1.5 text-(--text-secondary)">
                       {liveCountdown?.isOverdue
                         ? '⚠️ The payment deadline has passed and your tuition is overdue. Please transfer and upload proof immediately.'
                         : nextDue.status === 'PENDING_REVIEW'

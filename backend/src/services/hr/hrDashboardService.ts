@@ -55,10 +55,20 @@ export async function getHRDashboard() {
     prisma.hRPayrollRecord.findFirst({
       orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
     }),
-    prisma.hRDepartment.findMany({
+    prisma.department.findMany({
+      where: {
+        parentId: null, // Top-level departments
+      },
       select: {
-        id: true, name: true, budget: true,
-        _count: { select: { employees: { where: { status: 'ACTIVE' } } } },
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            hrEmployees: {
+              where: { status: 'ACTIVE' }
+            }
+          }
+        },
       },
     }),
     prisma.hREmployee.groupBy({ by: ['employmentType'], _count: { id: true } }),
@@ -200,8 +210,8 @@ export async function getHRDashboard() {
     departmentBreakdown: deptCounts.map(d => ({
       id:            d.id,
       name:          d.name,
-      budget:        d.budget,
-      employeeCount: d._count.employees,
+      budget:        null, // Department table doesn't have budget field
+      employeeCount: d._count.hrEmployees,
     })),
     employmentTypeBreakdown: typeCounts.map(t => ({
       type:  t.employmentType,

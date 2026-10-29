@@ -484,8 +484,8 @@ export interface RegistrarNotification {
 }
 export const notificationsApi = {
   list: (limit = 15) =>
-    apiFetch<{ total: number; logs: RegistrarNotification[] }>(`/api/registrar/audit-logs?limit=${limit}`),
-  markAllRead: () => Promise.resolve({ success: true }), // audit logs don't have read state; UI resets badge
+    apiFetch<{ total: number; logs: RegistrarNotification[] }>(`/api/registrar/notifications?limit=${limit}`),
+  markAllRead: () => apiFetch<{ success: boolean }>('/api/registrar/notifications/mark-all-read', { method: 'POST' }),
 };
 
 // ── Registrar in-app notification inbox (Notification table, userId-scoped) ──

@@ -371,7 +371,9 @@ const DeptCard: React.FC<DeptCardProps> = ({ dept, onEdit, onAssignHod, onToggle
 
 type Panel = 'create' | { kind: 'edit'; dept: DepartmentCard } | { kind: 'hod'; dept: DepartmentCard };
 
-export const RegistrarDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = ({ programType }) => {
+export const RegistrarDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_PROGRAM' }> = () => {
+  // Note: programType prop ignored - Department Management shows all departments
+  // because each HOD manages both TVET and Short Program for their department
   const [departments, setDepartments] = useState<DepartmentCard[]>([]);
   const [eligible,    setEligible]    = useState<EligibleHod[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -383,12 +385,13 @@ export const RegistrarDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [depts, hods] = await Promise.all([departmentMgmtApi.list(programType), departmentMgmtApi.getEligibleHods()]);
+      // Don't pass programType - fetch all departments
+      const [depts, hods] = await Promise.all([departmentMgmtApi.list(), departmentMgmtApi.getEligibleHods()]);
       setDepartments(depts);
       setEligible(hods);
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load departments'); }
     finally { setLoading(false); }
-  }, [programType]);
+  }, []); // Remove programType from dependencies
 
   useEffect(() => { load(); }, [load]);
 

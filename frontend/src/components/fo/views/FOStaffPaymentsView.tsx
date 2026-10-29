@@ -4,7 +4,7 @@
  * Finance Officer → Staff Payments View
  * 
  * Manage monthly staff salary payments using HR-assigned salaries
- * Generate payroll, record payments, and track financial reporting
+ * Record payments and track financial reporting
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -73,7 +73,6 @@ export function FOStaffPaymentsView() {
   const [summary, setSummary] = useState<PayrollSummary>({ totalExpected: 0, totalPaid: 0, pendingCount: 0, paidCount: 0, failedCount: 0 });
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Filters
@@ -133,36 +132,6 @@ export function FOStaffPaymentsView() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const handleGeneratePayroll = async () => {
-    if (!confirm(`Generate payroll for ${selectedMonth} ${selectedYear}? This will create payment records for all active staff.`)) return;
-    
-    setGenerating(true);
-    try {
-      const res = await fetch('/api/staff-payments/generate-payroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          payrollMonth: selectedMonth,
-          payrollYear: selectedYear,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        alert(`Payroll generated: ${data.created} payment records created for ${data.totalEligible} eligible staff.`);
-        loadData();
-      } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to generate payroll');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Failed to generate payroll');
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const handleRecordPayment = async () => {
     if (!selectedPayment) return;
@@ -256,26 +225,15 @@ export function FOStaffPaymentsView() {
         title="Staff Payments"
         subtitle="Manage monthly staff salary payments using HR-assigned salaries"
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
-              onClick={loadData}
-              disabled={loading}
-            >
-              Refresh
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<DollarSign className="w-3.5 h-3.5" />}
-              onClick={handleGeneratePayroll}
-              disabled={generating}
-            >
-              {generating ? 'Generating...' : 'Generate Payroll'}
-            </Button>
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
+            onClick={loadData}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
         }
       />
 
@@ -456,7 +414,7 @@ export function FOStaffPaymentsView() {
               ) : payments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-sm text-(--text-faint)">
-                    No staff payments found. Click "Generate Payroll" to create payment records.
+                    No staff payments found for the selected period.
                   </td>
                 </tr>
               ) : (

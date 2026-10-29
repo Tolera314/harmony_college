@@ -230,8 +230,8 @@ export default function RegistrarDashboardPage() {
   const renderView = () => {
     if (tabLoading) return <SkeletonPage />;
     switch (activeTab) {
-      case 'dashboard':         return <DashboardOverview setActiveTab={setActiveTab} onOpenCreateCourse={() => setActiveTab('catalog')} programType={registrarProgramType} />;
-      case 'departments':       return <RegistrarDepartmentsView programType={registrarProgramType} />;
+      case 'dashboard':         return <DashboardOverview setActiveTab={setActiveTab} programType={registrarProgramType} />;
+      case 'departments':       return <RegistrarDepartmentsView />;
       case 'academic_periods':  return <AcademicPeriodsView programType={registrarProgramType} />;
       case 'students':          return <RegistrarStudentsView programType={registrarProgramType} />;
       case 'student_grades':    return <StudentGradesView programType={registrarProgramType} />;

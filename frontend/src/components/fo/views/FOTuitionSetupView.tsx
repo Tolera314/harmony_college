@@ -412,23 +412,23 @@ export function FOTuitionSetupView({
         title="Monthly Fee Setup"
         subtitle="Configure monthly tuition schedules and monitor enrolled students."
         actions={
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <Button
-              variant="secondary"
-              size="sm"
-              icon={<RefreshCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />}
+              onClick={openCreateModal}
+              className="bg-[var(--brand-gold)] text-black hover:brightness-110"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Setup Fee
+            </Button>
+            
+            <Button
               onClick={loadData}
+              variant="ghost"
+              size="sm"
               disabled={actionLoading}
             >
+              <RefreshCw className={`w-4 h-4 mr-1 ${actionLoading ? 'animate-spin' : ''}`} />
               Refresh
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={openCreateModal}
-            >
-              Setup Fee
             </Button>
           </div>
         }
