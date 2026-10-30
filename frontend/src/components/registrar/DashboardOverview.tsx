@@ -16,7 +16,6 @@ import { dashboardApi, type DashboardStats } from '@/src/lib/registrarApi';
 
 interface OverviewProps {
   setActiveTab: (tab: any) => void;
-  onOpenCreateCourse: () => void;
   programType?: 'TVET' | 'SHORT_PROGRAM';
 }
 
@@ -36,7 +35,7 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
-export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpenCreateCourse, programType = 'TVET' }) => {
+export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, programType = 'TVET' }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,10 +117,9 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, onOpe
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
           { label: 'Approve Admissions', icon: FileCheck, tab: 'admissions' },
-          { label: 'Create Course',      icon: PlusCircle, action: onOpenCreateCourse },
           { label: 'Transcripts',        icon: FileText,   tab: 'transcripts' },
         ].map((act, i) => (
           <button

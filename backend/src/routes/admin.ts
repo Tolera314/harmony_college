@@ -1271,5 +1271,23 @@ router.post('/system-config/reset', async (req: AuthRequest, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// STAFF ROLE SYNCHRONIZATION
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/admin/staff/:userId/resync
+ * Force resync staff role data from User.role (single source of truth)
+ * Used for emergency data consistency fixes
+ */
+router.post('/staff/:userId/resync', async (req: AuthRequest, res) => {
+  try {
+    const userId = pid(req, 'userId');
+    const { forceResyncStaff } = await import('../services/sync/staffRoleSync');
+    const result = await forceResyncStaff(userId);
+    ok(res, result);
+  } catch (e) { fail(res, e); }
+});
+
 export { router as adminRouter };
 export default router;

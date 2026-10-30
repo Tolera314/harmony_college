@@ -727,7 +727,12 @@ export async function updateEmployee(
 ) {
   const employee = await prisma.hREmployee.findUnique({
     where:  { id },
-    select: { fullName: true, systemRole: true },
+    select: { 
+      fullName: true, 
+      systemRole: true,
+      userId: true,
+      departmentId: true,
+    },
   });
   if (!employee) throw new Error('Employee not found');
 
@@ -756,42 +761,73 @@ export async function updateEmployee(
     if (conflict) throw new Error(`Email ${data.email} is already in use`);
   }
 
-  const updated = await prisma.hREmployee.update({
-    where: { id },
-    data: {
-      ...( data.departmentId    && { departmentId:    data.departmentId }),
-      ...( data.position        && { position:        data.position }),
-      ...( data.employmentType  && { employmentType:  data.employmentType as any }),
-      ...( data.contractStatus  && { contractStatus:  data.contractStatus as any }),
-      ...( data.status          && { status:          data.status as any }),
-      ...( data.systemRole      !== undefined && { systemRole: data.systemRole }),
-      ...( resolvedCourseId     !== undefined && { courseId:   resolvedCourseId }),
-      ...( 'contractEndDate' in data && { contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null }),
-      ...( 'managerId'      in data && { managerId:      data.managerId }),
-      ...( data.fullName        && { fullName:        data.fullName }),
-      ...( data.email           && { email:           data.email }),
-      ...( data.phone           !== undefined && { phone:       data.phone }),
-      ...( data.gender          && { gender:          data.gender as any }),
-      ...( data.dateOfBirth     !== undefined && { dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null }),
-      ...( data.hireDate        !== undefined && { hireDate: data.hireDate ? new Date(data.hireDate) : undefined }),
-      ...( data.address         !== undefined && { address:     data.address }),
-      ...( data.education       && { education:       data.education }),
-      ...( data.experienceYears !== undefined && { experienceYears: data.experienceYears }),
-      ...( data.basicSalary     !== undefined && { basicSalary:     data.basicSalary }),
-      ...( data.allowances      !== undefined && { allowances:      data.allowances }),
-      ...( data.deductions      !== undefined && { deductions:      data.deductions }),
-      ...( data.nationalId      !== undefined && { nationalId:      data.nationalId }),
-      ...( data.bankAccount     !== undefined && { bankAccount:     data.bankAccount }),
-      ...( data.taxNumber       !== undefined && { taxNumber:       data.taxNumber }),
-      ...( data.faydaIdUrl          !== undefined && { faydaIdUrl:          data.faydaIdUrl }),
-      ...( data.faydaIdFileSize     !== undefined && { faydaIdFileSize:     data.faydaIdFileSize }),
-      ...( data.certificateUrl      !== undefined && { certificateUrl:      data.certificateUrl }),
-      ...( data.certificateFileSize !== undefined && { certificateFileSize: data.certificateFileSize }),
-      ...( data.emergencyName       !== undefined && { emergencyName:       data.emergencyName }),
-      ...( data.emergencyPhone      !== undefined && { emergencyPhone:      data.emergencyPhone }),
-      ...( data.emergencyRelation   !== undefined && { emergencyRelation:   data.emergencyRelation }),
-      ...( data.avatarUrl           !== undefined && { avatarUrl:           data.avatarUrl }),
-    },
+  // Department validation
+  if (data.departmentId) {
+    const dept = await prisma.department.findUnique({
+      where: { id: data.departmentId },
+      select: { id: true },
+    });
+    if (!dept) throw new Error('Department not found');
+  }
+
+  // Track if role or department changed for sync
+  const roleChanged = data.systemRole !== undefined && data.systemRole !== employee.systemRole;
+  const departmentChanged = data.departmentId && data.departmentId !== employee.departmentId;
+  const targetDepartmentId = data.departmentId || employee.departmentId;
+
+  // Use transaction for atomic updates when role or department changes
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedEmployee = await tx.hREmployee.update({
+      where: { id },
+      data: {
+        ...( data.departmentId    && { departmentId:    data.departmentId }),
+        ...( data.position        && { position:        data.position }),
+        ...( data.employmentType  && { employmentType:  data.employmentType as any }),
+        ...( data.contractStatus  && { contractStatus:  data.contractStatus as any }),
+        ...( data.status          && { status:          data.status as any }),
+        ...( data.systemRole      !== undefined && { systemRole: data.systemRole }),
+        ...( resolvedCourseId     !== undefined && { courseId:   resolvedCourseId }),
+        ...( 'contractEndDate' in data && { contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null }),
+        ...( 'managerId'      in data && { managerId:      data.managerId }),
+        ...( data.fullName        && { fullName:        data.fullName }),
+        ...( data.email           && { email:           data.email }),
+        ...( data.phone           !== undefined && { phone:       data.phone }),
+        ...( data.gender          && { gender:          data.gender as any }),
+        ...( data.dateOfBirth     !== undefined && { dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null }),
+        ...( data.hireDate        !== undefined && { hireDate: data.hireDate ? new Date(data.hireDate) : undefined }),
+        ...( data.address         !== undefined && { address:     data.address }),
+        ...( data.education       && { education:       data.education }),
+        ...( data.experienceYears !== undefined && { experienceYears: data.experienceYears }),
+        ...( data.basicSalary     !== undefined && { basicSalary:     data.basicSalary }),
+        ...( data.allowances      !== undefined && { allowances:      data.allowances }),
+        ...( data.deductions      !== undefined && { deductions:      data.deductions }),
+        ...( data.nationalId      !== undefined && { nationalId:      data.nationalId }),
+        ...( data.bankAccount     !== undefined && { bankAccount:     data.bankAccount }),
+        ...( data.taxNumber       !== undefined && { taxNumber:       data.taxNumber }),
+        ...( data.faydaIdUrl          !== undefined && { faydaIdUrl:          data.faydaIdUrl }),
+        ...( data.faydaIdFileSize     !== undefined && { faydaIdFileSize:     data.faydaIdFileSize }),
+        ...( data.certificateUrl      !== undefined && { certificateUrl:      data.certificateUrl }),
+        ...( data.certificateFileSize !== undefined && { certificateFileSize: data.certificateFileSize }),
+        ...( data.emergencyName       !== undefined && { emergencyName:       data.emergencyName }),
+        ...( data.emergencyPhone      !== undefined && { emergencyPhone:      data.emergencyPhone }),
+        ...( data.emergencyRelation   !== undefined && { emergencyRelation:   data.emergencyRelation }),
+        ...( data.avatarUrl           !== undefined && { avatarUrl:           data.avatarUrl }),
+      },
+    });
+
+    // Sync role change to User and academic records if employee has user account
+    if (employee.userId && roleChanged && data.systemRole) {
+      const { syncHRRoleToUser } = await import('../sync/staffRoleSync');
+      await syncHRRoleToUser(id, data.systemRole as Role, targetDepartmentId, tx);
+    }
+
+    // Sync department change if needed (without role change)
+    if (employee.userId && departmentChanged && !roleChanged) {
+      const { syncDepartment } = await import('../sync/staffRoleSync');
+      await syncDepartment(employee.userId, targetDepartmentId, tx);
+    }
+
+    return updatedEmployee;
   });
 
   await writeHRAudit({
@@ -890,18 +926,20 @@ export async function deleteEmployee(id: string, actorName: string, actorUserId?
 // ── Departments ───────────────────────────────────────────────────────────────
 
 export async function getDepartments() {
-  // Return active HR organizational departments (separate from academic TVET / Short Program departments)
-  return prisma.hRDepartment.findMany({
+  // Return active departments from the main Department table (created by Registrar)
+  // These are the real academic departments in the system
+  return prisma.department.findMany({
     where: {
       isActive: true,
-      name: {
-        notIn: [
-          'Theatrical Art & Digital Media',
-          'Computer Science & Engineering',
-        ],
-      },
+      parentId: null, // Only parent departments (not TVET/Short Program specific)
     },
-    include: { _count: { select: { employees: { where: { status: 'ACTIVE' } } } } },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      description: true,
+      isActive: true,
+    },
     orderBy: { name: 'asc' },
   });
 }

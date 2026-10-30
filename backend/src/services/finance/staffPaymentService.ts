@@ -401,9 +401,10 @@ export async function getStaffPaymentsSummary(params: {
  * Get distinct departments that have staff
  */
 export async function getStaffDepartments() {
-  const departments = await prisma.hRDepartment.findMany({
+  const departments = await prisma.department.findMany({
     where: {
-      employees: {
+      parentId: null, // Top-level departments
+      hrEmployees: {
         some: {
           status: 'ACTIVE',
           isActive: true,

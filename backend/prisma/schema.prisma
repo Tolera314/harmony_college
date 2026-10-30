@@ -335,6 +335,7 @@ model Department {
   onboardingStudents StudentProfile[]
   studentRecords     StudentRecord[]
   tuitionConfigs     TuitionConfiguration[]
+  hrEmployees        HREmployee[]           @relation("HREmployeeDepartment")
 
   @@unique([name, programType])
   @@unique([code, programType])
@@ -1383,16 +1384,16 @@ model DepartmentHeadAuditLog {
   @@index([createdAt])
 }
 
-/// An HR department (separate from the academic Department model)
+/// An HR department (separate from the academic Department model) 
+/// DEPRECATED: Use the main Department model instead
 model HRDepartment {
-  id             String       @id @default(uuid())
-  name           String       @unique
+  id             String   @id @default(uuid())
+  name           String   @unique
   headEmployeeId String?
-  budget         Float        @default(0)
-  isActive       Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  employees      HREmployee[]
+  budget         Float    @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([isActive])
 }
@@ -1439,7 +1440,7 @@ model HREmployee {
   systemRole          String?
   contractRenewals    HRContractRenewal[]
   documents           HRDocument[]
-  department          HRDepartment          @relation(fields: [departmentId], references: [id])
+  department          Department            @relation("HREmployeeDepartment", fields: [departmentId], references: [id])
   manager             HREmployee?           @relation("EmployeeManager", fields: [managerId], references: [id])
   subordinates        HREmployee[]          @relation("EmployeeManager")
   user                User?                 @relation(fields: [userId], references: [id])

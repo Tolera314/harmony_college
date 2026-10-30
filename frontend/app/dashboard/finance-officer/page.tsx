@@ -228,41 +228,54 @@ export default function FinanceOfficerPage() {
           />
 
           {/* Program Type Toggle */}
-          <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-1 p-1 rounded-2xl bg-(--bg-secondary) border border-(--border-default) shadow-sm">
-                <button
-                  onClick={() => {
-                    setProgramType('TVET');
-                    localStorage.setItem('fo_program_type', 'TVET');
-                  }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
-                    programType === 'TVET'
-                      ? 'bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black shadow-md scale-[1.02]'
-                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
-                  }`}
-                >
-                  {programType === 'TVET' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
-                  🎓 TVET
-                </button>
-                <button
-                  onClick={() => {
-                    setProgramType('SHORT_PROGRAM');
-                    localStorage.setItem('fo_program_type', 'SHORT_PROGRAM');
-                  }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
-                    programType === 'SHORT_PROGRAM'
-                      ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md scale-[1.02]'
-                      : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
-                  }`}
-                >
-                  {programType === 'SHORT_PROGRAM' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
-                  ⏱ Short Program
-                </button>
+          <div className="sticky top-16 z-30 bg-(--bg-primary)/95 backdrop-blur-xl border-b border-(--border-default) px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1 p-1 rounded-2xl bg-(--bg-secondary) border border-(--border-default) shadow-sm">
+                  <button
+                    onClick={() => {
+                      setProgramType('TVET');
+                      localStorage.setItem('fo_program_type', 'TVET');
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                      programType === 'TVET'
+                        ? 'bg-gradient-to-r from-[var(--brand-gold)] to-[var(--brand-gold-dark)] text-black shadow-md scale-[1.02]'
+                        : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                    }`}
+                  >
+                    {programType === 'TVET' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                    🎓 TVET Program
+                  </button>
+                  <button
+                    onClick={() => {
+                      setProgramType('SHORT_PROGRAM');
+                      localStorage.setItem('fo_program_type', 'SHORT_PROGRAM');
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                      programType === 'SHORT_PROGRAM'
+                        ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md scale-[1.02]'
+                        : 'text-(--text-muted) hover:text-(--text-primary) hover:bg-(--hover-overlay)'
+                    }`}
+                  >
+                    {programType === 'SHORT_PROGRAM' ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                    ⏱ Short Program
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">
+                    {programType === 'TVET' ? '📊 Viewing TVET Financial Data' : '📊 Viewing Short Program Financial Data'}
+                  </span>
+                  {programType === 'TVET' ? (
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-[var(--brand-gold)]/10 text-[var(--brand-gold)] border border-[var(--brand-gold)]/20">
+                      TVET TRACK
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                      SHORT PROGRAM TRACK
+                    </span>
+                  )}
+                </div>
               </div>
-              <span className="text-[10px] font-mono text-(--text-faint) uppercase tracking-widest">
-                {programType === 'TVET' ? 'Viewing TVET financial data' : 'Viewing Short Program financial data'}
-              </span>
             </div>
           </div>
 
