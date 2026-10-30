@@ -6,6 +6,7 @@ import { DURATION, EASE } from '@/src/lib/motion';
 import {
   Building2, Plus, Users, BookOpen, GraduationCap, UserCog,
   Pencil, UserCheck, UserX, Power, X, Loader2, Search, ChevronDown, ChevronUp,
+  LayoutGrid, List,
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -218,6 +219,93 @@ const BranchRow: React.FC<{ branch: DepartmentBranch }> = ({ branch }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Department Row (compact table-like view)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface DeptRowProps {
+  dept: DepartmentCard;
+  onEdit: () => void;
+  onAssignHod: () => void;
+  onToggle: () => void;
+}
+
+const DeptRow: React.FC<DeptRowProps> = ({ dept, onEdit, onAssignHod, onToggle }) => {
+  const hod = dept.assignedHod;
+  const hasBranches = dept.branches.length > 0;
+
+  return (
+    <Card className="p-4 flex items-center gap-4 hover:border-(--brand-gold) transition-all">
+      {/* Icon */}
+      <div className="w-10 h-10 rounded-xl bg-(--accent-gold-subtle) border border-(--accent-gold-border) flex items-center justify-center text-(--brand-gold) shrink-0">
+        <Building2 className="w-5 h-5" />
+      </div>
+
+      {/* Department Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <span className="font-mono text-xs font-bold text-(--brand-gold) bg-(--accent-gold-subtle) px-2 py-0.5 rounded-lg">{dept.code}</span>
+          <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">TVET</span>
+          {hasBranches && (
+            <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">SP</span>
+          )}
+          <Badge variant={dept.isActive ? 'emerald' : 'glass'} className="text-[10px]">{dept.isActive ? 'Active' : 'Inactive'}</Badge>
+        </div>
+        <h3 className="font-serif text-base font-bold text-(--text-primary) truncate">{dept.name}</h3>
+      </div>
+
+      {/* Stats */}
+      <div className="hidden lg:flex items-center gap-4 shrink-0">
+        <div className="text-center">
+          <p className="font-mono text-sm font-bold text-(--text-primary)">{dept._count.studentRecords}</p>
+          <p className="font-sans text-[10px] text-(--text-faint)">Students</p>
+        </div>
+        <div className="text-center">
+          <p className="font-mono text-sm font-bold text-(--text-primary)">{dept._count.courses}</p>
+          <p className="font-sans text-[10px] text-(--text-faint)">Courses</p>
+        </div>
+        <div className="text-center">
+          <p className="font-mono text-sm font-bold text-(--text-primary)">{dept._count.instructors}</p>
+          <p className="font-sans text-[10px] text-(--text-faint)">Instructors</p>
+        </div>
+      </div>
+
+      {/* HOD Info */}
+      <div className="hidden md:flex items-center gap-2 shrink-0 min-w-[160px]">
+        {hod ? (
+          <>
+            <div className="w-8 h-8 rounded-lg bg-(--status-success-bg) border border-(--status-success)/20 flex items-center justify-center text-(--status-success) font-bold text-sm font-serif shrink-0">
+              {hod.name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-sans text-xs font-semibold text-(--text-primary) truncate">{hod.name}</p>
+              <p className="font-mono text-[10px] text-(--text-faint)">HOD</p>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <UserX className="w-4 h-4 text-(--text-faint)" />
+            <p className="font-sans text-xs text-(--text-faint)">No HOD</p>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 shrink-0">
+        <Button variant="ghost" size="sm" icon={<Pencil className="w-3.5 h-3.5" />} onClick={onEdit} className="hidden sm:flex">
+          <span className="sr-only">Edit</span>
+        </Button>
+        <Button variant="ghost" size="sm" icon={<UserCheck className="w-3.5 h-3.5" />} onClick={onAssignHod} className="hidden sm:flex">
+          <span className="sr-only">Assign HOD</span>
+        </Button>
+        <Button variant="ghost" size="sm" icon={<Power className="w-3.5 h-3.5" />} onClick={onToggle}>
+          <span className="sr-only">{dept.isActive ? 'Disable' : 'Enable'}</span>
+        </Button>
+      </div>
+    </Card>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Department Card
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -381,6 +469,7 @@ export const RegistrarDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_
   const [panel,       setPanel]       = useState<Panel | null>(null);
   const [saving,      setSaving]      = useState(false);
   const [search,      setSearch]      = useState('');
+  const [viewMode,    setViewMode]    = useState<'cards' | 'rows'>('cards');
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -464,7 +553,36 @@ export const RegistrarDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_
             Each department has one HOD managing both TVET and Short Program branches.
           </p>
         </div>
-        <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setPanel('create')}>New Department</Button>
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 p-1 bg-(--hover-overlay) rounded-xl border border-(--border-default)">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === 'cards'
+                  ? 'bg-(--brand-gold) text-black font-semibold shadow-sm'
+                  : 'text-(--text-muted) hover:text-(--text-primary)'
+              }`}
+              title="Card View"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="text-xs font-sans hidden sm:inline">Cards</span>
+            </button>
+            <button
+              onClick={() => setViewMode('rows')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === 'rows'
+                  ? 'bg-(--brand-gold) text-black font-semibold shadow-sm'
+                  : 'text-(--text-muted) hover:text-(--text-primary)'
+              }`}
+              title="Row View"
+            >
+              <List className="w-4 h-4" />
+              <span className="text-xs font-sans hidden sm:inline">Rows</span>
+            </button>
+          </div>
+          <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setPanel('create')}>New Department</Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -492,7 +610,7 @@ export const RegistrarDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_
         />
       </div>
 
-      {/* Cards Grid */}
+      {/* Cards Grid or Rows List */}
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-(--text-faint)" /></div>
       ) : filtered.length === 0 ? (
@@ -502,17 +620,38 @@ export const RegistrarDepartmentsView: React.FC<{ programType?: 'TVET' | 'SHORT_
           {!search && <Button variant="primary" size="sm" className="mt-4" onClick={() => setPanel('create')}>Create Department</Button>}
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map(dept => (
-            <DeptCard
-              key={dept.id}
-              dept={dept}
-              onEdit={() => setPanel({ kind: 'edit', dept })}
-              onAssignHod={() => setPanel({ kind: 'hod', dept })}
-              onToggle={() => handleToggleStatus(dept)}
-            />
-          ))}
-        </div>
+        <motion.div
+          key={viewMode}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {viewMode === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {filtered.map(dept => (
+                <DeptCard
+                  key={dept.id}
+                  dept={dept}
+                  onEdit={() => setPanel({ kind: 'edit', dept })}
+                  onAssignHod={() => setPanel({ kind: 'hod', dept })}
+                  onToggle={() => handleToggleStatus(dept)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map(dept => (
+                <DeptRow
+                  key={dept.id}
+                  dept={dept}
+                  onEdit={() => setPanel({ kind: 'edit', dept })}
+                  onAssignHod={() => setPanel({ kind: 'hod', dept })}
+                  onToggle={() => handleToggleStatus(dept)}
+                />
+              ))}
+            </div>
+          )}
+        </motion.div>
       )}
 
       {/* Slide Panels */}
