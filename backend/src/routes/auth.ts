@@ -91,6 +91,7 @@ function setAccessTokenCookie(res: Response, token: string): void {
     sameSite: 'lax',
     maxAge:   seconds * 1000,
     path:     '/',
+    domain:   IS_PROD ? undefined : 'localhost', // Explicitly set domain for localhost
   });
 }
 
@@ -102,6 +103,7 @@ function setRefreshTokenCookie(res: Response, token: string): void {
     sameSite: 'strict',
     maxAge:   REFRESH_TOKEN_TTL_SECONDS * 1000,
     path:     '/api/auth/refresh',
+    domain:   IS_PROD ? undefined : 'localhost', // Explicitly set domain for localhost
   });
 }
 

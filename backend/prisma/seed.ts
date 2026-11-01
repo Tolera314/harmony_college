@@ -55,21 +55,8 @@ async function main(): Promise<void> {
     { fullName: 'Finance Officer',      email: 'finance@test.local',    phone: '+251911000004', role: Role.FINANCE_OFFICER },
     { fullName: 'HR Officer',           email: 'hr@test.local',         phone: '+251911000005', role: Role.HR_OFFICER },
     { fullName: 'Department Head',      email: 'departmenthead@test.local', phone: '+251911000006', role: Role.DEPARTMENT_HEAD },
-    // Instructors
     { fullName: 'Dr. Bekele Ayalew',    email: 'instructor@test.local',   phone: '+251911000007', role: Role.INSTRUCTOR },
-    { fullName: 'Prof. Martha Wondimu', email: 'instructor2@test.local',  phone: '+251911000008', role: Role.INSTRUCTOR },
-    { fullName: 'Dr. Elias Lemma',      email: 'instructor3@test.local',  phone: '+251911000009', role: Role.INSTRUCTOR },
-    { fullName: 'Dr. Abel Tesfaye',     email: 'instructor4@test.local',  phone: '+251911000010', role: Role.INSTRUCTOR },
-    { fullName: 'Ato Kebede Belay',     email: 'instructor5@test.local',  phone: '+251911000011', role: Role.INSTRUCTOR },
-    // Students
     { fullName: 'Alexander Sterling',   email: 'student@test.local',     phone: '+251911883201', role: Role.STUDENT },
-    { fullName: 'Selam Alemayehu',      email: 'selam@test.local',       phone: '+251911223344', role: Role.STUDENT },
-    { fullName: 'Yonas Kebede',         email: 'yonas@test.local',       phone: '+251911667788', role: Role.STUDENT },
-    { fullName: 'Marta Hailu',          email: 'marta@test.local',       phone: '+251911889900', role: Role.STUDENT },
-    { fullName: 'Kidus Tilahun',        email: 'kidus@test.local',       phone: '+251911443322', role: Role.STUDENT },
-    { fullName: 'Tigist Bekele',        email: 'tigist@test.local',      phone: '+251911556677', role: Role.STUDENT },
-    { fullName: 'Dawit Alemu',          email: 'dawit@test.local',       phone: '+251911334455', role: Role.STUDENT },
-    { fullName: 'New Student',          email: 'newstudent@test.local',  phone: '+251911000099', role: Role.STUDENT },
   ];
 
   const users: Record<string, string> = {};
@@ -106,36 +93,44 @@ async function main(): Promise<void> {
   }
 
   // ── 2. Departments ───────────────────────────────────────────────────────
-  console.log('\n📁  Seeding departments...');
-  const deptPHOTO = await prisma.department.upsert({
-    where: { code_programType: { code: 'PHOTO', programType: 'SHORT_PROGRAM' } }, update: {},
-    create: { name: 'Photography & Visual Media', code: 'PHOTO', description: 'Photography, Videography & Visual Storytelling', isActive: true, programType: 'SHORT_PROGRAM' },
-  });
-  const deptFILM = await prisma.department.upsert({
-    where: { code_programType: { code: 'FILM', programType: 'SHORT_PROGRAM' } }, update: {},
-    create: { name: 'Theatrical Art & Filmmaking', code: 'FILM', description: 'Theatre, Acting, Directing & Independent Filmmaking', isActive: true, programType: 'SHORT_PROGRAM' },
-  });
-  const deptMUSIC = await prisma.department.upsert({
-    where: { code_programType: { code: 'MUSIC', programType: 'SHORT_PROGRAM' } }, update: {},
-    create: { name: 'Music & Performing Arts', code: 'MUSIC', description: 'Instrumental Performance, Vocal Arts & Music Production', isActive: true, programType: 'SHORT_PROGRAM' },
-  });
-  const deptDESIGN = await prisma.department.upsert({
-    where: { code_programType: { code: 'DESIGN', programType: 'SHORT_PROGRAM' } }, update: {},
-    create: { name: 'Design & Digital Marketing', code: 'DESIGN', description: 'Graphic Design, Brand Identity & Digital Marketing', isActive: true, programType: 'SHORT_PROGRAM' },
-  });
-  const deptMEDIA = await prisma.department.upsert({
-    where: { code_programType: { code: 'MEDIA', programType: 'SHORT_PROGRAM' } }, update: {},
-    create: { name: 'Media, Communication & Languages', code: 'MEDIA', description: 'Journalism, Media Reporting & Professional Languages', isActive: true, programType: 'SHORT_PROGRAM' },
-  });
-  const deptIT = await prisma.department.upsert({
-    where: { code_programType: { code: 'IT', programType: 'TVET' } }, update: {},
-    create: { name: 'Information Technology', code: 'IT', description: 'IT, Networking, Software & Digital Systems', isActive: true, programType: 'TVET' },
-  });
-  const deptPHARM = await prisma.department.upsert({
-    where: { code_programType: { code: 'PHARM', programType: 'TVET' } }, update: {},
-    create: { name: 'Pharmacy & Health Sciences', code: 'PHARM', description: 'Pharmaceutical Sciences, Drug Dispensing & Clinical Practice', isActive: true, programType: 'TVET' },
-  });
-  console.log('   ✓ 7 departments');
+  console.log('\n📁  Finding or creating departments...');
+  // Use existing departments from ensureDepartments or create if not exist
+  let deptPHOTO = await prisma.department.findFirst({ where: { code: { contains: 'PHOTO' }, programType: 'SHORT_PROGRAM' } });
+  if (!deptPHOTO) {
+    deptPHOTO = await prisma.department.create({ data: { name: 'Photography & Visual Media', code: 'PHOTO', description: 'Photography, Videography & Visual Storytelling', isActive: true, programType: 'SHORT_PROGRAM' } });
+  }
+  
+  let deptFILM = await prisma.department.findFirst({ where: { code: { contains: 'FILM' }, programType: 'SHORT_PROGRAM' } });
+  if (!deptFILM) {
+    deptFILM = await prisma.department.create({ data: { name: 'Theatrical Art & Filmmaking', code: 'FILM', description: 'Theatre, Acting, Directing & Independent Filmmaking', isActive: true, programType: 'SHORT_PROGRAM' } });
+  }
+  
+  let deptMUSIC = await prisma.department.findFirst({ where: { code: { contains: 'MUS' }, programType: 'SHORT_PROGRAM' } });
+  if (!deptMUSIC) {
+    deptMUSIC = await prisma.department.create({ data: { name: 'Music & Performing Arts', code: 'MUSIC', description: 'Instrumental Performance, Vocal Arts & Music Production', isActive: true, programType: 'SHORT_PROGRAM' } });
+  }
+  
+  let deptDESIGN = await prisma.department.findFirst({ where: { OR: [{ code: { contains: 'DES' } }, { code: { contains: 'DMKT' } }], programType: 'SHORT_PROGRAM' } });
+  if (!deptDESIGN) {
+    deptDESIGN = await prisma.department.create({ data: { name: 'Design & Digital Marketing', code: 'DESIGN', description: 'Graphic Design, Brand Identity & Digital Marketing', isActive: true, programType: 'SHORT_PROGRAM' } });
+  }
+  
+  let deptMEDIA = await prisma.department.findFirst({ where: { OR: [{ code: { contains: 'JOUR' } }, { code: { contains: 'LANG' } }], programType: 'SHORT_PROGRAM' } });
+  if (!deptMEDIA) {
+    deptMEDIA = await prisma.department.create({ data: { name: 'Media, Communication & Languages', code: 'MEDIA', description: 'Journalism, Media Reporting & Professional Languages', isActive: true, programType: 'SHORT_PROGRAM' } });
+  }
+  
+  let deptIT = await prisma.department.findFirst({ where: { code: { contains: 'IT' }, programType: 'TVET' } });
+  if (!deptIT) {
+    deptIT = await prisma.department.create({ data: { name: 'Information Technology', code: 'IT', description: 'IT, Networking, Software & Digital Systems', isActive: true, programType: 'TVET' } });
+  }
+  
+  let deptPHARM = await prisma.department.findFirst({ where: { code: { contains: 'PHARM' }, programType: 'TVET' } });
+  if (!deptPHARM) {
+    deptPHARM = await prisma.department.create({ data: { name: 'Pharmacy & Health Sciences', code: 'PHARM', description: 'Pharmaceutical Sciences, Drug Dispensing & Clinical Practice', isActive: true, programType: 'TVET' } });
+  }
+  
+  console.log('   ✓ 7 departments (using existing or created)');
 
   // ── 3. Programs ──────────────────────────────────────────────────────────
   console.log('📚  Seeding programs...');
@@ -279,29 +274,9 @@ async function main(): Promise<void> {
   const instr1 = await prisma.instructorRecord.upsert({
     where: { userId: users['instructor@test.local'] },
     update: {},
-    create: { userId: users['instructor@test.local'], employeeId: 'INS-2020-001', title: 'Ato', specialization: 'Photography & Visual Storytelling', departmentId: deptPHOTO.id },
+    create: { userId: users['instructor@test.local'], employeeId: 'INS-2020-001', title: 'Dr.', specialization: 'Photography & Visual Storytelling', departmentId: deptPHOTO.id },
   });
-  const instr2 = await prisma.instructorRecord.upsert({
-    where: { userId: users['instructor2@test.local'] },
-    update: {},
-    create: { userId: users['instructor2@test.local'], employeeId: 'INS-2021-002', title: 'Prof.', specialization: 'Theatrical Arts & Filmmaking', departmentId: deptFILM.id },
-  });
-  const instr3 = await prisma.instructorRecord.upsert({
-    where: { userId: users['instructor3@test.local'] },
-    update: {},
-    create: { userId: users['instructor3@test.local'], employeeId: 'INS-2022-003', title: 'Dr.', specialization: 'Music Production & Audio Engineering', departmentId: deptMUSIC.id },
-  });
-  const instr4 = await prisma.instructorRecord.upsert({
-    where: { userId: users['instructor4@test.local'] },
-    update: {},
-    create: { userId: users['instructor4@test.local'], employeeId: 'INS-2022-004', title: 'Dr.', specialization: 'Graphic Design & Digital Marketing', departmentId: deptDESIGN.id },
-  });
-  const instr5 = await prisma.instructorRecord.upsert({
-    where: { userId: users['instructor5@test.local'] },
-    update: {},
-    create: { userId: users['instructor5@test.local'], employeeId: 'INS-2023-005', title: 'Ato', specialization: 'Information Technology', departmentId: deptIT.id },
-  });
-  console.log('   ✓ 5 instructor records');
+  console.log('   ✓ 1 instructor record');
 
   // ── 6b. Department Head Record ───────────────────────────────────────────
   console.log('👩‍💼  Seeding department head record...');
@@ -322,8 +297,6 @@ async function main(): Promise<void> {
   if (dhRecord) {
     const leaveSeeds = [
       { instructorId: instr1.id, leaveType: 'CONFERENCE' as const, startDate: new Date('2026-09-15'), endDate: new Date('2026-09-19'), durationDays: 5, reason: 'Presenting at the East Africa Creative Arts Conference.', status: 'PENDING_DH' as const },
-      { instructorId: instr3.id, leaveType: 'MEDICAL' as const,    startDate: new Date('2026-09-22'), endDate: new Date('2026-09-26'), durationDays: 5, reason: 'Medical procedure and recovery period.', status: 'PENDING_DH' as const },
-      { instructorId: instr1.id, leaveType: 'RESEARCH' as const,   startDate: new Date('2026-08-01'), endDate: new Date('2026-08-14'), durationDays: 14, reason: 'Research collaboration with Addis Ababa University media department.', status: 'DH_APPROVED' as const, reviewedByDhId: dhRecord.id, dhComment: 'Approved.', dhReviewedAt: new Date('2026-07-25') },
     ];
     for (const lr of leaveSeeds) {
       const existing = await prisma.departmentLeaveRequest.findFirst({ where: { instructorId: lr.instructorId, startDate: lr.startDate } });
@@ -474,12 +447,6 @@ async function main(): Promise<void> {
   console.log('🎓  Seeding student records...');
   const studentDefs = [
     { email: 'student@test.local',  studentId: 'HC-2024-0001', progId: progPHOTO.id,  deptId: deptPHOTO.id,  year: 1, gpa: 3.72, credits: 45,  status: StudentStatus.ACTIVE,    dob: '2002-05-14', gender: 'Male',   city: 'Addis Ababa' },
-    { email: 'selam@test.local',    studentId: 'HC-2024-0012', progId: progFILM.id,   deptId: deptFILM.id,   year: 1, gpa: 3.92, credits: 42,  status: StudentStatus.ACTIVE,    dob: '2005-04-12', gender: 'Female', city: 'Addis Ababa' },
-    { email: 'yonas@test.local',    studentId: 'HC-2024-0015', progId: progMUSIC.id,  deptId: deptMUSIC.id,  year: 1, gpa: 2.85, credits: 30,  status: StudentStatus.ACTIVE,    dob: '2004-11-22', gender: 'Male',   city: 'Adama' },
-    { email: 'marta@test.local',    studentId: 'HC-2025-0912', progId: progGDES.id,   deptId: deptDESIGN.id, year: 1, gpa: 3.15, credits: 20,  status: StudentStatus.ACTIVE,    dob: '2005-08-30', gender: 'Female', city: 'Hawassa' },
-    { email: 'kidus@test.local',    studentId: 'HC-2023-0182', progId: progPHOTO.id,  deptId: deptPHOTO.id,  year: 1, gpa: 1.95, credits: 55,  status: StudentStatus.ON_LEAVE,  dob: '2003-01-15', gender: 'Male',   city: 'Bahir Dar' },
-    { email: 'tigist@test.local',   studentId: 'HC-2024-0034', progId: progIT.id,     deptId: deptIT.id,     year: 1, gpa: 3.45, credits: 38,  status: StudentStatus.ACTIVE,    dob: '2004-07-22', gender: 'Female', city: 'Dire Dawa' },
-    { email: 'dawit@test.local',    studentId: 'HC-2023-0095', progId: progJOUR.id,   deptId: deptMEDIA.id,  year: 1, gpa: 3.10, credits: 50,  status: StudentStatus.SUSPENDED, dob: '2003-03-10', gender: 'Male',   city: 'Mekelle' },
   ];
 
   const studentRecordMap: Record<string, string> = {};
@@ -521,12 +488,13 @@ async function main(): Promise<void> {
     'C': { grade: 'C', pts: 2.0 },
   };
 
+  // ── 11. Enrollments ──────────────────────────────────────────────────────
+  // COMMENTED OUT: No course offerings to enroll in
+  console.log('📝  Skipping enrollments seeding...');
+  
+  /* COMMENTED OUT - Enrollments depend on course offerings
   const enrollmentSeeds: { email: string; offeringKey: string; status: EnrollmentStatus; grade: null; override?: { reason: string; by: string } }[] = [
-    { email: 'selam@test.local',  offeringKey: 'PV101-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'yonas@test.local',  offeringKey: 'MU101-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'marta@test.local',  offeringKey: 'GD101-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'tigist@test.local', offeringKey: 'IT101-A', status: EnrollmentStatus.ACTIVE, grade: null },
-    { email: 'tigist@test.local', offeringKey: 'IT201-A', status: EnrollmentStatus.ACTIVE, grade: null },
+    { email: 'student@test.local', offeringKey: 'PV101-A', status: EnrollmentStatus.ACTIVE, grade: null },
   ];
 
   for (const e of enrollmentSeeds) {
@@ -553,13 +521,7 @@ async function main(): Promise<void> {
   // ── 12. Admission Applications ───────────────────────────────────────────
   console.log('📋  Seeding admission applications...');
   const appSeeds = [
-    { email: 'selam@test.local',      fullName: 'Selam Alemayehu', status: ApplicationStatus.ACCEPTED, prog: 'Theatrical Art & Filmmaking',    gender: 'Female', dob: '2005-04-12', age: 21, city: 'Addis Ababa', phone: '+251911223344', studyMode: 'Regular' },
-    { email: 'yonas@test.local',      fullName: 'Yonas Kebede',    status: ApplicationStatus.ACCEPTED, prog: 'Music Instruments & Vocal',       gender: 'Male',   dob: '2004-11-22', age: 22, city: 'Adama',       phone: '+251911667788', studyMode: 'Regular' },
-    { email: 'marta@test.local',      fullName: 'Marta Hailu',     status: ApplicationStatus.ACCEPTED, prog: 'Graphic Design',                  gender: 'Female', dob: '2005-08-30', age: 20, city: 'Hawassa',     phone: '+251911889900', studyMode: 'Regular' },
-    { email: 'kidus@test.local',      fullName: 'Kidus Tilahun',   status: ApplicationStatus.REJECTED, prog: 'Photography & Videography',       gender: 'Male',   dob: '2003-01-15', age: 23, city: 'Bahir Dar',   phone: '+251911443322', studyMode: 'Evening', reviewComment: 'Insufficient Matric scores (280/350).' },
-    { email: 'tigist@test.local',     fullName: 'Tigist Bekele',   status: ApplicationStatus.ACCEPTED, prog: 'Information Technology (IT)',     gender: 'Female', dob: '2004-07-22', age: 22, city: 'Dire Dawa',   phone: '+251911556677', studyMode: 'Regular' },
-    { email: 'dawit@test.local',      fullName: 'Dawit Alemu',     status: ApplicationStatus.ACCEPTED, prog: 'Journalism',                      gender: 'Male',   dob: '2003-03-10', age: 23, city: 'Mekelle',     phone: '+251911334455', studyMode: 'Regular' },
-    { email: 'newstudent@test.local', fullName: 'New Student',     status: ApplicationStatus.SUBMITTED, prog: 'Photography & Videography',      gender: 'Male',   dob: '2006-01-01', age: 20, city: 'Addis Ababa', phone: '+251911000099', studyMode: 'Regular' },
+    { email: 'student@test.local', fullName: 'Alexander Sterling', status: ApplicationStatus.ACCEPTED, prog: 'Photography & Videography', gender: 'Male', dob: '2002-05-14', age: 24, city: 'Addis Ababa', phone: '+251911883201', studyMode: 'Regular' },
   ];
 
   for (const a of appSeeds) {

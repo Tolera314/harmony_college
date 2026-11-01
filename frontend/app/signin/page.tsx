@@ -39,6 +39,8 @@ export default function SignInPage() {
 
       const data = await res.json();
 
+      console.log('Login response:', { ok: res.ok, status: res.status, data });
+
       if (!res.ok) {
         if (data.code === 'PENDING_VERIFICATION' && data.userId) {
           // Verification is now done from Settings inside /welcome — send them there.

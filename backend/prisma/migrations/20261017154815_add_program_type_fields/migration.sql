@@ -1,5 +1,9 @@
--- CreateEnum
-CREATE TYPE "ProgramType" AS ENUM ('TVET', 'SHORT_PROGRAM');
+-- CreateEnum (idempotent — may already exist from central_finance_integration migration)
+DO $$ BEGIN
+  CREATE TYPE "ProgramType" AS ENUM ('TVET', 'SHORT_PROGRAM');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- AlterTable Department: add programType with default
 ALTER TABLE "Department" ADD COLUMN "programType" "ProgramType" NOT NULL DEFAULT 'TVET';

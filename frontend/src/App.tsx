@@ -6,7 +6,7 @@ import Hero from './components/Hero';
 import Partners from './components/Partners';
 import Schools from './components/Schools';
 import Advantage from './components/Advantage';
-import CampusLife from './components/CampusLife';
+// import CampusLife from './components/CampusLife';
 import Stats from './components/Stats';
 import Testimonials from './components/Testimonials';
 import Roadmap from './components/Roadmap';
@@ -86,7 +86,7 @@ export default function App() {
         />
         
         <Advantage />
-        <CampusLife />
+        {/* <CampusLife /> */}
         <Stats />
         <Testimonials />
         

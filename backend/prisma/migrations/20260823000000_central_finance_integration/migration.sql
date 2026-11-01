@@ -14,6 +14,13 @@ CREATE TYPE "FinancialCategory" AS ENUM (
   'OTHER'
 );
 
+-- Step 2b: Create ProgramType enum if it doesn't exist yet
+DO $$ BEGIN
+  CREATE TYPE "ProgramType" AS ENUM ('TVET', 'SHORT_PROGRAM');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
 -- Step 3: Extend FinancialTransaction table
 -- Make financialAccountId optional (for non-student transactions)
 ALTER TABLE "FinancialTransaction" ALTER COLUMN "financialAccountId" DROP NOT NULL;
@@ -99,12 +106,21 @@ WHERE "financialAccountId" IS NOT NULL
   AND "financialCategory" IS NULL;
 
 -- Step 9: Backfill programType from FinancialAccount -> StudentRecord
-UPDATE "FinancialTransaction" ft
-SET "programType" = sr."programType"
-FROM "FinancialAccount" fa
-JOIN "StudentRecord" sr ON fa."studentRecordId" = sr."id"
-WHERE ft."financialAccountId" = fa."id"
-  AND ft."programType" IS NULL;
+-- (Only runs if StudentRecord.programType column exists; it may be added by a later migration)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'StudentRecord' AND column_name = 'programType'
+  ) THEN
+    UPDATE "FinancialTransaction" ft
+    SET "programType" = sr."programType"
+    FROM "FinancialAccount" fa
+    JOIN "StudentRecord" sr ON fa."studentRecordId" = sr."id"
+    WHERE ft."financialAccountId" = fa."id"
+      AND ft."programType" IS NULL;
+  END IF;
+END $$;
 
 -- Step 10: Set default category for any remaining records
 UPDATE "FinancialTransaction"
