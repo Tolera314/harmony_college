@@ -124,7 +124,7 @@ export const DashboardOverview: React.FC<OverviewProps> = ({ setActiveTab, progr
         ].map((act, i) => (
           <button
             key={i}
-            onClick={() => act.tab ? setActiveTab(act.tab) : act.action?.()}
+            onClick={() => setActiveTab(act.tab)}
             className="p-4 bg-(--bg-card) border border-(--border-default) rounded-2xl flex items-center gap-3.5 text-left text-xs font-semibold text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent-gold-border) hover:bg-(--hover-overlay) transition-all duration-300 group ds-focus-ring"
           >
             <div className="w-8 h-8 rounded-xl bg-(--hover-overlay) border border-(--border-default) flex items-center justify-center text-(--text-secondary) group-hover:text-(--brand-gold) group-hover:border-(--accent-gold-border) transition-colors">

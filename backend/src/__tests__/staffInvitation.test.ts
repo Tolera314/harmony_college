@@ -68,6 +68,7 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
       sessionId:        'dummy-sa-session',
       email:            superAdminUser.email,
       role:             superAdminUser.role,
+      roles:            [superAdminUser.role],
       status:           superAdminUser.status,
       profileCompleted: true,
     });
@@ -90,6 +91,7 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
       sessionId:        'dummy-admin-session',
       email:            adminUser.email,
       role:             adminUser.role,
+      roles:            [adminUser.role],
       status:           adminUser.status,
       profileCompleted: true,
     });
@@ -113,6 +115,7 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
       sessionId:        'dummy-inst-session',
       email:            instructorUser.email,
       role:             instructorUser.role,
+      roles:            [instructorUser.role],
       status:           instructorUser.status,
       profileCompleted: true,
     });
@@ -220,7 +223,9 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
     let targetEmail = 'accept.instructor.test@harmony.edu.et';
 
     beforeEach(async () => {
-      await prisma.user.deleteMany({ where: { email: targetEmail } });
+      const testPhone = '+251911234567';
+      await prisma.user.deleteMany({ where: { OR: [{ email: targetEmail }, { phone: testPhone }] } });
+      await prisma.hREmployee.deleteMany({ where: { employeeCode: 'HC-FAC-ACC-001' } });
       await prisma.staffInvitation.deleteMany({ where: { email: targetEmail } });
 
       const res = await createStaffInvitation(
@@ -228,7 +233,7 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
           employeeCode:   'HC-FAC-ACC-001',
           fullName:       'Acceptance Test Faculty',
           email:          targetEmail,
-          phone:          '+251911234567',
+          phone:          testPhone,
           role:           Role.INSTRUCTOR,
           departmentId:   testDepartment.id,
           positionTitle:  'Lecturer',
@@ -369,7 +374,9 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
   describe('5. Audit Logging', () => {
     it('creates audit log entries for invitation creation & acceptance', async () => {
       const auditEmail = 'audit.test@harmony.edu.et';
-      await prisma.user.deleteMany({ where: { email: auditEmail } });
+      const auditPhone = '+251911999888';
+      await prisma.user.deleteMany({ where: { OR: [{ email: auditEmail }, { phone: auditPhone }] } });
+      await prisma.hREmployee.deleteMany({ where: { employeeCode: 'HC-REG-AUD-001' } });
       await prisma.staffInvitation.deleteMany({ where: { email: auditEmail } });
 
       const res = await createStaffInvitation(
@@ -377,7 +384,7 @@ describe('Staff Invitation & Admin Provisioning Architecture', () => {
           employeeCode:   'HC-REG-AUD-001',
           fullName:       'Audit Test User',
           email:          auditEmail,
-          phone:          '+251911234567',
+          phone:          auditPhone,
           role:           Role.REGISTRAR,
           departmentId:   testDepartment.id,
           positionTitle:  'Registrar',

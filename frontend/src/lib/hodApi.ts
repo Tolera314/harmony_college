@@ -661,3 +661,46 @@ export const hodDeptReportsApi = {
   get: (params: Record<string, unknown> = {}) => apiFetch<DHDepartmentReports>(`${BASE}/reports/department-summary${qs(params)}`),
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MULTI-ROLE — HOD ↔ INSTRUCTOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface TeachingStatus {
+  isInstructor:       boolean;
+  instructorRecordId: string | null;
+  assignedOfferings:  number;
+  activeRole:         string;
+  availableRoles:     string[];
+  canSelfAssign:      boolean;
+}
+
+export const hodTeachingApi = {
+  /** Check whether the HOD already has an active Instructor role. */
+  getStatus: () => apiFetch<TeachingStatus>(`${BASE}/teaching-status`),
+
+  /** HOD self-assigns the Instructor role in their department. */
+  selfAssign: () => apiFetch<{ success: boolean; message: string; instructorRecord: { id: string } }>(
+    `${BASE}/self-assign-instructor`,
+    { method: 'POST' }
+  ),
+
+  /** HOD appoints another department staff member as Instructor. */
+  assignStaff: (data: { staffUserId: string; specialization?: string; title?: string }) =>
+    apiFetch<{ success: boolean; message: string; instructorRecord: { id: string } }>(
+      `${BASE}/assign-staff-instructor`,
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH — Role switching
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const switchRoleApi = {
+  switch: (role: string) =>
+    apiFetch<{ success: boolean; activeRole: string; roles: string[]; targetUrl: string }>(
+      '/api/auth/switch-role',
+      { method: 'POST', body: JSON.stringify({ role }) }
+    ),
+};
+

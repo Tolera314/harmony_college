@@ -3517,3 +3517,194 @@ export async function getDepartmentReports(userId: string, programType?: 'TVET' 
     classesReport,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MULTI-ROLE: HOD SELF-ASSIGN AS INSTRUCTOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Allows the HOD to assign the Instructor role to themselves.
+ * Creates or reactivates an InstructorRecord in their own department.
+ * Adds INSTRUCTOR to user.roles without replacing DEPARTMENT_HEAD.
+ */
+export async function selfAssignInstructor(userId: string) {
+  const hod = await resolveHoD(userId);
+
+  // Check if instructor record already exists
+  const existing = await prisma.instructorRecord.findUnique({
+    where: { userId },
+    select: { id: true, isActive: true },
+  });
+
+  let instructorRecord;
+
+  if (existing) {
+    if (existing.isActive) {
+      throw new Error('You already have an active Instructor role in this department.');
+    }
+    // Reactivate
+    instructorRecord = await prisma.instructorRecord.update({
+      where: { id: existing.id },
+      data:  { isActive: true },
+      select: { id: true, employeeId: true, departmentId: true, isActive: true },
+    });
+  } else {
+    // Create new InstructorRecord
+    instructorRecord = await prisma.instructorRecord.create({
+      data: {
+        userId,
+        employeeId:   hod.employeeId,
+        departmentId: hod.departmentId,
+        title:        hod.title ?? 'Department Head & Instructor',
+        isActive:     true,
+      },
+      select: { id: true, employeeId: true, departmentId: true, isActive: true },
+    });
+  }
+
+  // Add INSTRUCTOR to user.roles array (addToSet pattern)
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { roles: true },
+  });
+  const currentRoles: Role[] = user?.roles ?? [];
+  if (!currentRoles.includes(Role.INSTRUCTOR)) {
+    await prisma.user.update({
+      where: { id: userId },
+      data:  { roles: [...currentRoles, Role.INSTRUCTOR] },
+    });
+  }
+
+  // Audit log
+  await prisma.departmentHeadAuditLog.create({
+    data: {
+      userId,
+      action:      DepartmentHeadAction.INSTRUCTOR_ROLE_ASSIGNED,
+      entityType:  'InstructorRecord',
+      entityId:    instructorRecord.id,
+      description: 'Department Head self-assigned the Instructor role.',
+    },
+  });
+
+  return {
+    success:          true,
+    message:          'You are now also an Instructor in your department. Switch to the Instructor portal to manage your courses.',
+    instructorRecord,
+  };
+}
+
+/**
+ * Returns the HOD's current teaching status:
+ * whether they have an active InstructorRecord and how many offerings they're assigned to.
+ */
+export async function getTeachingStatus(userId: string) {
+  const hod = await resolveHoD(userId);
+
+  const instructorRecord = await prisma.instructorRecord.findUnique({
+    where: { userId },
+    select: {
+      id:       true,
+      isActive: true,
+      _count:   { select: { offerings: true } },
+    },
+  });
+
+  const user = await prisma.user.findUnique({
+    where:  { id: userId },
+    select: { roles: true, role: true },
+  });
+
+  return {
+    isInstructor:         !!instructorRecord?.isActive,
+    instructorRecordId:   instructorRecord?.id ?? null,
+    assignedOfferings:    instructorRecord?._count.offerings ?? 0,
+    activeRole:           user?.role,
+    availableRoles:       user?.roles ?? [],
+    canSelfAssign:        !instructorRecord?.isActive,
+  };
+}
+
+/**
+ * Allows the HOD to assign the Instructor role to another eligible staff member
+ * (HREmployee) in their department.
+ */
+export async function assignStaffInstructor(
+  hodUserId: string,
+  data: { staffUserId: string; specialization?: string; title?: string }
+) {
+  const hod = await resolveHoD(hodUserId);
+  const deptIds = await resolveDeptIds(hod);
+
+  // Verify the target staff exists in the HOD's department
+  const staffHr = await prisma.hREmployee.findUnique({
+    where: { userId: data.staffUserId },
+    select: { id: true, employeeCode: true, departmentId: true, userId: true },
+  });
+
+  if (!staffHr) {
+    throw new Error('Staff member not found in the HR system.');
+  }
+  if (!deptIds.includes(staffHr.departmentId)) {
+    throw new Error('Not authorized: this staff member does not belong to your department.');
+  }
+
+  // Check they don't already have an active instructor record
+  const existing = await prisma.instructorRecord.findUnique({
+    where: { userId: data.staffUserId },
+    select: { id: true, isActive: true },
+  });
+
+  let instructorRecord;
+  if (existing) {
+    if (existing.isActive) {
+      throw new Error('This staff member already has an active Instructor role.');
+    }
+    instructorRecord = await prisma.instructorRecord.update({
+      where: { id: existing.id },
+      data:  { isActive: true, specialization: data.specialization, title: data.title ?? 'Instructor' },
+      select: { id: true, employeeId: true },
+    });
+  } else {
+    instructorRecord = await prisma.instructorRecord.create({
+      data: {
+        userId:        data.staffUserId,
+        employeeId:    staffHr.employeeCode,
+        departmentId:  hod.departmentId,
+        title:         data.title ?? 'Instructor',
+        specialization: data.specialization,
+        isActive:      true,
+      },
+      select: { id: true, employeeId: true },
+    });
+  }
+
+  // Add INSTRUCTOR to staff user's roles
+  const staffUser = await prisma.user.findUnique({
+    where: { id: data.staffUserId },
+    select: { roles: true },
+  });
+  const currentRoles: Role[] = staffUser?.roles ?? [];
+  if (!currentRoles.includes(Role.INSTRUCTOR)) {
+    await prisma.user.update({
+      where: { id: data.staffUserId },
+      data:  { roles: [...currentRoles, Role.INSTRUCTOR] },
+    });
+  }
+
+  // Audit log
+  await prisma.departmentHeadAuditLog.create({
+    data: {
+      userId: hodUserId,
+      action:      DepartmentHeadAction.INSTRUCTOR_ROLE_ASSIGNED,
+      entityType:  'InstructorRecord',
+      entityId:    instructorRecord.id,
+      description: `HOD assigned Instructor role to staff member (employeeCode: ${staffHr.employeeCode}).`,
+    },
+  });
+
+  return {
+    success: true,
+    message: 'Instructor role assigned successfully.',
+    instructorRecord,
+  };
+}

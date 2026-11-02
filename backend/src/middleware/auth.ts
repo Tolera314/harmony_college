@@ -21,6 +21,8 @@ export interface AuthRequest extends Request {
     sessionId:        string;
     email:            string | null;
     role:             Role;
+    /** All roles assigned to this user (multi-role support) */
+    roles:            Role[];
     status:           AccountStatus;
     profileCompleted: boolean;
   };
@@ -104,11 +106,18 @@ export async function authenticate(
     }
   }
 
+  // Resolve roles: prefer JWT `roles` array, fall back to single `role` for legacy tokens
+  const activeRole = payload.role as Role;
+  const allRoles: Role[] = Array.isArray(payload.roles) && payload.roles.length > 0
+    ? (payload.roles as Role[])
+    : [activeRole];
+
   req.user = {
     userId:           payload.userId,
     sessionId,
     email:            (payload.email    as string | null | undefined) ?? null,
-    role:             payload.role      as Role,
+    role:             activeRole,
+    roles:            allRoles,
     status:           (payload.status   as AccountStatus | undefined) ?? AccountStatus.ACTIVE,
     profileCompleted: (payload.profileCompleted as boolean | undefined) ?? false,
   };
@@ -141,7 +150,10 @@ export function requireRole(allowedRoles: Role[]): RequestHandler {
       res.status(401).json({ error: 'Not authenticated.' });
       return;
     }
-    if (!allowedRoles.includes(req.user.role)) {
+    // Check active role first, then fall back to checking all assigned roles
+    const hasRole = allowedRoles.includes(req.user.role) ||
+      req.user.roles.some(r => allowedRoles.includes(r));
+    if (!hasRole) {
       res.status(403).json({ error: 'You do not have permission to perform this action.' });
       return;
     }

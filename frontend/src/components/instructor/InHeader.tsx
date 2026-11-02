@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { InstructorNavTab, InstructorProfile, InstructorNotification } from '../../types/instructor';
-import { Search, Bell, ChevronRight, Command, X, Menu } from 'lucide-react';
+import { Search, Bell, ChevronRight, Command, X, Menu, ArrowLeftRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
 import ThemeToggle from '../ThemeToggle';
@@ -16,6 +16,10 @@ interface InHeaderProps {
   onMarkRead: (id: string) => void;
   onOpenSearch: () => void;
   onMobileMenuToggle?: () => void;
+  /** Roles the current user is authorized for (multi-role support) */
+  availableRoles?: string[];
+  /** Called when the user wants to switch to a different role portal */
+  onSwitchRole?: (role: string) => void;
 }
 
 const TAB_LABELS: Record<InstructorNavTab, string> = {
@@ -32,7 +36,7 @@ const NOTIF_DOT: Record<string, string> = {
 };
 
 export const InHeader: React.FC<InHeaderProps> = ({
-  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, onMobileMenuToggle,
+  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, onMobileMenuToggle, availableRoles, onSwitchRole,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -143,6 +147,24 @@ export const InHeader: React.FC<InHeaderProps> = ({
 
           {/* Theme Toggle */}
           <ThemeToggle />
+
+          {/* Role Switcher — shown when instructor also has HOD role */}
+          {availableRoles?.includes('DEPARTMENT_HEAD') && onSwitchRole && (
+            <button
+              id="switch-to-hod-portal"
+              onClick={() => onSwitchRole('DEPARTMENT_HEAD')}
+              title="Switch to Department Head Portal"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all hover:scale-105"
+              style={{
+                background: 'rgba(233,195,73,0.1)',
+                borderColor: 'rgba(233,195,73,0.3)',
+                color: '#E9C349',
+              }}
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <span>HOD</span>
+            </button>
+          )}
 
           {/* Avatar */}
           <button onClick={() => setActiveTab('settings')}
