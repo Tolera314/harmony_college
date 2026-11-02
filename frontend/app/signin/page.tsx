@@ -39,16 +39,20 @@ export default function SignInPage() {
 
       const data = await res.json();
 
-      console.log('Login response:', { ok: res.ok, status: res.status, data });
-
       if (!res.ok) {
         if (data.code === 'PENDING_VERIFICATION' && data.userId) {
-          // Verification is now done from Settings inside /welcome — send them there.
           window.location.href = '/welcome';
           return;
         }
         const msg: string = data.error ?? 'Sign in failed.';
         setErrorMsg(msg);
+        return;
+      }
+
+      // Multi-role: if user has more than one role, let them pick which portal to enter
+      if (data.requiresRoleSelection && Array.isArray(data.availableRoles) && data.availableRoles.length > 1) {
+        const rolesParam = encodeURIComponent(JSON.stringify(data.availableRoles));
+        window.location.href = `/select-role?roles=${rolesParam}`;
         return;
       }
 

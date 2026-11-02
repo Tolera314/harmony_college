@@ -732,5 +732,48 @@ router.get('/reports/department-summary', async (req: AuthRequest, res) => {
   catch (e) { fail(res, e); }
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// MULTI-ROLE: INSTRUCTOR SELF-ASSIGNMENT (HOD ↔ INSTRUCTOR)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/department-head/teaching-status
+ * Returns whether the HOD already has an active instructor record and related info.
+ */
+router.get('/teaching-status', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.getTeachingStatus(req.user!.userId)); }
+  catch (e) { fail(res, e); }
+});
+
+/**
+ * POST /api/department-head/self-assign-instructor
+ * HOD assigns themselves the Instructor role in their department.
+ * Creates/reactivates their InstructorRecord and adds INSTRUCTOR to user.roles.
+ */
+router.post('/self-assign-instructor', async (req: AuthRequest, res) => {
+  try { ok(res, await svc.selfAssignInstructor(req.user!.userId), 201); }
+  catch (e) { fail(res, e); }
+});
+
+/**
+ * POST /api/department-head/assign-staff-instructor
+ * HOD appoints another eligible department staff member as an Instructor.
+ */
+router.post('/assign-staff-instructor', async (req: AuthRequest, res) => {
+  try {
+    const schema = z.object({
+      staffUserId:    z.string().uuid(),
+      specialization: z.string().max(200).optional(),
+      title:          z.string().max(100).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+    ok(res, await svc.assignStaffInstructor(req.user!.userId, parsed.data), 201);
+  } catch (e) { fail(res, e); }
+});
+
 export default router;
 

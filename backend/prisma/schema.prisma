@@ -15,6 +15,7 @@ model User {
   /// bcrypt hash of the user's password. Optional for OAuth-only users. NEVER store plaintext.
   passwordHash           String?
   role                   Role                      @default(STUDENT)
+  roles                  Role[]                    @default([])
   status                 AccountStatus             @default(PENDING_VERIFICATION)
   emailVerified          Boolean                   @default(false)
   phoneVerified          Boolean                   @default(false)
@@ -2228,6 +2229,7 @@ enum DepartmentHeadAction {
   LEAVE_REJECTED
   PROFILE_UPDATED
   PASSWORD_CHANGED
+  INSTRUCTOR_ROLE_ASSIGNED
 }
 
 enum HREmploymentType {

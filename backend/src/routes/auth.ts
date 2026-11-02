@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { signAccessToken, signRefreshToken, signJWT, verifyJWT } from '../lib/auth';
 import {
@@ -150,6 +150,7 @@ const SAFE_USER_SELECT = {
   email:             true,
   phone:             true,
   role:              true,
+  roles:             true,
   status:            true,
   emailVerified:     true,
   phoneVerified:     true,
@@ -158,6 +159,32 @@ const SAFE_USER_SELECT = {
   lastLoginAt:       true,
   createdAt:         true,
 } as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESOLVE ALL USER ROLES
+// Aggregates user.role, user.roles, and active record-based roles.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function resolveUserRoles(userId: string, primaryRole: Role, dbRoles: Role[]): Promise<Role[]> {
+  const roleSet = new Set<Role>(dbRoles);
+  roleSet.add(primaryRole);
+
+  // Check for active DepartmentHeadRecord
+  const dhRecord = await prisma.departmentHeadRecord.findUnique({
+    where: { userId },
+    select: { isActive: true },
+  });
+  if (dhRecord?.isActive) roleSet.add(Role.DEPARTMENT_HEAD);
+
+  // Check for active InstructorRecord
+  const instrRecord = await prisma.instructorRecord.findUnique({
+    where: { userId },
+    select: { isActive: true },
+  });
+  if (instrRecord?.isActive) roleSet.add(Role.INSTRUCTOR);
+
+  return Array.from(roleSet);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/auth/register  (Phase 2 — unchanged)
@@ -226,6 +253,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       sessionId:        session.id,
       email:            user.email ?? null,
       role:             user.role,
+      roles:            [user.role],
       status:           user.status,
       profileCompleted: user.profileCompleted,
     });
@@ -361,11 +389,15 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       },
     });
 
+    // ── Resolve all roles for multi-role support ─────────────────────────────
+    const allRoles = await resolveUserRoles(user.id, user.role, user.roles ?? []);
+
     const accessToken = await signAccessToken({
       userId:           user.id,
       sessionId:        session.id,
       email:            user.email ?? null,
       role:             user.role,
+      roles:            allRoles,
       status:           user.status,
       profileCompleted: user.profileCompleted,
     });
@@ -390,7 +422,8 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 
     await writeAudit(AuditAction.LOGIN_SUCCESS, req, user.id, { role: user.role, sessionId: session.id });
 
-    // ── 9. Safe response ──────────────────────────────────────────────────────
+    // ── 9. Safe response with multi-role info ─────────────────────────────────
+    const requiresRoleSelection = allRoles.length > 1;
     res.status(200).json({
       user: {
         id:                user.id,
@@ -398,6 +431,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         email:             user.email,
         phone:             user.phone,
         role:              user.role,
+        roles:             allRoles,
         status:            user.status,
         emailVerified:     user.emailVerified,
         phoneVerified:     user.phoneVerified,
@@ -405,6 +439,8 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         profileCompletion: user.profileCompletion,
         lastLoginAt:       new Date(),
       },
+      requiresRoleSelection,
+      availableRoles:      allRoles,
     });
   } catch (err: unknown) {
     console.error('[login]', err instanceof Error ? err.message : err);
@@ -447,6 +483,7 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
             email:             true,
             phone:             true,
             role:              true,
+            roles:             true,
             status:            true,
             emailVerified:     true,
             phoneVerified:     true,
@@ -512,11 +549,14 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
       data: { refreshTokenHash: newRefreshHash, lastUsedAt: new Date() },
     });
 
+    const allRoles = await resolveUserRoles(user.id, user.role, user.roles ?? []);
+
     const newAccessToken = await signAccessToken({
       userId:           user.id,
       sessionId:        session.id,
       email:            user.email ?? null,
       role:             user.role,
+      roles:            allRoles,
       status:           user.status,
       profileCompleted: user.profileCompleted,
     });
@@ -532,6 +572,7 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
         email:             user.email,
         phone:             user.phone,
         role:              user.role,
+        roles:             allRoles,
         status:            user.status,
         emailVerified:     user.emailVerified,
         phoneVerified:     user.phoneVerified,
@@ -609,10 +650,108 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    res.status(200).json({ authenticated: true, user, userId: user.id });
+    const allRoles = await resolveUserRoles(user.id, user.role, user.roles ?? []);
+
+    res.status(200).json({
+      authenticated: true,
+      user: { ...user, roles: allRoles },
+      userId: user.id,
+      availableRoles: allRoles,
+      canSwitchRoles: allRoles.length > 1,
+    });
   } catch (err: unknown) {
     console.error('[me]', err instanceof Error ? err.message : err);
     res.status(500).json({ error: 'Failed to verify authentication session.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/auth/switch-role  (Multi-role support)
+// Switches the active role for the authenticated user.
+// Updates user.role in DB, re-issues access token cookie.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/switch-role', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const schema = z.object({
+      role: z.nativeEnum(Role),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid role specified.' });
+      return;
+    }
+
+    const targetRole = parsed.data.role;
+    const userId = req.user!.userId;
+    const sessionId = req.user!.sessionId;
+
+    // Load user to get current roles
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, roles: true, status: true, profileCompleted: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    // Resolve all authorized roles
+    const allRoles = await resolveUserRoles(userId, user.role, user.roles ?? []);
+
+    // Verify the requested role is one of the user's authorized roles
+    if (!allRoles.includes(targetRole)) {
+      res.status(403).json({ error: 'You are not authorized for the requested role.' });
+      return;
+    }
+
+    // Update active role in DB
+    await prisma.user.update({
+      where: { id: userId },
+      data:  { role: targetRole },
+    });
+
+    // Re-issue access token with the new active role
+    const newAccessToken = await signAccessToken({
+      userId,
+      sessionId,
+      email:            user.email ?? null,
+      role:             targetRole,
+      roles:            allRoles,
+      status:           user.status,
+      profileCompleted: user.profileCompleted,
+    });
+
+    setAccessTokenCookie(res, newAccessToken);
+
+    // Determine target dashboard
+    const dashMap: Record<string, string> = {
+      STUDENT:         '/dashboard/student',
+      INSTRUCTOR:      '/dashboard/instructor',
+      DEPARTMENT_HEAD: '/dashboard/department-head',
+      HR_OFFICER:      '/dashboard/hr',
+      FINANCE_OFFICER: '/dashboard/finance-officer',
+      REGISTRAR:       '/dashboard/registrar',
+      ADMIN:           '/dashboard/admin',
+      SUPER_ADMIN:     '/dashboard/admin',
+    };
+    const targetUrl = dashMap[targetRole] ?? '/dashboard/student';
+
+    await writeAudit(AuditAction.LOGIN_SUCCESS, req, userId, {
+      action: 'role_switch',
+      from: user.role,
+      to: targetRole,
+    });
+
+    res.status(200).json({
+      success: true,
+      activeRole: targetRole,
+      roles: allRoles,
+      targetUrl,
+    });
+  } catch (err: unknown) {
+    console.error('[switch-role]', err instanceof Error ? err.message : err);
+    res.status(500).json({ error: 'Failed to switch role.' });
   }
 });
 
@@ -772,7 +911,7 @@ router.post('/signin', async (req: Request, res: Response): Promise<void> => {
     });
     const accessToken = await signAccessToken({
       userId: user.id, sessionId: session.id, email: user.email ?? null,
-      role: user.role, status: user.status, profileCompleted: user.profileCompleted,
+      role: user.role, roles: [user.role], status: user.status, profileCompleted: user.profileCompleted,
     });
     await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lastLoginAt: new Date() } });
     setAccessTokenCookie(res, accessToken);
@@ -926,6 +1065,7 @@ async function issueSessionAfterVerification(
     sessionId:        session.id,
     email:            user.email ?? null,
     role:             user.role,
+    roles:            [user.role],
     status:           user.status,
     profileCompleted: user.profileCompleted,
   });
@@ -1311,6 +1451,7 @@ router.get('/oauth/google/callback', async (req: Request, res: Response): Promis
       sessionId: session.id,
       email: user.email ?? null,
       role: user.role,
+      roles: [user.role],
       status: user.status,
       profileCompleted: user.profileCompleted,
     });
@@ -1414,6 +1555,7 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response): Prom
       sessionId:        session.id,
       email:            user.email ?? null,
       role:             user.role,
+      roles:            [user.role],
       status:           user.status,
       profileCompleted: user.profileCompleted,
     });
@@ -1499,6 +1641,7 @@ router.post('/oauth/link-account', async (req: Request, res: Response): Promise<
       sessionId: session.id,
       email: user.email ?? null,
       role: user.role,
+      roles: [user.role],
       status: user.status,
       profileCompleted: user.profileCompleted,
     });
@@ -1591,6 +1734,7 @@ router.post('/invitations/accept', async (req: Request, res: Response) => {
       sessionId:        session.id,
       email:            user.email ?? null,
       role:             user.role,
+      roles:            [user.role],
       status:           user.status,
       profileCompleted: user.profileCompleted,
     });

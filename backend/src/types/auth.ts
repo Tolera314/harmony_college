@@ -167,7 +167,10 @@ export interface AccessTokenPayload {
   /** Matches Session.id */
   sessionId: string;
   email: string | null;
+  /** Currently active role (used for dashboard routing and authorization) */
   role: Role;
+  /** All roles assigned to this user (enables multi-role support) */
+  roles: Role[];
   status: AccountStatus;
   /** Embedded so Next.js middleware can enforce the profile-completion gate
    *  without a DB call on every request. */

@@ -3,12 +3,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DURATION, EASE, SPRING } from '@/src/lib/motion';
-import { UserCog, Loader2, Search, Mail, Phone, BookOpen, BarChart2, X, Calendar, Award, MapPin, Briefcase, Clock, Users } from 'lucide-react';
+import { UserCog, Loader2, Search, Mail, Phone, BookOpen, BarChart2, X, Calendar, Award, MapPin, Briefcase, Clock, Users, GraduationCap, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
 import { ErrorState } from '../../ui/States';
-import { hodInstructorsApi, type DHInstructor } from '../../../lib/hodApi';
+import { hodInstructorsApi, hodTeachingApi, switchRoleApi, type DHInstructor, type TeachingStatus } from '../../../lib/hodApi';
 import { WithProgramType } from '../../../types/programType';
 
 export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) => {
@@ -19,6 +19,12 @@ export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) =>
   const [filter,      setFilter]      = useState<'all' | 'active' | 'inactive'>('all');
   const [selectedInstructor, setSelectedInstructor] = useState<DHInstructor | null>(null);
 
+  // Multi-role: HOD teaching status
+  const [teachingStatus, setTeachingStatus] = useState<TeachingStatus | null>(null);
+  const [assigningSelf,  setAssigningSelf]  = useState(false);
+  const [assignMsg,      setAssignMsg]      = useState('');
+  const [switchingRole,  setSwitchingRole]  = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try { setInstructors(await hodInstructorsApi.list()); }
@@ -27,6 +33,36 @@ export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) =>
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Load teaching status
+  useEffect(() => {
+    hodTeachingApi.getStatus().then(setTeachingStatus).catch(() => {});
+  }, []);
+
+  const handleSelfAssign = async () => {
+    setAssigningSelf(true); setAssignMsg('');
+    try {
+      const res = await hodTeachingApi.selfAssign();
+      setAssignMsg(res.message);
+      setTeachingStatus(prev => prev ? { ...prev, isInstructor: true, canSelfAssign: false } : prev);
+      // Reload instructors list to include self
+      load();
+    } catch (e) {
+      setAssignMsg(e instanceof Error ? e.message : 'Failed to assign instructor role.');
+    } finally {
+      setAssigningSelf(false);
+    }
+  };
+
+  const handleSwitchToInstructor = async () => {
+    setSwitchingRole(true);
+    try {
+      const res = await switchRoleApi.switch('INSTRUCTOR');
+      window.location.href = res.targetUrl;
+    } catch {
+      setSwitchingRole(false);
+    }
+  };
 
   // Close drawer on Escape key
   useEffect(() => {
@@ -55,6 +91,80 @@ export const DHInstructorsView: React.FC<WithProgramType> = ({ programType }) =>
         <h1 className="font-serif text-2xl font-bold text-(--text-primary)">Instructors</h1>
         <p className="font-sans text-sm text-(--text-secondary) mt-1">Department instructors with workload overview</p>
       </div>
+
+      {/* HOD Teaching Action Card */}
+      {teachingStatus && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="rounded-2xl border overflow-hidden"
+          style={{
+            background: teachingStatus.isInstructor
+              ? 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(99,102,241,0.03))'
+              : 'linear-gradient(135deg, rgba(233,195,73,0.08), rgba(233,195,73,0.03))',
+            borderColor: teachingStatus.isInstructor ? 'rgba(99,102,241,0.25)' : 'rgba(233,195,73,0.25)',
+          }}
+        >
+          <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div
+              className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center"
+              style={{
+                background: teachingStatus.isInstructor ? 'rgba(99,102,241,0.15)' : 'rgba(233,195,73,0.15)',
+                color: teachingStatus.isInstructor ? '#6366f1' : '#E9C349',
+              }}
+            >
+              {teachingStatus.isInstructor ? <CheckCircle2 className="w-6 h-6" /> : <GraduationCap className="w-6 h-6" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              {teachingStatus.isInstructor ? (
+                <>
+                  <p className="font-semibold text-sm" style={{ color: '#6366f1' }}>HOD &amp; Instructor — Dual Role Active</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    You are currently teaching {teachingStatus.assignedOfferings} course{teachingStatus.assignedOfferings !== 1 ? 's' : ''}.
+                    Switch to the Instructor portal to manage your classes.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold text-sm" style={{ color: '#E9C349' }}>Teach in This Department</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    As HOD, you can also take on instructor duties. Assign yourself as an instructor to teach courses in your department.
+                  </p>
+                </>
+              )}
+              {assignMsg && (
+                <p className="text-xs mt-1.5 font-medium" style={{ color: assignMsg.startsWith('You already') || assignMsg.startsWith('Failed') ? '#f87171' : '#10b981' }}>
+                  {assignMsg}
+                </p>
+              )}
+            </div>
+            <div className="flex-shrink-0 flex gap-2">
+              {teachingStatus.isInstructor ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSwitchToInstructor}
+                  disabled={switchingRole}
+                  id="switch-to-instructor-portal-btn"
+                >
+                  {switchingRole ? <Loader2 className="w-4 h-4 animate-spin" /> : <><ArrowRight className="w-4 h-4 mr-1" />Instructor Portal</>}
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSelfAssign}
+                  disabled={assigningSelf}
+                  id="self-assign-instructor-btn"
+                >
+                  {assigningSelf ? <Loader2 className="w-4 h-4 animate-spin" /> : <><GraduationCap className="w-4 h-4 mr-1" />Assign Myself</>}
+                </Button>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

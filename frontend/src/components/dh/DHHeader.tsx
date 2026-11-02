@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { DHNavTab, DHProfile, DHNotification } from '../../types/department';
-import { Search, Bell, ChevronRight, Command, X, Menu, Settings, LogOut } from 'lucide-react';
+import { Search, Bell, ChevronRight, Command, X, Menu, Settings, LogOut, ArrowLeftRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Badge } from '../ui/Badge';
 import ThemeToggle from '../ThemeToggle';
@@ -18,6 +18,10 @@ interface DHHeaderProps {
   semesterLabel?: string;
   onMobileMenuToggle?: () => void;
   onLogout?: () => void;
+  /** Roles the current user is authorized for (multi-role support) */
+  availableRoles?: string[];
+  /** Called when the user wants to switch to a different role portal */
+  onSwitchRole?: (role: string) => void;
 }
 
 const tabLabels: Record<DHNavTab, string> = {
@@ -38,7 +42,7 @@ const tabLabels: Record<DHNavTab, string> = {
 };
 
 export const DHHeader: React.FC<DHHeaderProps> = ({
-  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, semesterLabel, onMobileMenuToggle, onLogout,
+  activeTab, setActiveTab, profile, notifications, unreadCount, onMarkRead, onOpenSearch, semesterLabel, onMobileMenuToggle, onLogout, availableRoles, onSwitchRole,
 }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -206,6 +210,21 @@ export const DHHeader: React.FC<DHHeaderProps> = ({
                         <LogOut className="w-4 h-4 text-(--status-danger)" />
                         <span>Sign Out</span>
                       </button>
+                    )}
+
+                    {/* Role switcher — shown when user also has Instructor role */}
+                    {availableRoles?.includes('INSTRUCTOR') && onSwitchRole && (
+                      <>
+                        <div className="border-t border-(--border-subtle) my-1" />
+                        <button
+                          onClick={() => { setProfileMenuOpen(false); onSwitchRole('INSTRUCTOR'); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium hover:bg-(--hover-overlay) transition-colors text-left"
+                          style={{ color: '#6366f1' }}
+                        >
+                          <ArrowLeftRight className="w-4 h-4" />
+                          <span>Switch to Instructor Portal</span>
+                        </button>
+                      </>
                     )}
                   </motion.div>
                 </>
