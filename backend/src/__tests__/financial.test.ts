@@ -874,9 +874,9 @@ describe('Financial System', () => {
       const timestamp = Date.now();
       
       // Create test employee
-      const testDept = await prisma.hRDepartment.findFirst();
+      const testDept = await prisma.department.findFirst();
       if (!testDept) {
-        throw new Error('No HR department found for testing. Please create one first.');
+        throw new Error('No department found for testing. Please create one first.');
       }
       
       const employee = await prisma.hREmployee.create({
@@ -957,9 +957,9 @@ describe('Financial System', () => {
     test('Duplicate payroll generation for same month/year throws unique constraint error', async () => {
       const timestamp = Date.now();
       
-      const testDept = await prisma.hRDepartment.findFirst();
+      const testDept = await prisma.department.findFirst();
       if (!testDept) {
-        throw new Error('No HR department found for testing. Please create one first.');
+        throw new Error('No department found for testing. Please create one first.');
       }
       
       const employee = await prisma.hREmployee.create({

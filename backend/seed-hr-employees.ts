@@ -5,26 +5,11 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding HR employees...\n');
 
-  // First, ensure we have departments
-  const depts = await prisma.hRDepartment.findMany();
-  if (depts.length === 0) {
-    console.log('Creating departments...');
-    await prisma.hRDepartment.createMany({
-      data: [
-        { name: 'Computer Science', budget: 500000, isActive: true },
-        { name: 'Mathematics', budget: 400000, isActive: true },
-        { name: 'Physics', budget: 450000, isActive: true },
-        { name: 'Administration', budget: 300000, isActive: true },
-      ],
-    });
-    console.log('✅ Departments created\n');
-  }
-
-  const allDepts = await prisma.hRDepartment.findMany();
-  const csDept = allDepts.find(d => d.name === 'Computer Science');
-  const mathDept = allDepts.find(d => d.name === 'Mathematics');
-  const physicsDept = allDepts.find(d => d.name === 'Physics');
-  const adminDept = allDepts.find(d => d.name === 'Administration');
+  const allDepts = await prisma.department.findMany({ where: { isActive: true } });
+  const csDept = allDepts[0];
+  const mathDept = allDepts[1] || allDepts[0];
+  const physicsDept = allDepts[2] || allDepts[0];
+  const adminDept = allDepts[3] || allDepts[0];
 
   // Check if we already have employees
   const existingCount = await prisma.hREmployee.count();

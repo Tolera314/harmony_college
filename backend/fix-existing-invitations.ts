@@ -39,33 +39,33 @@ async function fixExistingInvitations() {
       continue;
     }
 
-    // Find matching HRDepartment
-    let hrDeptId: string | null = null;
+    // Find matching Department
+    let targetDeptId: string | null = null;
     if (inv.departmentId) {
-      const hrDept = await prisma.hRDepartment.findFirst({
-        where: {
-          OR: [
-            { id: inv.departmentId },
-            { name: { equals: inv.department?.name || '', mode: 'insensitive' } },
-          ],
-        },
+      const dept = await prisma.department.findUnique({
+        where: { id: inv.departmentId },
         select: { id: true },
       });
-      if (hrDept) hrDeptId = hrDept.id;
+      if (dept) targetDeptId = dept.id;
     }
-
-    // If no matching department, use first active HRDepartment as fallback
-    if (!hrDeptId) {
-      const fallbackDept = await prisma.hRDepartment.findFirst({
+    if (!targetDeptId && inv.department?.name) {
+      const dept = await prisma.department.findFirst({
+        where: { name: { equals: inv.department.name, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (dept) targetDeptId = dept.id;
+    }
+    if (!targetDeptId) {
+      const fallbackDept = await prisma.department.findFirst({
         where: { isActive: true },
         orderBy: { createdAt: 'asc' },
         select: { id: true },
       });
-      if (fallbackDept) hrDeptId = fallbackDept.id;
+      if (fallbackDept) targetDeptId = fallbackDept.id;
     }
 
-    if (!hrDeptId) {
-      console.log(`  ❌ No active HR department found - cannot create HREmployee\n`);
+    if (!targetDeptId) {
+      console.log(`  ❌ No active department found - cannot create HREmployee\n`);
       skipped++;
       continue;
     }
@@ -96,7 +96,7 @@ async function fixExistingInvitations() {
         fullName: inv.fullName,
         email: inv.email,
         phone: inv.phone || '',
-        departmentId: hrDeptId,
+        departmentId: targetDeptId,
         position: inv.positionTitle || 'Staff Member',
         systemRole: inv.role,
         employmentType: 'FULL_TIME',

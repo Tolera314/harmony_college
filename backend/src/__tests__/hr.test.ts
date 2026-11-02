@@ -53,10 +53,11 @@ describe('HR Officer API Suite (/api/hr)', () => {
     studentUser = await createTestUser(Role.STUDENT, `student-${timestamp}`);
     studentCookies = await loginAndGetCookies(studentUser.email);
 
-    testDept = await prisma.hRDepartment.create({
+    testDept = await prisma.department.create({
       data: {
         name: `HR Dept Test ${timestamp}`,
-        budget: 500000,
+        code: `HRT-${timestamp.toString().slice(-4)}`,
+        programType: 'TVET',
       },
     });
 
@@ -88,7 +89,7 @@ describe('HR Officer API Suite (/api/hr)', () => {
         await prisma.hREmployee.delete({ where: { id: testEmp.id } });
       }
       if (testDept?.id) {
-        await prisma.hRDepartment.delete({ where: { id: testDept.id } });
+        await prisma.department.delete({ where: { id: testDept.id } });
       }
       if (hrUser?.id) {
         await prisma.session.deleteMany({ where: { userId: hrUser.id } });

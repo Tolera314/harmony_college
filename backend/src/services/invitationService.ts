@@ -229,26 +229,28 @@ export async function createStaffInvitation(
 
   // 10. Automatically create or update HREmployee record so the invited staff member appears in HR directory
   try {
-    let hrDeptId: string | null = null;
+    let targetDeptId: string | null = null;
     if (resolvedDeptId) {
-      const hrDept = await prisma.hRDepartment.findFirst({
-        where: {
-          OR: [
-            { id: resolvedDeptId },
-            { name: { equals: resolvedDeptName, mode: 'insensitive' } },
-          ],
-        },
+      const dept = await prisma.department.findUnique({
+        where: { id: resolvedDeptId },
         select: { id: true },
       });
-      if (hrDept) hrDeptId = hrDept.id;
+      if (dept) targetDeptId = dept.id;
     }
-    if (!hrDeptId) {
-      const fallbackDept = await prisma.hRDepartment.findFirst({
+    if (!targetDeptId && resolvedDeptName) {
+      const dept = await prisma.department.findFirst({
+        where: { name: { equals: resolvedDeptName, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (dept) targetDeptId = dept.id;
+    }
+    if (!targetDeptId) {
+      const fallbackDept = await prisma.department.findFirst({
         where: { isActive: true },
         orderBy: { createdAt: 'asc' },
         select: { id: true },
       });
-      if (fallbackDept) hrDeptId = fallbackDept.id;
+      if (fallbackDept) targetDeptId = fallbackDept.id;
     }
 
     const existingHREmployee = await prisma.hREmployee.findFirst({
@@ -265,64 +267,56 @@ export async function createStaffInvitation(
     const defaultPosition = roleTitles[input.role] ?? 'Staff Member';
 
     if (!existingHREmployee) {
-      // Ensure we have an HR department - if none found, create a default one
-      if (!hrDeptId) {
-        console.warn(`[StaffInvitation] No HR department found for ${normalizedEmail}. Creating default department.`);
-        const defaultDept = await prisma.hRDepartment.create({
+      if (!targetDeptId) {
+        console.warn(`[StaffInvitation] No active department found for ${normalizedEmail}. Skipping HREmployee creation.`);
+      } else {
+        // Auto-generate employee code if not provided
+        let empCode = input.employeeCode?.trim() || '';
+        
+        // If no code provided or empty, generate one
+        if (!empCode) {
+          empCode = `HC-${Math.floor(10000 + Math.random() * 90000)}`;
+        }
+        
+        // Check for conflicts and regenerate if needed
+        let codeConflict = await prisma.hREmployee.findUnique({ where: { employeeCode: empCode }, select: { id: true } });
+        while (codeConflict) {
+          empCode = `HC-${Math.floor(10000 + Math.random() * 90000)}`;
+          codeConflict = await prisma.hREmployee.findUnique({ where: { employeeCode: empCode }, select: { id: true } });
+        }
+
+        await prisma.hREmployee.create({
           data: {
-            name: 'General Staff',
-            isActive: true,
+            employeeCode:     empCode,
+            fullName:         input.fullName.trim(),
+            email:            normalizedEmail,
+            phone:            input.phone.trim(),
+            departmentId:     targetDeptId,
+            position:         input.positionTitle?.trim() || defaultPosition,
+            systemRole:       input.role,
+            employmentType:   input.employmentType,
+            contractStatus:   'PROBATION',
+            status:           'PENDING',
+            hireDate:         input.hireDate ? new Date(input.hireDate) : new Date(),
+            gender:           input.gender,
+            basicSalary:      input.basicSalary,
+            education:        input.education?.trim() || null,
+            experienceYears:  input.experienceYears || 0,
+            bankAccount:      input.bankAccount?.trim() || null,
+            emergencyName:    input.emergencyName?.trim() || null,
+            emergencyPhone:   input.emergencyPhone?.trim() || null,
+            emergencyRelation: input.emergencyRelation?.trim() || null,
+            isActive:         true,
           },
         });
-        hrDeptId = defaultDept.id;
       }
-
-      // Auto-generate employee code if not provided
-      let empCode = input.employeeCode?.trim() || '';
-      
-      // If no code provided or empty, generate one
-      if (!empCode) {
-        empCode = `HC-${Math.floor(10000 + Math.random() * 90000)}`;
-      }
-      
-      // Check for conflicts and regenerate if needed
-      let codeConflict = await prisma.hREmployee.findUnique({ where: { employeeCode: empCode }, select: { id: true } });
-      while (codeConflict) {
-        empCode = `HC-${Math.floor(10000 + Math.random() * 90000)}`;
-        codeConflict = await prisma.hREmployee.findUnique({ where: { employeeCode: empCode }, select: { id: true } });
-      }
-
-      await prisma.hREmployee.create({
-        data: {
-          employeeCode:     empCode,
-          fullName:         input.fullName.trim(),
-          email:            normalizedEmail,
-          phone:            input.phone.trim(),
-          departmentId:     hrDeptId,
-          position:         input.positionTitle?.trim() || 'Staff Member',
-          systemRole:       input.role,
-          employmentType:   input.employmentType,
-          contractStatus:   'PROBATION',
-          status:           'PENDING',
-          hireDate:         input.hireDate ? new Date(input.hireDate) : new Date(),
-          gender:           input.gender,
-          basicSalary:      input.basicSalary,
-          education:        input.education?.trim() || null,
-          experienceYears:  input.experienceYears || 0,
-          bankAccount:      input.bankAccount?.trim() || null,
-          emergencyName:    input.emergencyName?.trim() || null,
-          emergencyPhone:   input.emergencyPhone?.trim() || null,
-          emergencyRelation: input.emergencyRelation?.trim() || null,
-          isActive:         true,
-        },
-      });
     } else if (existingHREmployee) {
       await prisma.hREmployee.update({
         where: { id: existingHREmployee.id },
         data: {
           systemRole:        input.role,
           ...(input.employeeCode?.trim() && { employeeCode: input.employeeCode.trim() }),
-          position:          input.positionTitle?.trim() || 'Staff Member',
+          position:          input.positionTitle?.trim() || defaultPosition,
           phone:             input.phone.trim(),
           gender:            input.gender,
           employmentType:    input.employmentType,
@@ -334,7 +328,7 @@ export async function createStaffInvitation(
           emergencyName:     input.emergencyName?.trim() || null,
           emergencyPhone:    input.emergencyPhone?.trim() || null,
           emergencyRelation: input.emergencyRelation?.trim() || null,
-          ...(hrDeptId ? { departmentId: hrDeptId } : {}),
+          ...(targetDeptId ? { departmentId: targetDeptId } : {}),
         },
       });
     }
@@ -521,27 +515,31 @@ export async function acceptStaffInvitation(
       });
     } else if (inv.departmentId) {
       // Create new HR Employee record for this staff member (only if department is assigned)
-      let hrDeptId: string | null = null;
-      const hrDept = await tx.hRDepartment.findFirst({
-        where: {
-          OR: [
-            { id: inv.departmentId },
-            ...(inv.department?.name ? [{ name: { equals: inv.department.name, mode: 'insensitive' as const } }] : []),
-          ],
-        },
-        select: { id: true },
-      });
-      if (hrDept) hrDeptId = hrDept.id;
-      if (!hrDeptId) {
-        const fallback = await tx.hRDepartment.findFirst({
+      let targetDeptId: string | null = null;
+      if (inv.departmentId) {
+        const dept = await tx.department.findUnique({
+          where: { id: inv.departmentId },
+          select: { id: true },
+        });
+        if (dept) targetDeptId = dept.id;
+      }
+      if (!targetDeptId && inv.department?.name) {
+        const dept = await tx.department.findFirst({
+          where: { name: { equals: inv.department.name, mode: 'insensitive' } },
+          select: { id: true },
+        });
+        if (dept) targetDeptId = dept.id;
+      }
+      if (!targetDeptId) {
+        const fallback = await tx.department.findFirst({
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
           select: { id: true },
         });
-        if (fallback) hrDeptId = fallback.id;
+        if (fallback) targetDeptId = fallback.id;
       }
 
-      if (hrDeptId) {
+      if (targetDeptId) {
         await tx.hREmployee.create({
           data: {
             userId:         user.id,
@@ -550,7 +548,7 @@ export async function acceptStaffInvitation(
             email:          inv.email,
             phone:          inv.phone ?? null,
             position:       inv.positionTitle?.trim() ?? 'Staff Member',
-            departmentId:   hrDeptId,
+            departmentId:   targetDeptId,
             systemRole:     inv.role,
             employmentType: 'FULL_TIME',
             contractStatus: 'PROBATION',

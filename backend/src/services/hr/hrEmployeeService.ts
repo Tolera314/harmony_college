@@ -118,29 +118,31 @@ async function syncPendingInvitationsToHREmployees() {
         select: { id: true },
       });
       if (!existing) {
-        let hrDeptId: string | null = null;
+        let targetDeptId: string | null = null;
         if (inv.departmentId) {
-          const hrDept = await prisma.hRDepartment.findFirst({
-            where: {
-              OR: [
-                { id: inv.departmentId },
-                ...(inv.department?.name ? [{ name: { equals: inv.department.name, mode: 'insensitive' as const } }] : []),
-              ],
-            },
+          const dept = await prisma.department.findUnique({
+            where: { id: inv.departmentId },
             select: { id: true },
           });
-          if (hrDept) hrDeptId = hrDept.id;
+          if (dept) targetDeptId = dept.id;
         }
-        if (!hrDeptId) {
-          const fallback = await prisma.hRDepartment.findFirst({
+        if (!targetDeptId && inv.department?.name) {
+          const dept = await prisma.department.findFirst({
+            where: { name: { equals: inv.department.name, mode: 'insensitive' } },
+            select: { id: true },
+          });
+          if (dept) targetDeptId = dept.id;
+        }
+        if (!targetDeptId) {
+          const fallback = await prisma.department.findFirst({
             where: { isActive: true },
             orderBy: { createdAt: 'asc' },
             select: { id: true },
           });
-          if (fallback) hrDeptId = fallback.id;
+          if (fallback) targetDeptId = fallback.id;
         }
 
-        if (hrDeptId) {
+        if (targetDeptId) {
           const prefix = inv.role === 'INSTRUCTOR' ? 'HC-FAC'
                        : inv.role === 'DEPARTMENT_HEAD' ? 'HC-DH'
                        : inv.role === 'REGISTRAR' ? 'HC-REG'
@@ -167,7 +169,7 @@ async function syncPendingInvitationsToHREmployees() {
               fullName:       inv.fullName.trim(),
               email:          normalizedEmail,
               phone:          inv.phone?.trim() ?? null,
-              departmentId:   hrDeptId,
+              departmentId:   targetDeptId,
               position:       inv.positionTitle?.trim() || rolePositions[inv.role] || 'Staff Member',
               systemRole:     inv.role,
               employmentType: 'FULL_TIME',
@@ -391,34 +393,21 @@ export async function createEmployee(
   if (emailExists) throw new Error(`Email ${data.email} is already in use`);
 
   // ── Department exists ────────────────────────────────────────────────────
-  const dept = await prisma.hRDepartment.findUnique({ where: { id: data.departmentId }, select: { id: true, name: true } });
+  const dept = await prisma.department.findUnique({ where: { id: data.departmentId }, select: { id: true, name: true } });
   if (!dept) throw new Error('Department not found');
 
-  // ── One HOD per department: check if the target academic department already
+  // ── One HOD per department: check if the target department already
   //    has an active DepartmentHeadRecord before creating a DEPARTMENT_HEAD employee ─
   if (data.systemRole === 'DEPARTMENT_HEAD') {
-    // Try to find the corresponding academic Department by matching HR department name or id
-    const academicDeptForCheck = await prisma.department.findFirst({
-      where: {
-        OR: [
-          { name: { equals: dept.name, mode: 'insensitive' } },
-          { id: data.departmentId },
-        ],
-        isActive: true,
-      },
-      select: { id: true, name: true },
+    const existingHod = await prisma.departmentHeadRecord.findFirst({
+      where: { departmentId: dept.id, isActive: true },
+      include: { user: { select: { fullName: true } } },
     });
-    if (academicDeptForCheck) {
-      const existingHod = await prisma.departmentHeadRecord.findFirst({
-        where: { departmentId: academicDeptForCheck.id, isActive: true },
-        include: { user: { select: { fullName: true } } },
-      });
-      if (existingHod) {
-        throw new Error(
-          `${academicDeptForCheck.name} already has an active Head of Department (${existingHod.user.fullName}). ` +
-          `Remove that assignment before registering a new HOD for this department.`
-        );
-      }
+    if (existingHod) {
+      throw new Error(
+        `${dept.name} already has an active Head of Department (${existingHod.user.fullName}). ` +
+        `Remove that assignment before registering a new HOD for this department.`
+      );
     }
   }
 

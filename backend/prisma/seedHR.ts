@@ -28,8 +28,23 @@ async function main() {
     prisma.hRDepartment.upsert({ where: { name: 'Finance & Accounting'            }, update: { budget:   900_000 }, create: { name: 'Finance & Accounting',            budget:   900_000 } }),
     prisma.hRDepartment.upsert({ where: { name: 'Registrar & Student Affairs'     }, update: { budget:   750_000 }, create: { name: 'Registrar & Student Affairs',     budget:   750_000 } }),
     prisma.hRDepartment.upsert({ where: { name: 'Library & Research Services'     }, update: { budget:   480_000 }, create: { name: 'Library & Research Services',     budget:   480_000 } }),
-  ]);
-  const [dArt, dCS, dPhoto, dMusic, dDesign, dMedia, dPharm, dHR, dFin, dReg, dLib] = depts;
+  const [dArtHR, dCSHR, dPhotoHR, dMusicHR, dDesignHR, dMediaHR, dPharmHR, dHRHR, dFinHR, dRegHR, dLibHR] = depts;
+
+  const acadDepts = await prisma.department.findMany({ where: { isActive: true } });
+  const fallbackDept = acadDepts[0];
+  const findDept = (search: string) => acadDepts.find(d => d.name.toLowerCase().includes(search.toLowerCase())) || fallbackDept;
+  const dArt = findDept('Film');
+  const dCS = findDept('IT');
+  const dPhoto = findDept('Photo');
+  const dMusic = findDept('Music');
+  const dDesign = findDept('Design');
+  const dMedia = findDept('Media') || findDept('Language');
+  const dPharm = findDept('Pharm');
+  const dHR = fallbackDept;
+  const dFin = fallbackDept;
+  const dReg = fallbackDept;
+  const dLib = fallbackDept;
+
   console.log('  ✓ Departments');
 
   // ── 2. HR Employees ──────────────────────────────────────────────────────
@@ -118,12 +133,12 @@ async function main() {
   }
 
   // update dept head IDs
-  await prisma.hRDepartment.update({ where: { id: dArt.id }, data: { headEmployeeId: empMap['HC-FAC-0042'] } });
-  await prisma.hRDepartment.update({ where: { id: dCS.id  }, data: { headEmployeeId: empMap['HC-FAC-0008'] } });
-  await prisma.hRDepartment.update({ where: { id: dHR.id  }, data: { headEmployeeId: empMap['HC-HR-0001']  } });
-  await prisma.hRDepartment.update({ where: { id: dFin.id }, data: { headEmployeeId: empMap['HC-FIN-0012'] } });
-  await prisma.hRDepartment.update({ where: { id: dReg.id }, data: { headEmployeeId: empMap['HC-REG-0005'] } });
-  await prisma.hRDepartment.update({ where: { id: dLib.id }, data: { headEmployeeId: empMap['HC-LIB-0003'] } });
+  await prisma.hRDepartment.update({ where: { id: dArtHR.id }, data: { headEmployeeId: empMap['HC-FAC-0042'] } });
+  await prisma.hRDepartment.update({ where: { id: dCSHR.id  }, data: { headEmployeeId: empMap['HC-FAC-0008'] } });
+  await prisma.hRDepartment.update({ where: { id: dHRHR.id  }, data: { headEmployeeId: empMap['HC-HR-0001']  } });
+  await prisma.hRDepartment.update({ where: { id: dFinHR.id }, data: { headEmployeeId: empMap['HC-FIN-0012'] } });
+  await prisma.hRDepartment.update({ where: { id: dRegHR.id }, data: { headEmployeeId: empMap['HC-REG-0005'] } });
+  await prisma.hRDepartment.update({ where: { id: dLibHR.id }, data: { headEmployeeId: empMap['HC-LIB-0003'] } });
   console.log('  ✓ Employees');
 
   // ── 3. Leave balances ────────────────────────────────────────────────────
